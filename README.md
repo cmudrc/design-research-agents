@@ -8,15 +8,9 @@ A flexible, modular framework for researching AI agents that design
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -e ".[dev]"
+pip install -e ".[dev,local]"
 make test
 make run-example
-```
-
-Optional local backend support (llama-cpp server):
-
-```bash
-pip install -e ".[local]"
 ```
 
 ## Docs
