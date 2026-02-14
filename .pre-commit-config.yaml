@@ -1,0 +1,28 @@
+# Pre-commit configuration
+# - Runs formatting/linting/type-checking automatically on `git commit` (after `pre-commit install`).
+# - Run everything manually: `pre-commit run --all-files`
+# - Update pinned hook versions: `pre-commit autoupdate`
+
+repos:
+  # Basic whitespace and newline hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+
+  # Ruff: formatter + linter (auto-fix safe issues)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix]
+
+  # Mypy: run type checking over the whole src tree (not just changed files)
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.1
+    hooks:
+      - id: mypy
+        args: [src]
+        pass_filenames: false  # run mypy once on src/, not per-file
