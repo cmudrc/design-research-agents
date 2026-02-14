@@ -83,9 +83,11 @@ class ToolRuntime(Protocol):
         self,
         tool_name: str,
         input_dict: Mapping[str, object],
-        context: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one tool using structured input and execution context payloads.
+        """Invoke one tool using structured input and execution metadata payloads.
 
         Implementations should avoid raising for expected tool failures and
         instead return ``ToolResult(success=False)`` with error details.

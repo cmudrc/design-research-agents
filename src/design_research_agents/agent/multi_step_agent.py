@@ -19,8 +19,18 @@ from design_research_agents.agent._response_schemas import (
     build_continuation_response_schema,
     clone_response_schema,
 )
+from design_research_agents.agent._run_options import (
+    normalize_dependencies,
+    normalize_input_payload,
+    resolve_request_id,
+)
 from design_research_agents.agent.single_step_code_agent import SingleStepCodeAgent
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import (
+    Agent,
+    AgentInput,
+    AgentResult,
+    AgentStreamEvent,
+)
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -92,44 +102,55 @@ class MultiStepAgent(Agent):
         )
         self._continuation_response_schema = build_continuation_response_schema()
 
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+    def run(
+        self,
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> AgentResult:
         """Run the multi-step action-observation loop and return aggregated results.
 
         The run collects continuation decisions, per-step outputs, and all tool
         results while preserving memory entries that can be inspected by callers.
         """
-        prompt = _extract_prompt(input)
+        resolved_request_id = resolve_request_id(request_id)
+        resolved_dependencies = normalize_dependencies(dependencies)
+        normalized_input = normalize_input_payload(input)
+        prompt = _extract_prompt(normalized_input)
         max_steps = _extract_positive_int(
-            input_payload=input,
+            input_payload=normalized_input,
             key="max_steps",
             default_value=self._max_steps,
         )
         max_tool_calls_per_step = _extract_positive_int(
-            input_payload=input,
+            input_payload=normalized_input,
             key="max_tool_calls_per_step",
             default_value=self._max_tool_calls_per_step,
         )
         execution_timeout_seconds_per_step = _extract_positive_int(
-            input_payload=input,
+            input_payload=normalized_input,
             key="execution_timeout_seconds_per_step",
             default_value=self._execution_timeout_seconds_per_step,
         )
         validate_tool_input_schema = _extract_boolean(
-            input_payload=input,
+            input_payload=normalized_input,
             key="validate_tool_input_schema",
             default_value=self._validate_tool_input_schema,
         )
         stop_on_step_failure = _extract_boolean(
-            input_payload=input,
+            input_payload=normalized_input,
             key="stop_on_step_failure",
             default_value=self._stop_on_step_failure,
         )
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=input,
+            input_payload=normalized_input,
             init_model=self._model,
         )
-        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
+        alternatives_prompt_target = resolve_alternatives_prompt_target(
+            input_payload=normalized_input
+        )
         step_tools_text = _build_step_tools_text(
             tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
             default_tools_per_step=self._default_tools_per_step,
@@ -184,17 +205,19 @@ class MultiStepAgent(Agent):
                 memory=memory,
                 step_number=step_index + 1,
             )
-            step_input = dict(input)
+            step_input = dict(normalized_input)
             step_input["prompt"] = step_prompt
             step_input["max_tool_calls"] = max_tool_calls_per_step
             step_input["execution_timeout_seconds"] = execution_timeout_seconds_per_step
             step_input["validate_tool_input_schema"] = validate_tool_input_schema
             step_input["alternatives_prompt_target"] = alternatives_prompt_target
 
-            step_context = dict(context)
-            step_context["multi_step_memory"] = list(memory)
-            step_context["step_index"] = step_index + 1
-            step_result = step_agent.run(step_input, step_context)
+            step_request_id = f"{resolved_request_id}:step-{step_index + 1}"
+            step_result = step_agent.run(
+                step_input,
+                request_id=step_request_id,
+                dependencies=resolved_dependencies,
+            )
             if step_result.model_response is not None:
                 last_model_response = step_result.model_response
 
@@ -236,7 +259,8 @@ class MultiStepAgent(Agent):
                     error=str(step_result.output.get("error", "Step execution failed.")),
                     model_response=last_model_response,
                     tool_results=tool_results,
-                    context=context,
+                    request_id=resolved_request_id,
+                    dependencies=resolved_dependencies,
                     metadata={
                         "stage": "step_execution",
                         "terminated_reason": terminated_reason,
@@ -265,7 +289,8 @@ class MultiStepAgent(Agent):
             tool_results=tool_results,
             model_response=last_model_response,
             metadata={
-                "context_keys": sorted(context.keys()),
+                "request_id": resolved_request_id,
+                "dependency_keys": sorted(resolved_dependencies.keys()),
                 "continuation": continuation_trace,
                 "config": {
                     "max_steps": max_steps,
@@ -284,15 +309,17 @@ class MultiStepAgent(Agent):
 
     def run_stream(
         self,
-        input: Mapping[str, object],
-        context: Mapping[str, object],
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
         """Emit a deterministic stream wrapper around ``run``.
 
         The current implementation emits exactly one full-text delta followed by
         a completion event containing the full ``AgentResult`` payload.
         """
-        result = self.run(input, context)
+        result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
@@ -566,7 +593,8 @@ def _failure_result(
     error: str,
     model_response: LLMResponse | None,
     tool_results: Sequence[ToolResult],
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
@@ -579,5 +607,9 @@ def _failure_result(
         success=False,
         tool_results=list(tool_results),
         model_response=model_response,
-        metadata={"context_keys": sorted(context.keys()), **dict(metadata)},
+        metadata={
+            "request_id": request_id,
+            "dependency_keys": sorted(dependencies.keys()),
+            **dict(metadata),
+        },
     )

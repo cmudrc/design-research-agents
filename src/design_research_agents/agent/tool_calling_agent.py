@@ -21,7 +21,17 @@ from design_research_agents.agent._response_schemas import (
     build_tool_call_response_schema,
     clone_response_schema,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.agent._run_options import (
+    normalize_dependencies,
+    normalize_input_payload,
+    resolve_request_id,
+)
+from design_research_agents.contracts.agent import (
+    Agent,
+    AgentInput,
+    AgentResult,
+    AgentStreamEvent,
+)
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
@@ -78,20 +88,31 @@ class ToolCallingAgent(Agent):
             [choice.tool_name for choice in self._compiled_tool_choices]
         )
 
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+    def run(
+        self,
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> AgentResult:
         """Run one tool-calling step from planning through tool execution.
 
         The run prompts for a structured tool call, validates selection, resolves
         tool input, executes the tool, and returns unified output/metadata.
         """
-        prompt = _extract_prompt(input)
+        resolved_request_id = resolve_request_id(request_id)
+        resolved_dependencies = normalize_dependencies(dependencies)
+        normalized_input = normalize_input_payload(input)
+        prompt = _extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=input,
+            input_payload=normalized_input,
             init_model=self._model,
         )
         choices = [_clone_tool_choice(choice) for choice in self._compiled_tool_choices]
-        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
+        alternatives_prompt_target = resolve_alternatives_prompt_target(
+            input_payload=normalized_input
+        )
         choices_text = _build_tool_choices_text(choices=choices)
         choices_block = build_user_prompt_alternatives_block(
             section_label="Available tools",
@@ -136,12 +157,16 @@ class ToolCallingAgent(Agent):
         tool_input = _resolve_tool_input(
             selected_choice=selected_choice,
             parsed_tool_call=parsed_tool_call,
-            input_payload=input,
-            context=context,
+            input_payload=normalized_input,
             llm_response_text=llm_response.text,
         )
 
-        tool_result = self._tool_runtime.invoke(selected_choice.tool_name, tool_input, context)
+        tool_result = self._tool_runtime.invoke(
+            selected_choice.tool_name,
+            tool_input,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
+        )
         output: dict[str, object] = {
             "model_text": llm_response.text,
             "tool_name": selected_choice.tool_name,
@@ -154,7 +179,8 @@ class ToolCallingAgent(Agent):
             tool_results=[tool_result],
             model_response=llm_response,
             metadata={
-                "context_keys": sorted(context.keys()),
+                "request_id": resolved_request_id,
+                "dependency_keys": sorted(resolved_dependencies.keys()),
                 "tool_call": {
                     "source": tool_call_source,
                     "reason": tool_call_reason,
@@ -166,15 +192,17 @@ class ToolCallingAgent(Agent):
 
     def run_stream(
         self,
-        input: Mapping[str, object],
-        context: Mapping[str, object],
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
         """Emit a deterministic stream wrapper around ``run``.
 
         The wrapper emits one delta containing full model text, followed by a
         completion event with the final ``AgentResult``.
         """
-        result = self.run(input, context)
+        result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
@@ -333,7 +361,6 @@ def _resolve_tool_input(
     selected_choice: _ToolChoice,
     parsed_tool_call: Mapping[str, object] | None,
     input_payload: Mapping[str, object],
-    context: Mapping[str, object],
     llm_response_text: str,
 ) -> dict[str, object]:
     """Resolve final tool input from model payload, run input, or heuristics."""
@@ -362,9 +389,6 @@ def _resolve_tool_input(
         analysis_text = input_payload.get("analysis_text")
         if analysis_text is not None:
             return {"text": str(analysis_text)}
-        raw_dependency_results = context.get("dependency_results")
-        if isinstance(raw_dependency_results, Mapping) and raw_dependency_results:
-            return {"text": json.dumps(dict(raw_dependency_results), sort_keys=True)}
         return {"text": llm_response_text}
 
     return {}

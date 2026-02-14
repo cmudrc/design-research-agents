@@ -18,7 +18,7 @@ from design_research_agents.contracts.tools import (
     ToolSpec,
 )
 
-ToolHandler = Callable[[Mapping[str, object], Mapping[str, object]], Mapping[str, object]]
+ToolHandler = Callable[[Mapping[str, object], str, Mapping[str, object]], Mapping[str, object]]
 
 
 class BaseToolRuntime(ToolRuntime):
@@ -59,7 +59,9 @@ class BaseToolRuntime(ToolRuntime):
         self,
         tool_name: str,
         input_dict: Mapping[str, object],
-        context: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
     ) -> ToolResult:
         """Invoke one registered tool and normalize success/error output.
 
@@ -78,7 +80,7 @@ class BaseToolRuntime(ToolRuntime):
 
         try:
             # Normalize handler output to a plain dict for schema serialization.
-            tool_output = dict(handler(input_dict, context))
+            tool_output = dict(handler(input_dict, request_id, dependencies))
         except Exception as exc:
             # Tool exceptions are surfaced as tool errors to avoid aborting the full run.
             return ToolResult(
@@ -92,7 +94,10 @@ class BaseToolRuntime(ToolRuntime):
             tool_name=tool_name,
             output=tool_output,
             success=True,
-            metadata={"context_keys": sorted(context.keys())},
+            metadata={
+                "request_id": request_id,
+                "dependency_keys": sorted(dependencies.keys()),
+            },
         )
 
 
@@ -162,13 +167,14 @@ def create_text_stats_tool_spec() -> ToolSpec:
 
 def _calculator_tool_handler(
     input_dict: Mapping[str, object],
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
     """Evaluate one arithmetic expression safely via AST-based evaluation.
 
     Requires a non-empty ``expression`` field and returns normalized float output.
     """
-    del context
+    del request_id, dependencies
     expression = str(input_dict.get("expression", "")).strip()
     if not expression:
         raise ValueError("calculator_tool requires a non-empty 'expression'.")
@@ -178,14 +184,15 @@ def _calculator_tool_handler(
 
 def _text_stats_tool_handler(
     input_dict: Mapping[str, object],
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
     """Compute aggregate statistics for one input string payload.
 
     The handler normalizes words with lightweight punctuation/case cleanup so
     unique word counts are more semantically meaningful.
     """
-    del context
+    del request_id, dependencies
     text = str(input_dict.get("text", ""))
     words = [word for word in text.split() if word]
     # Normalize punctuation/casing so unique counts are semantically meaningful.

@@ -22,7 +22,17 @@ from design_research_agents.agent._prompt_alternatives import (
     build_user_prompt_alternatives_block,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.agent._run_options import (
+    normalize_dependencies,
+    normalize_input_payload,
+    resolve_request_id,
+)
+from design_research_agents.contracts.agent import (
+    Agent,
+    AgentInput,
+    AgentResult,
+    AgentStreamEvent,
+)
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -97,12 +107,21 @@ class SingleStepCodeAgent(Agent):
             default_tools=default_tools,
         )
 
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+    def run(
+        self,
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> AgentResult:
         """Run one LLM generation and one sandboxed code execution pass.
 
         The method resolves runtime options, generates code, validates AST safety,
         executes within strict constraints, and returns structured artifacts.
         """
+        resolved_request_id = resolve_request_id(request_id)
+        resolved_dependencies = normalize_dependencies(dependencies)
+        normalized_input = normalize_input_payload(input)
         allowed_tools, allowed_tools_source = _extract_allowed_tools(
             default_allowed_tools=self._compiled_default_allowed_tools,
         )
@@ -114,33 +133,36 @@ class SingleStepCodeAgent(Agent):
                 ),
                 model_response=None,
                 tool_results=[],
-                context=context,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
                 metadata={"stage": "input_validation"},
                 generated_code="",
             )
 
         max_tool_calls = _extract_positive_int(
-            input_payload=input,
+            input_payload=normalized_input,
             key="max_tool_calls",
             default_value=self._max_tool_calls,
         )
         execution_timeout_seconds = _extract_positive_int(
-            input_payload=input,
+            input_payload=normalized_input,
             key="execution_timeout_seconds",
             default_value=self._execution_timeout_seconds,
         )
         validate_tool_input_schema = _extract_boolean(
-            input_payload=input,
+            input_payload=normalized_input,
             key="validate_tool_input_schema",
             default_value=self._validate_tool_input_schema,
         )
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=input,
+            input_payload=normalized_input,
             init_model=self._model,
         )
-        prompt = _extract_prompt(input)
-        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
+        prompt = _extract_prompt(normalized_input)
+        alternatives_prompt_target = resolve_alternatives_prompt_target(
+            input_payload=normalized_input
+        )
 
         llm_response = self._generate_code(
             prompt=prompt,
@@ -157,7 +179,8 @@ class SingleStepCodeAgent(Agent):
                 error=f"Generated code failed sandbox validation: {exc}",
                 model_response=llm_response,
                 tool_results=[],
-                context=context,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
                 metadata={"stage": "code_validation", "generated_code": code_text},
                 generated_code=code_text,
             )
@@ -167,8 +190,9 @@ class SingleStepCodeAgent(Agent):
             final_output = _execute_compiled_code(
                 compiled_code=compiled_code,
                 prompt=prompt,
-                input_payload=input,
-                context=context,
+                input_payload=normalized_input,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
                 allowed_tools=allowed_tools,
                 tool_runtime=self._tool_runtime,
                 max_tool_calls=max_tool_calls,
@@ -181,7 +205,8 @@ class SingleStepCodeAgent(Agent):
                 error=f"Sandboxed code execution failed: {exc}",
                 model_response=llm_response,
                 tool_results=tool_results,
-                context=context,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
                 metadata={
                     "stage": "code_execution",
                     "generated_code": code_text,
@@ -204,7 +229,8 @@ class SingleStepCodeAgent(Agent):
             tool_results=tool_results,
             model_response=llm_response,
             metadata={
-                "context_keys": sorted(context.keys()),
+                "request_id": resolved_request_id,
+                "dependency_keys": sorted(resolved_dependencies.keys()),
                 "code_execution": {
                     "allowed_tools": [tool.tool_name for tool in allowed_tools],
                     "allowed_tools_source": allowed_tools_source,
@@ -218,15 +244,17 @@ class SingleStepCodeAgent(Agent):
 
     def run_stream(
         self,
-        input: Mapping[str, object],
-        context: Mapping[str, object],
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
         """Emit a deterministic stream wrapper around ``run``.
 
         The wrapper emits one full delta and then a completion event containing
         the final ``AgentResult``.
         """
-        result = self.run(input, context)
+        result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
@@ -563,7 +591,8 @@ def _execute_compiled_code(
     compiled_code: CodeType,
     prompt: str,
     input_payload: Mapping[str, object],
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
     allowed_tools: Sequence[_AllowedTool],
     tool_runtime: ToolRuntime,
     max_tool_calls: int,
@@ -607,7 +636,12 @@ def _execute_compiled_code(
             )
 
         tool_call_count += 1
-        tool_result = tool_runtime.invoke(normalized_tool_name, normalized_tool_input, context)
+        tool_result = tool_runtime.invoke(
+            normalized_tool_name,
+            normalized_tool_input,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
         tool_results.append(tool_result)
         if not tool_result.success:
             error = tool_result.error or "Unknown tool runtime error."
@@ -640,7 +674,8 @@ def _execute_compiled_code(
     sandbox_locals: dict[str, object] = {
         "prompt": prompt,
         "input_payload": dict(input_payload),
-        "context": dict(context),
+        "request_id": request_id,
+        "dependencies": dict(dependencies),
         "allowed_tools": [tool.tool_name for tool in allowed_tools],
         "final_output": None,
     }
@@ -774,7 +809,8 @@ def _failure_result(
     error: str,
     model_response: LLMResponse | None,
     tool_results: Sequence[ToolResult],
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
     metadata: Mapping[str, object],
     generated_code: str,
 ) -> AgentResult:
@@ -794,7 +830,8 @@ def _failure_result(
         tool_results=list(tool_results),
         model_response=model_response,
         metadata={
-            "context_keys": sorted(context.keys()),
+            "request_id": request_id,
+            "dependency_keys": sorted(dependencies.keys()),
             **dict(metadata),
         },
     )

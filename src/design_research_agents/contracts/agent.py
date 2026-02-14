@@ -14,6 +14,7 @@ from .llm import LLMResponse
 from .tools import ToolResult
 
 AgentStreamEventKind = Literal["delta", "completed"]
+AgentInput = Mapping[str, object] | str
 
 
 @dataclass(slots=True, frozen=True)
@@ -54,21 +55,31 @@ class Agent(Protocol):
     """Protocol that every agent implementation must satisfy.
 
     The protocol intentionally keeps the execution contract small: one
-    non-streaming call and one streaming call that mirrors the same input and
-    context shape.
+    non-streaming call and one streaming call that mirrors the same input plus
+    explicit runtime options and dependencies.
     """
 
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+    def run(
+        self,
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> AgentResult:
         """Execute one agent run and return the final ``AgentResult`` payload.
 
-        Implementations should treat ``input`` as run-specific request data and
-        ``context`` as external execution metadata/dependencies.
+        Implementations should treat ``input`` as run-specific request data.
+        Callers may provide a mapping payload or plain string shorthand
+        (interpreted as ``{"prompt": <input>}``). Use ``request_id`` and
+        ``dependencies`` for run metadata and upstream dependency payloads.
         """
 
     def run_stream(
         self,
-        input: Mapping[str, object],
-        context: Mapping[str, object],
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
         """Execute one agent run and emit stream events through completion.
 

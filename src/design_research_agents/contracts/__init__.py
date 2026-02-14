@@ -6,7 +6,7 @@ specifications/results. Importing contracts from this module keeps downstream
 type usage consistent and avoids leaking internal module boundaries.
 """
 
-from .agent import Agent, AgentResult, AgentStreamEvent
+from .agent import Agent, AgentInput, AgentResult, AgentStreamEvent
 from .llm import (
     LLMAuthError,
     LLMChatParams,
@@ -26,6 +26,7 @@ from .tools import ToolCostHints, ToolResult, ToolRuntime, ToolSpec
 
 __all__ = [
     "Agent",
+    "AgentInput",
     "AgentResult",
     "AgentStreamEvent",
     "LLMAuthError",

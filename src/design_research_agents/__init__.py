@@ -2,7 +2,6 @@
 
 This module deliberately exposes a compact and stable surface that combines:
 - agent implementations,
-- protocol/contract types,
 - backend configuration helpers,
 - prompt/schema loaders, and
 - default tool runtime primitives.
@@ -22,28 +21,6 @@ from .agent import (
     SingleStepCodeAgent,
     ToolCallingAgent,
 )
-from .contracts import (
-    Agent,
-    AgentResult,
-    AgentStreamEvent,
-    LLMAuthError,
-    LLMChatParams,
-    LLMClient,
-    LLMError,
-    LLMInvalidRequestError,
-    LLMMessage,
-    LLMProviderAdapter,
-    LLMProviderError,
-    LLMRateLimitError,
-    LLMResponse,
-    LLMRole,
-    LLMStreamEvent,
-    LLMStreamEventKind,
-    ToolCostHints,
-    ToolResult,
-    ToolRuntime,
-    ToolSpec,
-)
 from .llm import (
     BaseLLMClient,
     complete,
@@ -52,6 +29,7 @@ from .llm import (
     resolve_default_model,
     shutdown_llama_cpp_server,
 )
+from .llm.backends.default import create_default_llm_client
 from .prompts import PROMPT_NAMES, load_prompt, render_prompt
 from .schemas import SCHEMA_NAMES, SCHEMA_VERSION, load_schema
 from .tools import (
@@ -60,43 +38,28 @@ from .tools import (
     create_text_stats_tool_spec,
 )
 
+# Backward/ergonomic alias requested for top-level llama-cpp default client creation.
+create_defult_llama_cpp_client = create_default_llm_client
+
 # Keep a small, stable public surface for downstream users.
 __all__ = [
     "PROMPT_NAMES",
     "SCHEMA_NAMES",
     "SCHEMA_VERSION",
-    "Agent",
-    "AgentResult",
-    "AgentStreamEvent",
     "BaseLLMClient",
     "BaseToolRuntime",
     "DirectLLMAgent",
-    "LLMAuthError",
-    "LLMChatParams",
-    "LLMClient",
-    "LLMError",
-    "LLMInvalidRequestError",
-    "LLMMessage",
-    "LLMProviderAdapter",
-    "LLMProviderError",
-    "LLMRateLimitError",
-    "LLMResponse",
-    "LLMRole",
-    "LLMStreamEvent",
-    "LLMStreamEventKind",
     "MultiStepAgent",
     "RouterAgent",
     "SingleStepCodeAgent",
     "ToolCallingAgent",
-    "ToolCostHints",
-    "ToolResult",
-    "ToolRuntime",
-    "ToolSpec",
     "__version__",
     "complete",
     "configure_llama_cpp_server",
     "configure_openai",
     "create_calculator_tool_spec",
+    "create_default_llm_client",
+    "create_defult_llama_cpp_client",
     "create_text_stats_tool_spec",
     "load_prompt",
     "load_schema",

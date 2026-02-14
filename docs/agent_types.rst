@@ -17,9 +17,13 @@ Shared Contract
 
 .. code-block:: python
 
-   result = agent.run(input=input_payload, context=context_payload)
-   for event in agent.run_stream(input=input_payload, context=context_payload):
+   result = agent.run(input="Summarize this changelog.", request_id=request_id, dependencies=dependencies)
+   result = agent.run(input={"prompt": "Summarize this changelog.", "model": "my-model"})
+   for event in agent.run_stream(input="Stream a short greeting."):
        ...
+
+``input`` accepts either a structured mapping payload or plain string shorthand
+for ``{"prompt": <input>}``.
 
 Comparison
 ----------

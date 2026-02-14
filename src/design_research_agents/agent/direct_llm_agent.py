@@ -14,7 +14,17 @@ from design_research_agents.agent._prompt_alternatives import (
     format_raw_alternatives,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.agent._run_options import (
+    normalize_dependencies,
+    normalize_input_payload,
+    resolve_request_id,
+)
+from design_research_agents.contracts.agent import (
+    Agent,
+    AgentInput,
+    AgentResult,
+    AgentStreamEvent,
+)
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -64,13 +74,25 @@ class DirectLLMAgent(Agent):
             _coerce_provider_options(provider_options) if provider_options is not None else {}
         )
 
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+    def run(
+        self,
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> AgentResult:
         """Run one direct model call and return normalized ``AgentResult`` output."""
-        resolved_model, messages, message_source, llm_params = self._prepare_request(input)
+        resolved_request_id = resolve_request_id(request_id)
+        resolved_dependencies = normalize_dependencies(dependencies)
+        normalized_input = normalize_input_payload(input)
+        resolved_model, messages, message_source, llm_params = self._prepare_request(
+            normalized_input
+        )
         llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
         return _build_success_result(
             llm_response=llm_response,
-            context=context,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
             message_source=message_source,
             message_count=len(messages),
             llm_params=llm_params,
@@ -78,11 +100,18 @@ class DirectLLMAgent(Agent):
 
     def run_stream(
         self,
-        input: Mapping[str, object],
-        context: Mapping[str, object],
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
         """Stream direct model output and emit a final completion event."""
-        resolved_model, messages, message_source, llm_params = self._prepare_request(input)
+        resolved_request_id = resolve_request_id(request_id)
+        resolved_dependencies = normalize_dependencies(dependencies)
+        normalized_input = normalize_input_payload(input)
+        resolved_model, messages, message_source, llm_params = self._prepare_request(
+            normalized_input
+        )
         stream = self._llm_client.stream_chat(messages, model=resolved_model, params=llm_params)
 
         delta_parts: list[str] = []
@@ -116,7 +145,8 @@ class DirectLLMAgent(Agent):
 
         result = _build_success_result(
             llm_response=completed_response,
-            context=context,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
             message_source=message_source,
             message_count=len(messages),
             llm_params=llm_params,
@@ -158,7 +188,8 @@ class DirectLLMAgent(Agent):
 def _build_success_result(
     *,
     llm_response: LLMResponse,
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
     message_source: str,
     message_count: int,
     llm_params: LLMChatParams,
@@ -174,7 +205,8 @@ def _build_success_result(
         tool_results=[],
         model_response=llm_response,
         metadata={
-            "context_keys": sorted(context.keys()),
+            "request_id": request_id,
+            "dependency_keys": sorted(dependencies.keys()),
             "llm_call": {
                 "source": "direct",
                 "message_source": message_source,

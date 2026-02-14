@@ -8,19 +8,16 @@ import dataclasses
 import json
 
 import design_research_agents
-import llama_cpp_example_config
 
 
 def main() -> None:
     """Execute one direct-LLM agent run and print structured output."""
-    llm_client = llama_cpp_example_config.create_example_llm_client()
+    llm_client = design_research_agents.create_default_llm_client()
     agent = design_research_agents.DirectLLMAgent(llm_client=llm_client)
 
     result = agent.run(
-        input={
-            "prompt": "What is two plus two?",
-        },
-        context={"request_id": "example-direct-llm-agent-001"},
+        input="What is two plus two?",
+        request_id="example-direct-llm-agent-001",
     )
 
     print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))

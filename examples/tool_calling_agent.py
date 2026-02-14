@@ -8,7 +8,6 @@ import dataclasses
 import json
 
 import design_research_agents
-import llama_cpp_example_config
 
 
 def main() -> None:
@@ -16,7 +15,7 @@ def main() -> None:
 
     This entrypoint shows model-guided tool selection in a single step.
     """
-    llm_client = llama_cpp_example_config.create_example_llm_client()
+    llm_client = design_research_agents.create_default_llm_client()
     tool_runtime = design_research_agents.BaseToolRuntime()
     agent = design_research_agents.ToolCallingAgent(
         llm_client=llm_client,
@@ -24,10 +23,8 @@ def main() -> None:
     )
 
     result = agent.run(
-        input={
-            "prompt": "Calculate this expression and return the numeric result: 12 * (4 + 1)",
-        },
-        context={"request_id": "example-tool-calling-agent-001"},
+        input="Calculate this expression and return the numeric result: 12 * (4 + 1)",
+        request_id="example-tool-calling-agent-001",
     )
 
     print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))

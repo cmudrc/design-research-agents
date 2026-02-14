@@ -22,7 +22,17 @@ from design_research_agents.agent._response_schemas import (
     build_router_selection_response_schema,
     clone_response_schema,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.agent._run_options import (
+    normalize_dependencies,
+    normalize_input_payload,
+    resolve_request_id,
+)
+from design_research_agents.contracts.agent import (
+    Agent,
+    AgentInput,
+    AgentResult,
+    AgentStreamEvent,
+)
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -102,22 +112,33 @@ class RouterAgent(Agent):
             alternatives=self._default_alternatives,
         )
 
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+    def run(
+        self,
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> AgentResult:
         """Run one model route-selection call and one routed tool invocation.
 
         Invalid model routing output is treated as a hard failure result instead
         of triggering deterministic routing fallbacks.
         """
-        prompt = _extract_prompt(input)
+        resolved_request_id = resolve_request_id(request_id)
+        resolved_dependencies = normalize_dependencies(dependencies)
+        normalized_input = normalize_input_payload(input)
+        prompt = _extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=input,
+            input_payload=normalized_input,
             init_model=self._model,
         )
         alternatives = [
             _clone_alternative(alternative) for alternative in self._default_alternatives
         ]
-        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
+        alternatives_prompt_target = resolve_alternatives_prompt_target(
+            input_payload=normalized_input
+        )
         routes_text = _build_routes_text(alternatives=alternatives)
         routes_block = build_user_prompt_alternatives_block(
             section_label="Available routes",
@@ -161,7 +182,8 @@ class RouterAgent(Agent):
                     "Expected JSON with one valid discrete route `selection`."
                 ),
                 llm_response=llm_response,
-                context=context,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
                 alternatives=alternatives,
                 parsed_route=parsed_route,
             )
@@ -170,10 +192,14 @@ class RouterAgent(Agent):
         model_text = llm_response.text
         tool_input = _resolve_tool_input(
             tool_name=selected_alternative.tool_name,
-            input_payload=input,
-            context=context,
+            input_payload=normalized_input,
         )
-        tool_result = self._tool_runtime.invoke(selected_alternative.tool_name, tool_input, context)
+        tool_result = self._tool_runtime.invoke(
+            selected_alternative.tool_name,
+            tool_input,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
+        )
 
         output: dict[str, object] = {
             "model_text": model_text,
@@ -192,7 +218,8 @@ class RouterAgent(Agent):
             tool_results=[tool_result],
             model_response=llm_response,
             metadata={
-                "context_keys": sorted(context.keys()),
+                "request_id": resolved_request_id,
+                "dependency_keys": sorted(resolved_dependencies.keys()),
                 "routing": {
                     "source": "model",
                     "alternatives": [candidate.tool_name for candidate in alternatives],
@@ -213,15 +240,17 @@ class RouterAgent(Agent):
 
     def run_stream(
         self,
-        input: Mapping[str, object],
-        context: Mapping[str, object],
+        input: AgentInput,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
         """Emit a deterministic stream wrapper around ``run``.
 
         The wrapper currently emits one full-text delta event followed by a
         completion event that carries the full ``AgentResult`` payload.
         """
-        result = self.run(input, context)
+        result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
@@ -231,7 +260,8 @@ def _routing_failure_result(
     *,
     error: str,
     llm_response: LLMResponse,
-    context: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
     alternatives: Sequence[_ToolAlternative],
     parsed_route: _ParsedRoute | None,
 ) -> AgentResult:
@@ -255,7 +285,8 @@ def _routing_failure_result(
         tool_results=[],
         model_response=llm_response,
         metadata={
-            "context_keys": sorted(context.keys()),
+            "request_id": request_id,
+            "dependency_keys": sorted(dependencies.keys()),
             "stage": "routing",
             "routing": {
                 "source": "model_invalid",
@@ -484,7 +515,6 @@ def _resolve_tool_input(
     *,
     tool_name: str,
     input_payload: Mapping[str, object],
-    context: Mapping[str, object],
 ) -> dict[str, object]:
     """Resolve tool input from run payload and tool-specific heuristics."""
     raw_tool_input = input_payload.get("tool_input")
@@ -503,10 +533,6 @@ def _resolve_tool_input(
         analysis_text = input_payload.get("analysis_text")
         if analysis_text is not None:
             return {"text": str(analysis_text)}
-        raw_dependency_results = context.get("dependency_results")
-        if isinstance(raw_dependency_results, Mapping) and raw_dependency_results:
-            dependency_text = json.dumps(dict(raw_dependency_results), sort_keys=True)
-            return {"text": dependency_text}
         return {"text": _extract_prompt(input_payload)}
 
     return {}

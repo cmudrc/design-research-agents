@@ -8,7 +8,6 @@ import dataclasses
 import json
 
 import design_research_agents
-import llama_cpp_example_config
 
 
 def main() -> None:
@@ -16,7 +15,7 @@ def main() -> None:
 
     Demonstrates iterative planning/execution behavior with a bounded step count.
     """
-    llm_client = llama_cpp_example_config.create_example_llm_client()
+    llm_client = design_research_agents.create_default_llm_client()
     tool_runtime = design_research_agents.BaseToolRuntime()
     agent = design_research_agents.MultiStepAgent(
         llm_client=llm_client,
@@ -25,10 +24,8 @@ def main() -> None:
     )
 
     result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7, then produce text stats for a one-line summary.",
-        },
-        context={"request_id": "example-multi-step-agent-001"},
+        input="Compute 6 * 7, then produce text stats for a one-line summary.",
+        request_id="example-multi-step-agent-001",
     )
 
     print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))
