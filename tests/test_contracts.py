@@ -1012,6 +1012,16 @@ def test_multi_step_agent_runs_two_action_observation_steps() -> None:
     ]
     assert result.output["terminated_reason"] == "continuation_stopped:model"
     assert len(result.metadata["continuation"]) == 3
+    assert [entry["kind"] for entry in result.output["memory"]] == [
+        "task",
+        "thought",
+        "action",
+        "observation",
+        "thought",
+        "action",
+        "observation",
+        "thought",
+    ]
 
 
 def test_multi_step_agent_normalizes_direct_tool_calls_in_step_code() -> None:
@@ -1108,6 +1118,30 @@ def test_multi_step_agent_uses_default_continuation_response_schema() -> None:
     assert response_schema is not None
     assert response_schema["required"] == ["continue"]
     assert response_schema["properties"]["continue"]["type"] == "boolean"
+    assert response_schema["properties"]["thought"]["type"] == "string"
+
+
+def test_multi_step_agent_prefers_thought_field_for_continuation_rationale() -> None:
+    llm_client = _CapturingParamsLLMClient(
+        response_text='{"continue": true, "thought": "Need one action step."}'
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=2)
+
+    should_continue, reason, source, _ = agent._llm_should_continue(
+        prompt="Compute 6 * 7.",
+        memory=[
+            {"kind": "task", "prompt": "Compute 6 * 7."},
+        ],
+        step_index=0,
+        max_steps=2,
+        model="test-model",
+        alternatives_prompt_target="user",
+        alternatives_text="",
+    )
+    assert should_continue
+    assert source == "model"
+    assert reason == "Need one action step."
 
 
 def test_multi_step_agent_can_route_alternatives_to_system_prompt() -> None:

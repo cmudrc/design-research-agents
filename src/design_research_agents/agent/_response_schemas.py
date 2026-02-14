@@ -76,6 +76,7 @@ def build_continuation_response_schema() -> dict[str, object]:
         "required": ["continue"],
         "properties": {
             "continue": {"type": "boolean"},
+            "thought": {"type": "string"},
             "reason": {"type": "string"},
         },
     }

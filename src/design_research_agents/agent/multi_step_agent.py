@@ -1,7 +1,8 @@
 """Multi-step ReAct-style agent built as a loop over ``SingleStepCodeAgent``.
 
 The agent alternates continuation checks with step execution, recording a
-structured memory trace and aggregating tool results across steps.
+structured thought-action-observation memory trace and aggregating tool
+results across steps.
 """
 
 from __future__ import annotations
@@ -45,7 +46,8 @@ class MultiStepAgent(Agent):
     """Agent that iterates action-observation steps until continuation stops.
 
     Each iteration asks the model whether to continue, then delegates one action
-    step to ``SingleStepCodeAgent`` with inherited runtime constraints.
+    step to ``SingleStepCodeAgent`` with inherited runtime constraints. The
+    loop keeps explicit ReAct-style thought-action-observation entries in memory.
     """
 
     def __init__(
@@ -198,7 +200,17 @@ class MultiStepAgent(Agent):
                 {
                     "step": step_index + 1,
                     "continue": should_continue,
+                    "thought": continue_reason,
                     "reason": continue_reason,
+                    "source": continue_source,
+                }
+            )
+            memory.append(
+                {
+                    "kind": "thought",
+                    "step": step_index + 1,
+                    "continue": should_continue,
+                    "text": continue_reason,
                     "source": continue_source,
                 }
             )
@@ -393,9 +405,8 @@ class MultiStepAgent(Agent):
             # Ensure at least one action-observation cycle runs before stopping.
             if step_index == 0 and not bool(parsed["continue"]) and not _has_observation(memory):
                 return True, "first-step guardrail", "guardrail", response
-            reason = parsed.get("reason")
-            normalized_reason = str(reason) if reason is not None else "model decision"
-            return bool(parsed["continue"]), normalized_reason, "model", response
+            thought = _extract_continuation_thought(parsed)
+            return bool(parsed["continue"]), thought, "model", response
 
         fallback_decision = _fallback_should_continue(
             memory=memory,
@@ -473,6 +484,20 @@ def _build_continue_prompt(
             "memory_tail": memory_preview,
         },
     )
+
+
+def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
+    """Extract normalized continuation thought text from model JSON output.
+
+    The model may emit either ``thought`` (preferred) or ``reason`` (legacy).
+    """
+    thought = parsed.get("thought")
+    if thought is not None:
+        return str(thought)
+    reason = parsed.get("reason")
+    if reason is not None:
+        return str(reason)
+    return "model decision"
 
 
 def _build_step_prompt(
