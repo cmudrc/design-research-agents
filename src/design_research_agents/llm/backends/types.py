@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Final, Literal, cast
 
 # Literal keeps backend names precise at type-check time.
-BackendName = Literal["local", "openai", "llama-cpp-server"]
+BackendName = Literal["echo-test", "openai", "llama-cpp-server"]
 # Runtime tuple is reused for validation and CLI choices.
 SUPPORTED_BACKENDS: Final[tuple[BackendName, ...]] = (
-    "local",
+    "echo-test",
     "openai",
     "llama-cpp-server",
 )
@@ -26,9 +26,9 @@ def parse_backend(value: str) -> BackendName:
     Raises:
         ValueError: If ``value`` does not map to a supported backend.
     """
+    # Normalize CLI/user input before checking the literal allow-list.
     normalized = value.strip().lower()
     if normalized in SUPPORTED_BACKENDS:
-        # Cast is safe because membership is checked against the literal tuple.
         return cast(BackendName, normalized)
 
     valid = ", ".join(SUPPORTED_BACKENDS)

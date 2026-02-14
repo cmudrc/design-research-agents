@@ -1,24 +1,28 @@
-"""Minimal interface for demo LLM backends."""
+"""LLM interfaces and backend entrypoints."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from .backends.adapters import OpenAIBackendConfig
+from .backends.echo_test_backend import complete as echo_test_complete
 from .backends.llama_cpp_server import (
     LlamaCppServerBackend,
 )
 from .backends.llama_cpp_server import (
     create_backend as create_llama_cpp_server_backend,
 )
-from .backends.local_openai import complete as local_complete
 from .backends.openai import complete as openai_complete
 from .backends.types import BackendName, parse_backend
+from .base_client import BaseLLMClient
 
 __all__ = [
+    "BaseLLMClient",
     "complete",
     "configure_openai",
     "configure_llama_cpp_server",
+    "parse_backend",
     "shutdown_llama_cpp_server",
 ]
 
@@ -37,6 +41,8 @@ class _OpenAIConfig:
 # Process-wide singleton so llama server persists across repeated calls.
 _llama_cpp_backend: LlamaCppServerBackend | None = None
 _openai_config = _OpenAIConfig()
+# Active backend powers "set it once, use it everywhere" call paths.
+_active_backend: BackendName = "llama-cpp-server"
 
 
 def configure_openai(
@@ -47,7 +53,7 @@ def configure_openai(
     base_url: str | None = None,
     require_api_key: bool = True,
 ) -> None:
-    """Configure in-process defaults for ``backend='openai'`` calls.
+    """Configure OpenAI defaults and activate the OpenAI backend.
 
     Args:
         model: OpenAI model name used by default.
@@ -59,6 +65,7 @@ def configure_openai(
     Raises:
         ValueError: If required string parameters are empty.
     """
+    # Normalize once so all call paths inherit clean defaults.
     normalized_model = model.strip()
     if not normalized_model:
         raise ValueError("model must not be empty.")
@@ -75,11 +82,15 @@ def configure_openai(
     if normalized_base_url == "":
         normalized_base_url = None
 
+    global _active_backend
+
     _openai_config.model = normalized_model
     _openai_config.api_key_env = normalized_api_key_env
     _openai_config.api_key = normalized_api_key
     _openai_config.base_url = normalized_base_url
     _openai_config.require_api_key = require_api_key
+    # Configure selects OpenAI as the default backend for later calls.
+    _active_backend = "openai"
 
 
 def configure_llama_cpp_server(
@@ -93,7 +104,7 @@ def configure_llama_cpp_server(
     poll_interval_seconds: float = 0.25,
     extra_server_args: Sequence[str] = (),
 ) -> LlamaCppServerBackend:
-    """Configure the process-managed llama-cpp backend used by ``complete``.
+    """Configure the llama-cpp backend and activate it for default calls.
 
     Args:
         model: ``llama_cpp.server`` ``--model`` value.
@@ -108,7 +119,7 @@ def configure_llama_cpp_server(
     Returns:
         Configured backend instance that will be reused across calls.
     """
-    global _llama_cpp_backend
+    global _active_backend, _llama_cpp_backend
     # Reconfiguration replaces any existing managed server instance.
     shutdown_llama_cpp_server()
     _llama_cpp_backend = create_llama_cpp_server_backend(
@@ -121,6 +132,8 @@ def configure_llama_cpp_server(
         poll_interval_seconds=poll_interval_seconds,
         extra_server_args=extra_server_args,
     )
+    # Configure selects llama-cpp-server as the default backend for later calls.
+    _active_backend = "llama-cpp-server"
     return _llama_cpp_backend
 
 
@@ -134,12 +147,33 @@ def shutdown_llama_cpp_server() -> None:
     _llama_cpp_backend = None
 
 
-def complete(prompt: str, backend: BackendName = "local") -> str:
+def _get_openai_backend_config() -> OpenAIBackendConfig:
+    """Return a snapshot of current process-wide OpenAI configuration."""
+    # Return a value object so adapters cannot mutate process-wide config by accident.
+    return OpenAIBackendConfig(
+        api_key_env=_openai_config.api_key_env,
+        api_key=_openai_config.api_key,
+        base_url=_openai_config.base_url,
+        require_api_key=_openai_config.require_api_key,
+    )
+
+
+def _get_configured_llama_cpp_backend() -> LlamaCppServerBackend | None:
+    """Return the currently configured llama-cpp backend instance, if any."""
+    return _llama_cpp_backend
+
+
+def _get_active_backend() -> BackendName:
+    """Return the process-wide active backend for default completions."""
+    return _active_backend
+
+
+def complete(prompt: str, backend: BackendName | None = None) -> str:
     """Generate text with the selected backend.
 
     Args:
         prompt: Prompt text sent to the selected backend.
-        backend: Backend name.
+        backend: Optional backend name override. Uses configured active backend when omitted.
 
     Returns:
         Generated response text from the selected backend.
@@ -149,9 +183,9 @@ def complete(prompt: str, backend: BackendName = "local") -> str:
         ValueError: If ``backend`` is not supported.
     """
     # Normalizes user/CLI input and validates supported names.
-    selected_backend = parse_backend(backend)
-    if selected_backend == "local":
-        return local_complete(prompt)
+    selected_backend = _active_backend if backend is None else parse_backend(backend)
+    if selected_backend == "echo-test":
+        return echo_test_complete(prompt)
     if selected_backend == "openai":
         # Standard hosted provider call path.
         return openai_complete(

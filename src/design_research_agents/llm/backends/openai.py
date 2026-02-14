@@ -45,7 +45,7 @@ class OpenAIBackend:
 
         if self.require_api_key:
             raise RuntimeError(
-                f"{self.api_key_env} is not set. Use backend='local' or export an API key."
+                f"{self.api_key_env} is not set. Use backend='echo-test' or export an API key."
             )
         # Some OpenAI-compatible local servers ignore auth and accept any token.
         return "not-needed"
