@@ -1,3 +1,6 @@
+import sys
+import types
+
 import pytest
 
 from design_research_agents import complete
@@ -11,8 +14,12 @@ from design_research_agents.llm import (
     shutdown_llama_cpp_server,
 )
 from design_research_agents.llm.backends.llama_cpp_server import (
+    LlamaCppServerBackend,
+)
+from design_research_agents.llm.backends.llama_cpp_server import (
     create_backend as create_llama_cpp_backend,
 )
+from design_research_agents.llm.backends.openai import OpenAIBackend
 
 
 def test_local_backend_completion() -> None:
@@ -46,6 +53,51 @@ def test_openai_backend_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     with pytest.raises(RuntimeError):
         llm_complete("hello", backend="openai")
+
+
+def test_openai_backend_uses_chat_fallback_for_compatible_servers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # OpenAI-compatible local servers may not implement /v1/responses.
+    captured: dict[str, object] = {}
+
+    class FakeNotFoundError(Exception):
+        status_code = 404
+
+    class FakeResponses:
+        def create(self, *, model: str, input: str) -> object:
+            captured["responses_model"] = model
+            captured["responses_input"] = input
+            raise FakeNotFoundError()
+
+    class FakeChatCompletions:
+        def create(self, *, model: str, messages: list[dict[str, str]]) -> object:
+            captured["chat_model"] = model
+            captured["chat_messages"] = messages
+            message = types.SimpleNamespace(content="hello from chat fallback")
+            choice = types.SimpleNamespace(message=message)
+            return types.SimpleNamespace(choices=[choice])
+
+    class FakeOpenAI:
+        def __init__(self, **_: object) -> None:
+            self.responses = FakeResponses()
+            self.chat = types.SimpleNamespace(completions=FakeChatCompletions())
+
+    fake_openai_module = types.ModuleType("openai")
+    setattr(fake_openai_module, "OpenAI", FakeOpenAI)
+    monkeypatch.setitem(sys.modules, "openai", fake_openai_module)
+
+    backend = OpenAIBackend(
+        model="local-model",
+        api_key="not-needed",
+        base_url="http://127.0.0.1:8001/v1",
+        require_api_key=False,
+    )
+
+    result = backend.complete("hello")
+    assert result == "hello from chat fallback"
+    assert captured["responses_model"] == "local-model"
+    assert captured["chat_model"] == "local-model"
 
 
 def test_llama_backend_requires_configuration() -> None:
@@ -129,6 +181,83 @@ def test_configure_llama_backend_accepts_hf_args(monkeypatch: pytest.MonkeyPatch
     assert captured["hf_model_repo_id"] == "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
 
 
+def test_llama_backend_builds_server_module_command() -> None:
+    # The backend should launch the packaged llama-cpp server module entry point.
+    backend = create_llama_cpp_backend(
+        model="/tmp/model.gguf",
+        python_executable="/usr/bin/python3",
+    )
+
+    command = backend._build_command()
+    assert command[0] == "/usr/bin/python3"
+    assert command[1:3] == ["-m", "llama_cpp.server"]
+    assert "--model_alias" in command
+    assert "local-model" in command
+    assert "--model" in command
+    assert "/tmp/model.gguf" in command
+
+
+def test_llama_backend_requires_server_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Missing llama-cpp dependency should raise before subprocess launch.
+    backend = create_llama_cpp_backend(model="/tmp/model.gguf")
+
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.llama_cpp_server.find_spec",
+        lambda _: None,
+    )
+
+    with pytest.raises(RuntimeError, match="pip install -e '.\\[local\\]'"):
+        backend.start()
+
+
+def test_llama_backend_requires_huggingface_hub_for_hf_repo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # HF model repo support requires huggingface-hub to be available.
+    backend = create_llama_cpp_backend(
+        model="tinyllama.Q4_K_M.gguf",
+        hf_model_repo_id="TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+    )
+
+    def _fake_find_spec(name: str) -> object | None:
+        if name == "llama_cpp.server":
+            return object()
+        if name == "huggingface_hub":
+            return None
+        return object()
+
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.llama_cpp_server.find_spec",
+        _fake_find_spec,
+    )
+
+    with pytest.raises(RuntimeError, match="huggingface-hub is required"):
+        backend.start()
+
+
+def test_llama_backend_resolves_hf_quantized_filename(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Short GGUF names should map to a unique file in the HF repository.
+    backend = create_llama_cpp_backend(
+        model="tinyllama.Q4_K_M.gguf",
+        hf_model_repo_id="TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+    )
+
+    def _fake_list_repo_files(repo_id: str) -> list[str]:
+        assert repo_id == "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+        return [
+            "README.md",
+            "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+            "tinyllama-1.1b-chat-v1.0.Q8_0.gguf",
+        ]
+
+    fake_huggingface_hub = types.ModuleType("huggingface_hub")
+    setattr(fake_huggingface_hub, "list_repo_files", _fake_list_repo_files)
+    monkeypatch.setitem(sys.modules, "huggingface_hub", fake_huggingface_hub)
+
+    backend._resolve_hf_model_name()
+    assert backend.model == "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
+
+
 def test_configure_openai_updates_default_call_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
     # Configure once and verify OpenAI calls reuse those defaults.
     captured: dict[str, object] = {}
@@ -164,3 +293,16 @@ def test_configure_openai_updates_default_call_kwargs(monkeypatch: pytest.Monkey
         base_url=None,
         require_api_key=True,
     )
+
+
+def test_llama_backend_strict_mode_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Strict mode is the default: runtime failures should propagate.
+    backend = create_llama_cpp_backend(model="/tmp/missing.gguf")
+
+    def _raise_start(self: LlamaCppServerBackend) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(LlamaCppServerBackend, "start", _raise_start)
+
+    with pytest.raises(RuntimeError):
+        backend.complete("prompt")
