@@ -33,9 +33,9 @@ format-check:
 typecheck:
 	mypy src
 
-# Execute the minimal example script.
+# Execute the router example script.
 run-example:
-	PYTHONPATH=src $(PYTHON) examples/hello_llm.py
+	PYTHONPATH=src $(PYTHON) examples/router_agent.py
 
 # Build Sphinx HTML documentation.
 docs:

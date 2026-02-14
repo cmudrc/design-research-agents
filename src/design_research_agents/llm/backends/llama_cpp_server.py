@@ -229,10 +229,16 @@ class LlamaCppServerBackend:
 
             try:
                 with urlopen(health_url, timeout=1.0) as response:  # noqa: S310
-                    # A non-network response means the server is up; auth may still fail later.
-                    if 200 <= response.status < 500:
+                    # Any successful HTTP response means the server is up.
+                    if 200 <= response.status < 400:
                         return
-            except (URLError, HTTPError) as exc:
+            except HTTPError as exc:
+                # urllib surfaces auth challenges as exceptions even when the server is healthy.
+                if exc.code in {401, 403}:
+                    return
+                # Keep most recent probe failure for timeout diagnostics.
+                last_error = exc
+            except URLError as exc:
                 # Keep most recent probe failure for timeout diagnostics.
                 last_error = exc
 

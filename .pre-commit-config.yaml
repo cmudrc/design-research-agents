@@ -11,14 +11,6 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
 
-  # Ruff: formatter + linter (auto-fix safe issues)
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
-    hooks:
-      - id: ruff-format
-      - id: ruff
-        args: [ --fix ]
-
   # Mypy: run type checking over the whole src tree (not just changed files)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.10.1

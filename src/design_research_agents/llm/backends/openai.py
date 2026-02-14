@@ -119,7 +119,34 @@ class OpenAIBackend:
         # Only OpenAI-compatible base URLs are expected to miss `/v1/responses`.
         if not self.base_url:
             return False
-        return getattr(exc, "status_code", None) == 404
+        if getattr(exc, "status_code", None) != 404:
+            return False
+        return self._looks_like_missing_responses_endpoint(exc)
+
+    def _looks_like_missing_responses_endpoint(self, exc: Exception) -> bool:
+        """Return whether a 404 appears tied to the `/responses` endpoint.
+
+        Local OpenAI-compatible servers can return 404 when they do not expose
+        ``/v1/responses``. We only retry with chat completions in that case.
+        """
+        # Prefer structured request metadata when available.
+        request = getattr(exc, "request", None)
+        request_url = getattr(request, "url", None)
+        if _url_contains_responses_path(request_url):
+            return True
+
+        response = getattr(exc, "response", None)
+        response_url = getattr(response, "url", None)
+        if _url_contains_responses_path(response_url):
+            return True
+
+        # Fallback to message heuristics when structured fields are absent.
+        message = str(exc).lower()
+        if "/responses" in message:
+            return True
+
+        # Some compatibility shims raise bare 404s with no detail text.
+        return message == ""
 
     def _complete_via_chat_completions(self, *, client: Any, prompt: str) -> str:
         """Generate text via chat completions for OpenAI-compatible servers.
@@ -215,3 +242,13 @@ def complete(
         require_api_key=require_api_key,
     )
     return backend.complete(prompt)
+
+
+def _url_contains_responses_path(raw_url: object) -> bool:
+    """Return whether a URL-like object points at the Responses endpoint."""
+    if raw_url is None:
+        return False
+    normalized = str(raw_url).strip().lower()
+    if not normalized:
+        return False
+    return "/responses" in normalized

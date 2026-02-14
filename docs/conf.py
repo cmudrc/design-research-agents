@@ -2,6 +2,7 @@
 
 # This file configures how Sphinx builds the docs in `docs/`.
 
+import os
 import sys
 from pathlib import Path
 
@@ -31,6 +32,16 @@ napoleon_numpy_docstring = False
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-# HTML output theme. (Alabaster is the Sphinx default theme.)
-html_theme = "alabaster"
+# HTML output theme.
+# Prefer the Read the Docs theme; keep a local fallback when not installed.
+if os.environ.get("READTHEDOCS") == "True":
+    html_theme = "sphinx_rtd_theme"
+else:
+    try:
+        import sphinx_rtd_theme  # noqa: F401
+
+        html_theme = "sphinx_rtd_theme"
+    except ImportError:
+        html_theme = "alabaster"
+
 html_static_path = ["_static"]

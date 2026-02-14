@@ -1,5 +1,8 @@
+"""Core LLM backend tests covering configuration, fallback, and readiness behavior."""
+
 import sys
 import types
+from urllib.error import HTTPError
 
 import pytest
 
@@ -22,10 +25,10 @@ from design_research_agents.llm.backends.llama_cpp_server import (
 from design_research_agents.llm.backends.openai import OpenAIBackend
 
 
-def test_local_backend_completion() -> None:
-    # Local backend is deterministic and should echo a normalized prompt.
-    result = complete("Hello from tests")
-    assert result.startswith("[local-echo]")
+def test_echo_test_backend_completion() -> None:
+    # Echo-test backend is deterministic and should echo a normalized prompt.
+    result = complete("Hello from tests", backend="echo-test")
+    assert result.startswith("[echo-test]")
     assert "Hello from tests" in result
 
 
@@ -38,7 +41,9 @@ def test_unknown_backend_raises_value_error() -> None:
 def test_backend_name_parsing() -> None:
     # Parsing normalizes backend names as plain strings.
     assert parse_backend("openai") == "openai"
-    assert parse_backend(" LOCAL ") == "local"
+    assert parse_backend(" echo-test ") == "echo-test"
+    with pytest.raises(ValueError):
+        parse_backend(" LOCAL ")
 
 
 def test_openai_backend_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -100,6 +105,98 @@ def test_openai_backend_uses_chat_fallback_for_compatible_servers(
     assert captured["chat_model"] == "local-model"
 
 
+def test_openai_backend_uses_chat_fallback_when_not_found_has_url_object(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # OpenAI SDK errors can carry URL objects instead of plain strings.
+    captured: dict[str, object] = {}
+
+    class FakeUrl:
+        def __str__(self) -> str:
+            return "http://127.0.0.1:8001/v1/responses"
+
+    class FakeNotFoundError(Exception):
+        status_code = 404
+
+        def __init__(self) -> None:
+            self.request = types.SimpleNamespace(url=FakeUrl())
+
+    class FakeResponses:
+        def create(self, *, model: str, input: str) -> object:
+            captured["responses_model"] = model
+            captured["responses_input"] = input
+            raise FakeNotFoundError()
+
+    class FakeChatCompletions:
+        def create(self, *, model: str, messages: list[dict[str, str]]) -> object:
+            captured["chat_model"] = model
+            captured["chat_messages"] = messages
+            message = types.SimpleNamespace(content="hello from object-url fallback")
+            choice = types.SimpleNamespace(message=message)
+            return types.SimpleNamespace(choices=[choice])
+
+    class FakeOpenAI:
+        def __init__(self, **_: object) -> None:
+            self.responses = FakeResponses()
+            self.chat = types.SimpleNamespace(completions=FakeChatCompletions())
+
+    fake_openai_module = types.ModuleType("openai")
+    setattr(fake_openai_module, "OpenAI", FakeOpenAI)
+    monkeypatch.setitem(sys.modules, "openai", fake_openai_module)
+
+    backend = OpenAIBackend(
+        model="local-model",
+        api_key="not-needed",
+        base_url="http://127.0.0.1:8001/v1",
+        require_api_key=False,
+    )
+
+    result = backend.complete("hello")
+    assert result == "hello from object-url fallback"
+    assert captured["responses_model"] == "local-model"
+    assert captured["chat_model"] == "local-model"
+
+
+def test_openai_backend_skips_chat_fallback_for_unrelated_404(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 404s unrelated to /responses should surface instead of masking with chat fallback.
+    class FakeNotFoundError(Exception):
+        status_code = 404
+
+        def __str__(self) -> str:
+            return "model not found"
+
+    class FakeResponses:
+        def create(self, *, model: str, input: str) -> object:
+            del model, input
+            raise FakeNotFoundError()
+
+    class FakeChatCompletions:
+        def create(self, *, model: str, messages: list[dict[str, str]]) -> object:
+            del model, messages
+            raise AssertionError("chat fallback should not be used for unrelated 404 errors")
+
+    class FakeOpenAI:
+        def __init__(self, **_: object) -> None:
+            self.responses = FakeResponses()
+            self.chat = types.SimpleNamespace(completions=FakeChatCompletions())
+
+    fake_openai_module = types.ModuleType("openai")
+    setattr(fake_openai_module, "OpenAI", FakeOpenAI)
+    monkeypatch.setitem(sys.modules, "openai", fake_openai_module)
+
+    backend = OpenAIBackend(
+        model="local-model",
+        api_key="not-needed",
+        base_url="http://127.0.0.1:8001/v1",
+        require_api_key=False,
+    )
+
+    with pytest.raises(FakeNotFoundError):
+        backend.complete("hello")
+
+
 def test_llama_backend_requires_configuration() -> None:
     # The managed llama server must be configured before it can be used.
     shutdown_llama_cpp_server()
@@ -107,12 +204,20 @@ def test_llama_backend_requires_configuration() -> None:
         llm_complete("hello", backend="llama-cpp-server")
 
 
+def test_default_backend_is_llama_cpp_server() -> None:
+    # The package default backend now routes through the managed llama-cpp server.
+    configure_llama_cpp_server(model="/tmp/default-backend-check.gguf")
+    shutdown_llama_cpp_server()
+    with pytest.raises(RuntimeError):
+        complete("hello")
+
+
 def test_configure_llama_backend_replaces_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     # Capture create/close events to verify lifecycle transitions.
     events: list[tuple[str, str]] = []
 
     class FakeLlamaBackend:
-        # Minimal stand-in to track shutdown behavior.
+        # Simple stand-in to track shutdown behavior.
         def __init__(self, model: str) -> None:
             self.model = model
 
@@ -293,6 +398,45 @@ def test_configure_openai_updates_default_call_kwargs(monkeypatch: pytest.Monkey
         base_url=None,
         require_api_key=True,
     )
+    configure_llama_cpp_server(model="/tmp/reset-default-backend.gguf")
+    shutdown_llama_cpp_server()
+
+
+def test_configure_openai_sets_active_backend_for_default_complete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # OpenAI configuration should make backend-free calls route to OpenAI.
+    captured: dict[str, object] = {}
+
+    def fake_openai_complete(prompt: str, **kwargs: object) -> str:
+        captured["prompt"] = prompt
+        captured.update(kwargs)
+        return "ok-default-openai"
+
+    monkeypatch.setattr("design_research_agents.llm.openai_complete", fake_openai_complete)
+
+    configure_openai(
+        model="gpt-default-route",
+        api_key_env="ALT_OPENAI_API_KEY",
+        api_key="explicit-key",
+        base_url="http://localhost:9000/v1",
+        require_api_key=False,
+    )
+
+    assert llm_complete("hello without backend") == "ok-default-openai"
+    assert captured["prompt"] == "hello without backend"
+    assert captured["model"] == "gpt-default-route"
+
+    # Reset to project defaults and active llama backend for deterministic follow-up tests.
+    configure_openai(
+        model="gpt-4o-mini",
+        api_key_env="OPENAI_API_KEY",
+        api_key=None,
+        base_url=None,
+        require_api_key=True,
+    )
+    configure_llama_cpp_server(model="/tmp/reset-default-backend.gguf")
+    shutdown_llama_cpp_server()
 
 
 def test_llama_backend_strict_mode_raises(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -306,3 +450,88 @@ def test_llama_backend_strict_mode_raises(monkeypatch: pytest.MonkeyPatch) -> No
 
     with pytest.raises(RuntimeError):
         backend.complete("prompt")
+
+
+def test_llama_backend_readiness_accepts_auth_http_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Auth failures indicate the HTTP server is up and reachable.
+    backend = create_llama_cpp_backend(model="/tmp/model.gguf")
+
+    class FakeRunningProcess:
+        def poll(self) -> None:
+            return None
+
+        def terminate(self) -> None:
+            return
+
+        def wait(self, timeout: float | None = None) -> None:
+            del timeout
+            return
+
+        def kill(self) -> None:
+            return
+
+    backend._process = FakeRunningProcess()
+
+    def _raise_unauthorized(url: str, timeout: float) -> object:
+        del timeout
+        raise HTTPError(url=url, code=401, msg="Unauthorized", hdrs=None, fp=None)
+
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.llama_cpp_server.urlopen",
+        _raise_unauthorized,
+    )
+
+    backend._wait_until_ready()
+    backend.close()
+
+
+def test_llama_backend_readiness_retries_on_404(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Missing /models should keep waiting and eventually time out.
+    backend = create_llama_cpp_backend(
+        model="/tmp/model.gguf",
+        startup_timeout_seconds=0.1,
+        poll_interval_seconds=0.0,
+    )
+
+    class FakeRunningProcess:
+        def poll(self) -> None:
+            return None
+
+        def terminate(self) -> None:
+            return
+
+        def wait(self, timeout: float | None = None) -> None:
+            del timeout
+            return
+
+        def kill(self) -> None:
+            return
+
+    backend._process = FakeRunningProcess()
+
+    monotonic_ticks = iter((0.0, 0.0, 1.0))
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.llama_cpp_server.time.monotonic",
+        lambda: next(monotonic_ticks),
+    )
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.llama_cpp_server.time.sleep",
+        lambda _: None,
+    )
+
+    def _raise_not_found(url: str, timeout: float) -> object:
+        del timeout
+        raise HTTPError(url=url, code=404, msg="Not Found", hdrs=None, fp=None)
+
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.llama_cpp_server.urlopen",
+        _raise_not_found,
+    )
+
+    with pytest.raises(RuntimeError, match="Timed out waiting for llama-cpp server readiness"):
+        backend._wait_until_ready()
+    backend.close()

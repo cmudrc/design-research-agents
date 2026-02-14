@@ -24,26 +24,27 @@ Run example:
 
    make run-example
 
-Configure OpenAI defaults once per run:
+Run additional contract-focused examples:
 
-.. code-block:: python
+.. code-block:: bash
 
-   from design_research_agents import complete, configure_openai
+   PYTHONPATH=src python3 examples/router_agent.py
+   PYTHONPATH=src python3 examples/tool_calling_agent.py
+   PYTHONPATH=src python3 examples/single_step_code_agent.py
+   PYTHONPATH=src python3 examples/multi_step_agent.py
 
-   configure_openai(model="gpt-4o-mini")
-   text = complete("Hello", backend="openai")
+Use the llama-cpp backend directly:
 
 .. code-block:: python
 
    from design_research_agents import complete, configure_llama_cpp_server
 
-   configure_llama_cpp_server(model="/path/to/model.gguf")
-   # Or Hugging Face:
-   # configure_llama_cpp_server(
-   #     model="tinyllama.Q4_K_M.gguf",
-   #     hf_model_repo_id="TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-   # )
-   text = complete("Hello", backend="llama-cpp-server")
+   configure_llama_cpp_server(
+       model="tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+       hf_model_repo_id="TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+       api_model="tinyllama-q4-example",
+   )
+   text = complete("Hello")
 
 For contribution workflow and PR expectations, see ``CONTRIBUTING.md`` in the
 repository root.

@@ -1,6 +1,7 @@
 """Alias example entrypoint kept for backwards compatibility."""
 
-from hello_llm import main
+import router_agent
 
 if __name__ == "__main__":
-    main()
+    # Reuse the router agent example implementation for legacy entrypoint compatibility.
+    router_agent.main()
