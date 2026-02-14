@@ -13,25 +13,28 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "design-research-agents contributors" }]
 classifiers = [
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
 ]
 dependencies = [
-  "openai>=1.40"
+    "openai>=1.40"
 ]
 
 # Batteries-included contributor dependencies.
 [project.optional-dependencies]
 dev = [
-  "mypy>=1.10",
-  "pre-commit>=3.7",
-  "pytest>=8.2",
-  "pytest-asyncio>=0.23",
-  "ruff>=0.6.0",
-  "sphinx>=7.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.6.0",
+    "sphinx>=7.4",
+]
+local = [
+    "llama-cpp-python[server]>=0.2.90",
 ]
 
 # Use src-layout packaging.
