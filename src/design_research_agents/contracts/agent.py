@@ -13,7 +13,7 @@ from typing import Literal, Protocol
 from .llm import LLMResponse
 from .tools import ToolResult
 
-AgentStreamEventKind = Literal["delta", "completed"]
+AgentStreamEventKind = Literal["delta", "completed", "failed"]
 AgentInput = Mapping[str, object] | str
 
 

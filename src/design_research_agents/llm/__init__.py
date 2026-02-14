@@ -110,7 +110,7 @@ def configure_llama_cpp_server(
     startup_timeout_seconds: float = 60.0,
     poll_interval_seconds: float = 0.25,
     extra_server_args: Sequence[str] = (),
-) -> LlamaCppServerBackend:
+) -> LlamaCppServerBackend | None:
     """Configure the llama-cpp backend and activate it for default calls.
 
     Args:

@@ -1,11 +1,14 @@
-"""Sphinx configuration."""
+"""Sphinx configuration.
 
-# This file configures how Sphinx builds the docs in `docs/`.
+This file configures how Sphinx builds the docs in `docs/`.
+"""
 
 import os
 import re
 import sys
 from pathlib import Path
+
+from sphinx.application import Sphinx
 
 # Add the project `src/` directory to sys.path so autodoc can import the package.
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,6 +68,6 @@ def _dedupe_viewport_meta(
         context["metatags"] = _VIEWPORT_META_RE.sub("", metatags)
 
 
-def setup(app: object) -> None:
+def setup(app: Sphinx) -> None:
     """Register build-time hooks."""
     app.connect("html-page-context", _dedupe_viewport_meta)

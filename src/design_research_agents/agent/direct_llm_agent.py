@@ -142,15 +142,18 @@ class DirectLLMAgent(Agent):
                 raw_output=completed_response.raw_output,
             )
 
-        result = _build_success_result(
-            llm_response=completed_response,
-            request_id=resolved_request_id,
-            dependencies=resolved_dependencies,
-            message_source=message_source,
-            message_count=len(messages),
-            llm_params=llm_params,
-        )
-        yield AgentStreamEvent(kind="completed", result=result)
+        if completed_response is not None:
+            result = _build_success_result(
+                llm_response=completed_response,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
+                message_source=message_source,
+                message_count=len(messages),
+                llm_params=llm_params,
+            )
+            yield AgentStreamEvent(kind="completed", result=result)
+        else:
+            yield AgentStreamEvent(kind="failed", result=None)
 
     def _prepare_request(
         self,
