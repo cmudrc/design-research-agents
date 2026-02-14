@@ -7,7 +7,7 @@ PIP ?= $(PYTHON) -m pip
 # Install a batteries-included development environment.
 install:
 	$(PIP) install --upgrade pip
-	$(PIP) install -e ".[dev]"
+	$(PIP) install -e ".[dev,local]"
 
 # Run the unit test suite.
 test:
