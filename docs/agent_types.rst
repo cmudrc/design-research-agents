@@ -60,7 +60,8 @@ DirectLLMAgent
 --------------
 
 - Source: ``src/design_research_agents/agent/direct_llm_agent.py``
-- Example: ``examples/direct_llm_agent.py``
+- Example: ``examples/basic/direct_llm_agent.py``
+- Streaming example: ``examples/streaming/direct_llm_agent_stream.py``
 - Calls ``LLMClient`` directly and returns model output with no tool invocations.
 - Supports either explicit ``messages`` input or ``prompt``/``text`` fallback.
 - Can inject optional ``input["alternatives"]`` into the system or user prompt using ``alternatives_prompt_target``.
@@ -70,7 +71,8 @@ RouterAgent
 -----------
 
 - Source: ``src/design_research_agents/agent/router_agent.py``
-- Example: ``examples/router_agent.py``
+- Example: ``examples/basic/router_agent.py``
+- Streaming example: ``examples/streaming/router_agent_stream.py``
 - Chooses exactly one runtime tool route from model-generated structured output.
 - Compiles route choices directly from ``ToolRuntime.list_tools()``.
 - Uses a built-in default route-selection schema generated from runtime routes.
@@ -82,7 +84,8 @@ ToolCallingAgent
 ----------------
 
 - Source: ``src/design_research_agents/agent/tool_calling_agent.py``
-- Example: ``examples/tool_calling_agent.py``
+- Example: ``examples/basic/tool_calling_agent.py``
+- Streaming example: ``examples/streaming/tool_calling_agent_stream.py``
 - Requests JSON-only tool-call output with a built-in schema compiled from runtime tools.
 - Validates model-selected tool names against runtime-registered tools.
 - Supports routing runtime tool-choice context into either system or user prompt via ``alternatives_prompt_target``.
@@ -92,7 +95,8 @@ SingleStepCodeAgent
 -------------------
 
 - Source: ``src/design_research_agents/agent/single_step_code_agent.py``
-- Example: ``examples/single_step_code_agent.py``
+- Example: ``examples/basic/single_step_code_agent.py``
+- Streaming example: ``examples/streaming/single_step_code_agent_stream.py``
 - Uses init-compiled runtime tools and executes generated code in a strict sandbox.
 - Enforces limits such as ``max_tool_calls`` and ``execution_timeout_seconds``.
 - Supports routing allowed-tool context into either system or user prompt via ``alternatives_prompt_target``.
@@ -102,7 +106,8 @@ MultiStepAgent
 --------------
 
 - Source: ``src/design_research_agents/agent/multi_step_agent.py``
-- Example: ``examples/multi_step_agent.py``
+- Example: ``examples/basic/multi_step_agent.py``
+- Streaming example: ``examples/streaming/multi_step_agent_stream.py``
 - Repeats action-observation cycles with memory until continuation stops or limits are reached.
 - Uses a built-in default continuation-decision schema for each loop iteration.
 - Uses model-based continuation decisions with deterministic fallback heuristics.

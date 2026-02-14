@@ -60,6 +60,33 @@ class _AllowedTool:
     default_tool_input: dict[str, object] | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class _CodeNormalizationResult:
+    """Captures optional pre-validation code normalization details."""
+
+    code_text: str
+    raw_code_text: str
+    stripped_safe_tool_imports: int
+    rewritten_tool_calls: int
+    rewritten_direct_name_calls: int
+    rewritten_module_attr_calls: int
+    parse_error: str | None = None
+
+    @property
+    def changed(self) -> bool:
+        return self.stripped_safe_tool_imports > 0 or self.rewritten_tool_calls > 0
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "changed": self.changed,
+            "stripped_safe_tool_imports": self.stripped_safe_tool_imports,
+            "rewritten_tool_calls": self.rewritten_tool_calls,
+            "rewritten_direct_name_calls": self.rewritten_direct_name_calls,
+            "rewritten_module_attr_calls": self.rewritten_module_attr_calls,
+            "parse_error": self.parse_error,
+        }
+
+
 class SingleStepCodeAgent(Agent):
     """Agent that writes and executes one sandboxed Python action program.
 
@@ -76,6 +103,7 @@ class SingleStepCodeAgent(Agent):
         max_tool_calls: int = 5,
         execution_timeout_seconds: int = 5,
         validate_tool_input_schema: bool = False,
+        normalize_generated_code: bool = False,
         default_tools: Sequence[Mapping[str, object]] | None = None,
     ) -> None:
         """Initialize a single-step code agent.
@@ -87,6 +115,8 @@ class SingleStepCodeAgent(Agent):
             max_tool_calls: Maximum number of tool calls allowed in one run.
             execution_timeout_seconds: Max wall-clock seconds for executing generated code.
             validate_tool_input_schema: Whether to validate tool args against tool input schemas.
+            normalize_generated_code: Whether to apply conservative pre-validation
+                rewrites for common non-canonical tool-call patterns.
             default_tools: Optional default allowed-tool list compiled at init time.
                 When omitted, all runtime-registered tools are allowed by default.
         """
@@ -101,6 +131,7 @@ class SingleStepCodeAgent(Agent):
         self._max_tool_calls = max_tool_calls
         self._execution_timeout_seconds = execution_timeout_seconds
         self._validate_tool_input_schema = validate_tool_input_schema
+        self._normalize_generated_code = normalize_generated_code
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_default_allowed_tools = _compile_default_allowed_tools(
             runtime_specs=self._runtime_specs,
@@ -154,6 +185,7 @@ class SingleStepCodeAgent(Agent):
             key="validate_tool_input_schema",
             default_value=self._validate_tool_input_schema,
         )
+        normalize_generated_code = self._normalize_generated_code
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
             input_payload=normalized_input,
@@ -170,7 +202,24 @@ class SingleStepCodeAgent(Agent):
             model=resolved_model,
             alternatives_prompt_target=alternatives_prompt_target,
         )
-        code_text = _extract_python_code(llm_response.text)
+        raw_code_text = _extract_python_code(llm_response.text)
+        if normalize_generated_code:
+            code_normalization = _canonicalize_generated_code(
+                code_text=raw_code_text,
+                allowed_tools=allowed_tools,
+            )
+        else:
+            code_normalization = _CodeNormalizationResult(
+                code_text=raw_code_text,
+                raw_code_text=raw_code_text,
+                stripped_safe_tool_imports=0,
+                rewritten_tool_calls=0,
+                rewritten_direct_name_calls=0,
+                rewritten_module_attr_calls=0,
+                parse_error=None,
+            )
+        code_text = code_normalization.code_text
+        raw_generated_code = raw_code_text if code_normalization.changed else None
 
         try:
             compiled_code = _compile_sandboxed_code(code_text)
@@ -181,8 +230,12 @@ class SingleStepCodeAgent(Agent):
                 tool_results=[],
                 request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
-                metadata={"stage": "code_validation", "generated_code": code_text},
+                metadata={
+                    "stage": "code_validation",
+                    "code_normalization": code_normalization.metadata(),
+                },
                 generated_code=code_text,
+                raw_generated_code=raw_generated_code,
             )
 
         tool_results: list[ToolResult] = []
@@ -209,11 +262,12 @@ class SingleStepCodeAgent(Agent):
                 dependencies=resolved_dependencies,
                 metadata={
                     "stage": "code_execution",
-                    "generated_code": code_text,
+                    "code_normalization": code_normalization.metadata(),
                     "max_tool_calls": max_tool_calls,
                     "execution_timeout_seconds": execution_timeout_seconds,
                 },
                 generated_code=code_text,
+                raw_generated_code=raw_generated_code,
             )
 
         output: dict[str, object] = {
@@ -223,6 +277,8 @@ class SingleStepCodeAgent(Agent):
             "tool_name": tool_results[-1].tool_name if tool_results else None,
             "tool_output": tool_results[-1].output if tool_results else {},
         }
+        if raw_generated_code is not None:
+            output["raw_generated_code"] = raw_generated_code
         return AgentResult(
             output=output,
             success=all(tool_result.success for tool_result in tool_results),
@@ -238,7 +294,9 @@ class SingleStepCodeAgent(Agent):
                     "max_tool_calls": max_tool_calls,
                     "execution_timeout_seconds": execution_timeout_seconds,
                     "validate_tool_input_schema": validate_tool_input_schema,
+                    "normalize_generated_code": normalize_generated_code,
                 },
+                "code_normalization": code_normalization.metadata(),
             },
         )
 
@@ -511,6 +569,165 @@ def _match_fenced_code_block(raw_text: str) -> str | None:
     return raw_text[end_of_fence_header + 1 : end_index]
 
 
+class _CodeCanonicalizer(ast.NodeTransformer):
+    """Conservative AST normalizer for common tool-call variants.
+
+    The transformer only rewrites explicitly-supported patterns and leaves all
+    other code intact so unsupported behavior still fails at validation/runtime.
+    """
+
+    def __init__(self, *, allowed_tool_names: set[str]) -> None:
+        self._allowed_tool_names = allowed_tool_names
+        self.stripped_safe_tool_imports = 0
+        self.rewritten_tool_calls = 0
+        self.rewritten_direct_name_calls = 0
+        self.rewritten_module_attr_calls = 0
+
+    def visit_Module(self, node: ast.Module) -> ast.Module:
+        new_body: list[ast.stmt] = []
+        for statement in node.body:
+            if self._is_strippable_tool_import(statement):
+                self.stripped_safe_tool_imports += 1
+                continue
+            visited = self.visit(statement)
+            if visited is None:
+                continue
+            if isinstance(visited, list):
+                new_body.extend(visited)
+                continue
+            new_body.append(visited)
+        node.body = new_body
+        return node
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        visited_node = self.generic_visit(node)
+        if not isinstance(visited_node, ast.Call):
+            return visited_node
+
+        target = self._resolve_rewrite_target(visited_node.func)
+        if target is None:
+            return visited_node
+
+        tool_name, call_style = target
+        tool_input_arg = self._build_tool_input_argument(visited_node)
+        if tool_input_arg is None:
+            return visited_node
+
+        rewritten_call = ast.Call(
+            func=ast.Name(id="call_tool", ctx=ast.Load()),
+            args=[ast.Constant(value=tool_name), tool_input_arg],
+            keywords=[],
+        )
+        rewritten_call = ast.copy_location(rewritten_call, visited_node)
+        self.rewritten_tool_calls += 1
+        if call_style == "direct_name":
+            self.rewritten_direct_name_calls += 1
+        else:
+            self.rewritten_module_attr_calls += 1
+        return rewritten_call
+
+    def _is_strippable_tool_import(self, statement: ast.stmt) -> bool:
+        if not isinstance(statement, ast.Import):
+            return False
+        if not statement.names:
+            return False
+        for alias in statement.names:
+            if alias.asname is not None:
+                return False
+            if alias.name not in self._allowed_tool_names:
+                return False
+        return True
+
+    def _resolve_rewrite_target(
+        self,
+        call_target: ast.expr,
+    ) -> tuple[str, str] | None:
+        if isinstance(call_target, ast.Name):
+            if call_target.id in self._allowed_tool_names:
+                return call_target.id, "direct_name"
+            return None
+        if not isinstance(call_target, ast.Attribute):
+            return None
+        if not isinstance(call_target.value, ast.Name):
+            return None
+        if call_target.value.id != call_target.attr:
+            return None
+        if call_target.attr not in self._allowed_tool_names:
+            return None
+        return call_target.attr, "module_attr"
+
+    def _build_tool_input_argument(self, node: ast.Call) -> ast.expr | None:
+        if len(node.args) == 1 and not node.keywords:
+            if isinstance(node.args[0], ast.Starred):
+                return None
+            return node.args[0]
+        if node.args:
+            return None
+        if not node.keywords:
+            return ast.Dict(keys=[], values=[])
+
+        keys: list[ast.expr | None] = []
+        values: list[ast.expr] = []
+        for keyword in node.keywords:
+            if keyword.arg is None:
+                return None
+            keys.append(ast.Constant(value=keyword.arg))
+            values.append(keyword.value)
+        return ast.Dict(keys=keys, values=values)
+
+
+def _canonicalize_generated_code(
+    *,
+    code_text: str,
+    allowed_tools: Sequence[_AllowedTool],
+) -> _CodeNormalizationResult:
+    """Rewrite narrow, known-safe tool call variants into canonical form."""
+    if not code_text:
+        return _CodeNormalizationResult(
+            code_text=code_text,
+            raw_code_text=code_text,
+            stripped_safe_tool_imports=0,
+            rewritten_tool_calls=0,
+            rewritten_direct_name_calls=0,
+            rewritten_module_attr_calls=0,
+            parse_error=None,
+        )
+
+    try:
+        syntax_tree = ast.parse(code_text, mode="exec")
+    except SyntaxError as exc:
+        return _CodeNormalizationResult(
+            code_text=code_text,
+            raw_code_text=code_text,
+            stripped_safe_tool_imports=0,
+            rewritten_tool_calls=0,
+            rewritten_direct_name_calls=0,
+            rewritten_module_attr_calls=0,
+            parse_error=str(exc),
+        )
+
+    canonicalizer = _CodeCanonicalizer(
+        allowed_tool_names={tool.tool_name for tool in allowed_tools}
+    )
+    normalized_tree = canonicalizer.visit(syntax_tree)
+    ast.fix_missing_locations(normalized_tree)
+
+    if canonicalizer.stripped_safe_tool_imports == 0 and canonicalizer.rewritten_tool_calls == 0:
+        normalized_code = code_text
+    else:
+        normalized_code = ast.unparse(normalized_tree).strip()
+
+    return _CodeNormalizationResult(
+        code_text=normalized_code,
+        raw_code_text=code_text,
+        stripped_safe_tool_imports=canonicalizer.stripped_safe_tool_imports,
+        rewritten_tool_calls=canonicalizer.rewritten_tool_calls,
+        rewritten_direct_name_calls=canonicalizer.rewritten_direct_name_calls,
+        rewritten_module_attr_calls=canonicalizer.rewritten_module_attr_calls,
+        parse_error=None,
+    )
+
+
 def _compile_sandboxed_code(code_text: str) -> CodeType:
     """Validate and compile generated code under strict sandbox constraints.
 
@@ -584,6 +801,46 @@ def _validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
             and node.func.id.startswith("__")
         ):
             raise ValueError("Calling dunder names is not allowed.")
+
+
+class _FinalOutputProxy(dict[str, object]):
+    """Mutable placeholder used to detect whether ``final_output`` was touched."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._was_mutated = False
+
+    @property
+    def was_mutated(self) -> bool:
+        return self._was_mutated
+
+    def __setitem__(self, key: str, value: object) -> None:
+        self._was_mutated = True
+        super().__setitem__(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        self._was_mutated = True
+        super().__delitem__(key)
+
+    def clear(self) -> None:
+        self._was_mutated = True
+        super().clear()
+
+    def pop(self, key: str, default: object = None) -> object:
+        self._was_mutated = True
+        return super().pop(key, default)
+
+    def popitem(self) -> tuple[str, object]:
+        self._was_mutated = True
+        return super().popitem()
+
+    def setdefault(self, key: str, default: object = None) -> object:
+        self._was_mutated = True
+        return super().setdefault(key, default)
+
+    def update(self, *args: object, **kwargs: object) -> None:
+        self._was_mutated = True
+        super().update(*args, **kwargs)
 
 
 def _execute_compiled_code(
@@ -677,7 +934,7 @@ def _execute_compiled_code(
         "request_id": request_id,
         "dependencies": dict(dependencies),
         "allowed_tools": [tool.tool_name for tool in allowed_tools],
-        "final_output": None,
+        "final_output": _FinalOutputProxy(),
     }
 
     with _execution_timeout(seconds=execution_timeout_seconds):
@@ -686,7 +943,12 @@ def _execute_compiled_code(
     if not tool_results:
         raise ValueError("Generated code must call at least one tool.")
 
-    final_output = sandbox_locals.get("final_output")
+    raw_final_output = sandbox_locals.get("final_output")
+    final_output: object | None
+    if isinstance(raw_final_output, _FinalOutputProxy):
+        final_output = dict(raw_final_output) if raw_final_output.was_mutated else None
+    else:
+        final_output = raw_final_output
     if final_output is None:
         # Local models occasionally omit the required assignment.
         # Fall back to the last successful tool output to keep execution usable.
@@ -813,6 +1075,7 @@ def _failure_result(
     dependencies: Mapping[str, object],
     metadata: Mapping[str, object],
     generated_code: str,
+    raw_generated_code: str | None = None,
 ) -> AgentResult:
     """Build a structured failure result for predictable error handling.
 
@@ -824,6 +1087,8 @@ def _failure_result(
         "generated_code": generated_code,
         "final_output": {},
     }
+    if raw_generated_code is not None:
+        output["raw_generated_code"] = raw_generated_code
     return AgentResult(
         output=output,
         success=False,

@@ -1,7 +1,8 @@
 """Runnable streaming example showing one ``DirectLLMAgent`` execution."""
 
-import design_research_agents
 from _streaming_support import StaticResponseLLMClient, print_stream_event
+
+import design_research_agents
 
 
 def main() -> None:

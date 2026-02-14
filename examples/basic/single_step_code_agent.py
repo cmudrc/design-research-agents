@@ -20,6 +20,7 @@ def main() -> None:
     agent = design_research_agents.SingleStepCodeAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
+        normalize_generated_code=True,
     )
 
     result = agent.run(

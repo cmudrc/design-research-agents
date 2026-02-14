@@ -21,6 +21,7 @@ def main() -> None:
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         max_steps=3,
+        normalize_generated_code_per_step=True,
     )
 
     result = agent.run(

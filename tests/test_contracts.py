@@ -678,6 +678,107 @@ def test_single_step_code_agent_executes_multiple_tool_calls() -> None:
     assert result.output["final_output"]["word_count"] == 3
 
 
+def test_single_step_code_agent_normalizes_safe_imports_and_module_style_calls() -> None:
+    llm_client = _StaticResponseLLMClient(
+        response_text="\n".join(
+            [
+                "import calculator_tool",
+                "import text_stats_tool",
+                'calc = calculator_tool.calculator_tool(expression="6 * 7")',
+                "stats = text_stats_tool.text_stats_tool(text=f\"Result is {calc['result']}\")",
+                'final_output = {"result": calc["result"], "word_count": stats["word_count"]}',
+            ]
+        )
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = SingleStepCodeAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        normalize_generated_code=True,
+    )
+
+    result = agent.run(
+        input={
+            "prompt": "Compute 6 * 7 and summarize.",
+        }
+    )
+    assert result.success
+    assert result.output["final_output"]["result"] == 42.0
+    assert result.output["final_output"]["word_count"] == 3
+    assert result.output["raw_generated_code"] != result.output["generated_code"]
+    assert "import calculator_tool" in result.output["raw_generated_code"]
+    assert "call_tool(" in result.output["generated_code"]
+    assert "calculator_tool" in result.output["generated_code"]
+    assert "text_stats_tool" in result.output["generated_code"]
+    code_normalization = result.metadata["code_normalization"]
+    assert code_normalization["changed"] is True
+    assert code_normalization["stripped_safe_tool_imports"] == 2
+    assert code_normalization["rewritten_tool_calls"] == 2
+    assert code_normalization["rewritten_module_attr_calls"] == 2
+
+
+def test_single_step_code_agent_normalizes_direct_tool_calls() -> None:
+    llm_client = _StaticResponseLLMClient(
+        response_text="\n".join(
+            [
+                'tool_input = {"expression": "6 * 7"}',
+                "calc = calculator_tool(tool_input)",
+                'final_output = {"result": calc["result"]}',
+            ]
+        )
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = SingleStepCodeAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        normalize_generated_code=True,
+    )
+
+    result = agent.run(
+        input={
+            "prompt": "Compute 6 * 7.",
+        }
+    )
+    assert result.success
+    assert result.output["final_output"]["result"] == 42.0
+    assert result.output["raw_generated_code"] != result.output["generated_code"]
+    assert "calculator_tool(tool_input)" in result.output["raw_generated_code"]
+    assert "call_tool(" in result.output["generated_code"]
+    assert "calculator_tool" in result.output["generated_code"]
+    code_normalization = result.metadata["code_normalization"]
+    assert code_normalization["changed"] is True
+    assert code_normalization["rewritten_tool_calls"] == 1
+    assert code_normalization["rewritten_direct_name_calls"] == 1
+
+
+def test_single_step_code_agent_keeps_unknown_import_blocked() -> None:
+    llm_client = _StaticResponseLLMClient(
+        response_text="\n".join(
+            [
+                "import os",
+                'call_tool("text_stats_tool", {"text": "hello world"})',
+                'final_output = {"status": "done"}',
+            ]
+        )
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = SingleStepCodeAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        normalize_generated_code=True,
+    )
+
+    result = agent.run(
+        input={
+            "prompt": "Try import.",
+        }
+    )
+    assert not result.success
+    assert "Unsupported syntax node: Import" in result.output["error"]
+    code_normalization = result.metadata["code_normalization"]
+    assert code_normalization["changed"] is False
+
+
 def test_single_step_code_agent_rejects_disallowed_tool_call() -> None:
     llm_client = _StaticResponseLLMClient(
         response_text="\n".join(
@@ -723,6 +824,27 @@ def test_single_step_code_agent_requires_final_output_dict() -> None:
     )
     assert not result.success
     assert "final_output" in result.output["error"]
+
+
+def test_single_step_code_agent_supports_final_output_update_without_assignment() -> None:
+    llm_client = _StaticResponseLLMClient(
+        response_text="\n".join(
+            [
+                'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                'final_output.update({"result": calc["result"]})',
+            ]
+        )
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
+
+    result = agent.run(
+        input={
+            "prompt": "Compute 6 * 7.",
+        }
+    )
+    assert result.success
+    assert result.output["final_output"]["result"] == 42.0
 
 
 def test_single_step_code_agent_uses_last_tool_output_when_final_output_missing() -> None:
@@ -892,6 +1014,46 @@ def test_multi_step_agent_runs_two_action_observation_steps() -> None:
     assert len(result.metadata["continuation"]) == 3
 
 
+def test_multi_step_agent_normalizes_direct_tool_calls_in_step_code() -> None:
+    llm_client = _SequenceResponseLLMClient(
+        response_texts=[
+            '{"continue": true, "reason": "Need one action step."}',
+            "\n".join(
+                [
+                    'tool_input = {"expression": "6 * 7"}',
+                    "calc = calculator_tool(tool_input)",
+                    'tool_input = {"text": "Result is 42"}',
+                    "stats = text_stats_tool(tool_input)",
+                    'final_output = {"result": calc["result"], "word_count": stats["word_count"]}',
+                ]
+            ),
+            '{"continue": false, "reason": "Done."}',
+        ]
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = MultiStepAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        max_steps=3,
+        normalize_generated_code_per_step=True,
+    )
+
+    result = agent.run(
+        input={
+            "prompt": "Compute 6 * 7, then summarize.",
+        }
+    )
+    assert result.success
+    assert result.output["steps_executed"] == 1
+    assert result.output["final_output"]["result"] == 42.0
+    assert result.output["final_output"]["word_count"] == 3
+    assert [tool_result.tool_name for tool_result in result.tool_results] == [
+        "calculator_tool",
+        "text_stats_tool",
+    ]
+    assert result.output["terminated_reason"] == "continuation_stopped:model"
+
+
 def test_multi_step_agent_uses_fallback_continuation_on_invalid_json() -> None:
     llm_client = _SequenceResponseLLMClient(
         response_texts=[
@@ -1037,6 +1199,35 @@ def test_multi_step_agent_recovers_when_step_code_omits_final_output() -> None:
     assert result.output["steps_executed"] == 1
     assert result.output["final_output"]["word_count"] == 3
     assert result.output["terminated_reason"] == "continuation_stopped:model"
+
+
+def test_multi_step_agent_stops_cleanly_on_empty_step_after_success() -> None:
+    llm_client = _SequenceResponseLLMClient(
+        response_texts=[
+            '{"continue": true, "reason": "Do first step."}',
+            "\n".join(
+                [
+                    'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                    'final_output = {"result": calc["result"]}',
+                ]
+            ),
+            '{"continue": true, "reason": "Continue."}',
+            'final_output = {"result": 42.0}',
+        ]
+    )
+    tool_runtime = BaseToolRuntime()
+    agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=3)
+
+    result = agent.run(
+        input={
+            "prompt": "Compute 6 * 7.",
+        }
+    )
+    assert result.success
+    assert result.output["steps_executed"] == 1
+    assert result.output["final_output"]["result"] == 42.0
+    assert result.output["terminated_reason"] == "continuation_stopped:empty_step"
+    assert [tool_result.tool_name for tool_result in result.tool_results] == ["calculator_tool"]
 
 
 def test_multi_step_agent_returns_structured_failure_when_step_fails() -> None:

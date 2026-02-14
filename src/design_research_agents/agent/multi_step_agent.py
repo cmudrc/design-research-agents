@@ -58,6 +58,7 @@ class MultiStepAgent(Agent):
         max_tool_calls_per_step: int = 5,
         execution_timeout_seconds_per_step: int = 5,
         validate_tool_input_schema: bool = False,
+        normalize_generated_code_per_step: bool = False,
         stop_on_step_failure: bool = True,
         default_tools_per_step: Sequence[Mapping[str, object]] | None = None,
     ) -> None:
@@ -71,6 +72,8 @@ class MultiStepAgent(Agent):
             max_tool_calls_per_step: Tool-call limit applied to each action step.
             execution_timeout_seconds_per_step: Code execution timeout for each action step.
             validate_tool_input_schema: Whether to validate tool input schemas on each step.
+            normalize_generated_code_per_step: Whether to apply conservative
+                pre-validation code normalization in each step agent run.
             stop_on_step_failure: Whether to stop immediately when one step fails.
             default_tools_per_step: Optional allowed-tool config forwarded to each
                 ``SingleStepCodeAgent`` step. When omitted, all runtime tools are
@@ -90,6 +93,7 @@ class MultiStepAgent(Agent):
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._execution_timeout_seconds_per_step = execution_timeout_seconds_per_step
         self._validate_tool_input_schema = validate_tool_input_schema
+        self._normalize_generated_code_per_step = normalize_generated_code_per_step
         self._stop_on_step_failure = stop_on_step_failure
         self._default_tools_per_step = (
             tuple(
@@ -138,6 +142,7 @@ class MultiStepAgent(Agent):
             key="validate_tool_input_schema",
             default_value=self._validate_tool_input_schema,
         )
+        normalize_generated_code_per_step = self._normalize_generated_code_per_step
         stop_on_step_failure = _extract_boolean(
             input_payload=normalized_input,
             key="stop_on_step_failure",
@@ -163,6 +168,7 @@ class MultiStepAgent(Agent):
             max_tool_calls=max_tool_calls_per_step,
             execution_timeout_seconds=execution_timeout_seconds_per_step,
             validate_tool_input_schema=validate_tool_input_schema,
+            normalize_generated_code=normalize_generated_code_per_step,
             default_tools=self._default_tools_per_step,
         )
 
@@ -253,10 +259,23 @@ class MultiStepAgent(Agent):
                     final_output = dict(raw_final_output)
                 continue
 
+            step_error = str(step_result.output.get("error", "Step execution failed."))
+            if (
+                _is_no_tool_call_step_failure(error=step_error)
+                and not step_result.tool_results
+                and bool(final_output)
+            ):
+                # No-op model step after successful prior observations: stop cleanly.
+                step_outputs.pop()
+                memory.pop()
+                memory.pop()
+                terminated_reason = "continuation_stopped:empty_step"
+                break
+
             terminated_reason = "step_failure"
             if stop_on_step_failure:
                 return _failure_result(
-                    error=str(step_result.output.get("error", "Step execution failed.")),
+                    error=step_error,
                     model_response=last_model_response,
                     tool_results=tool_results,
                     request_id=resolved_request_id,
@@ -297,6 +316,7 @@ class MultiStepAgent(Agent):
                     "max_tool_calls_per_step": max_tool_calls_per_step,
                     "execution_timeout_seconds_per_step": execution_timeout_seconds_per_step,
                     "validate_tool_input_schema": validate_tool_input_schema,
+                    "normalize_generated_code_per_step": normalize_generated_code_per_step,
                     "stop_on_step_failure": stop_on_step_failure,
                     "default_tools_per_step": (
                         [dict(default_tool) for default_tool in self._default_tools_per_step]
@@ -586,6 +606,11 @@ def _has_observation(memory: Sequence[Mapping[str, object]]) -> bool:
     Observation entries are used by continuation guardrails and heuristics.
     """
     return any(entry.get("kind") == "observation" for entry in memory)
+
+
+def _is_no_tool_call_step_failure(*, error: str) -> bool:
+    """Return whether a step failed only because no tool call occurred."""
+    return "Generated code must call at least one tool." in error
 
 
 def _failure_result(

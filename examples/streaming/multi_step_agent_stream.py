@@ -1,7 +1,8 @@
 """Runnable streaming example showing one ``MultiStepAgent`` lifecycle."""
 
-import design_research_agents
 from _streaming_support import SequenceResponseLLMClient, print_stream_event
+
+import design_research_agents
 
 
 def main() -> None:
@@ -23,9 +24,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        input={
-            "prompt": "Compute 6 * 7, then provide a short summary.",
-        },
+        input="Compute 6 * 7, then provide a short summary.",
         request_id="example-multi-step-agent-stream-001",
     ):
         print_stream_event(event)

@@ -1,8 +1,8 @@
 """LLM configuration and backend entrypoints for the package runtime.
 
 This module owns process-wide backend configuration, default model resolution,
-and convenience completion helpers. It acts as the bridge between high-level
-agent code and backend-specific implementations.
+and backend routing helpers. It acts as the bridge between high-level agent
+code and backend-specific implementations.
 """
 
 from __future__ import annotations
@@ -11,20 +11,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .backends.adapters import OpenAIBackendConfig
-from .backends.echo_test_backend import complete as echo_test_complete
 from .backends.llama_cpp_server import (
     LlamaCppServerBackend,
 )
 from .backends.llama_cpp_server import (
     create_backend as create_llama_cpp_server_backend,
 )
-from .backends.openai import complete as openai_complete
 from .backends.types import BackendName, parse_backend
 from .base_client import BaseLLMClient
 
 __all__ = [
     "BaseLLMClient",
-    "complete",
     "configure_llama_cpp_server",
     "configure_openai",
     "parse_backend",
@@ -211,44 +208,3 @@ def resolve_default_model(*, backend: BackendName | None = None) -> str:
     if selected_backend == "echo-test":
         return "echo-test-model"
     raise ValueError(f"Unsupported backend '{selected_backend}'.")
-
-
-def complete(prompt: str, backend: BackendName | None = None) -> str:
-    """Generate text with the selected backend.
-
-    Args:
-        prompt: Prompt text sent to the selected backend.
-        backend: Optional backend name override. Uses configured active backend when omitted.
-
-    Returns:
-        Generated response text from the selected backend.
-
-    Raises:
-        RuntimeError: If the selected backend is missing required setup.
-        ValueError: If ``backend`` is not supported.
-    """
-    # Normalizes user/CLI input and validates supported names.
-    selected_backend = _active_backend if backend is None else parse_backend(backend)
-    if selected_backend == "echo-test":
-        return echo_test_complete(prompt)
-    if selected_backend == "openai":
-        # Standard hosted provider call path.
-        return openai_complete(
-            prompt,
-            model=_openai_config.model,
-            api_key_env=_openai_config.api_key_env,
-            api_key=_openai_config.api_key,
-            base_url=_openai_config.base_url,
-            require_api_key=_openai_config.require_api_key,
-        )
-    if selected_backend == "llama-cpp-server":
-        if _llama_cpp_backend is None:
-            raise RuntimeError(
-                "llama-cpp-server backend is not configured. "
-                "Call configure_llama_cpp_server(model=...) before use."
-            )
-        # Delegate completion to the process-managed wrapper.
-        return _llama_cpp_backend.complete(prompt)
-
-    # Keep an explicit guard for mypy/pyright exhaustiveness.
-    raise ValueError(f"Unsupported backend '{backend}'.")

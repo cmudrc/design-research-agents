@@ -28,21 +28,21 @@ Run additional contract-focused examples:
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/router_agent.py
-   PYTHONPATH=src python3 examples/direct_llm_agent.py
-   PYTHONPATH=src python3 examples/tool_calling_agent.py
-   PYTHONPATH=src python3 examples/single_step_code_agent.py
-   PYTHONPATH=src python3 examples/multi_step_agent.py
+   PYTHONPATH=src python3 examples/basic/router_agent.py
+   PYTHONPATH=src python3 examples/basic/direct_llm_agent.py
+   PYTHONPATH=src python3 examples/basic/tool_calling_agent.py
+   PYTHONPATH=src python3 examples/basic/single_step_code_agent.py
+   PYTHONPATH=src python3 examples/basic/multi_step_agent.py
 
 Run additional streaming examples:
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/direct_llm_agent_stream.py
-   PYTHONPATH=src python3 examples/router_agent_stream.py
-   PYTHONPATH=src python3 examples/tool_calling_agent_stream.py
-   PYTHONPATH=src python3 examples/single_step_code_agent_stream.py
-   PYTHONPATH=src python3 examples/multi_step_agent_stream.py
+   PYTHONPATH=src python3 examples/streaming/direct_llm_agent_stream.py
+   PYTHONPATH=src python3 examples/streaming/router_agent_stream.py
+   PYTHONPATH=src python3 examples/streaming/tool_calling_agent_stream.py
+   PYTHONPATH=src python3 examples/streaming/single_step_code_agent_stream.py
+   PYTHONPATH=src python3 examples/streaming/multi_step_agent_stream.py
 
 These streaming examples use deterministic in-script LLM stubs and do not need
 an external model backend.
@@ -51,14 +51,20 @@ Use the llama-cpp backend directly:
 
 .. code-block:: python
 
-   from design_research_agents import complete, configure_llama_cpp_server
+   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents.llm import BaseLLMClient
 
-   configure_llama_cpp_server(
+   llm_client = BaseLLMClient.from_llama_cpp_server(
        model="tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
        hf_model_repo_id="TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
        api_model="tinyllama-q4-example",
    )
-   text = complete("Hello")
+   response = llm_client.chat(
+       messages=[LLMMessage(role="user", content="Hello")],
+       model=llm_client.default_model(),
+       params=LLMChatParams(),
+   )
+   text = response.text
 
 For contribution workflow and PR expectations, see ``CONTRIBUTING.md`` in the
 repository root.

@@ -10,7 +10,12 @@ from urllib.error import HTTPError
 
 import pytest
 
-from design_research_agents import complete
+from design_research_agents.contracts.llm import (
+    LLMAuthError,
+    LLMChatParams,
+    LLMInvalidRequestError,
+    LLMMessage,
+)
 from design_research_agents.llm import (
     BaseLLMClient,
     configure_llama_cpp_server,
@@ -18,9 +23,6 @@ from design_research_agents.llm import (
     parse_backend,
     resolve_default_model,
     shutdown_llama_cpp_server,
-)
-from design_research_agents.llm import (
-    complete as llm_complete,
 )
 from design_research_agents.llm.backends.llama_cpp_server import (
     LlamaCppServerBackend,
@@ -31,9 +33,20 @@ from design_research_agents.llm.backends.llama_cpp_server import (
 from design_research_agents.llm.backends.openai import OpenAIBackend
 
 
+def _chat_complete(prompt: str, backend: str | None = None) -> str:
+    """Generate text through BaseLLMClient using default model resolution."""
+    llm_client = BaseLLMClient(backend=backend)
+    response = llm_client.chat(
+        messages=[LLMMessage(role="user", content=prompt)],
+        model=resolve_default_model(backend=backend),
+        params=LLMChatParams(),
+    )
+    return response.text
+
+
 def test_echo_test_backend_completion() -> None:
     # Echo-test backend is deterministic and should echo a normalized prompt.
-    result = complete("Hello from tests", backend="echo-test")
+    result = _chat_complete("Hello from tests", backend="echo-test")
     assert result.startswith("[echo-test]")
     assert "Hello from tests" in result
 
@@ -41,7 +54,7 @@ def test_echo_test_backend_completion() -> None:
 def test_unknown_backend_raises_value_error() -> None:
     # Unknown backend names should fail fast with a clear validation error.
     with pytest.raises(ValueError):
-        llm_complete("hello", backend="does-not-exist")
+        _chat_complete("hello", backend="does-not-exist")
 
 
 def test_backend_name_parsing() -> None:
@@ -62,8 +75,8 @@ def test_openai_backend_requires_key(monkeypatch: pytest.MonkeyPatch) -> None:
         require_api_key=True,
     )
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(RuntimeError):
-        llm_complete("hello", backend="openai")
+    with pytest.raises(LLMAuthError):
+        _chat_complete("hello", backend="openai")
 
 
 def test_openai_backend_uses_chat_fallback_for_compatible_servers(
@@ -206,16 +219,16 @@ def test_openai_backend_skips_chat_fallback_for_unrelated_404(
 def test_llama_backend_requires_configuration() -> None:
     # The managed llama server must be configured before it can be used.
     shutdown_llama_cpp_server()
-    with pytest.raises(RuntimeError):
-        llm_complete("hello", backend="llama-cpp-server")
+    with pytest.raises(LLMInvalidRequestError):
+        _chat_complete("hello", backend="llama-cpp-server")
 
 
 def test_default_backend_is_llama_cpp_server() -> None:
     # The package default backend now routes through the managed llama-cpp server.
     configure_llama_cpp_server(model="/tmp/default-backend-check.gguf")
     shutdown_llama_cpp_server()
-    with pytest.raises(RuntimeError):
-        complete("hello")
+    with pytest.raises(LLMInvalidRequestError):
+        _chat_complete("hello")
 
 
 def test_resolve_default_model_uses_llama_api_model() -> None:
@@ -417,7 +430,10 @@ def test_configure_openai_updates_default_call_kwargs(
         captured.update(kwargs)
         return "ok"
 
-    monkeypatch.setattr("design_research_agents.llm.openai_complete", fake_openai_complete)
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.adapters.openai_complete",
+        fake_openai_complete,
+    )
 
     configure_openai(
         model="gpt-test",
@@ -427,8 +443,8 @@ def test_configure_openai_updates_default_call_kwargs(
         require_api_key=False,
     )
 
-    assert llm_complete("hello", backend="openai") == "ok"
-    assert captured["prompt"] == "hello"
+    assert _chat_complete("hello", backend="openai") == "ok"
+    assert captured["prompt"] == "user: hello"
     assert captured["model"] == "gpt-test"
     assert captured["api_key_env"] == "ALT_OPENAI_API_KEY"
     assert captured["api_key"] == "explicit-key"
@@ -458,7 +474,10 @@ def test_configure_openai_sets_active_backend_for_default_complete(
         captured.update(kwargs)
         return "ok-default-openai"
 
-    monkeypatch.setattr("design_research_agents.llm.openai_complete", fake_openai_complete)
+    monkeypatch.setattr(
+        "design_research_agents.llm.backends.adapters.openai_complete",
+        fake_openai_complete,
+    )
 
     configure_openai(
         model="gpt-default-route",
@@ -468,8 +487,8 @@ def test_configure_openai_sets_active_backend_for_default_complete(
         require_api_key=False,
     )
 
-    assert llm_complete("hello without backend") == "ok-default-openai"
-    assert captured["prompt"] == "hello without backend"
+    assert _chat_complete("hello without backend") == "ok-default-openai"
+    assert captured["prompt"] == "user: hello without backend"
     assert captured["model"] == "gpt-default-route"
 
     # Reset to project defaults and active llama backend for deterministic follow-up tests.

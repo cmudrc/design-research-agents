@@ -2,7 +2,7 @@
 
 This module deliberately exposes a compact and stable surface that combines:
 - core agent implementations,
-- default llama-cpp completion/configuration entrypoints, and
+- default llama-cpp configuration/client entrypoints, and
 - default tool runtime primitives.
 
 Callers can import from this module when they want a single entrypoint that
@@ -20,7 +20,7 @@ from .agent import (
     SingleStepCodeAgent,
     ToolCallingAgent,
 )
-from .llm import complete, configure_llama_cpp_server
+from .llm import configure_llama_cpp_server
 from .llm.backends.default import create_default_llm_client
 from .tools import BaseToolRuntime
 
@@ -36,7 +36,6 @@ __all__ = [
     "SingleStepCodeAgent",
     "ToolCallingAgent",
     "__version__",
-    "complete",
     "configure_llama_cpp_server",
     "create_default_llm_client",
 ]

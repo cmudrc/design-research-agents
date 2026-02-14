@@ -1,7 +1,8 @@
 """Runnable streaming example showing one ``SingleStepCodeAgent`` execution."""
 
-import design_research_agents
 from _streaming_support import StaticResponseLLMClient, print_stream_event
+
+import design_research_agents
 
 
 def main() -> None:
@@ -21,9 +22,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        input={
-            "prompt": "Calculate 12 * (4 + 1) and return the result.",
-        },
+        input="Calculate 12 * (4 + 1) and return the result.",
         request_id="example-single-step-code-agent-stream-001",
     ):
         print_stream_event(event)

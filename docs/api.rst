@@ -6,6 +6,7 @@ Package entrypoint:
 .. automodule:: design_research_agents
    :members:
    :undoc-members:
+   :exclude-members: BaseToolRuntime, DirectLLMAgent, MultiStepAgent, RouterAgent, SingleStepCodeAgent, ToolCallingAgent
 
 Core contracts:
 

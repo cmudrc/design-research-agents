@@ -3,6 +3,7 @@
 # This file configures how Sphinx builds the docs in `docs/`.
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -45,3 +46,25 @@ else:
         html_theme = "alabaster"
 
 html_static_path = ["_static"]
+
+
+_VIEWPORT_META_RE = re.compile(r'<meta name="viewport"[^>]*>', re.IGNORECASE)
+
+
+def _dedupe_viewport_meta(
+    app: object,
+    pagename: str,
+    templatename: str,
+    context: dict[str, object],
+    doctree: object,
+) -> None:
+    """Keep one viewport tag by removing extra entries from Sphinx metatags."""
+    del app, pagename, templatename, doctree
+    metatags = context.get("metatags")
+    if isinstance(metatags, str):
+        context["metatags"] = _VIEWPORT_META_RE.sub("", metatags)
+
+
+def setup(app: object) -> None:
+    """Register build-time hooks."""
+    app.connect("html-page-context", _dedupe_viewport_meta)

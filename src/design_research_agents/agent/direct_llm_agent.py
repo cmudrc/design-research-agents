@@ -36,10 +36,9 @@ from design_research_agents.contracts.llm import (
 class DirectLLMAgent(Agent):
     """Agent that performs one direct model call with no tool runtime.
 
-    Input supports either:
-    - ``messages``: list of chat-message objects with ``role`` and ``content``, or
-    - ``prompt``/``text``: converted into one user message (plus optional
-      ``system_prompt``).
+    Input accepts either ``messages`` (chat-message objects with ``role`` and
+    ``content``) or ``prompt``/``text`` (converted into one user message, plus
+    optional ``system_prompt``).
     """
 
     def __init__(

@@ -18,21 +18,21 @@ make run-example
 Run additional basic examples:
 
 ```bash
-PYTHONPATH=src python3 examples/router_agent.py
-PYTHONPATH=src python3 examples/direct_llm_agent.py
-PYTHONPATH=src python3 examples/tool_calling_agent.py
-PYTHONPATH=src python3 examples/single_step_code_agent.py
-PYTHONPATH=src python3 examples/multi_step_agent.py
+PYTHONPATH=src python3 examples/basic/router_agent.py
+PYTHONPATH=src python3 examples/basic/direct_llm_agent.py
+PYTHONPATH=src python3 examples/basic/tool_calling_agent.py
+PYTHONPATH=src python3 examples/basic/single_step_code_agent.py
+PYTHONPATH=src python3 examples/basic/multi_step_agent.py
 ```
 
 Run additional streaming examples:
 
 ```bash
-PYTHONPATH=src python3 examples/direct_llm_agent_stream.py
-PYTHONPATH=src python3 examples/router_agent_stream.py
-PYTHONPATH=src python3 examples/tool_calling_agent_stream.py
-PYTHONPATH=src python3 examples/single_step_code_agent_stream.py
-PYTHONPATH=src python3 examples/multi_step_agent_stream.py
+PYTHONPATH=src python3 examples/streaming/direct_llm_agent_stream.py
+PYTHONPATH=src python3 examples/streaming/router_agent_stream.py
+PYTHONPATH=src python3 examples/streaming/tool_calling_agent_stream.py
+PYTHONPATH=src python3 examples/streaming/single_step_code_agent_stream.py
+PYTHONPATH=src python3 examples/streaming/multi_step_agent_stream.py
 ```
 
 These streaming examples use deterministic in-script LLM stubs and do not
