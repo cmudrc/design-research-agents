@@ -108,7 +108,7 @@ class LlamaCppServerBackend:
 
         if spec is None:
             raise RuntimeError(
-                "llama-cpp server dependency is missing. " "Install with: pip install -e '.[local]'"
+                "llama-cpp server dependency is missing. Install with: pip install -e '.[local]'"
             )
 
         if self.hf_model_repo_id and find_spec("huggingface_hub") is None:
