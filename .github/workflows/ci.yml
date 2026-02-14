@@ -28,8 +28,10 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        # Centralized install path used by local development too.
-        run: make install
+        # CI uses lint/type/test deps only; local llama-cpp install is skipped.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
       - name: Run checks
         # Lint, format check, typing, and tests.
