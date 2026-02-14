@@ -1,4 +1,8 @@
-"""Wrapper backend that manages a local llama-cpp OpenAI-compatible server."""
+"""Managed backend for running a local ``llama_cpp.server`` process.
+
+The backend handles server lifecycle, readiness polling, and compatibility
+delegation to the OpenAI-style client wrapper used by the rest of the package.
+"""
 
 from __future__ import annotations
 
@@ -66,11 +70,17 @@ class LlamaCppServerBackend:
 
     @property
     def base_url(self) -> str:
-        """Return the OpenAI-compatible base URL for this server."""
+        """Return OpenAI-compatible API base URL exposed by this server.
+
+        This URL is used for readiness checks and delegated completion calls.
+        """
         return f"http://{self.host}:{self.port}/v1"
 
     def _build_command(self) -> list[str]:
-        """Build the llama-cpp server startup command."""
+        """Build startup command used to launch ``llama_cpp.server``.
+
+        Includes model aliasing and optional Hugging Face repository arguments.
+        """
         # Launch the packaged server module so config stays Python-environment local.
         command = [
             self.python_executable,
@@ -92,7 +102,10 @@ class LlamaCppServerBackend:
         return command
 
     def is_running(self) -> bool:
-        """Return whether the managed server process is currently alive."""
+        """Return whether managed server subprocess is currently alive.
+
+        A process is considered alive when the handle exists and has not exited.
+        """
         return self._process is not None and self._process.poll() is None
 
     def _ensure_server_dependency(self) -> None:
@@ -250,7 +263,11 @@ class LlamaCppServerBackend:
         )
 
     def close(self) -> None:
-        """Stop the managed server process if running."""
+        """Stop the managed server process if running.
+
+        Shutdown first attempts a graceful terminate/wait sequence and escalates
+        to kill only when termination does not complete within timeout.
+        """
         process = self._process
         if process is None:
             return

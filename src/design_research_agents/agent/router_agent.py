@@ -1,4 +1,9 @@
-"""Router agent implementation that selects one tool alternative per request."""
+"""Router agent implementation that selects one tool alternative per request.
+
+The router asks the model to choose a route from runtime-backed alternatives,
+requires a structured route payload, executes the selected tool, and returns
+both model and tool artifacts in a single ``AgentResult``.
+"""
 
 from __future__ import annotations
 
@@ -7,30 +12,69 @@ import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
+from design_research_agents.agent._model_resolution import resolve_agent_model
+from design_research_agents.agent._prompt_alternatives import (
+    append_alternatives_block,
+    build_user_prompt_alternatives_block,
+    resolve_alternatives_prompt_target,
+)
+from design_research_agents.agent._response_schemas import (
+    build_router_selection_response_schema,
+    clone_response_schema,
+)
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
-from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage
-from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.contracts.llm import (
+    LLMChatParams,
+    LLMClient,
+    LLMMessage,
+    LLMResponse,
+)
+from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
+from design_research_agents.prompts import load_prompt, render_prompt
 
 
 @dataclass(slots=True, frozen=True)
 class _ToolAlternative:
-    """Normalized tool route candidate."""
+    """Normalized candidate route used by routing prompt and validation logic.
+
+    Attributes:
+        tool_name: Runtime tool identifier that can be invoked.
+        description: Human-readable routing description for model planning.
+        input_schema: JSON-schema-like shape expected by the tool.
+    """
 
     tool_name: str
     description: str
-    tool_input: dict[str, object] | None = None
-    keywords: tuple[str, ...] = ()
+    input_schema: dict[str, object]
+
+
+@dataclass(slots=True, frozen=True)
+class _ParsedRoute:
+    """Parsed model payload describing a discrete route selection.
+
+    Attributes:
+        selection: Selected route identifier (index or tool name).
+        reason: Optional model-provided rationale for the route decision.
+    """
+
+    selection: int | str
+    reason: str | None
 
 
 class RouterAgent(Agent):
-    """Agent that routes one request to one selected tool alternative."""
+    """Agent that routes one request to one selected tool alternative.
+
+    The agent compiles alternatives from tool runtime specs, prompts the model
+    for a strict JSON route selection, and executes the selected tool only when
+    the model output is valid.
+    """
 
     def __init__(
         self,
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
         default_tool_name: str = "text_stats_tool",
     ) -> None:
         """Initialize a router agent with injected runtime dependencies.
@@ -38,56 +82,108 @@ class RouterAgent(Agent):
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
-            model: Default model name used for LLM calls.
+            model: Optional model override applied when ``input['model']`` is absent.
             default_tool_name: Fallback tool used when no alternatives are supplied.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._model = model
         self._default_tool_name = default_tool_name
-
-    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
-        """Run one model call and one routed tool invocation."""
-        prompt = _extract_prompt(input)
-        response_schema = _extract_response_schema(input)
-        alternatives = _extract_alternatives(
-            input_payload=input,
+        self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
+        self._compiled_runtime_alternatives = _compile_runtime_alternatives(
+            tool_specs=self._runtime_specs
+        )
+        self._default_alternatives = _extract_alternatives(
+            runtime_specs=self._runtime_specs,
+            compiled_runtime_alternatives=self._compiled_runtime_alternatives,
             default_tool_name=self._default_tool_name,
         )
-        selected_alternative, selected_index, selected_reason, scored_routes = _route_alternative(
-            prompt=prompt,
-            alternatives=alternatives,
+        self._default_route_response_schema = _route_response_schema(
+            alternatives=self._default_alternatives,
         )
 
+    def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
+        """Run one model route-selection call and one routed tool invocation.
+
+        Invalid model routing output is treated as a hard failure result instead
+        of triggering deterministic routing fallbacks.
+        """
+        prompt = _extract_prompt(input)
+        resolved_model = resolve_agent_model(
+            llm_client=self._llm_client,
+            input_payload=input,
+            init_model=self._model,
+        )
+        alternatives = [
+            _clone_alternative(alternative) for alternative in self._default_alternatives
+        ]
+        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
+        routes_text = _build_routes_text(alternatives=alternatives)
+        routes_block = build_user_prompt_alternatives_block(
+            section_label="Available routes",
+            alternatives_text=routes_text,
+            target=alternatives_prompt_target,
+        )
+        user_prompt = _build_route_prompt(prompt=prompt, routes_block=routes_block)
+        system_prompt = load_prompt("router_system")
+        if alternatives_prompt_target == "system":
+            system_prompt = append_alternatives_block(
+                prompt_text=system_prompt,
+                section_label="Available routes",
+                alternatives_text=routes_text,
+            )
+
         llm_params = LLMChatParams(
-            response_schema=response_schema,
-            provider_options={"agent": "RouterAgent"},
+            response_schema=clone_response_schema(self._default_route_response_schema),
+            provider_options={"agent": "RouterAgent", "phase": "route_select"},
         )
         messages = [
             LLMMessage(
                 role="system",
-                content=(
-                    "You are a practical routing assistant. "
-                    "Answer directly and avoid repeating prompt or schema text."
-                ),
+                content=system_prompt,
             ),
-            LLMMessage(role="user", content=prompt),
+            LLMMessage(
+                role="user",
+                content=user_prompt,
+            ),
         ]
-        llm_response = self._llm_client.chat(messages, model=self._model, params=llm_params)
+        llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
+        parsed_route = _parse_route_response(llm_response.text)
 
+        route_resolution = _resolve_model_route(
+            parsed_route=parsed_route,
+            alternatives=alternatives,
+        )
+        if route_resolution is None:
+            return _routing_failure_result(
+                error=(
+                    "Router model output was invalid. "
+                    "Expected JSON with one valid discrete route `selection`."
+                ),
+                llm_response=llm_response,
+                context=context,
+                alternatives=alternatives,
+                parsed_route=parsed_route,
+            )
+        selected_alternative, selected_index, selected_reason = route_resolution
+
+        model_text = llm_response.text
         tool_input = _resolve_tool_input(
             tool_name=selected_alternative.tool_name,
-            explicit_tool_input=selected_alternative.tool_input,
             input_payload=input,
             context=context,
-            llm_response_text=llm_response.text,
         )
         tool_result = self._tool_runtime.invoke(selected_alternative.tool_name, tool_input, context)
 
         output: dict[str, object] = {
-            "model_text": llm_response.text,
+            "model_text": model_text,
+            "model_response": {
+                "selection": parsed_route.selection if parsed_route is not None else None,
+                "reason": parsed_route.reason if parsed_route is not None else None,
+            },
             "tool_name": selected_alternative.tool_name,
             "selected_alternative_index": selected_index,
+            "tool_input": tool_input,
             "tool_output": tool_result.output,
         }
         return AgentResult(
@@ -98,11 +194,19 @@ class RouterAgent(Agent):
             metadata={
                 "context_keys": sorted(context.keys()),
                 "routing": {
+                    "source": "model",
                     "alternatives": [candidate.tool_name for candidate in alternatives],
                     "selected_tool_name": selected_alternative.tool_name,
                     "selected_alternative_index": selected_index,
                     "selected_reason": selected_reason,
-                    "scored_routes": scored_routes,
+                    "parsed_route": (
+                        {
+                            "selection": parsed_route.selection,
+                            "reason": parsed_route.reason,
+                        }
+                        if parsed_route is not None
+                        else None
+                    ),
                 },
             },
         )
@@ -112,174 +216,288 @@ class RouterAgent(Agent):
         input: Mapping[str, object],
         context: Mapping[str, object],
     ) -> Iterator[AgentStreamEvent]:
-        """Stream a deterministic event pair around ``run``."""
+        """Emit a deterministic stream wrapper around ``run``.
+
+        The wrapper currently emits one full-text delta event followed by a
+        completion event that carries the full ``AgentResult`` payload.
+        """
         result = self.run(input, context)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
 
 
+def _routing_failure_result(
+    *,
+    error: str,
+    llm_response: LLMResponse,
+    context: Mapping[str, object],
+    alternatives: Sequence[_ToolAlternative],
+    parsed_route: _ParsedRoute | None,
+) -> AgentResult:
+    """Build a structured failure result for invalid/incomplete model routing.
+
+    The returned payload preserves routing metadata and parsed model artifacts
+    so callers can inspect why route validation failed.
+    """
+    output: dict[str, object] = {
+        "error": error,
+        "model_text": llm_response.text,
+        "model_response": {},
+        "tool_name": None,
+        "selected_alternative_index": None,
+        "tool_input": {},
+        "tool_output": {},
+    }
+    return AgentResult(
+        output=output,
+        success=False,
+        tool_results=[],
+        model_response=llm_response,
+        metadata={
+            "context_keys": sorted(context.keys()),
+            "stage": "routing",
+            "routing": {
+                "source": "model_invalid",
+                "alternatives": [candidate.tool_name for candidate in alternatives],
+                "parsed_route": (
+                    {
+                        "selection": parsed_route.selection,
+                        "reason": parsed_route.reason,
+                    }
+                    if parsed_route is not None
+                    else None
+                ),
+            },
+        },
+    )
+
+
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from the input payload."""
+    """Extract request prompt text from input payload.
+
+    Falls back to ``text`` and then a stable default message when no explicit
+    prompt is supplied.
+    """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
     )
     return str(raw_prompt)
 
 
-def _extract_response_schema(
-    input_payload: Mapping[str, object],
-) -> dict[str, object] | None:
-    """Extract an optional response schema from input payload."""
-    raw_schema = input_payload.get("response_schema")
-    if isinstance(raw_schema, dict):
-        return dict(raw_schema)
-    return None
-
-
 def _extract_alternatives(
     *,
-    input_payload: Mapping[str, object],
+    runtime_specs: Mapping[str, ToolSpec],
+    compiled_runtime_alternatives: Sequence[_ToolAlternative],
     default_tool_name: str,
 ) -> list[_ToolAlternative]:
-    """Extract normalized routing alternatives from input payload."""
-    raw_alternatives = input_payload.get("alternatives")
-    normalized: list[_ToolAlternative] = []
-    if isinstance(raw_alternatives, Sequence) and not isinstance(raw_alternatives, (str, bytes)):
-        for raw_alternative in raw_alternatives:
-            if not isinstance(raw_alternative, Mapping):
-                continue
-            raw_tool_name = raw_alternative.get("tool_name", raw_alternative.get("name"))
-            if not isinstance(raw_tool_name, str):
-                continue
-            tool_name = raw_tool_name.strip()
-            if not tool_name:
-                continue
-            raw_description = raw_alternative.get("description", "")
-            raw_tool_input = raw_alternative.get("tool_input")
-            normalized.append(
-                _ToolAlternative(
-                    tool_name=tool_name,
-                    description=str(raw_description),
-                    tool_input=(
-                        dict(raw_tool_input) if isinstance(raw_tool_input, Mapping) else None
-                    ),
-                    keywords=_extract_keywords(raw_alternative.get("keywords")),
-                )
-            )
+    """Return routing alternatives compiled from runtime tool specifications."""
+    if compiled_runtime_alternatives:
+        return [_clone_alternative(alternative) for alternative in compiled_runtime_alternatives]
 
-    if normalized:
-        return normalized
-
-    # Keep direct ``tool_name`` support to avoid breaking older callers.
-    legacy_tool_name = input_payload.get("tool_name")
-    if isinstance(legacy_tool_name, str) and legacy_tool_name.strip():
-        return [
-            _ToolAlternative(
-                tool_name=legacy_tool_name.strip(),
-                description="Legacy direct tool route.",
-                tool_input=_coerce_tool_input(input_payload.get("tool_input")),
-            )
-        ]
-
+    default_runtime_spec = runtime_specs.get(default_tool_name)
     return [
         _ToolAlternative(
             tool_name=default_tool_name,
-            description="Default fallback route.",
-            tool_input=_coerce_tool_input(input_payload.get("tool_input")),
+            description=(
+                default_runtime_spec.description
+                if default_runtime_spec is not None
+                else "Default fallback route."
+            ),
+            input_schema=(
+                dict(default_runtime_spec.input_schema)
+                if default_runtime_spec is not None
+                else {"type": "object"}
+            ),
         )
     ]
 
 
-def _extract_keywords(raw_keywords: object) -> tuple[str, ...]:
-    """Normalize keyword hints for one alternative."""
-    if not isinstance(raw_keywords, Sequence) or isinstance(raw_keywords, (str, bytes)):
-        return ()
-    normalized: list[str] = []
-    for raw_keyword in raw_keywords:
-        if not isinstance(raw_keyword, str):
-            continue
-        keyword = raw_keyword.strip().lower()
-        if keyword:
-            normalized.append(keyword)
-    return tuple(normalized)
+def _clone_alternative(alternative: _ToolAlternative) -> _ToolAlternative:
+    """Clone one alternative to keep run-level payload mutations isolated."""
+    return _ToolAlternative(
+        tool_name=alternative.tool_name,
+        description=alternative.description,
+        input_schema=dict(alternative.input_schema),
+    )
 
 
-def _coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
-    """Normalize optional tool input into a plain dictionary."""
-    if isinstance(raw_tool_input, Mapping):
-        return dict(raw_tool_input)
-    return None
+def _compile_runtime_alternatives(
+    *,
+    tool_specs: Mapping[str, ToolSpec],
+) -> tuple[_ToolAlternative, ...]:
+    """Compile default routing alternatives directly from runtime tool specs.
+
+    Compiled alternatives are cached at initialization and cloned per run.
+    """
+    return tuple(
+        _ToolAlternative(
+            tool_name=spec.name,
+            description=spec.description,
+            input_schema=dict(spec.input_schema),
+        )
+        for spec in tool_specs.values()
+    )
 
 
-def _route_alternative(
+def _build_route_prompt(
     *,
     prompt: str,
+    routes_block: str,
+) -> str:
+    """Build the route-selection user prompt consumed by the model."""
+    return render_prompt(
+        "router_user_route",
+        variables={
+            "routes_block": routes_block,
+            "user_prompt": prompt,
+        },
+    )
+
+
+def _build_routes_text(
+    *,
     alternatives: Sequence[_ToolAlternative],
-) -> tuple[_ToolAlternative, int, str, list[dict[str, object]]]:
-    """Choose one alternative based on prompt/alternative overlap signals."""
-    prompt_text = prompt.lower()
-    prompt_tokens = _tokenize(prompt_text)
-    prompt_looks_math = _looks_like_arithmetic_request(prompt_text)
-    prompt_looks_text = _looks_like_text_analysis_request(prompt_text)
-
-    selected_index = 0
-    best_score = -1
-    selected_reason = "fallback"
-    scored_routes: list[dict[str, object]] = []
+) -> str:
+    """Build formatted runtime route alternatives text."""
+    route_lines: list[str] = []
     for index, alternative in enumerate(alternatives):
-        searchable = " ".join(
-            [alternative.tool_name, alternative.description, *alternative.keywords]
-        ).lower()
-        route_tokens = _tokenize(searchable)
-        score = len(prompt_tokens.intersection(route_tokens))
-        reason_parts: list[str] = []
-        if score > 0:
-            reason_parts.append(f"token-overlap:{score}")
-        if prompt_looks_math and _looks_like_arithmetic_tool(searchable):
-            score += 5
-            reason_parts.append("math-signal")
-        if prompt_looks_text and _looks_like_text_tool(searchable):
-            score += 5
-            reason_parts.append("text-signal")
-
-        reason = ", ".join(reason_parts) if reason_parts else "fallback"
-        scored_routes.append(
-            {
-                "tool_name": alternative.tool_name,
-                "score": score,
-                "reason": reason,
-            }
+        route_lines.append(
+            "\n".join(
+                [
+                    f"- selection_index: {index}",
+                    f"  tool_name: {alternative.tool_name}",
+                    f"  description: {alternative.description or '(none)'}",
+                    f"  input_schema: {json.dumps(alternative.input_schema, sort_keys=True)}",
+                ]
+            )
         )
-        if score > best_score:
-            selected_index = index
-            best_score = score
-            selected_reason = reason
+    return "\n".join(route_lines)
 
-    return alternatives[selected_index], selected_index, selected_reason, scored_routes
+
+def _route_response_schema(
+    *,
+    alternatives: Sequence[_ToolAlternative],
+) -> dict[str, object]:
+    """Build route-selection schema from runtime-derived alternatives."""
+    return build_router_selection_response_schema(
+        alternative_identifiers=[alternative.tool_name for alternative in alternatives]
+    )
+
+
+def _parse_route_response(raw_text: str) -> _ParsedRoute | None:
+    """Parse model route JSON payload from raw text output.
+
+    The parser accepts either strict-JSON responses or JSON objects embedded in
+    surrounding text.
+    """
+    parsed = _load_json_mapping(raw_text)
+    if parsed is None:
+        # Allow extra surrounding text by scanning for the first JSON object.
+        decoder = json.JSONDecoder()
+        for index, character in enumerate(raw_text):
+            if character != "{":
+                continue
+            try:
+                value, _ = decoder.raw_decode(raw_text[index:])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, Mapping):
+                parsed = dict(value)
+                break
+
+    if parsed is None:
+        return None
+
+    raw_selection = parsed.get(
+        "selection",
+        parsed.get(
+            "selected_alternative_index",
+            parsed.get("tool_name", parsed.get("name")),
+        ),
+    )
+    if not isinstance(raw_selection, (int, str)):
+        return None
+    if isinstance(raw_selection, int):
+        selection: int | str = raw_selection
+    else:
+        normalized_selection = raw_selection.strip()
+        if not normalized_selection:
+            return None
+        selection = normalized_selection
+
+    return _ParsedRoute(
+        selection=selection,
+        reason=(
+            str(parsed["reason"]) if "reason" in parsed and parsed["reason"] is not None else None
+        ),
+    )
+
+
+def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
+    """Load text as a JSON object mapping.
+
+    Returns ``None`` when the text is invalid JSON or not an object.
+    """
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    return dict(payload)
+
+
+def _resolve_model_route(
+    *,
+    parsed_route: _ParsedRoute | None,
+    alternatives: Sequence[_ToolAlternative],
+) -> tuple[_ToolAlternative, int, str] | None:
+    """Resolve and validate model-selected route against available alternatives.
+
+    Supports both integer index selections and string tool-name identifiers.
+    """
+    if parsed_route is None:
+        return None
+
+    if isinstance(parsed_route.selection, int):
+        selected_index = parsed_route.selection
+        if 0 <= selected_index < len(alternatives):
+            selected_alternative = alternatives[selected_index]
+            return (
+                selected_alternative,
+                selected_index,
+                parsed_route.reason or "validated model selection index",
+            )
+        return None
+
+    selected_identifier = parsed_route.selection
+    for index, alternative in enumerate(alternatives):
+        if alternative.tool_name != selected_identifier:
+            continue
+        return alternative, index, (parsed_route.reason or "validated model selection identifier")
+
+    return None
 
 
 def _resolve_tool_input(
     *,
     tool_name: str,
-    explicit_tool_input: Mapping[str, object] | None,
     input_payload: Mapping[str, object],
     context: Mapping[str, object],
-    llm_response_text: str,
 ) -> dict[str, object]:
-    """Resolve tool input from explicit payload or inferred defaults."""
-    if explicit_tool_input is not None:
-        return dict(explicit_tool_input)
-
+    """Resolve tool input from run payload and tool-specific heuristics."""
     raw_tool_input = input_payload.get("tool_input")
     if isinstance(raw_tool_input, Mapping):
         return dict(raw_tool_input)
 
     if tool_name == "calculator_tool":
-        expression = input_payload.get(
-            "expression", input_payload.get("text", input_payload.get("prompt", ""))
+        prompt_text = str(input_payload.get("prompt", input_payload.get("text", "")))
+        expression = _infer_expression(
+            input_payload=input_payload,
+            prompt=prompt_text,
         )
-        return {"expression": str(expression)}
+        return {"expression": expression}
 
     if tool_name == "text_stats_tool":
         analysis_text = input_payload.get("analysis_text")
@@ -289,81 +507,27 @@ def _resolve_tool_input(
         if isinstance(raw_dependency_results, Mapping) and raw_dependency_results:
             dependency_text = json.dumps(dict(raw_dependency_results), sort_keys=True)
             return {"text": dependency_text}
-        return {"text": llm_response_text}
+        return {"text": _extract_prompt(input_payload)}
 
     return {}
 
 
-def _tokenize(text: str) -> set[str]:
-    """Tokenize text into normalized alphanumeric words."""
-    return {token for token in re.findall(r"[a-z0-9_]+", text) if token}
+def _infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:
+    """Infer calculator expression from payload fields and prompt text."""
+    explicit_expression = input_payload.get("expression")
+    if explicit_expression is not None:
+        return str(explicit_expression)
 
+    text_expression = input_payload.get("text")
+    if text_expression is not None:
+        text_value = str(text_expression)
+        if any(operator in text_value for operator in "+-*/%"):
+            return text_value
 
-def _looks_like_arithmetic_request(text: str) -> bool:
-    """Determine whether prompt text appears to request arithmetic."""
-    if re.search(r"\d+\s*[\+\-\*\/%]\s*\d+", text):
-        return True
-    math_keywords = {
-        "calculate",
-        "calculator",
-        "arithmetic",
-        "equation",
-        "expression",
-        "math",
-        "solve",
-        "sum",
-        "multiply",
-        "divide",
-        "compute",
-    }
-    return any(keyword in text for keyword in math_keywords)
+    match = re.search(r"(\(?-?\d[\d\s\.\+\-\*\/%\(\)]*\d\)?)", prompt)
+    if match is not None:
+        expression = match.group(1).strip()
+        if expression and any(operator in expression for operator in "+-*/%"):
+            return expression
 
-
-def _looks_like_text_analysis_request(text: str) -> bool:
-    """Determine whether prompt text appears to request text analysis."""
-    text_keywords = {
-        "text",
-        "word",
-        "words",
-        "line",
-        "lines",
-        "character",
-        "characters",
-        "count",
-        "stats",
-        "statistics",
-        "summary",
-        "summarize",
-    }
-    return any(keyword in text for keyword in text_keywords)
-
-
-def _looks_like_arithmetic_tool(text: str) -> bool:
-    """Determine whether alternative text represents an arithmetic tool."""
-    arithmetic_tool_keywords = {
-        "calc",
-        "calculator",
-        "math",
-        "arithmetic",
-        "expression",
-        "equation",
-        "compute",
-    }
-    return any(keyword in text for keyword in arithmetic_tool_keywords)
-
-
-def _looks_like_text_tool(text: str) -> bool:
-    """Determine whether alternative text represents a text-analysis tool."""
-    text_tool_keywords = {
-        "text",
-        "word",
-        "line",
-        "character",
-        "stats",
-        "statistics",
-        "summary",
-        "summarize",
-        "analy",
-        "count",
-    }
-    return any(keyword in text for keyword in text_tool_keywords)
+    return prompt

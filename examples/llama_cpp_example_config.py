@@ -1,4 +1,8 @@
-"""Shared hardcoded llama-cpp configuration for local example scripts."""
+"""Shared llama-cpp helpers used by local example scripts.
+
+Keeping example backend settings in one module ensures every runnable example
+uses the same model/server configuration with minimal boilerplate.
+"""
 
 import dataclasses
 
@@ -43,3 +47,15 @@ def configure_example_llama_backend() -> ExampleLlamaSettings:
         port=settings.port,
     )
     return settings
+
+
+def create_example_llm_client() -> design_research_agents.BaseLLMClient:
+    """Create an example client while applying local llama-cpp settings."""
+    settings = DEFAULT_LLAMA_SETTINGS
+    return design_research_agents.BaseLLMClient.from_llama_cpp_server(
+        model=settings.model,
+        hf_model_repo_id=settings.hf_model_repo_id,
+        api_model=settings.api_model,
+        host=settings.host,
+        port=settings.port,
+    )

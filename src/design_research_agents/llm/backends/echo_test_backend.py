@@ -1,4 +1,8 @@
-"""Echo-only backend used for local testing."""
+"""Deterministic echo backend used for tests and local smoke checks.
+
+This backend intentionally avoids any network or model dependency and returns
+normalized prompt echoes so higher-level behavior can be tested deterministically.
+"""
 
 from dataclasses import dataclass
 

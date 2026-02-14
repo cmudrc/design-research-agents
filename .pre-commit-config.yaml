@@ -1,20 +1,36 @@
 # Pre-commit configuration
 # - Runs formatting/linting/type-checking automatically on `git commit` (after `pre-commit install`).
+# - Runs tests on `git push` (after `pre-commit install --hook-type pre-push`).
 # - Run everything manually: `pre-commit run --all-files`
 # - Update pinned hook versions: `pre-commit autoupdate`
 
-repos:
-  # Basic whitespace and newline hygiene
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
+default_stages: [pre-commit]
 
-  # Mypy: run type checking over the whole src tree (not just changed files)
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.1
+repos:
+  # Delegate quality checks to Make targets so local hooks and CI stay aligned.
+  - repo: local
     hooks:
-      - id: mypy
-        args: [ src ]
-        pass_filenames: false  # run mypy once on src/, not per-file
+      - id: make-lint
+        name: make lint
+        entry: make lint
+        language: system
+        pass_filenames: false
+
+      - id: make-format-check
+        name: make format-check
+        entry: make format-check
+        language: system
+        pass_filenames: false
+
+      - id: make-typecheck
+        name: make typecheck
+        entry: make typecheck
+        language: system
+        pass_filenames: false
+
+      - id: make-test
+        name: make test
+        entry: make test
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

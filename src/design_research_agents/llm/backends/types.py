@@ -1,4 +1,8 @@
-"""Shared backend type definitions."""
+"""Shared backend type definitions and parsing helpers.
+
+The literal backend names in this module are reused for runtime validation,
+typed APIs, and CLI-facing backend selection.
+"""
 
 from __future__ import annotations
 
@@ -21,7 +25,7 @@ def parse_backend(value: str) -> BackendName:
         value: Backend name string.
 
     Returns:
-        Normalized backend name.
+        Normalized lowercase backend name validated against supported values.
 
     Raises:
         ValueError: If ``value`` does not map to a supported backend.

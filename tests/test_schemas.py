@@ -1,4 +1,7 @@
-"""Schema-focused tests for packaged JSON schemas and contract dataclasses."""
+"""Schema and dataclass serialization tests for contract artifacts.
+
+Confirms packaged schemas load correctly and dataclasses serialize cleanly.
+"""
 
 import json
 from dataclasses import asdict

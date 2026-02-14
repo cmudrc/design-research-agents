@@ -1,4 +1,8 @@
-"""Run one functional router-agent execution."""
+"""Runnable example showing one ``RouterAgent`` execution end-to-end.
+
+The script configures a local backend, builds runtime/tool dependencies, and
+executes runtime-driven route selection with built-in default schemas.
+"""
 
 import dataclasses
 import json
@@ -7,49 +11,19 @@ import design_research_agents
 import llama_cpp_example_config
 
 
-def _status_summary_schema() -> dict[str, object]:
-    """Return a small JSON schema for repository status summaries."""
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["justification", "selection"],
-        "properties": {
-            "justification": {"type": "string"},
-            "selection": {
-                "type": "string",
-                "enum": ["calculator_tool", "text_stats_tool"],
-            },
-        },
-    }
-
-
 def main() -> None:
-    """Execute one router agent run and print structured output."""
-    settings = llama_cpp_example_config.configure_example_llama_backend()
-    # Use the active backend configured above.
-    llm_client = design_research_agents.BaseLLMClient()
-    tool_runtime = design_research_agents.BaseToolRuntime()
-    agent = design_research_agents.RouterAgent(
-        llm_client=llm_client, tool_runtime=tool_runtime, model=settings.api_model
-    )
+    """Execute one router-agent run and print structured ``AgentResult`` output.
 
-    # Provide explicit alternatives and let RouterAgent choose one tool route.
+    Demonstrates route selection plus downstream tool invocation in one call.
+    """
+    llm_client = llama_cpp_example_config.create_example_llm_client()
+    tool_runtime = design_research_agents.BaseToolRuntime()
+    agent = design_research_agents.RouterAgent(llm_client=llm_client, tool_runtime=tool_runtime)
+
+    # RouterAgent will derive available routes from ToolRuntime.list_tools().
     result = agent.run(
         input={
             "prompt": "Select which tool to provide a short status summary for this repository.",
-            "alternatives": [
-                {
-                    "tool_name": "calculator_tool",
-                    "description": "Use for arithmetic expressions.",
-                    "keywords": ["math", "compute"],
-                },
-                {
-                    "tool_name": "text_stats_tool",
-                    "description": "Use for text summaries and content analysis.",
-                    "keywords": ["summary", "text", "analysis"],
-                },
-            ],
-            "response_schema": _status_summary_schema(),
         },
         context={"request_id": "example-router-agent-001"},
     )

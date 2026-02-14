@@ -1,4 +1,9 @@
-"""Backend adapters that normalize provider behavior to contract interfaces."""
+"""Backend adapters that normalize provider behavior to contract interfaces.
+
+Each adapter encapsulates provider-specific request/response mechanics and
+exception mapping so the rest of the package can interact with a unified set of
+LLM contracts.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +32,11 @@ from .types import BackendName
 
 @dataclass(frozen=True, slots=True)
 class OpenAIBackendConfig:
-    """Process-wide OpenAI options reused by OpenAI provider adapters."""
+    """Immutable OpenAI configuration payload consumed by provider adapters.
+
+    A value object is used here so request-time adapters cannot accidentally
+    mutate global process configuration.
+    """
 
     api_key_env: str
     api_key: str | None
@@ -36,7 +45,10 @@ class OpenAIBackendConfig:
 
 
 class EchoTestProviderAdapter(LLMProviderAdapter):
-    """Adapter for the deterministic echo-test backend."""
+    """Adapter for the deterministic echo-test backend.
+
+    Useful for local verification where deterministic behavior is required.
+    """
 
     provider_name = "echo-test"
 
@@ -109,7 +121,10 @@ class EchoTestProviderAdapter(LLMProviderAdapter):
 
 @dataclass(slots=True)
 class OpenAIProviderAdapter(LLMProviderAdapter):
-    """Adapter for hosted OpenAI-compatible providers."""
+    """Adapter for hosted OpenAI-compatible providers.
+
+    Wraps shared OpenAI configuration and normalizes output/error contracts.
+    """
 
     config: OpenAIBackendConfig
     provider_name: str = "openai"
@@ -190,7 +205,10 @@ class OpenAIProviderAdapter(LLMProviderAdapter):
 
 @dataclass(slots=True)
 class LlamaCppServerProviderAdapter(LLMProviderAdapter):
-    """Adapter for the process-managed llama-cpp server backend."""
+    """Adapter for process-managed llama-cpp server backend.
+
+    Delegates completion to the managed local OpenAI-compatible server wrapper.
+    """
 
     backend: LlamaCppServerBackend | None
     provider_name: str = "llama-cpp-server"
@@ -276,7 +294,11 @@ def build_backend_adapter(
     openai_config: OpenAIBackendConfig,
     llama_backend: LlamaCppServerBackend | None,
 ) -> LLMProviderAdapter:
-    """Build the adapter instance for one backend name."""
+    """Build an adapter instance for one validated backend identifier.
+
+    Centralizing this mapping ensures all client call paths resolve backends in
+    the same deterministic way.
+    """
     # Keep backend routing centralized so every call path uses the same mapping.
     if backend == "echo-test":
         return EchoTestProviderAdapter()
@@ -292,7 +314,11 @@ def _messages_to_prompt(
     *,
     response_schema: dict[str, object] | None,
 ) -> str:
-    """Combine chat messages into one plain prompt."""
+    """Combine ordered chat messages into one plain prompt string.
+
+    The helper preserves message order and appends compact schema instructions
+    when a response schema is supplied.
+    """
     # Preserve order exactly; providers rely on message chronology.
     segments = [f"{message.role}: {message.content}" for message in messages]
     prompt = "\n".join(segments)
@@ -304,7 +330,11 @@ def _messages_to_prompt(
 
 
 def _build_schema_instruction(response_schema: dict[str, object] | None) -> str | None:
-    """Build a compact schema instruction to reduce prompt echoing."""
+    """Build compact schema guidance appended to provider prompts.
+
+    The generated instruction intentionally avoids embedding full JSON schema
+    text to reduce prompt echoing and token overhead.
+    """
     if response_schema is None:
         return None
 
@@ -327,7 +357,10 @@ def _build_schema_instruction(response_schema: dict[str, object] | None) -> str 
 
 
 def _extract_schema_string_list(raw_value: object) -> list[str]:
-    """Extract a normalized list of non-empty strings from schema values."""
+    """Extract normalized list of non-empty strings from schema-like values.
+
+    Non-list and non-string values are ignored.
+    """
     if not isinstance(raw_value, list):
         return []
     values: list[str] = []
@@ -341,7 +374,10 @@ def _extract_schema_string_list(raw_value: object) -> list[str]:
 
 
 def _extract_schema_property_fields(raw_properties: object) -> list[str]:
-    """Extract top-level field type hints from schema ``properties``."""
+    """Extract top-level field/type hints from schema ``properties`` mappings.
+
+    Returned values are formatted for compact prompt instructions.
+    """
     if not isinstance(raw_properties, dict):
         return []
 
@@ -358,7 +394,10 @@ def _extract_schema_property_fields(raw_properties: object) -> list[str]:
 
 
 def _format_schema_type(raw_type: object) -> str:
-    """Format schema type values for compact prompt instructions."""
+    """Format schema ``type`` values into compact, human-readable text.
+
+    Supports both string and list-of-string schema type forms.
+    """
     if isinstance(raw_type, str):
         normalized = raw_type.strip()
         return normalized
@@ -377,7 +416,11 @@ def _format_schema_type(raw_type: object) -> str:
 
 
 def _map_backend_exception(exc: Exception) -> LLMError:
-    """Normalize backend-specific exceptions to contract exceptions."""
+    """Map backend/provider exceptions into normalized contract exceptions.
+
+    Mapping prefers explicit status-code signals when present and falls back to
+    message heuristics for local or compatibility backends.
+    """
     # Avoid double-wrapping when callers already raised typed contract errors.
     if isinstance(exc, LLMError):
         return exc

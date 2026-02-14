@@ -1,10 +1,24 @@
-"""Multi-step ReAct-style agent built as a loop over SingleStepCodeAgent."""
+"""Multi-step ReAct-style agent built as a loop over ``SingleStepCodeAgent``.
+
+The agent alternates continuation checks with step execution, recording a
+structured memory trace and aggregating tool results across steps.
+"""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Mapping, Sequence
 
+from design_research_agents.agent._model_resolution import resolve_agent_model
+from design_research_agents.agent._prompt_alternatives import (
+    AlternativesPromptTarget,
+    inject_alternatives_into_prompt_pair,
+    resolve_alternatives_prompt_target,
+)
+from design_research_agents.agent._response_schemas import (
+    build_continuation_response_schema,
+    clone_response_schema,
+)
 from design_research_agents.agent.single_step_code_agent import SingleStepCodeAgent
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
@@ -13,35 +27,44 @@ from design_research_agents.contracts.llm import (
     LLMMessage,
     LLMResponse,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.prompts import load_prompt, render_prompt
 
 
 class MultiStepAgent(Agent):
-    """Agent that iterates action-observation steps until continuation stops."""
+    """Agent that iterates action-observation steps until continuation stops.
+
+    Each iteration asks the model whether to continue, then delegates one action
+    step to ``SingleStepCodeAgent`` with inherited runtime constraints.
+    """
 
     def __init__(
         self,
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
         max_steps: int = 5,
         max_tool_calls_per_step: int = 5,
         execution_timeout_seconds_per_step: int = 5,
         validate_tool_input_schema: bool = False,
         stop_on_step_failure: bool = True,
+        default_tools_per_step: Sequence[Mapping[str, object]] | None = None,
     ) -> None:
         """Initialize a multi-step agent.
 
         Args:
             llm_client: LLM client used for continuation and action generation.
             tool_runtime: Tool runtime shared across all steps.
-            model: Model name used for LLM calls.
+            model: Optional model override applied when ``input['model']`` is absent.
             max_steps: Maximum number of action-observation iterations.
             max_tool_calls_per_step: Tool-call limit applied to each action step.
             execution_timeout_seconds_per_step: Code execution timeout for each action step.
             validate_tool_input_schema: Whether to validate tool input schemas on each step.
             stop_on_step_failure: Whether to stop immediately when one step fails.
+            default_tools_per_step: Optional allowed-tool config forwarded to each
+                ``SingleStepCodeAgent`` step. When omitted, all runtime tools are
+                available per step.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -58,9 +81,23 @@ class MultiStepAgent(Agent):
         self._execution_timeout_seconds_per_step = execution_timeout_seconds_per_step
         self._validate_tool_input_schema = validate_tool_input_schema
         self._stop_on_step_failure = stop_on_step_failure
+        self._default_tools_per_step = (
+            tuple(
+                dict(default_tool)
+                for default_tool in default_tools_per_step
+                if isinstance(default_tool, Mapping)
+            )
+            if default_tools_per_step is not None
+            else None
+        )
+        self._continuation_response_schema = build_continuation_response_schema()
 
     def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
-        """Run an action-observation loop over SingleStepCodeAgent."""
+        """Run the multi-step action-observation loop and return aggregated results.
+
+        The run collects continuation decisions, per-step outputs, and all tool
+        results while preserving memory entries that can be inspected by callers.
+        """
         prompt = _extract_prompt(input)
         max_steps = _extract_positive_int(
             input_payload=input,
@@ -87,14 +124,25 @@ class MultiStepAgent(Agent):
             key="stop_on_step_failure",
             default_value=self._stop_on_step_failure,
         )
+        resolved_model = resolve_agent_model(
+            llm_client=self._llm_client,
+            input_payload=input,
+            init_model=self._model,
+        )
+        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
+        step_tools_text = _build_step_tools_text(
+            tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
+            default_tools_per_step=self._default_tools_per_step,
+        )
 
         step_agent = SingleStepCodeAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
-            model=self._model,
+            model=resolved_model,
             max_tool_calls=max_tool_calls_per_step,
             execution_timeout_seconds=execution_timeout_seconds_per_step,
             validate_tool_input_schema=validate_tool_input_schema,
+            default_tools=self._default_tools_per_step,
         )
 
         memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]
@@ -112,6 +160,9 @@ class MultiStepAgent(Agent):
                     memory=memory,
                     step_index=step_index,
                     max_steps=max_steps,
+                    model=resolved_model,
+                    alternatives_prompt_target=alternatives_prompt_target,
+                    alternatives_text=step_tools_text,
                 )
             )
             if continue_response is not None:
@@ -138,6 +189,7 @@ class MultiStepAgent(Agent):
             step_input["max_tool_calls"] = max_tool_calls_per_step
             step_input["execution_timeout_seconds"] = execution_timeout_seconds_per_step
             step_input["validate_tool_input_schema"] = validate_tool_input_schema
+            step_input["alternatives_prompt_target"] = alternatives_prompt_target
 
             step_context = dict(context)
             step_context["multi_step_memory"] = list(memory)
@@ -221,6 +273,11 @@ class MultiStepAgent(Agent):
                     "execution_timeout_seconds_per_step": execution_timeout_seconds_per_step,
                     "validate_tool_input_schema": validate_tool_input_schema,
                     "stop_on_step_failure": stop_on_step_failure,
+                    "default_tools_per_step": (
+                        [dict(default_tool) for default_tool in self._default_tools_per_step]
+                        if self._default_tools_per_step is not None
+                        else None
+                    ),
                 },
             },
         )
@@ -230,7 +287,11 @@ class MultiStepAgent(Agent):
         input: Mapping[str, object],
         context: Mapping[str, object],
     ) -> Iterator[AgentStreamEvent]:
-        """Stream a deterministic event pair around ``run``."""
+        """Emit a deterministic stream wrapper around ``run``.
+
+        The current implementation emits exactly one full-text delta followed by
+        a completion event containing the full ``AgentResult`` payload.
+        """
         result = self.run(input, context)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
@@ -243,41 +304,43 @@ class MultiStepAgent(Agent):
         memory: Sequence[Mapping[str, object]],
         step_index: int,
         max_steps: int,
+        model: str,
+        alternatives_prompt_target: AlternativesPromptTarget,
+        alternatives_text: str,
     ) -> tuple[bool, str, str, LLMResponse | None]:
-        """Ask the model whether the loop should continue for the next step."""
+        """Ask the model whether execution should continue to the next step.
+
+        When model output is invalid JSON, the method falls back to deterministic
+        continuation heuristics so loop behavior remains predictable.
+        """
+        system_prompt = load_prompt("multi_step_continue_system")
+        user_prompt = _build_continue_prompt(
+            prompt=prompt,
+            memory=memory,
+            step_number=step_index + 1,
+        )
+        system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            section_label="Allowed tools for action steps",
+            alternatives_text=alternatives_text,
+            target=alternatives_prompt_target,
+        )
         messages = [
             LLMMessage(
                 role="system",
-                content=(
-                    "You are the continuation controller for a multi-step tool-using agent. "
-                    "Decide whether another action-observation step is needed. "
-                    "Policy: before any observation exists, continue must be true. "
-                    "Stop only when memory already contains enough successful observations "
-                    "to satisfy the task. Return strict JSON only."
-                ),
+                content=system_prompt,
             ),
             LLMMessage(
                 role="user",
-                content=_build_continue_prompt(
-                    prompt=prompt,
-                    memory=memory,
-                    step_number=step_index + 1,
-                ),
+                content=user_prompt,
             ),
         ]
         llm_params = LLMChatParams(
-            response_schema={
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["continue"],
-                "properties": {
-                    "continue": {"type": "boolean"},
-                    "reason": {"type": "string"},
-                },
-            },
+            response_schema=clone_response_schema(self._continuation_response_schema),
             provider_options={"agent": "MultiStepAgent", "phase": "continuation"},
         )
-        response = self._llm_client.chat(messages, model=self._model, params=llm_params)
+        response = self._llm_client.chat(messages, model=model, params=llm_params)
         parsed = _parse_json_mapping(response.text)
         if parsed is not None and isinstance(parsed.get("continue"), bool):
             # Ensure at least one action-observation cycle runs before stopping.
@@ -296,7 +359,11 @@ class MultiStepAgent(Agent):
 
 
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from the input payload."""
+    """Extract task prompt text from run input.
+
+    Falls back to ``text`` and then a stable default message so execution never
+    starts without a string prompt.
+    """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
     )
@@ -309,7 +376,10 @@ def _extract_positive_int(
     key: str,
     default_value: int,
 ) -> int:
-    """Extract positive integer option from input payload."""
+    """Extract a positive integer option from run input.
+
+    Invalid, missing, or boolean values resolve to the provided default.
+    """
     raw_value = input_payload.get(key)
     if raw_value is None:
         return default_value
@@ -326,7 +396,10 @@ def _extract_boolean(
     key: str,
     default_value: bool,
 ) -> bool:
-    """Extract boolean option from input payload."""
+    """Extract a boolean option from run input.
+
+    Non-boolean values are ignored in favor of the provided default.
+    """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
         return raw_value
@@ -339,21 +412,19 @@ def _build_continue_prompt(
     memory: Sequence[Mapping[str, object]],
     step_number: int,
 ) -> str:
-    """Build continuation-decision prompt from task and memory."""
+    """Build continuation-decision prompt from task context and memory tail.
+
+    The memory payload is intentionally truncated to recent entries to keep
+    continuation prompts compact.
+    """
     memory_preview = json.dumps(list(memory)[-6:], sort_keys=True)
-    return "\n".join(
-        [
-            "Decide whether the agent should continue to another action step.",
-            'Return JSON only: {"continue": <bool>, "reason": "..."}.',
-            "Decision policy:",
-            "- If no observation exists yet, set continue=true.",
-            "- If latest observation failed, set continue=false.",
-            "- If task is fully satisfied from memory set continue=false; otherwise continue=true.",
-            "",
-            f"Step number: {step_number}",
-            f"Task: {prompt}",
-            f"Memory tail: {memory_preview}",
-        ]
+    return render_prompt(
+        "multi_step_continue_user",
+        variables={
+            "step_number": step_number,
+            "task_prompt": prompt,
+            "memory_tail": memory_preview,
+        },
     )
 
 
@@ -363,20 +434,64 @@ def _build_step_prompt(
     memory: Sequence[Mapping[str, object]],
     step_number: int,
 ) -> str:
-    """Build one action prompt for the current step."""
+    """Build action prompt for the current step using recent memory context.
+
+    The prompt includes a compact memory tail to ground step decisions while
+    controlling token growth across longer runs.
+    """
     memory_preview = json.dumps(list(memory)[-8:], sort_keys=True)
-    return "\n".join(
-        [
-            f"Task: {prompt}",
-            f"Current step: {step_number}",
-            "Use memory to decide next action.",
-            f"Memory tail: {memory_preview}",
-        ]
+    return render_prompt(
+        "multi_step_step_user",
+        variables={
+            "task_prompt": prompt,
+            "step_number": step_number,
+            "memory_tail": memory_preview,
+        },
     )
 
 
+def _build_step_tools_text(
+    *,
+    tool_specs: Mapping[str, ToolSpec],
+    default_tools_per_step: Sequence[Mapping[str, object]] | None,
+) -> str:
+    """Build formatted allowed-tools text for multi-step prompt injection."""
+    selected_specs: list[ToolSpec] = []
+    if default_tools_per_step is None:
+        selected_specs = list(tool_specs.values())
+    else:
+        for default_tool in default_tools_per_step:
+            raw_name = default_tool.get("tool_name", default_tool.get("name"))
+            if not isinstance(raw_name, str):
+                continue
+            normalized_name = raw_name.strip()
+            if not normalized_name:
+                continue
+            runtime_spec = tool_specs.get(normalized_name)
+            if runtime_spec is None:
+                continue
+            selected_specs.append(runtime_spec)
+
+    tool_lines: list[str] = []
+    for spec in selected_specs:
+        tool_lines.append(
+            "\n".join(
+                [
+                    f"- tool_name: {spec.name}",
+                    f"  description: {spec.description or '(none)'}",
+                    f"  input_schema: {json.dumps(spec.input_schema, sort_keys=True)}",
+                ]
+            )
+        )
+    return "\n".join(tool_lines)
+
+
 def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Parse first JSON object from text."""
+    """Parse the first JSON object found in model text, if any.
+
+    This allows tolerant parsing when the model adds explanatory text around the
+    structured payload.
+    """
     parsed_direct = _load_json_mapping(raw_text)
     if parsed_direct is not None:
         return parsed_direct
@@ -395,7 +510,11 @@ def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
 
 
 def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Load text as a JSON mapping, if valid."""
+    """Load text as a JSON mapping.
+
+    Returns ``None`` when the text is invalid JSON or does not deserialize to an
+    object mapping.
+    """
     try:
         parsed = json.loads(raw_text)
     except json.JSONDecodeError:
@@ -411,7 +530,11 @@ def _fallback_should_continue(
     step_index: int,
     max_steps: int,
 ) -> bool:
-    """Fallback continuation policy when model output is not parseable JSON."""
+    """Fallback continuation policy used when model output is invalid JSON.
+
+    The policy guarantees one initial step and then stops unless additional
+    heuristics explicitly indicate continuation.
+    """
     if step_index >= max_steps:
         return False
 
@@ -431,7 +554,10 @@ def _fallback_should_continue(
 
 
 def _has_observation(memory: Sequence[Mapping[str, object]]) -> bool:
-    """Return whether memory includes at least one observation entry."""
+    """Return whether memory includes at least one observation entry.
+
+    Observation entries are used by continuation guardrails and heuristics.
+    """
     return any(entry.get("kind") == "observation" for entry in memory)
 
 
@@ -444,7 +570,10 @@ def _failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
-    """Build a structured failure result."""
+    """Build a structured failure ``AgentResult`` with consistent metadata.
+
+    This helper keeps failure payload shape stable across all early-return paths.
+    """
     return AgentResult(
         output={"error": error, **dict(output)},
         success=False,

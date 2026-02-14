@@ -40,6 +40,10 @@ Base implementations:
    :members:
    :undoc-members:
 
+.. automodule:: design_research_agents.agent.direct_llm_agent
+   :members:
+   :undoc-members:
+
 Versioned schemas:
 
 .. automodule:: design_research_agents.schemas

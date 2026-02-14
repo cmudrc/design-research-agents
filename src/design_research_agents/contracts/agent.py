@@ -1,4 +1,8 @@
-"""Agent runtime contracts."""
+"""Agent runtime contracts shared by all concrete agent implementations.
+
+These types define the common output shape, stream event envelope, and protocol
+surface that callers can rely on regardless of which agent strategy they use.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +18,15 @@ AgentStreamEventKind = Literal["delta", "completed"]
 
 @dataclass(slots=True, frozen=True)
 class AgentResult:
-    """Structured output from an agent execution."""
+    """Structured output produced by one agent execution.
+
+    Attributes:
+        output: Agent-specific payload containing final data or error details.
+        success: Boolean success flag for the overall run.
+        tool_results: Ordered list of tool invocations performed during the run.
+        model_response: Optional model response associated with the run.
+        metadata: Additional diagnostics and trace metadata for callers.
+    """
 
     output: dict[str, object]
     success: bool
@@ -25,7 +37,13 @@ class AgentResult:
 
 @dataclass(slots=True, frozen=True)
 class AgentStreamEvent:
-    """Single event emitted during streaming agent execution."""
+    """Single event emitted during streaming agent execution.
+
+    Attributes:
+        kind: Event kind indicating partial delta output or terminal completion.
+        delta_text: Incremental text payload for ``kind="delta"`` events.
+        result: Final :class:`AgentResult` payload for ``kind="completed"``.
+    """
 
     kind: AgentStreamEventKind
     delta_text: str | None = None
@@ -33,14 +51,27 @@ class AgentStreamEvent:
 
 
 class Agent(Protocol):
-    """Protocol that all agents must implement."""
+    """Protocol that every agent implementation must satisfy.
+
+    The protocol intentionally keeps the execution contract small: one
+    non-streaming call and one streaming call that mirrors the same input and
+    context shape.
+    """
 
     def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
-        """Execute the agent for one input/context pair."""
+        """Execute one agent run and return the final ``AgentResult`` payload.
+
+        Implementations should treat ``input`` as run-specific request data and
+        ``context`` as external execution metadata/dependencies.
+        """
 
     def run_stream(
         self,
         input: Mapping[str, object],
         context: Mapping[str, object],
     ) -> Iterator[AgentStreamEvent]:
-        """Execute the agent and emit streamed events."""
+        """Execute one agent run and emit stream events through completion.
+
+        Streams must terminate with a ``kind="completed"`` event containing the
+        same logical result payload returned by ``run``.
+        """

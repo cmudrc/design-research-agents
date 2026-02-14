@@ -1,4 +1,8 @@
-"""OpenAI backend kept optional via lazy import."""
+"""OpenAI backend wrapper with compatibility paths for local OpenAI-style APIs.
+
+This module keeps the OpenAI SDK import lazy so local-only workflows can use
+other backends without installing optional dependencies.
+"""
 
 from __future__ import annotations
 
@@ -245,7 +249,10 @@ def complete(
 
 
 def _url_contains_responses_path(raw_url: object) -> bool:
-    """Return whether a URL-like object points at the Responses endpoint."""
+    """Return whether a URL-like object appears to target ``/responses``.
+
+    Supports URL objects by coercing to string for robust compatibility checks.
+    """
     if raw_url is None:
         return False
     normalized = str(raw_url).strip().lower()

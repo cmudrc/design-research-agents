@@ -1,4 +1,8 @@
-"""Core LLM backend tests covering configuration, fallback, and readiness behavior."""
+"""Core LLM backend behavior tests.
+
+This suite validates backend parsing, configuration precedence, compatibility
+fallbacks, and llama-cpp lifecycle/readiness handling.
+"""
 
 import sys
 import types
@@ -8,13 +12,15 @@ import pytest
 
 from design_research_agents import complete
 from design_research_agents.llm import (
-    complete as llm_complete,
-)
-from design_research_agents.llm import (
+    BaseLLMClient,
     configure_llama_cpp_server,
     configure_openai,
     parse_backend,
+    resolve_default_model,
     shutdown_llama_cpp_server,
+)
+from design_research_agents.llm import (
+    complete as llm_complete,
 )
 from design_research_agents.llm.backends.llama_cpp_server import (
     LlamaCppServerBackend,
@@ -212,7 +218,38 @@ def test_default_backend_is_llama_cpp_server() -> None:
         complete("hello")
 
 
-def test_configure_llama_backend_replaces_existing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_default_model_uses_llama_api_model() -> None:
+    configure_llama_cpp_server(model="/tmp/default-model-check.gguf", api_model="llama-api-model")
+    assert resolve_default_model() == "llama-api-model"
+    shutdown_llama_cpp_server()
+
+
+def test_resolve_default_model_uses_openai_model() -> None:
+    configure_openai(
+        model="gpt-default-model-check",
+        api_key_env="OPENAI_API_KEY",
+        api_key="test-key",
+        base_url="http://localhost:9000/v1",
+        require_api_key=False,
+    )
+    assert resolve_default_model() == "gpt-default-model-check"
+
+
+def test_base_llm_client_default_model_respects_backend_override() -> None:
+    configure_openai(
+        model="gpt-openai-default",
+        api_key_env="OPENAI_API_KEY",
+        api_key="test-key",
+        base_url="http://localhost:9000/v1",
+        require_api_key=False,
+    )
+    llm_client = BaseLLMClient(backend="echo-test")
+    assert llm_client.default_model() == "echo-test-model"
+
+
+def test_configure_llama_backend_replaces_existing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Capture create/close events to verify lifecycle transitions.
     events: list[tuple[str, str]] = []
 
@@ -259,7 +296,9 @@ def test_llama_backend_model_source_validation() -> None:
     assert backend.hf_model_repo_id == "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
 
 
-def test_configure_llama_backend_accepts_hf_args(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_configure_llama_backend_accepts_hf_args(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # The public configure API should pass Hugging Face args through to backend creation.
     captured: dict[str, object] = {}
 
@@ -302,7 +341,9 @@ def test_llama_backend_builds_server_module_command() -> None:
     assert "/tmp/model.gguf" in command
 
 
-def test_llama_backend_requires_server_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_llama_backend_requires_server_dependency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Missing llama-cpp dependency should raise before subprocess launch.
     backend = create_llama_cpp_backend(model="/tmp/model.gguf")
 
@@ -340,7 +381,9 @@ def test_llama_backend_requires_huggingface_hub_for_hf_repo(
         backend.start()
 
 
-def test_llama_backend_resolves_hf_quantized_filename(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_llama_backend_resolves_hf_quantized_filename(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Short GGUF names should map to a unique file in the HF repository.
     backend = create_llama_cpp_backend(
         model="tinyllama.Q4_K_M.gguf",
@@ -363,7 +406,9 @@ def test_llama_backend_resolves_hf_quantized_filename(monkeypatch: pytest.Monkey
     assert backend.model == "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 
 
-def test_configure_openai_updates_default_call_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_configure_openai_updates_default_call_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Configure once and verify OpenAI calls reuse those defaults.
     captured: dict[str, object] = {}
 

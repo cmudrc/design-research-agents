@@ -1,4 +1,9 @@
-"""LLM interfaces and backend entrypoints."""
+"""LLM configuration and backend entrypoints for the package runtime.
+
+This module owns process-wide backend configuration, default model resolution,
+and convenience completion helpers. It acts as the bridge between high-level
+agent code and backend-specific implementations.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +27,7 @@ __all__ = [
     "complete",
     "configure_openai",
     "configure_llama_cpp_server",
+    "resolve_default_model",
     "parse_backend",
     "shutdown_llama_cpp_server",
 ]
@@ -29,7 +35,11 @@ __all__ = [
 
 @dataclass(slots=True)
 class _OpenAIConfig:
-    """In-process defaults used for the OpenAI backend."""
+    """In-process defaults used for the OpenAI backend integration.
+
+    Instances of this dataclass represent mutable process-level configuration
+    that is copied into immutable adapter config objects per request.
+    """
 
     model: str = "gpt-4o-mini"
     api_key_env: str = "OPENAI_API_KEY"
@@ -138,7 +148,11 @@ def configure_llama_cpp_server(
 
 
 def shutdown_llama_cpp_server() -> None:
-    """Stop and clear the configured llama-cpp backend, if present."""
+    """Stop and clear the configured llama-cpp backend, if present.
+
+    The function is idempotent and safe to call even when no backend has been
+    configured yet.
+    """
     global _llama_cpp_backend
     if _llama_cpp_backend is None:
         # Idempotent shutdown keeps callers from needing extra state checks.
@@ -148,7 +162,10 @@ def shutdown_llama_cpp_server() -> None:
 
 
 def _get_openai_backend_config() -> OpenAIBackendConfig:
-    """Return a snapshot of current process-wide OpenAI configuration."""
+    """Return a snapshot of the current process-wide OpenAI configuration.
+
+    Returning a value object prevents downstream mutation of global settings.
+    """
     # Return a value object so adapters cannot mutate process-wide config by accident.
     return OpenAIBackendConfig(
         api_key_env=_openai_config.api_key_env,
@@ -159,13 +176,41 @@ def _get_openai_backend_config() -> OpenAIBackendConfig:
 
 
 def _get_configured_llama_cpp_backend() -> LlamaCppServerBackend | None:
-    """Return the currently configured llama-cpp backend instance, if any."""
+    """Return currently configured llama-cpp backend instance, if any.
+
+    Internal helper used by adapter resolution paths.
+    """
     return _llama_cpp_backend
 
 
 def _get_active_backend() -> BackendName:
-    """Return the process-wide active backend for default completions."""
+    """Return process-wide active backend used for default completions.
+
+    Internal helper consumed by ``BaseLLMClient`` when no backend override is set.
+    """
     return _active_backend
+
+
+def resolve_default_model(*, backend: BackendName | None = None) -> str:
+    """Resolve the default model name from configured backend state.
+
+    Args:
+        backend: Optional backend override. Uses active backend when omitted.
+
+    Returns:
+        Default model name for the selected backend.
+    """
+    selected_backend = _active_backend if backend is None else parse_backend(backend)
+    if selected_backend == "openai":
+        return _openai_config.model
+    if selected_backend == "llama-cpp-server":
+        if _llama_cpp_backend is not None:
+            return _llama_cpp_backend.api_model
+        # Keep a stable fallback when llama backend has not been configured yet.
+        return "local-model"
+    if selected_backend == "echo-test":
+        return "echo-test-model"
+    raise ValueError(f"Unsupported backend '{selected_backend}'.")
 
 
 def complete(prompt: str, backend: BackendName | None = None) -> str:

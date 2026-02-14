@@ -1,4 +1,9 @@
-"""Single-step code-writing agent with strict sandboxed tool execution."""
+"""Single-step code-writing agent with strict sandboxed tool execution.
+
+This agent generates one Python action program, validates it against a restricted
+AST policy, executes it in a constrained runtime, and returns structured tool
+and final-output artifacts.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +15,13 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from types import CodeType
 
+from design_research_agents.agent._model_resolution import resolve_agent_model
+from design_research_agents.agent._prompt_alternatives import (
+    AlternativesPromptTarget,
+    append_alternatives_block,
+    build_user_prompt_alternatives_block,
+    resolve_alternatives_prompt_target,
+)
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -18,11 +30,19 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.prompts import load_prompt, render_prompt
 
 
 @dataclass(slots=True, frozen=True)
 class _AllowedTool:
-    """Normalized input-allowed tool definition."""
+    """Normalized allowed-tool definition used during one run.
+
+    Attributes:
+        tool_name: Runtime tool identifier.
+        description: Tool description shown to the model.
+        input_schema: JSON-schema-like input constraints for optional validation.
+        default_tool_input: Optional default arguments when code passes empty input.
+    """
 
     tool_name: str
     description: str
@@ -31,27 +51,34 @@ class _AllowedTool:
 
 
 class SingleStepCodeAgent(Agent):
-    """Agent that writes and executes one sandboxed Python action program."""
+    """Agent that writes and executes one sandboxed Python action program.
+
+    The agent is designed for deterministic single-turn execution with strict
+    controls around tool access, syntax, runtime builtins, and wall-clock time.
+    """
 
     def __init__(
         self,
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str = "gpt-4o-mini",
+        model: str | None = None,
         max_tool_calls: int = 5,
         execution_timeout_seconds: int = 5,
         validate_tool_input_schema: bool = False,
+        default_tools: Sequence[Mapping[str, object]] | None = None,
     ) -> None:
         """Initialize a single-step code agent.
 
         Args:
             llm_client: LLM client used to generate one action program.
             tool_runtime: Tool runtime used for allowed tool invocation.
-            model: Model name used for LLM calls.
+            model: Optional model override applied when ``input['model']`` is absent.
             max_tool_calls: Maximum number of tool calls allowed in one run.
             execution_timeout_seconds: Max wall-clock seconds for executing generated code.
             validate_tool_input_schema: Whether to validate tool args against tool input schemas.
+            default_tools: Optional default allowed-tool list compiled at init time.
+                When omitted, all runtime-registered tools are allowed by default.
         """
         if max_tool_calls < 1:
             raise ValueError("max_tool_calls must be >= 1.")
@@ -64,15 +91,26 @@ class SingleStepCodeAgent(Agent):
         self._max_tool_calls = max_tool_calls
         self._execution_timeout_seconds = execution_timeout_seconds
         self._validate_tool_input_schema = validate_tool_input_schema
+        self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
+        self._compiled_default_allowed_tools = _compile_default_allowed_tools(
+            runtime_specs=self._runtime_specs,
+            default_tools=default_tools,
+        )
 
     def run(self, input: Mapping[str, object], context: Mapping[str, object]) -> AgentResult:
-        """Run one LLM generation and one sandboxed code execution pass."""
-        runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
-        allowed_tools = _extract_allowed_tools(input_payload=input, runtime_specs=runtime_specs)
+        """Run one LLM generation and one sandboxed code execution pass.
+
+        The method resolves runtime options, generates code, validates AST safety,
+        executes within strict constraints, and returns structured artifacts.
+        """
+        allowed_tools, allowed_tools_source = _extract_allowed_tools(
+            default_allowed_tools=self._compiled_default_allowed_tools,
+        )
         if not allowed_tools:
             return _failure_result(
                 error=(
-                    "Input must include at least one allowed tool in `tools` (or `alternatives`)."
+                    "No allowed tools were resolved from init-time defaults or runtime "
+                    "tool registration."
                 ),
                 model_response=None,
                 tool_results=[],
@@ -96,9 +134,20 @@ class SingleStepCodeAgent(Agent):
             key="validate_tool_input_schema",
             default_value=self._validate_tool_input_schema,
         )
+        resolved_model = resolve_agent_model(
+            llm_client=self._llm_client,
+            input_payload=input,
+            init_model=self._model,
+        )
         prompt = _extract_prompt(input)
+        alternatives_prompt_target = resolve_alternatives_prompt_target(input_payload=input)
 
-        llm_response = self._generate_code(prompt=prompt, allowed_tools=allowed_tools)
+        llm_response = self._generate_code(
+            prompt=prompt,
+            allowed_tools=allowed_tools,
+            model=resolved_model,
+            alternatives_prompt_target=alternatives_prompt_target,
+        )
         code_text = _extract_python_code(llm_response.text)
 
         try:
@@ -158,6 +207,7 @@ class SingleStepCodeAgent(Agent):
                 "context_keys": sorted(context.keys()),
                 "code_execution": {
                     "allowed_tools": [tool.tool_name for tool in allowed_tools],
+                    "allowed_tools_source": allowed_tools_source,
                     "tool_call_count": len(tool_results),
                     "max_tool_calls": max_tool_calls,
                     "execution_timeout_seconds": execution_timeout_seconds,
@@ -171,14 +221,29 @@ class SingleStepCodeAgent(Agent):
         input: Mapping[str, object],
         context: Mapping[str, object],
     ) -> Iterator[AgentStreamEvent]:
-        """Stream a deterministic event pair around ``run``."""
+        """Emit a deterministic stream wrapper around ``run``.
+
+        The wrapper emits one full delta and then a completion event containing
+        the final ``AgentResult``.
+        """
         result = self.run(input, context)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
 
-    def _generate_code(self, *, prompt: str, allowed_tools: Sequence[_AllowedTool]) -> LLMResponse:
-        """Generate one Python code action from the model."""
+    def _generate_code(
+        self,
+        *,
+        prompt: str,
+        allowed_tools: Sequence[_AllowedTool],
+        model: str,
+        alternatives_prompt_target: AlternativesPromptTarget,
+    ) -> LLMResponse:
+        """Generate one Python action program from the model.
+
+        The prompt enumerates allowed tools and their schemas so the model can
+        produce executable code aligned with runtime constraints.
+        """
         tool_lines: list[str] = []
         for allowed_tool in allowed_tools:
             tool_lines.append(
@@ -191,54 +256,89 @@ class SingleStepCodeAgent(Agent):
                 )
             )
         tools_text = "\n".join(tool_lines)
-        plan_prompt = "\n".join(
-            [
-                "Write Python code that solves the request with one or more `call_tool` calls.",
-                "Rules:",
-                "- Use only call_tool(tool_name: str, tool_input: dict).",
-                "- Use only allowed tools listed below.",
-                "- Assign the final result to `final_output` as a dict.",
-                "- Always end with a line that assigns `final_output`.",
-                "- If your last tool call returns the answer as a dict, set `final_output` to it.",
-                "- Return code only. No markdown. No prose.",
-                "",
-                "Required output pattern:",
-                'final_output = {"key": "value"}',
-                "",
-                "Allowed tools:",
-                tools_text,
-                "",
-                "User request:",
-                prompt,
-            ]
+        tools_block = build_user_prompt_alternatives_block(
+            section_label="Allowed tools",
+            alternatives_text=tools_text,
+            target=alternatives_prompt_target,
         )
+        user_prompt = render_prompt(
+            "single_step_code_user_plan",
+            variables={"tools_block": tools_block, "user_prompt": prompt},
+        )
+        system_prompt = load_prompt("single_step_code_system")
+        if alternatives_prompt_target == "system":
+            system_prompt = append_alternatives_block(
+                prompt_text=system_prompt,
+                section_label="Allowed tools",
+                alternatives_text=tools_text,
+            )
         llm_params = LLMChatParams(
             provider_options={"agent": "SingleStepCodeAgent"},
         )
         messages = [
             LLMMessage(
                 role="system",
-                content=(
-                    "You are a practical coding assistant for a strict Python sandbox. "
-                    "Output only valid Python code and always assign final_output to a dict."
-                ),
+                content=system_prompt,
             ),
-            LLMMessage(role="user", content=plan_prompt),
+            LLMMessage(role="user", content=user_prompt),
         ]
-        return self._llm_client.chat(messages, model=self._model, params=llm_params)
+        return self._llm_client.chat(messages, model=model, params=llm_params)
 
 
 def _extract_allowed_tools(
     *,
-    input_payload: Mapping[str, object],
+    default_allowed_tools: Sequence[_AllowedTool],
+) -> tuple[list[_AllowedTool], str]:
+    """Return allowed tools compiled at initialization time.
+
+    Runtime input payload does not override allowed tools; tool access is a
+    construction-time concern.
+    """
+    return (
+        [_clone_allowed_tool(tool) for tool in default_allowed_tools],
+        "init_default",
+    )
+
+
+def _compile_default_allowed_tools(
+    *,
+    runtime_specs: Mapping[str, ToolSpec],
+    default_tools: Sequence[Mapping[str, object]] | None,
+) -> tuple[_AllowedTool, ...]:
+    """Compile default allowed tools from init config and runtime tool specs.
+
+    When no init defaults are provided, all runtime-registered tools are allowed.
+    """
+    if default_tools is not None:
+        compiled_from_input = _normalize_allowed_tools(
+            raw_tools=default_tools,
+            runtime_specs=runtime_specs,
+        )
+        return tuple(compiled_from_input)
+
+    return tuple(
+        _AllowedTool(
+            tool_name=spec.name,
+            description=spec.description,
+            input_schema=dict(spec.input_schema),
+        )
+        for spec in runtime_specs.values()
+    )
+
+
+def _normalize_allowed_tools(
+    *,
+    raw_tools: object,
     runtime_specs: Mapping[str, ToolSpec],
 ) -> list[_AllowedTool]:
-    """Extract tools explicitly allowed by input payload."""
-    raw_tools = input_payload.get("tools", input_payload.get("alternatives"))
+    """Normalize explicit allowed-tool payload into runtime-backed tool entries.
+
+    Unknown or malformed tools are dropped to prevent unsafe dynamic invocation.
+    """
     if not isinstance(raw_tools, Sequence) or isinstance(raw_tools, (str, bytes)):
         return []
 
-    allowed_tools: list[_AllowedTool] = []
+    normalized: list[_AllowedTool] = []
     for raw_tool in raw_tools:
         if not isinstance(raw_tool, Mapping):
             continue
@@ -269,7 +369,7 @@ def _extract_allowed_tools(
         default_tool_input = (
             dict(raw_default_tool_input) if isinstance(raw_default_tool_input, Mapping) else None
         )
-        allowed_tools.append(
+        normalized.append(
             _AllowedTool(
                 tool_name=tool_name,
                 description=description,
@@ -279,13 +379,33 @@ def _extract_allowed_tools(
         )
 
     deduped: dict[str, _AllowedTool] = {}
-    for allowed_tool in allowed_tools:
+    for allowed_tool in normalized:
         deduped[allowed_tool.tool_name] = allowed_tool
     return list(deduped.values())
 
 
+def _clone_allowed_tool(allowed_tool: _AllowedTool) -> _AllowedTool:
+    """Clone one allowed tool to isolate run-level payload mutations.
+
+    Mutable dictionaries are copied so per-run writes do not leak globally.
+    """
+    return _AllowedTool(
+        tool_name=allowed_tool.tool_name,
+        description=allowed_tool.description,
+        input_schema=dict(allowed_tool.input_schema),
+        default_tool_input=(
+            dict(allowed_tool.default_tool_input)
+            if isinstance(allowed_tool.default_tool_input, Mapping)
+            else None
+        ),
+    )
+
+
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from the input payload."""
+    """Extract prompt text from input payload with stable fallback defaults.
+
+    Falls back to ``text`` and then a concise default instruction string.
+    """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
     )
@@ -298,7 +418,10 @@ def _extract_positive_int(
     key: str,
     default_value: int,
 ) -> int:
-    """Extract positive integer option from input payload."""
+    """Extract a positive integer run option from input payload.
+
+    Invalid, missing, and boolean values resolve to the default.
+    """
     raw_value = input_payload.get(key)
     if raw_value is None:
         return default_value
@@ -315,7 +438,10 @@ def _extract_boolean(
     key: str,
     default_value: bool,
 ) -> bool:
-    """Extract boolean option from input payload."""
+    """Extract a boolean run option from input payload.
+
+    Non-boolean values resolve to the provided default.
+    """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
         return raw_value
@@ -323,7 +449,10 @@ def _extract_boolean(
 
 
 def _extract_python_code(raw_model_text: str) -> str:
-    """Extract Python code from model output text."""
+    """Extract Python code from model output text, preferring fenced blocks.
+
+    If no valid fenced block is found, the raw trimmed model text is used.
+    """
     fenced_match = _match_fenced_code_block(raw_model_text)
     if fenced_match is not None:
         return fenced_match.strip()
@@ -331,7 +460,10 @@ def _extract_python_code(raw_model_text: str) -> str:
 
 
 def _match_fenced_code_block(raw_text: str) -> str | None:
-    """Return the first fenced code block if present."""
+    """Return first Python-like fenced code block when present and well-formed.
+
+    Only empty, ``python``, or ``py`` fence headers are accepted.
+    """
     fence = "```"
     start_index = raw_text.find(fence)
     if start_index == -1:
@@ -352,7 +484,10 @@ def _match_fenced_code_block(raw_text: str) -> str | None:
 
 
 def _compile_sandboxed_code(code_text: str) -> CodeType:
-    """Validate and compile generated code under strict sandbox constraints."""
+    """Validate and compile generated code under strict sandbox constraints.
+
+    The function enforces syntax safety before compilation to bytecode.
+    """
     if not code_text:
         raise ValueError("Generated code is empty.")
 
@@ -362,7 +497,10 @@ def _compile_sandboxed_code(code_text: str) -> CodeType:
 
 
 def _validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
-    """Validate that AST only uses explicitly allowed constructs."""
+    """Validate AST uses only explicitly allowed constructs and names.
+
+    Disallows imports, dynamic execution helpers, and suspicious dunder access.
+    """
     banned_node_types: tuple[type[ast.AST], ...] = (
         ast.Import,
         ast.ImportFrom,
@@ -431,12 +569,20 @@ def _execute_compiled_code(
     validate_tool_input_schema: bool,
     tool_results: list[ToolResult],
 ) -> dict[str, object]:
-    """Execute compiled code with a strict runtime sandbox."""
+    """Execute compiled code with strict runtime sandbox and tool guardrails.
+
+    Enforces allowed tools, tool-call limits, optional schema validation, timeout
+    controls, and JSON-serializable final output.
+    """
     allowed_tools_map = {tool.tool_name: tool for tool in allowed_tools}
     tool_call_count = 0
 
     def call_tool(tool_name: str, tool_input: Mapping[str, object]) -> dict[str, object]:
-        """Invoke one allowed tool with validated input."""
+        """Invoke one allowed tool with validation, limits, and error mapping.
+
+        Tool failures are surfaced as runtime exceptions so generated code cannot
+        silently ignore failed calls.
+        """
         nonlocal tool_call_count
         if not isinstance(tool_name, str):
             raise ValueError("call_tool tool_name must be a string.")
@@ -520,7 +666,11 @@ def _execute_compiled_code(
 
 @contextmanager
 def _execution_timeout(*, seconds: int) -> Iterator[None]:
-    """Context manager enforcing execution timeout using POSIX alarms when available."""
+    """Enforce execution timeout via POSIX alarms when available.
+
+    On platforms/threads where alarms are unavailable, the context manager
+    degrades gracefully to no hard timeout.
+    """
     if not hasattr(signal, "SIGALRM"):
         # Non-POSIX fallback: no hard timeout support.
         yield
@@ -550,7 +700,11 @@ def _validate_input_against_schema(
     input_payload: Mapping[str, object],
     input_schema: Mapping[str, object],
 ) -> None:
-    """Validate tool input against a small JSON-schema-like subset."""
+    """Validate tool input against constrained JSON-schema-like subset.
+
+    Supports object type enforcement, required fields, property filtering, and
+    primitive field type checks.
+    """
     schema_type = input_schema.get("type")
     if isinstance(schema_type, str) and schema_type != "object":
         raise ValueError("Tool input schema type must be object.")
@@ -587,7 +741,10 @@ def _validate_field_type(
     field_value: object,
     field_schema: Mapping[str, object],
 ) -> None:
-    """Validate one field value type against supported schema type hints."""
+    """Validate one input field value against supported schema type hints.
+
+    Supported hints include string, number, integer, boolean, object, and array.
+    """
     field_type = field_schema.get("type")
     if not isinstance(field_type, str):
         return
@@ -619,7 +776,10 @@ def _failure_result(
     metadata: Mapping[str, object],
     generated_code: str,
 ) -> AgentResult:
-    """Build a structured failure result for predictable error handling."""
+    """Build a structured failure result for predictable error handling.
+
+    Keeps failure output shape stable across validation and execution failures.
+    """
     output: dict[str, object] = {
         "error": error,
         "model_text": model_response.text if model_response is not None else "",

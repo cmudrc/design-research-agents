@@ -1,10 +1,27 @@
-"""Public package interface for design_research_agents."""
+"""Public package interface for the design-research-agents library.
+
+This module deliberately exposes a compact and stable surface that combines:
+- agent implementations,
+- protocol/contract types,
+- backend configuration helpers,
+- prompt/schema loaders, and
+- default tool runtime primitives.
+
+Callers can import from this module when they want a single entrypoint that
+remains stable even as internal package structure evolves.
+"""
 
 from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from .agent import MultiStepAgent, RouterAgent, SingleStepCodeAgent, ToolCallingAgent
+from .agent import (
+    DirectLLMAgent,
+    MultiStepAgent,
+    RouterAgent,
+    SingleStepCodeAgent,
+    ToolCallingAgent,
+)
 from .contracts import (
     Agent,
     AgentResult,
@@ -32,10 +49,16 @@ from .llm import (
     complete,
     configure_llama_cpp_server,
     configure_openai,
+    resolve_default_model,
     shutdown_llama_cpp_server,
 )
+from .prompts import PROMPT_NAMES, load_prompt, render_prompt
 from .schemas import SCHEMA_NAMES, SCHEMA_VERSION, load_schema
-from .tools import BaseToolRuntime, create_calculator_tool_spec, create_text_stats_tool_spec
+from .tools import (
+    BaseToolRuntime,
+    create_calculator_tool_spec,
+    create_text_stats_tool_spec,
+)
 
 # Keep a small, stable public surface for downstream users.
 __all__ = [
@@ -43,6 +66,7 @@ __all__ = [
     "Agent",
     "AgentResult",
     "AgentStreamEvent",
+    "DirectLLMAgent",
     "MultiStepAgent",
     "RouterAgent",
     "SingleStepCodeAgent",
@@ -62,6 +86,7 @@ __all__ = [
     "LLMRole",
     "LLMStreamEvent",
     "LLMStreamEventKind",
+    "PROMPT_NAMES",
     "SCHEMA_NAMES",
     "SCHEMA_VERSION",
     "ToolCostHints",
@@ -73,6 +98,9 @@ __all__ = [
     "create_text_stats_tool_spec",
     "configure_openai",
     "configure_llama_cpp_server",
+    "load_prompt",
+    "resolve_default_model",
+    "render_prompt",
     "load_schema",
     "shutdown_llama_cpp_server",
 ]

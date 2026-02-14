@@ -19,6 +19,7 @@ Run additional basic examples:
 
 ```bash
 PYTHONPATH=src python3 examples/router_agent.py
+PYTHONPATH=src python3 examples/direct_llm_agent.py
 PYTHONPATH=src python3 examples/tool_calling_agent.py
 PYTHONPATH=src python3 examples/single_step_code_agent.py
 PYTHONPATH=src python3 examples/multi_step_agent.py

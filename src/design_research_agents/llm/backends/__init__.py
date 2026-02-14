@@ -1,4 +1,8 @@
-"""Backend helpers for LLM integrations."""
+"""Backend adapter exports and backend-construction helpers.
+
+This namespace re-exports adapter classes and backend factory functions used by
+the higher-level LLM client/runtime configuration modules.
+"""
 
 from .adapters import (
     EchoTestProviderAdapter,

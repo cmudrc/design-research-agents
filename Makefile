@@ -2,16 +2,26 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: install test lint lint-fix format format-check typecheck run-example docs ci
+.PHONY: install test lint lint-fix format format-check typecheck run-example docs ci clean
 
 # Install a batteries-included development environment.
 install:
+	$(PIP) install --upgrade pip
+	$(PIP) install -e "."
+
+# Install a batteries-included development environment.
+install-dev:
+	$(PIP) install --upgrade pip
+	$(PIP) install -e ".[dev]"
+
+# Install a batteries-included development environment.
+install-all:
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev,local]"
 
 # Run the unit test suite.
 test:
-	pytest
+	PYTHONPATH=src pytest
 
 # Run lint checks without modifying files.
 lint:
@@ -33,13 +43,12 @@ format-check:
 typecheck:
 	mypy src
 
-# Execute the router example script.
-run-example:
-	PYTHONPATH=src $(PYTHON) examples/router_agent.py
-
 # Build Sphinx HTML documentation.
 docs:
 	sphinx-build -b html docs docs/_build/html
 
 # Aggregate checks used by CI.
 ci: lint format-check typecheck test
+
+# Make me squeaky clean
+clean: lint-fix format

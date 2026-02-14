@@ -1,4 +1,9 @@
-"""Base in-memory tool runtime with functional built-in tools."""
+"""In-memory tool runtime with built-in functional tool implementations.
+
+The runtime is intentionally simple and deterministic for examples, local
+development, and tests. It demonstrates the `ToolRuntime` contract and provides
+default arithmetic/text-analysis tools out of the box.
+"""
 
 from __future__ import annotations
 
@@ -6,16 +11,29 @@ import ast
 import operator
 from collections.abc import Callable, Mapping, Sequence
 
-from design_research_agents.contracts.tools import ToolCostHints, ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.contracts.tools import (
+    ToolCostHints,
+    ToolResult,
+    ToolRuntime,
+    ToolSpec,
+)
 
 ToolHandler = Callable[[Mapping[str, object], Mapping[str, object]], Mapping[str, object]]
 
 
 class BaseToolRuntime(ToolRuntime):
-    """In-memory registry of tools for examples and local workflows."""
+    """In-memory registry of tool specifications and callable handlers.
+
+    The runtime stores tool specs and handlers in plain dictionaries and returns
+    structured `ToolResult` objects instead of propagating tool exceptions.
+    """
 
     def __init__(self) -> None:
-        """Initialize runtime with built-in functional tools."""
+        """Initialize runtime state and register default built-in tools.
+
+        Built-ins are registered eagerly so examples/tests can run without
+        external setup.
+        """
         self._specs: dict[str, ToolSpec] = {}
         self._handlers: dict[str, ToolHandler] = {}
         # Register concrete default tools so examples run without external setup.
@@ -23,12 +41,18 @@ class BaseToolRuntime(ToolRuntime):
         self.register_tool(spec=create_text_stats_tool_spec(), handler=_text_stats_tool_handler)
 
     def register_tool(self, *, spec: ToolSpec, handler: ToolHandler) -> None:
-        """Register a tool specification and callable handler."""
+        """Register or replace a tool specification and invocation handler.
+
+        Re-registering an existing tool name overwrites the previous spec/handler.
+        """
         self._specs[spec.name] = spec
         self._handlers[spec.name] = handler
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """Return all registered tool specifications."""
+        """Return all registered tool specifications as an immutable tuple.
+
+        Tuple return type prevents accidental caller-side mutation of runtime state.
+        """
         return tuple(self._specs.values())
 
     def invoke(
@@ -37,7 +61,11 @@ class BaseToolRuntime(ToolRuntime):
         input_dict: Mapping[str, object],
         context: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one registered tool by name."""
+        """Invoke one registered tool and normalize success/error output.
+
+        The method never raises tool-handler exceptions directly; failures are
+        surfaced through a structured `ToolResult` with `success=False`.
+        """
         handler = self._handlers.get(tool_name)
         if handler is None:
             # Return structured failure instead of raising to keep agent flows deterministic.
@@ -69,7 +97,11 @@ class BaseToolRuntime(ToolRuntime):
 
 
 def create_calculator_tool_spec() -> ToolSpec:
-    """Create the default arithmetic calculator tool specification."""
+    """Create the default arithmetic calculator tool specification.
+
+    The spec exposes a single required ``expression`` string input and returns
+    both the expression and its numeric result.
+    """
     return ToolSpec(
         name="calculator_tool",
         description="Safely evaluates arithmetic expressions.",
@@ -96,7 +128,11 @@ def create_calculator_tool_spec() -> ToolSpec:
 
 
 def create_text_stats_tool_spec() -> ToolSpec:
-    """Create a text statistics tool specification."""
+    """Create the default text-statistics tool specification.
+
+    The tool accepts one ``text`` field and reports basic aggregate metrics such
+    as character count, word count, and unique normalized word count.
+    """
     return ToolSpec(
         name="text_stats_tool",
         description="Computes basic statistics for a text input.",
@@ -128,7 +164,10 @@ def _calculator_tool_handler(
     input_dict: Mapping[str, object],
     context: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Evaluate one arithmetic expression safely."""
+    """Evaluate one arithmetic expression safely via AST-based evaluation.
+
+    Requires a non-empty ``expression`` field and returns normalized float output.
+    """
     del context
     expression = str(input_dict.get("expression", "")).strip()
     if not expression:
@@ -141,7 +180,11 @@ def _text_stats_tool_handler(
     input_dict: Mapping[str, object],
     context: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Compute text statistics for one input string."""
+    """Compute aggregate statistics for one input string payload.
+
+    The handler normalizes words with lightweight punctuation/case cleanup so
+    unique word counts are more semantically meaningful.
+    """
     del context
     text = str(input_dict.get("text", ""))
     words = [word for word in text.split() if word]
@@ -157,14 +200,21 @@ def _text_stats_tool_handler(
 
 
 def _safe_eval_arithmetic(expression: str) -> float:
-    """Evaluate a strict arithmetic expression with a safe AST walker."""
+    """Evaluate strict arithmetic expression with a safe AST walker.
+
+    Input is parsed in ``eval`` mode and only numeric literals plus an operator
+    allow-list are accepted.
+    """
     # Parse expression only in eval mode to block statements and assignments.
     tree = ast.parse(expression, mode="eval")
     return float(_eval_node(tree.body))
 
 
 def _eval_node(node: ast.AST) -> int | float:
-    """Recursively evaluate one arithmetic AST node."""
+    """Recursively evaluate one arithmetic AST node under strict allow-lists.
+
+    Any unsupported syntax causes immediate ``ValueError`` failure.
+    """
     # Whitelists intentionally limit evaluation to deterministic arithmetic only.
     binary_operations: dict[
         type[ast.operator], Callable[[int | float, int | float], int | float]
