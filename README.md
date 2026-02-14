@@ -1,6 +1,6 @@
 # design-research-agents
 
-Opinionated Python scaffolding for building and researching agentic systems.
+A flexible, modular framework for researching AI agents that design
 
 ## Quickstart
 
@@ -11,6 +11,12 @@ python -m pip install --upgrade pip
 pip install -e ".[dev]"
 make test
 make run-example
+```
+
+Optional local backend support (llama-cpp server):
+
+```bash
+pip install -e ".[local]"
 ```
 
 ## Docs
