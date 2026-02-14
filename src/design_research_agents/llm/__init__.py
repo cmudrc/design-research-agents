@@ -25,10 +25,10 @@ from .base_client import BaseLLMClient
 __all__ = [
     "BaseLLMClient",
     "complete",
-    "configure_openai",
     "configure_llama_cpp_server",
-    "resolve_default_model",
+    "configure_openai",
     "parse_backend",
+    "resolve_default_model",
     "shutdown_llama_cpp_server",
 ]
 

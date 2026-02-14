@@ -150,7 +150,7 @@ class LlamaCppServerBackend:
             huggingface_hub = importlib.import_module("huggingface_hub")
             list_repo_files = cast(
                 Callable[[str], Sequence[str]],
-                getattr(huggingface_hub, "list_repo_files"),
+                huggingface_hub.list_repo_files,
             )
         except (ImportError, AttributeError, TypeError):
             return
@@ -208,7 +208,7 @@ class LlamaCppServerBackend:
         # Fail fast with a direct dependency message before spawning a process.
         self._ensure_server_dependency()
 
-        self._process = subprocess.Popen(  # noqa: S603
+        self._process = subprocess.Popen(
             self._build_command(),
             # Avoid flooding stdout in long runs; errors still bubble via health checks.
             stdout=subprocess.DEVNULL,
@@ -241,7 +241,7 @@ class LlamaCppServerBackend:
                 )
 
             try:
-                with urlopen(health_url, timeout=1.0) as response:  # noqa: S310
+                with urlopen(health_url, timeout=1.0) as response:
                     # Any successful HTTP response means the server is up.
                     if 200 <= response.status < 400:
                         return
@@ -303,7 +303,7 @@ class LlamaCppServerBackend:
 
         openai_complete = cast(
             Callable[..., str],
-            getattr(openai_backend, "complete"),
+            openai_backend.complete,
         )
         # Delegate request shape/response handling to the shared OpenAI client path.
         return openai_complete(

@@ -547,13 +547,15 @@ def _validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
         if isinstance(node, ast.Name) and node.id in banned_names:
             raise ValueError(f"Use of banned name: {node.id}")
 
-        if isinstance(node, ast.Attribute):
-            if node.attr.startswith("__"):
-                raise ValueError("Dunder attribute access is not allowed.")
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            raise ValueError("Dunder attribute access is not allowed.")
 
-        if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name) and node.func.id.startswith("__"):
-                raise ValueError("Calling dunder names is not allowed.")
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id.startswith("__")
+        ):
+            raise ValueError("Calling dunder names is not allowed.")
 
 
 def _execute_compiled_code(

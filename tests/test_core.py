@@ -95,7 +95,7 @@ def test_openai_backend_uses_chat_fallback_for_compatible_servers(
             self.chat = types.SimpleNamespace(completions=FakeChatCompletions())
 
     fake_openai_module = types.ModuleType("openai")
-    setattr(fake_openai_module, "OpenAI", FakeOpenAI)
+    fake_openai_module.OpenAI = FakeOpenAI
     monkeypatch.setitem(sys.modules, "openai", fake_openai_module)
 
     backend = OpenAIBackend(
@@ -147,7 +147,7 @@ def test_openai_backend_uses_chat_fallback_when_not_found_has_url_object(
             self.chat = types.SimpleNamespace(completions=FakeChatCompletions())
 
     fake_openai_module = types.ModuleType("openai")
-    setattr(fake_openai_module, "OpenAI", FakeOpenAI)
+    fake_openai_module.OpenAI = FakeOpenAI
     monkeypatch.setitem(sys.modules, "openai", fake_openai_module)
 
     backend = OpenAIBackend(
@@ -189,7 +189,7 @@ def test_openai_backend_skips_chat_fallback_for_unrelated_404(
             self.chat = types.SimpleNamespace(completions=FakeChatCompletions())
 
     fake_openai_module = types.ModuleType("openai")
-    setattr(fake_openai_module, "OpenAI", FakeOpenAI)
+    fake_openai_module.OpenAI = FakeOpenAI
     monkeypatch.setitem(sys.modules, "openai", fake_openai_module)
 
     backend = OpenAIBackend(
@@ -352,7 +352,7 @@ def test_llama_backend_requires_server_dependency(
         lambda _: None,
     )
 
-    with pytest.raises(RuntimeError, match="pip install -e '.\\[local\\]'"):
+    with pytest.raises(RuntimeError, match=r"pip install -e '.\\[local\\]'"):
         backend.start()
 
 
@@ -399,7 +399,7 @@ def test_llama_backend_resolves_hf_quantized_filename(
         ]
 
     fake_huggingface_hub = types.ModuleType("huggingface_hub")
-    setattr(fake_huggingface_hub, "list_repo_files", _fake_list_repo_files)
+    fake_huggingface_hub.list_repo_files = _fake_list_repo_files
     monkeypatch.setitem(sys.modules, "huggingface_hub", fake_huggingface_hub)
 
     backend._resolve_hf_model_name()

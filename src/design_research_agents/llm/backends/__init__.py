@@ -20,8 +20,8 @@ from .llama_cpp_server import (
 
 __all__ = [
     "EchoTestProviderAdapter",
-    "LlamaCppServerProviderAdapter",
     "LlamaCppServerBackend",
+    "LlamaCppServerProviderAdapter",
     "OpenAIBackendConfig",
     "OpenAIProviderAdapter",
     "build_backend_adapter",
