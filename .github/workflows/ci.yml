@@ -1,0 +1,36 @@
+name: CI
+
+# Run quality gates for main branch updates and all pull requests.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-test:
+    # Validate across supported runtime versions.
+    runs-on: ubuntu-latest
+    strategy:
+      # Keep running other matrix entries even if one fails.
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          # Speed up installs by caching pip downloads between runs.
+          cache: pip
+
+      - name: Install dependencies
+        # Centralized install path used by local development too.
+        run: make install
+
+      - name: Run checks
+        # Lint, format check, typing, and tests.
+        run: make ci

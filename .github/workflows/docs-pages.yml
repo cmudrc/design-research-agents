@@ -1,0 +1,66 @@
+name: Docs
+
+# Build docs for PR validation; deploy only from pushes to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Required permissions for Pages artifact upload and deployment.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Prevent overlapping Pages deployments from racing each other.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    # Always build docs so PRs catch documentation regressions.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          # Reuse pip cache between workflow runs.
+          cache: pip
+
+      - name: Install dependencies
+        # Uses the same batteries-included setup as local development.
+        run: make install
+
+      - name: Build Sphinx docs
+        run: make docs
+
+      - name: Setup Pages
+        # Only prepare Pages on main branch pushes.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        # PRs build docs but do not publish artifacts.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    # Publish the uploaded artifact to GitHub Pages from main only.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
