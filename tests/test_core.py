@@ -352,7 +352,7 @@ def test_llama_backend_requires_server_dependency(
         lambda _: None,
     )
 
-    with pytest.raises(RuntimeError, match=r"pip install -e '.\\[local\\]'"):
+    with pytest.raises(RuntimeError, match=r"pip install -e '\.\[local\]'"):
         backend.start()
 
 
