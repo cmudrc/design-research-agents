@@ -8,7 +8,7 @@ Install for development:
    python -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-   pip install -e ".[dev]"
+   pip install -e ".[dev,local]"
 
 Run checks:
 
@@ -32,12 +32,6 @@ Configure OpenAI defaults once per run:
 
    configure_openai(model="gpt-4o-mini")
    text = complete("Hello", backend="openai")
-
-Enable local llama-cpp server backend (optional):
-
-.. code-block:: bash
-
-   pip install -e ".[local]"
 
 .. code-block:: python
 
