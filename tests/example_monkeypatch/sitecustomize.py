@@ -31,19 +31,25 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     "single_step_json_tool_calling_agent.py": (
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
-    "single_step_json_lazy_rubric_score_agent.py": (
+    "single_step_json_callable_tool_agent.py": (
+        (
+            '{"tool_name":"normalize.title","tool_input":{"title":"the old man and the sea"},'
+            '"reason":"Normalize the provided title casing."}'
+        ),
+    ),
+    "single_step_json_script_rubric_score_agent.py": (
         (
             '{"tool_name":"script::rubric_score","tool_input":{"text":"Agents can quickly score '
             'this sample summary.","max_score":12}}'
         ),
     ),
-    "single_step_json_lazy_repo_quickscan_agent.py": (
+    "single_step_json_script_repo_quickscan_agent.py": (
         '{"tool_name":"script::repo_quickscan","tool_input":{"include_hidden":false}}',
     ),
     "single_step_code_tool_calling_agent.py": (
         "\n".join(
             [
-                'csv_text = "tool,source\\ncalculator,core\\nrepo_quickscan,lazy\\n"',
+                'csv_text = "tool,source\\ncalculator,core\\nrepo_quickscan,script\\n"',
                 'write_result = call_tool("fs.write_text", {"path": '
                 '"artifacts/examples/single_step_tool_inventory.csv", "content": csv_text, '
                 '"overwrite": True})',
@@ -68,7 +74,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
                 'readme = call_tool("fs.read_text", {"path": "README.md", "max_bytes": 2400})',
                 'stats = call_tool("text.word_count", {"text": readme["text"]})',
                 'diff_result = call_tool("text.diff", {"a": "core tools only", '
-                '"b": "core + lazy + mcp tools"})',
+                '"b": "core + script + mcp tools"})',
                 "final_output = {",
                 '    "word_count": stats["word_count"],',
                 '    "line_count": stats["line_count"],',
@@ -95,7 +101,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         "\n".join(
             [
-                'csv_text = "tool,source\\ncalculator,core\\nrubric_score,lazy\\n'
+                'csv_text = "tool,source\\ncalculator,core\\nrubric_score,script\\n'
                 'text.word_count,mcp\\n"',
                 'write_result = call_tool("fs.write_text", {"path": '
                 '"artifacts/examples/plan_execute_runtime_inventory.csv", "content": csv_text, '
@@ -130,7 +136,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     "mixed_agent_workflow.py": (
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
-            'lazy, and MCP tools.","priority":"high"}'
+            'script, and MCP tools.","priority":"high"}'
         ),
     ),
     "single_step_direct_llm_agent_stream.py": ("The answer is 4.",),
@@ -212,6 +218,9 @@ if _DETERMINISTIC_MODE:
 
         def default_model(self) -> str:
             return "example-model"
+
+        def close(self) -> None:
+            return None
 
         def _next(self, model: str) -> LLMResponse:
             if not self._responses:

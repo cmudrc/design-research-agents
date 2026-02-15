@@ -47,7 +47,7 @@ YAML config
      enabled: true
      tools:
        - name: rubric_score
-         path: examples/lazy_tools/python/rubric_score.py
+         path: examples/tools/script_tools/python/rubric_score.py
          description: Score text with a simple rubric.
          filesystem_write: true
 

@@ -16,7 +16,7 @@ Pages
 
 - :doc:`runtime_basics`
 - :doc:`mcp`
-- :doc:`lazy_tools`
+- :doc:`script_tools`
 
 .. toctree::
    :maxdepth: 2
@@ -24,4 +24,4 @@ Pages
 
    runtime_basics
    mcp
-   lazy_tools
+   script_tools

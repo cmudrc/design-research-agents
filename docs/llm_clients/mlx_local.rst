@@ -41,6 +41,11 @@ Model notes for local runs
 - Pair with :doc:`model_selection` when you need hardware-aware fallback
   behavior.
 
+Examples
+--------
+
+- ``examples/clients/mlx_local_client.py``
+
 Official docs
 -------------
 

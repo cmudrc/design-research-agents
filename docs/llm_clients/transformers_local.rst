@@ -41,6 +41,11 @@ Model notes for local runs
 - Keep ``default_model`` aligned with the checkpoint your runtime can sustain
   for repeated workflow runs.
 
+Examples
+--------
+
+- ``examples/clients/transformers_local_client.py``
+
 Official docs
 -------------
 

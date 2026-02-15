@@ -31,6 +31,11 @@ Dependencies and environment
 - Reachable OpenAI-compatible HTTP endpoint
 - Optional API key env variable depending on upstream server behavior
 
+Examples
+--------
+
+- ``examples/clients/openai_compatible_http_client.py``
+
 Official docs
 -------------
 

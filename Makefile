@@ -33,12 +33,12 @@ test: check-python
 # Estimate line coverage for the stable unit-suite baseline.
 coverage: check-python
 	mkdir -p artifacts/coverage
-	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --ignore=tests/test_examples_lazy_shell.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --ignore=tests/test_examples_script_shell.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
 
 # Run deterministic example tests and emit junit XML for metrics/badge generation.
 examples-deterministic: check-python
 	mkdir -p artifacts/examples
-	PYTHONPATH=src $(PYTEST) tests/test_examples_non_streaming.py tests/test_examples_streaming.py tests/test_examples_lazy_shell.py --junitxml=artifacts/examples/examples-deterministic.junit.xml -q
+	PYTHONPATH=src $(PYTEST) tests/test_examples_non_streaming.py tests/test_examples_streaming.py tests/test_examples_script_shell.py --junitxml=artifacts/examples/examples-deterministic.junit.xml -q
 
 # Generate deterministic examples metrics and corresponding badges.
 examples-metrics: check-python examples-deterministic

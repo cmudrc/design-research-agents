@@ -14,7 +14,7 @@ from design_research_agents.tools.config import ScriptTool
 def main() -> None:
     """Run one single-step agent call against ``script::rubric_score``."""
     script_dir = Path(__file__).resolve().parent
-    repo_root = script_dir.parents[2]
+    repo_root = script_dir.parents[3]
 
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox(
@@ -49,7 +49,7 @@ def main() -> None:
             "Call script::rubric_score with text 'Agents can quickly score this sample summary.' "
             "and max_score 12."
         ),
-        request_id="example-lazy-rubric-agent-001",
+        request_id="example-script-rubric-agent-001",
     )
 
     print(result)

@@ -1,13 +1,16 @@
 ## Examples
 
 This directory contains runnable end-to-end examples for the major framework
-surfaces: agents, orchestration workflows, model selection, and tool runtime.
+surfaces: agents, clients, orchestration workflows, model selection, and tool runtime.
 
 ## Directory Guide
 
 - `examples/agents`
   - Core agent patterns (single-step, multi-step, streaming).
   - See `examples/agents/README.md`.
+- `examples/clients`
+  - Purposeful client-configuration examples for each supported LLM client type.
+  - See `examples/clients/README.md`.
 - `examples/workflow`
   - Reusable orchestration entrypoints and workflow runtime integrations.
   - See `examples/workflow/README.md`.
@@ -15,11 +18,8 @@ surfaces: agents, orchestration workflows, model selection, and tool runtime.
   - Local-vs-remote model selection policy behavior.
   - See `examples/model_selection/README.md`.
 - `examples/tools`
-  - Unified tool runtime examples (core + script + MCP).
+  - Unified tool runtime examples (core + script + MCP), including script-tool wrappers.
   - See `examples/tools/README.md`.
-- `examples/lazy_tools`
-  - Script-tool scripts and one-step agent wrappers for each script tool.
-  - See `examples/lazy_tools/README.md`.
 
 ## Quick Start
 

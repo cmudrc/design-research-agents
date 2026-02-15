@@ -30,6 +30,11 @@ Dependencies and environment
 - ``OPENAI_API_KEY`` (or pass ``api_key`` directly)
 - Network access to OpenAI API
 
+Examples
+--------
+
+- ``examples/clients/openai_service_client.py``
+
 Official docs
 -------------
 

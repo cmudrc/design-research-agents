@@ -31,6 +31,7 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_router_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_json_tool_calling_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/single_step_json_callable_tool_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
@@ -44,6 +45,18 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/model_selection/remote.py
    PYTHONPATH=src python3 examples/tools/mcp_minimal.py
    PYTHONPATH=src python3 examples/tools/source_fusion_story.py
+   PYTHONPATH=src python3 examples/tools/script_tools/python/single_step_json_script_rubric_score_agent.py
+   PYTHONPATH=src python3 examples/tools/script_tools/bash/single_step_json_script_repo_quickscan_agent.py
+
+Run client configuration examples:
+
+.. code-block:: bash
+
+   PYTHONPATH=src python3 examples/clients/llama_cpp_server_client.py
+   PYTHONPATH=src python3 examples/clients/openai_service_client.py
+   PYTHONPATH=src python3 examples/clients/openai_compatible_http_client.py
+   PYTHONPATH=src python3 examples/clients/transformers_local_client.py
+   PYTHONPATH=src python3 examples/clients/mlx_local_client.py
 
 Workflow run signatures in the two reusable workflow chunks:
 

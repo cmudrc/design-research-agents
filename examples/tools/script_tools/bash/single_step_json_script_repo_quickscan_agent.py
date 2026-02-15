@@ -14,7 +14,7 @@ from design_research_agents.tools.config import ScriptTool
 def main() -> None:
     """Run one single-step agent call against ``script::repo_quickscan``."""
     script_dir = Path(__file__).resolve().parent
-    repo_root = script_dir.parents[2]
+    repo_root = script_dir.parents[3]
 
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox(
@@ -43,7 +43,7 @@ def main() -> None:
 
     result = agent.run(
         prompt="Call script::repo_quickscan with include_hidden=false.",
-        request_id="example-lazy-repo-quickscan-agent-001",
+        request_id="example-script-repo-quickscan-agent-001",
     )
 
     print(result)

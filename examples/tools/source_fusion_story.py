@@ -1,4 +1,4 @@
-"""Source-fusion runtime example combining core, lazy, and MCP tools."""
+"""Source-fusion runtime example combining core, script, and MCP tools."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def main() -> None:
         script_tools=(
             ScriptTool(
                 name="rubric_score",
-                path="examples/lazy_tools/python/rubric_score.py",
+                path="examples/tools/script_tools/python/rubric_score.py",
                 description="Score text against a simple rubric.",
                 input_schema={
                     "type": "object",
@@ -65,7 +65,7 @@ def main() -> None:
     )
 
     story_text = (
-        "We combined core, lazy, and mcp tools to create one deterministic research report "
+        "We combined core, script, and mcp tools to create one deterministic research report "
         "for the runtime examples folder."
     )
 
@@ -79,7 +79,7 @@ def main() -> None:
                 "overwrite": True,
             },
         )
-        lazy_score = _invoke_dict(
+        script_score = _invoke_dict(
             runtime,
             "script::rubric_score",
             {"text": story_text, "max_score": 20},
@@ -97,13 +97,13 @@ def main() -> None:
         combined = _invoke_dict(
             runtime,
             "local_core::calculator",
-            {"expression": f"{lazy_score['score']} + {mcp_stats['word_count']}"},
+            {"expression": f"{script_score['score']} + {mcp_stats['word_count']}"},
         )
 
         report = {
             "story_path": write_result["path"],
-            "lazy_score": lazy_score["score"],
-            "lazy_max_score": lazy_score["max_score"],
+            "script_score": script_score["score"],
+            "script_max_score": script_score["max_score"],
             "mcp_word_count": mcp_stats["word_count"],
             "source_hit_count": source_hits["count"],
             "combined_metric": combined["result"],

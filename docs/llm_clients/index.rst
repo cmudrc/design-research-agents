@@ -53,6 +53,11 @@ When to choose what
 4. Need policy-driven choice between local and remote options: use
    :doc:`model_selection`.
 
+See examples
+------------
+
+- ``examples/clients/README.md``
+
 Pages
 -----
 

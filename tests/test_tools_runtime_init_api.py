@@ -19,7 +19,7 @@ def _local_mcp_server(server_id: str = "local_core") -> McpServer:
 def _rubric_script_tool() -> ScriptTool:
     return ScriptTool(
         name="rubric_score",
-        path="examples/lazy_tools/python/rubric_score.py",
+        path="examples/tools/script_tools/python/rubric_score.py",
         description="Score text against a simple rubric.",
         input_schema={
             "type": "object",

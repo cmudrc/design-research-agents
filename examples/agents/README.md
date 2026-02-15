@@ -20,4 +20,4 @@ the project.
 ## Notes
 
 - Examples are intended to run from repository root with `PYTHONPATH=src`.
-- By default, agent examples use `LlamaCppServerLLMClient()`.
+- Most agent examples use `LlamaCppServerLLMClient()` by default.

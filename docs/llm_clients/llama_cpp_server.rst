@@ -41,6 +41,11 @@ Model notes for local runs
 - Use :doc:`model_selection` to enforce local-only behavior plus cost/latency
   constraints consistently across workflows.
 
+Examples
+--------
+
+- ``examples/clients/llama_cpp_server_client.py``
+
 Official docs
 -------------
 

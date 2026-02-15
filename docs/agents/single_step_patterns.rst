@@ -36,6 +36,7 @@ Examples
 - ``examples/agents/basic/single_step_direct_llm_agent.py``
 - ``examples/agents/basic/single_step_router_agent.py``
 - ``examples/agents/basic/single_step_json_tool_calling_agent.py``
+- ``examples/agents/basic/single_step_json_callable_tool_agent.py``
 - ``examples/agents/basic/single_step_code_tool_calling_agent.py``
 - ``examples/agents/streaming/single_step_direct_llm_agent_stream.py``
 - ``examples/agents/streaming/single_step_router_agent_stream.py``

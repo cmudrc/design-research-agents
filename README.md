@@ -59,9 +59,10 @@ See the examples index and sub-guides:
 
 - Top-level examples index: [`examples/README.md`](examples/README.md)
 - Agents: [`examples/agents/README.md`](examples/agents/README.md)
+- Client configuration: [`examples/clients/README.md`](examples/clients/README.md)
 - Workflows: [`examples/workflow/README.md`](examples/workflow/README.md)
 - Model selection: [`examples/model_selection/README.md`](examples/model_selection/README.md)
-- Tool runtime source fusion: [`examples/tools/README.md`](examples/tools/README.md)
+- Tool runtime + script tools: [`examples/tools/README.md`](examples/tools/README.md)
 
 
 ## Docs

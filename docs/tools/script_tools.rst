@@ -28,7 +28,7 @@ CLI helpers
 
 .. code-block:: bash
 
-   dra script lint examples/lazy_tools
+   dra script lint examples/tools/script_tools
    dra script list --config tool_runtime.yaml
    dra script run script::rubric_score --json '{"text":"hello"}' --config tool_runtime.yaml
 
@@ -42,6 +42,6 @@ Troubleshooting
 Examples
 --------
 
-- ``examples/lazy_tools/README.md``
-- ``examples/lazy_tools/python/rubric_score.py``
-- ``examples/lazy_tools/bash/repo_quickscan.sh``
+- ``examples/tools/script_tools/README.md``
+- ``examples/tools/script_tools/python/rubric_score.py``
+- ``examples/tools/script_tools/bash/repo_quickscan.sh``

@@ -1,4 +1,4 @@
-"""Curated public package interface with lazy-loaded top-level exports."""
+"""Curated public package interface with deferred top-level exports."""
 
 from __future__ import annotations
 

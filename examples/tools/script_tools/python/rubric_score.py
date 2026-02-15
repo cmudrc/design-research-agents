@@ -1,4 +1,4 @@
-"""Lazy tool header metadata.
+"""Script tool header metadata.
 
 @tool_name: rubric_score
 @description: Score text against a simple rubric.
