@@ -1,10 +1,9 @@
-"""Tests for AgentRuntime modes and workflow orchestrators."""
+"""Tests for AgentRuntime modes and WorkflowRuntime orchestration."""
 
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator, Mapping, Sequence
 
 import pytest
 
@@ -18,7 +17,9 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
-from design_research_agents.orchestrator import DagOrchestrator, SequentialOrchestrator
+from design_research_agents.contracts.orchestrator import AgentStep, LogicStep, ToolStep
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.orchestrator import WorkflowRuntime
 from design_research_agents.tools import BaseToolRuntime
 
 
@@ -72,7 +73,7 @@ class _SequenceLLMClient:
 
 
 class _StaticAgent(Agent):
-    """Simple deterministic agent used for triage tests."""
+    """Simple deterministic agent used for triage and workflow tests."""
 
     def __init__(self, *, marker: str) -> None:
         self._marker = marker
@@ -102,6 +103,59 @@ class _StaticAgent(Agent):
     ) -> Iterator:
         del input, request_id, dependencies
         raise NotImplementedError
+
+
+class _StubToolRuntime(ToolRuntime):
+    """Small in-memory tool runtime for workflow tests."""
+
+    def __init__(
+        self,
+        *,
+        handlers: Mapping[str, Callable[[Mapping[str, object]], Mapping[str, object]]],
+    ) -> None:
+        self._handlers = dict(handlers)
+        self._specs = {
+            name: ToolSpec(
+                name=name,
+                description=f"Test tool '{name}'.",
+                input_schema={"type": "object", "additionalProperties": True},
+                output_schema={"type": "object", "additionalProperties": True},
+            )
+            for name in handlers
+        }
+
+    def list_tools(self) -> Sequence[ToolSpec]:
+        return tuple(self._specs.values())
+
+    def invoke(
+        self,
+        tool_name: str,
+        input_dict: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del request_id, dependencies
+        handler = self._handlers.get(tool_name)
+        if handler is None:
+            return ToolResult(
+                tool_name=tool_name,
+                ok=False,
+                result={},
+                error=f"Tool '{tool_name}' is not registered.",
+            )
+
+        try:
+            output = dict(handler(input_dict))
+        except Exception as exc:
+            return ToolResult(
+                tool_name=tool_name,
+                ok=False,
+                result={},
+                error=str(exc),
+            )
+
+        return ToolResult(tool_name=tool_name, ok=True, result=output)
 
 
 def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
@@ -273,222 +327,243 @@ def test_agent_runtime_stream_emits_delta_then_completed() -> None:
     assert events[1].result.success
 
 
-@dataclass
-class _TestNode:
-    node_id: str
-    dependencies: tuple[str, ...]
-    run_fn: Callable[[Mapping[str, object]], Mapping[str, object]]
-    input_schema: Mapping[str, object]
-    output_schema: Mapping[str, object]
-    route_map: Mapping[str, tuple[str, ...]] | None = None
-
-    def run(self, context: Mapping[str, object]) -> Mapping[str, object]:
-        return self.run_fn(context)
-
-
-_NODE_INPUT_SCHEMA: dict[str, object] = {
-    "type": "object",
-    "required": ["dependency_results"],
-    "properties": {
-        "dependency_results": {"type": "object"},
-    },
-    "additionalProperties": True,
-}
-
-_NODE_OUTPUT_SCHEMA: dict[str, object] = {
-    "type": "object",
-    "required": ["value"],
-    "properties": {
-        "value": {"type": "integer"},
-    },
-    "additionalProperties": False,
-}
-
-
-def test_sequential_orchestrator_runs_dependency_order() -> None:
-    orchestrator = SequentialOrchestrator()
-    nodes = [
-        _TestNode(
-            node_id="a",
-            dependencies=(),
-            run_fn=lambda ctx: {"value": 1},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="b",
+def test_workflow_runtime_sequential_runs_dependency_order() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(step_id="a", handler=lambda ctx: {"value": 1}),
+        LogicStep(
+            step_id="b",
             dependencies=("a",),
-            run_fn=lambda ctx: {
+            handler=lambda ctx: {
                 "value": int(ctx["dependency_results"]["a"]["output"]["value"]) + 1,
             },
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
         ),
     ]
 
-    result = orchestrator.run(nodes)
+    result = workflow.run(steps, execution_mode="sequential")
 
     assert result.success
     assert result.execution_order == ["a", "b"]
-    assert result.node_results["b"].output["value"] == 2
+    assert result.step_results["b"].output["value"] == 2
 
 
-def test_sequential_orchestrator_failure_policy_skip_dependents() -> None:
-    orchestrator = SequentialOrchestrator()
-    nodes = [
-        _TestNode(
-            node_id="a",
-            dependencies=(),
-            run_fn=lambda ctx: (_ for _ in ()).throw(RuntimeError("boom")),
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="b",
-            dependencies=("a",),
-            run_fn=lambda ctx: {"value": 2},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
+def test_workflow_runtime_sequential_raises_for_unresolved_dependencies() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(step_id="b", dependencies=("a",), handler=lambda ctx: {"value": 2}),
+        LogicStep(step_id="a", handler=lambda ctx: {"value": 1}),
     ]
 
-    result = orchestrator.run(nodes, failure_policy="skip_dependents")
-
-    assert not result.success
-    assert result.node_results["a"].status == "failed"
-    assert result.node_results["b"].status == "skipped"
-    assert result.node_results["b"].error == "skipped_upstream_failure"
+    with pytest.raises(ValueError, match="cannot run before dependencies are resolved"):
+        workflow.run(steps, execution_mode="sequential")
 
 
-def test_sequential_orchestrator_failure_policy_propagate_failed_state() -> None:
-    orchestrator = SequentialOrchestrator()
-    nodes = [
-        _TestNode(
-            node_id="a",
-            dependencies=(),
-            run_fn=lambda ctx: (_ for _ in ()).throw(RuntimeError("boom")),
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="b",
-            dependencies=("a",),
-            run_fn=lambda ctx: {"value": 2},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-    ]
-
-    result = orchestrator.run(nodes, failure_policy="propagate_failed_state")
-
-    assert not result.success
-    assert result.node_results["a"].status == "failed"
-    assert result.node_results["b"].status == "completed"
-
-
-def test_dag_orchestrator_has_deterministic_topological_order() -> None:
-    orchestrator = DagOrchestrator()
-    nodes = [
-        _TestNode(
-            node_id="a",
-            dependencies=(),
-            run_fn=lambda ctx: {"value": 1},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="c",
-            dependencies=("a",),
-            run_fn=lambda ctx: {"value": 3},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="b",
-            dependencies=("a",),
-            run_fn=lambda ctx: {"value": 2},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="d",
+def test_workflow_runtime_dag_has_deterministic_topological_order() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(step_id="a", handler=lambda ctx: {"value": 1}),
+        LogicStep(step_id="c", dependencies=("a",), handler=lambda ctx: {"value": 3}),
+        LogicStep(step_id="b", dependencies=("a",), handler=lambda ctx: {"value": 2}),
+        LogicStep(
+            step_id="d",
             dependencies=("b", "c"),
-            run_fn=lambda ctx: {"value": 4},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
+            handler=lambda ctx: {"value": 4},
         ),
     ]
 
-    result = orchestrator.run(nodes)
+    result = workflow.run(steps, execution_mode="dag")
 
     assert result.success
     assert result.execution_order == ["a", "b", "c", "d"]
 
 
-def test_dag_orchestrator_detects_cycle_with_clear_error() -> None:
-    orchestrator = DagOrchestrator()
-    nodes = [
-        _TestNode(
-            node_id="a",
-            dependencies=("b",),
-            run_fn=lambda ctx: {"value": 1},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
-        _TestNode(
-            node_id="b",
-            dependencies=("a",),
-            run_fn=lambda ctx: {"value": 2},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
-        ),
+def test_workflow_runtime_dag_detects_cycle_with_clear_error() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(step_id="a", dependencies=("b",), handler=lambda ctx: {"value": 1}),
+        LogicStep(step_id="b", dependencies=("a",), handler=lambda ctx: {"value": 2}),
     ]
 
     with pytest.raises(ValueError, match="Cycle detected"):
-        orchestrator.run(nodes)
+        workflow.run(steps, execution_mode="dag")
 
 
-def test_dag_orchestrator_single_router_fan_out_skips_non_selected_branch() -> None:
-    orchestrator = DagOrchestrator()
-
-    router_output_schema = {
-        "type": "object",
-        "required": ["value", "route"],
-        "properties": {
-            "value": {"type": "integer"},
-            "route": {"type": "string"},
-        },
-        "additionalProperties": False,
-    }
-
-    nodes = [
-        _TestNode(
-            node_id="router",
-            dependencies=(),
-            run_fn=lambda ctx: {"value": 1, "route": "left"},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=router_output_schema,
-            route_map={"left": ("left_node",), "right": ("right_node",)},
+def test_workflow_runtime_failure_policy_skip_dependents() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(
+            step_id="a",
+            handler=lambda ctx: (_ for _ in ()).throw(RuntimeError("boom")),
         ),
-        _TestNode(
-            node_id="left_node",
-            dependencies=("router",),
-            run_fn=lambda ctx: {"value": 2},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
+        LogicStep(step_id="b", dependencies=("a",), handler=lambda ctx: {"value": 2}),
+    ]
+
+    result = workflow.run(
+        steps,
+        execution_mode="sequential",
+        failure_policy="skip_dependents",
+    )
+
+    assert not result.success
+    assert result.step_results["a"].status == "failed"
+    assert result.step_results["b"].status == "skipped"
+    assert result.step_results["b"].error == "skipped_upstream_failure"
+
+
+def test_workflow_runtime_failure_policy_propagate_failed_state() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(
+            step_id="a",
+            handler=lambda ctx: (_ for _ in ()).throw(RuntimeError("boom")),
         ),
-        _TestNode(
-            node_id="right_node",
+        LogicStep(step_id="b", dependencies=("a",), handler=lambda ctx: {"value": 2}),
+    ]
+
+    result = workflow.run(
+        steps,
+        execution_mode="sequential",
+        failure_policy="propagate_failed_state",
+    )
+
+    assert not result.success
+    assert result.step_results["a"].status == "failed"
+    assert result.step_results["b"].status == "completed"
+
+
+def test_workflow_runtime_route_branching_skips_non_selected_branch() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(
+            step_id="router",
+            handler=lambda ctx: {"route": "left"},
+            route_map={"left": ("left_step",), "right": ("right_step",)},
+        ),
+        LogicStep(step_id="left_step", dependencies=("router",), handler=lambda ctx: {"value": 1}),
+        LogicStep(
+            step_id="right_step",
             dependencies=("router",),
-            run_fn=lambda ctx: {"value": 3},
-            input_schema=_NODE_INPUT_SCHEMA,
-            output_schema=_NODE_OUTPUT_SCHEMA,
+            handler=lambda ctx: {"value": 2},
         ),
     ]
 
-    result = orchestrator.run(nodes, failure_policy="propagate_failed_state")
+    result = workflow.run(steps, execution_mode="dag", failure_policy="propagate_failed_state")
 
     assert result.success
-    assert result.node_results["left_node"].status == "completed"
-    assert result.node_results["right_node"].status == "skipped"
-    assert result.node_results["right_node"].error == "skipped_branch_not_selected"
+    assert result.step_results["left_step"].status == "completed"
+    assert result.step_results["right_step"].status == "skipped"
+    assert result.step_results["right_step"].error == "skipped_branch_not_selected"
+
+
+def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
+    tool_runtime = _StubToolRuntime(
+        handlers={
+            "adder_tool": lambda payload: {
+                "sum": float(payload.get("a", 0)) + float(payload.get("b", 0))
+            }
+        }
+    )
+    workflow = WorkflowRuntime(tool_runtime=tool_runtime)
+    steps = [
+        ToolStep(step_id="add", tool_name="adder_tool", input_data={"a": 40, "b": 2}),
+    ]
+
+    result = workflow.run(steps, execution_mode="sequential")
+
+    assert result.success
+    step_output = result.step_results["add"].output
+    assert step_output["tool_name"] == "adder_tool"
+    assert step_output["ok"] is True
+    assert step_output["result"]["sum"] == 42.0
+
+
+def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
+    workflow = WorkflowRuntime(agents={"math_agent": _StaticAgent(marker="math")})
+    steps = [
+        AgentStep(step_id="delegate", agent_name="math_agent", prompt="Solve this."),
+    ]
+
+    result = workflow.run(steps, execution_mode="sequential")
+
+    assert result.success
+    step_output = result.step_results["delegate"].output
+    assert step_output["success"] is True
+    assert step_output["output"]["agent_marker"] == "math"
+
+
+def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -> None:
+    tool_runtime = _StubToolRuntime(
+        handlers={
+            "text_length_tool": lambda payload: {
+                "length": len(str(payload.get("text", ""))),
+            }
+        }
+    )
+    workflow = WorkflowRuntime(
+        tool_runtime=tool_runtime,
+        agents={"writer_agent": _StaticAgent(marker="proposal")},
+    )
+    steps = [
+        LogicStep(
+            step_id="router",
+            handler=lambda ctx: {"route": "agent_path"},
+            route_map={"agent_path": ("delegate",), "other_path": ("unused",)},
+        ),
+        AgentStep(
+            step_id="delegate",
+            agent_name="writer_agent",
+            dependencies=("router",),
+            prompt_builder=lambda ctx: "Write a proposal.",
+        ),
+        LogicStep(
+            step_id="unused",
+            dependencies=("router",),
+            handler=lambda ctx: {"value": "should skip"},
+        ),
+        ToolStep(
+            step_id="measure",
+            tool_name="text_length_tool",
+            dependencies=("delegate",),
+            input_builder=lambda ctx: {
+                "text": ctx["dependency_results"]["delegate"]["output"]["output"]["agent_marker"]
+            },
+        ),
+        LogicStep(
+            step_id="finalize",
+            dependencies=("measure",),
+            handler=lambda ctx: {
+                "length": ctx["dependency_results"]["measure"]["output"]["result"]["length"]
+            },
+        ),
+    ]
+
+    result = workflow.run(steps, execution_mode="dag")
+
+    assert result.success
+    assert result.step_results["unused"].status == "skipped"
+    assert result.step_results["unused"].error == "skipped_branch_not_selected"
+    assert result.step_results["finalize"].output["length"] == len("proposal")
+
+
+def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
+    tool_runtime = _StubToolRuntime(handlers={"known_tool": lambda payload: {"ok": True}})
+    workflow = WorkflowRuntime(
+        tool_runtime=tool_runtime,
+        agents={"known_agent": _StaticAgent(marker="ok")},
+    )
+    steps = [
+        ToolStep(step_id="missing_tool", tool_name="unknown_tool"),
+        AgentStep(step_id="missing_agent", agent_name="unknown_agent", prompt="Do work."),
+    ]
+
+    result = workflow.run(
+        steps,
+        execution_mode="sequential",
+        failure_policy="propagate_failed_state",
+    )
+
+    assert not result.success
+    assert result.step_results["missing_tool"].status == "failed"
+    assert result.step_results["missing_tool"].metadata["stage"] == "tool_binding"
+    assert result.step_results["missing_agent"].status == "failed"
+    assert result.step_results["missing_agent"].metadata["stage"] == "agent_binding"

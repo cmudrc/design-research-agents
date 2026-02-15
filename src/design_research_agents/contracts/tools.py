@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Literal, Protocol
 
 
 @dataclass(slots=True, frozen=True)
@@ -27,6 +27,38 @@ class ToolCostHints:
 
 
 @dataclass(slots=True, frozen=True)
+class ToolSideEffects:
+    """Declared side effects for one tool implementation."""
+
+    filesystem_read: bool = False
+    filesystem_write: bool = False
+    network: bool = False
+    commands: tuple[str, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
+class ToolMetadata:
+    """Tool source and guardrail metadata surfaced to runtimes/agents."""
+
+    source: Literal["core", "mcp", "lazy", "custom"] = "core"
+    side_effects: ToolSideEffects = field(default_factory=ToolSideEffects)
+    timeout_s: int = 30
+    max_output_bytes: int = 65_536
+    risky: bool | None = None
+    server_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.risky is not None:
+            return
+        is_risky = (
+            self.side_effects.filesystem_write
+            or self.side_effects.network
+            or bool(self.side_effects.commands)
+        )
+        object.__setattr__(self, "risky", is_risky)
+
+
+@dataclass(slots=True, frozen=True)
 class ToolSpec:
     """Static description of a tool available to agent runtimes.
 
@@ -35,6 +67,7 @@ class ToolSpec:
         description: Natural-language description used for planning/routing.
         input_schema: JSON-schema-like object describing accepted inputs.
         output_schema: JSON-schema-like object describing tool outputs.
+        metadata: Source/policy metadata for runtime enforcement.
         permissions: Optional permission labels associated with the tool.
         cost_hints: Optional cost estimates used for planning heuristics.
     """
@@ -43,6 +76,7 @@ class ToolSpec:
     description: str
     input_schema: dict[str, object]
     output_schema: dict[str, object]
+    metadata: ToolMetadata = field(default_factory=ToolMetadata)
     permissions: tuple[str, ...] = ()
     cost_hints: ToolCostHints = field(default_factory=ToolCostHints)
 
@@ -53,22 +87,104 @@ class ToolSpec:
 
 
 @dataclass(slots=True, frozen=True)
+class ToolArtifact:
+    """File-like artifact emitted by a tool invocation."""
+
+    path: str
+    mime: str
+
+
+@dataclass(slots=True, frozen=True)
+class ToolError:
+    """Structured tool failure details."""
+
+    type: str
+    message: str
+
+
+@dataclass(slots=True, frozen=True, init=False)
 class ToolResult:
     """Result payload emitted from a tool runtime invocation.
 
-    Attributes:
-        tool_name: Name of the invoked tool.
-        output: Structured tool output payload.
-        success: Boolean execution success flag.
-        error: Optional error text when execution failed.
-        metadata: Optional runtime metadata (timings, trace IDs, etc.).
+    Canonical envelope fields are ``ok``/``result``/``artifacts``/``warnings``.
+    Legacy ``success``/``output`` constructor arguments remain accepted so
+    existing integrations can migrate without immediate breakage.
     """
 
     tool_name: str
-    output: dict[str, object]
-    success: bool
-    error: str | None = None
-    metadata: dict[str, object] = field(default_factory=dict)
+    ok: bool
+    result: object
+    artifacts: tuple[ToolArtifact, ...]
+    warnings: tuple[str, ...]
+    error: ToolError | None
+    metadata: dict[str, object]
+
+    def __init__(
+        self,
+        *,
+        tool_name: str,
+        ok: bool | None = None,
+        result: object | None = None,
+        artifacts: Sequence[ToolArtifact | Mapping[str, object]] = (),
+        warnings: Sequence[str] = (),
+        error: ToolError | Mapping[str, object] | str | None = None,
+        metadata: Mapping[str, object] | None = None,
+        output: Mapping[str, object] | None = None,
+        success: bool | None = None,
+    ) -> None:
+        resolved_ok = ok if ok is not None else success
+        if resolved_ok is None:
+            raise TypeError("ToolResult requires either 'ok' or legacy 'success'.")
+
+        resolved_result: object
+        if result is not None:
+            resolved_result = result
+        elif output is not None:
+            resolved_result = dict(output)
+        else:
+            resolved_result = {}
+
+        resolved_artifacts: list[ToolArtifact] = []
+        for artifact in artifacts:
+            if isinstance(artifact, ToolArtifact):
+                resolved_artifacts.append(artifact)
+                continue
+            path = str(artifact.get("path", ""))
+            mime = str(artifact.get("mime", "application/octet-stream"))
+            resolved_artifacts.append(ToolArtifact(path=path, mime=mime))
+
+        resolved_error: ToolError | None
+        if isinstance(error, ToolError):
+            resolved_error = error
+        elif isinstance(error, Mapping):
+            resolved_error = ToolError(
+                type=str(error.get("type", "ToolError")),
+                message=str(error.get("message", "Unknown tool error.")),
+            )
+        elif isinstance(error, str):
+            resolved_error = ToolError(type="ToolError", message=error)
+        else:
+            resolved_error = None
+
+        object.__setattr__(self, "tool_name", tool_name)
+        object.__setattr__(self, "ok", bool(resolved_ok))
+        object.__setattr__(self, "result", resolved_result)
+        object.__setattr__(self, "artifacts", tuple(resolved_artifacts))
+        object.__setattr__(self, "warnings", tuple(str(item) for item in warnings))
+        object.__setattr__(self, "error", resolved_error)
+        object.__setattr__(self, "metadata", dict(metadata or {}))
+
+    @property
+    def success(self) -> bool:
+        """Legacy alias for ``ok``."""
+        return self.ok
+
+    @property
+    def output(self) -> dict[str, object]:
+        """Legacy alias for ``result`` normalized to mapping payloads."""
+        if isinstance(self.result, Mapping):
+            return dict(self.result)
+        return {"value": self.result}
 
 
 class ToolRuntime(Protocol):
@@ -98,7 +214,7 @@ class ToolRuntime(Protocol):
         """Invoke one tool using structured input and execution metadata payloads.
 
         Implementations should avoid raising for expected tool failures and
-        instead return ``ToolResult(success=False)`` with error details.
+        instead return ``ToolResult(ok=False)`` with error details.
 
         Args:
             tool_name: Name of the tool to invoke.

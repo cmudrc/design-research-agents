@@ -1,8 +1,4 @@
-"""Versioned JSON Schema loaders for public contract payload validation.
-
-Schemas are shipped as package resources under explicit version directories so
-callers can load stable schema documents for serialization and validation.
-"""
+"""Versioned JSON Schema loaders for public contract payload validation."""
 
 from __future__ import annotations
 
@@ -10,7 +6,8 @@ import json
 from importlib.resources import files
 from typing import Final
 
-SCHEMA_VERSION: Final[str] = "v1"
+SCHEMA_VERSION: Final[str] = "v2"
+SCHEMA_VERSIONS: Final[tuple[str, ...]] = ("v1", "v2")
 SCHEMA_NAMES: Final[tuple[str, ...]] = ("tool_spec", "tool_result", "agent_result")
 
 
@@ -25,10 +22,10 @@ def load_schema(name: str, *, version: str = SCHEMA_VERSION) -> dict[str, object
         Parsed schema document as a mutable mapping.
 
     Raises:
-        ValueError: If ``version`` or ``name`` are unsupported, or if the file
-            does not deserialize into a JSON object.
+        ValueError: If ``version`` or ``name`` are unsupported, or if the file does not
+            deserialize into a JSON object.
     """
-    if version != SCHEMA_VERSION:
+    if version not in SCHEMA_VERSIONS:
         raise ValueError(f"Unsupported schema version '{version}'.")
     if name not in SCHEMA_NAMES:
         raise ValueError(f"Unsupported schema '{name}'.")
@@ -47,4 +44,6 @@ def load_schema(name: str, *, version: str = SCHEMA_VERSION) -> dict[str, object
 __all__ = [
     "SCHEMA_NAMES",
     "SCHEMA_VERSION",
+    "SCHEMA_VERSIONS",
+    "load_schema",
 ]

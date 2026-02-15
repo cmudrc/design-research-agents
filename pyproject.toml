@@ -20,10 +20,15 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "bashkit>=0.1.4",
     "jsonschema>=4.23",
+    "mcp>=1.6",
     "openai>=1.40",
     "pyyaml>=6.0"
 ]
+
+[project.scripts]
+dra = "design_research_agents.cli:main"
 
 # Batteries-included contributor dependencies.
 [project.optional-dependencies]
@@ -54,7 +59,7 @@ where = ["src"]
 
 # Ship marker file for typed package consumers.
 [tool.setuptools.package-data]
-design_research_agents = ["py.typed", "schemas/v1/*.json", "prompts/*.md"]
+design_research_agents = ["py.typed", "schemas/v1/*.json", "schemas/v2/*.json", "prompts/*.md"]
 
 # Pytest defaults for local + CI test runs.
 [tool.pytest.ini_options]
@@ -103,6 +108,8 @@ module = [
     "mlx_lm.*",
     "openai",
     "openai.*",
+    "bashkit",
+    "bashkit.*",
     "torch",
     "torch.*",
     "transformers",
@@ -110,3 +117,7 @@ module = [
     "yaml",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["design_research_agents.orchestrator.runtime"]
+disable_error_code = ["redundant-cast"]

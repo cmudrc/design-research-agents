@@ -2,11 +2,9 @@
 
 This module deliberately exposes a compact and stable surface that combines:
 - core agent implementations,
+- workflow runtime primitives,
 - default llama-cpp configuration/client entrypoints, and
 - default tool runtime primitives.
-
-Callers can import from this module when they want a single entrypoint that
-remains stable even as internal package structure evolves.
 """
 
 from __future__ import annotations
@@ -22,6 +20,7 @@ from .agent import (
     SingleStepCodeAgent,
     ToolCallingAgent,
 )
+from .contracts.orchestrator import AgentStep, LogicStep, ToolStep
 from .llm import BaseLLMClient, LLMRouter, configure_router_from_yaml
 from .llm.backends.default import create_default_llm_client
 from .model_selection import (
@@ -33,19 +32,19 @@ from .model_selection import (
     ModelSelectionPolicy,
     ModelSelectionPolicyConfig,
 )
-from .orchestrator import DagOrchestrator, SequentialOrchestrator
-from .tools import BaseToolRuntime
+from .orchestrator import WorkflowRuntime
+from .tools import BaseToolRuntime, ToolRuntimeConfig, UnifiedToolRuntime, load_tool_runtime_config
 from .tracing import TraceConfig, configure_tracing
 
-# Keep a small, stable public surface for downstream users.
 __all__ = [
     "AgentRuntime",
+    "AgentStep",
     "BaseLLMClient",
     "BaseToolRuntime",
-    "DagOrchestrator",
     "DirectLLMAgent",
     "HardwareProfile",
     "LLMRouter",
+    "LogicStep",
     "ModelCatalog",
     "ModelSelectionConstraints",
     "ModelSelectionDecision",
@@ -55,20 +54,21 @@ __all__ = [
     "MultiStepAgent",
     "RouterAgent",
     "RuntimeControls",
-    "SequentialOrchestrator",
     "SingleStepCodeAgent",
     "ToolCallingAgent",
+    "ToolRuntimeConfig",
+    "ToolStep",
     "TraceConfig",
+    "UnifiedToolRuntime",
+    "WorkflowRuntime",
     "__version__",
     "configure_router_from_yaml",
     "configure_tracing",
     "create_default_llm_client",
+    "load_tool_runtime_config",
 ]
 
 try:
-    # Distribution name (from pyproject.toml [project].name)
     __version__ = version("design-research-agents")
 except PackageNotFoundError:
-    # Running from source without an installed distribution (e.g., direct `python` execution)
-    # avoids hard failures in local dev before installation.
     __version__ = "unknown"

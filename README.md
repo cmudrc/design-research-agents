@@ -11,7 +11,7 @@ This project focuses on composable agent systems you can run, inspect, and test:
 
 - Agent implementations: `DirectLLMAgent`, `ToolCallingAgent`, `SingleStepCodeAgent`, `MultiStepAgent`
 - Unified runtime: `AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `triage`
-- Workflow orchestration: sequential and DAG runners with schema-validated node contracts
+- Workflow orchestration: `WorkflowRuntime` with typed logic, tool, and agent steps
 - Backend architecture: capability-based routing across local and remote LLM backends
 - Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads
 

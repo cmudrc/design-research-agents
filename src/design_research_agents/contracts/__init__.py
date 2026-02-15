@@ -1,9 +1,8 @@
 """Central export point for protocol and payload contracts.
 
 The imported symbols define the typed interfaces exchanged across the package:
-agent outputs/events, provider-neutral LLM payloads, and tool runtime
-specifications/results. Importing contracts from this module keeps downstream
-type usage consistent and avoids leaking internal module boundaries.
+agent outputs/events, provider-neutral LLM payloads, tool runtime
+specifications/results, and workflow orchestration contracts.
 """
 
 from .agent import Agent, AgentResult
@@ -32,17 +31,36 @@ from .llm import (
     Usage,
 )
 from .orchestrator import (
-    Orchestrator,
+    AgentStep,
+    AgentStepPromptBuilder,
+    LogicStep,
+    LogicStepHandler,
+    ToolStep,
+    ToolStepInputBuilder,
+    WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowNode,
-    WorkflowNodeResult,
     WorkflowResult,
+    WorkflowRunner,
+    WorkflowStep,
+    WorkflowStepResult,
+    WorkflowStepStatus,
 )
-from .tools import ToolCostHints, ToolResult, ToolRuntime, ToolSpec
+from .tools import (
+    ToolArtifact,
+    ToolCostHints,
+    ToolError,
+    ToolMetadata,
+    ToolResult,
+    ToolRuntime,
+    ToolSideEffects,
+    ToolSpec,
+)
 
 __all__ = [
     "Agent",
     "AgentResult",
+    "AgentStep",
+    "AgentStepPromptBuilder",
     "BackendCapabilities",
     "BackendStatus",
     "EmbeddingResult",
@@ -60,18 +78,28 @@ __all__ = [
     "LLMRequest",
     "LLMResponse",
     "LLMStreamEvent",
-    "Orchestrator",
+    "LogicStep",
+    "LogicStepHandler",
     "Provenance",
     "TaskProfile",
+    "ToolArtifact",
     "ToolCall",
     "ToolCallDelta",
     "ToolCostHints",
+    "ToolError",
+    "ToolMetadata",
     "ToolResult",
     "ToolRuntime",
+    "ToolSideEffects",
     "ToolSpec",
+    "ToolStep",
+    "ToolStepInputBuilder",
     "Usage",
+    "WorkflowExecutionMode",
     "WorkflowFailurePolicy",
-    "WorkflowNode",
-    "WorkflowNodeResult",
     "WorkflowResult",
+    "WorkflowRunner",
+    "WorkflowStep",
+    "WorkflowStepResult",
+    "WorkflowStepStatus",
 ]

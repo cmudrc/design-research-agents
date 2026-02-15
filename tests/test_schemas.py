@@ -43,6 +43,7 @@ def test_tool_spec_serializes_and_deserializes_cleanly() -> None:
     serialized = json.dumps(asdict(tool_spec))
     round_trip = json.loads(serialized)
     assert round_trip["name"] == "calculator_tool"
+    assert round_trip["metadata"]["source"] == "core"
     assert round_trip["permissions"] == ["compute:arithmetic"]
     assert round_trip["cost_hints"]["token_cost_estimate"] == 3
 
@@ -70,7 +71,8 @@ def test_tool_result_and_agent_result_serialize_and_deserialize_cleanly() -> Non
     serialized_tool_result = json.dumps(asdict(tool_result))
     round_trip_tool_result = json.loads(serialized_tool_result)
     assert round_trip_tool_result["tool_name"] == "calculator_tool"
-    assert round_trip_tool_result["success"] is True
+    assert round_trip_tool_result["ok"] is True
+    assert round_trip_tool_result["result"]["result"] == 42
 
     serialized_agent_result = json.dumps(asdict(agent_result))
     round_trip_agent_result = json.loads(serialized_agent_result)

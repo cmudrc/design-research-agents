@@ -128,17 +128,19 @@ AgentRuntime
   - ``mode=\"triage\"`` (router selection + delegated agent execution).
 - Tracks soft budget metadata (latency/cost observations) across mode loops.
 
-Workflow Orchestrators
-----------------------
+Workflow Runtime
+----------------
 
-- Sources:
-  - ``src/design_research_agents/orchestrator/sequential.py``
-  - ``src/design_research_agents/orchestrator/dag.py``
+- Source:
+  - ``src/design_research_agents/orchestrator/runtime.py``
 - Examples:
-  - ``examples/orchestrator/sequential.py``
-  - ``examples/orchestrator/dag.py``
-  - ``examples/orchestrator/research_pipeline_dag.py``
-- ``SequentialOrchestrator`` executes declared node order with dependency checks.
-- ``DagOrchestrator`` executes deterministic topological order with cycle detection.
-- Both inject upstream outputs via ``dependency_results`` and support configurable
-  failure policy behavior.
+  - ``examples/orchestrator/pure_tool_workflow.py``
+  - ``examples/orchestrator/mixed_agent_workflow.py``
+- ``WorkflowRuntime`` executes typed workflow steps:
+  - ``LogicStep`` for deterministic local handlers,
+  - ``ToolStep`` for runtime tool invocations,
+  - ``AgentStep`` for registered-agent delegation.
+- Supports deterministic ``execution_mode=\"sequential\"`` and
+  ``execution_mode=\"dag\"`` scheduling, per-step dependency injection through
+  ``dependency_results``, route-based branch skipping via ``LogicStep.route_map``,
+  and configurable failure-policy behavior.

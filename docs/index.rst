@@ -40,6 +40,9 @@ Get started
    quickstart
    philosophy
    agent_types
+   tools_runtime
+   mcp
+   lazy_tools
    contributing
 
 .. toctree::

@@ -49,11 +49,7 @@ Base implementations:
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.orchestrator.sequential
-   :members:
-   :undoc-members:
-
-.. automodule:: design_research_agents.orchestrator.dag
+.. automodule:: design_research_agents.orchestrator.runtime
    :members:
    :undoc-members:
 

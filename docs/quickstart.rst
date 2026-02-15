@@ -36,9 +36,8 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/runtime/plan_execute.py
    PYTHONPATH=src python3 examples/runtime/propose_critic.py
    PYTHONPATH=src python3 examples/runtime/triage.py
-   PYTHONPATH=src python3 examples/orchestrator/sequential.py
-   PYTHONPATH=src python3 examples/orchestrator/dag.py
-   PYTHONPATH=src python3 examples/orchestrator/research_pipeline_dag.py
+   PYTHONPATH=src python3 examples/orchestrator/pure_tool_workflow.py
+   PYTHONPATH=src python3 examples/orchestrator/mixed_agent_workflow.py
    PYTHONPATH=src python3 examples/model_selection/local.py
    PYTHONPATH=src python3 examples/model_selection/remote.py
 

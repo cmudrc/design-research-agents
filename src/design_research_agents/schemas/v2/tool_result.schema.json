@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-research-agents.dev/schemas/v2/tool_result.schema.json",
+  "title": "ToolResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tool_name",
+    "ok",
+    "result",
+    "artifacts",
+    "warnings",
+    "error",
+    "metadata"
+  ],
+  "properties": {
+    "tool_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ok": {
+      "type": "boolean"
+    },
+    "result": {},
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "mime"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "mime": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "error": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "message"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}
