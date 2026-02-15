@@ -58,6 +58,7 @@ purge-ignored-junk:
 	@find . -type d -name traces -prune -exec rm -rf {} + 2>/dev/null || true
 	@rm -rf docs/_build
 	@rm -rf src/design_research_agents.egg-info
+	@rm -rf artifacts
 	@find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
 
 # Aggregate checks used by CI.
