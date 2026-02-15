@@ -250,11 +250,7 @@ def test_base_runtime_and_agent_satisfy_protocols() -> None:
     _requires_tool_runtime(tool_runtime)
     _requires_agent(agent)
 
-    result = agent.run(
-        {
-            "prompt": "Calculate 6 * 7",
-        }
-    )
+    result = agent.run("Calculate 6 * 7")
     assert result.success
     assert result.tool_results[0].tool_name == "calculator_tool"
     assert result.tool_results[0].output["result"] == 42.0
@@ -262,15 +258,10 @@ def test_base_runtime_and_agent_satisfy_protocols() -> None:
 
 def test_direct_llm_agent_runs_without_tools() -> None:
     llm_client = _StaticResponseLLMClient(response_text="direct output")
-    agent = DirectLLMAgent(llm_client=llm_client)
+    agent = DirectLLMAgent(llm_client=llm_client, model="direct-test-model")
     _requires_agent(agent)
 
-    result = agent.run(
-        input={
-            "prompt": "Say hello",
-            "model": "direct-test-model",
-        }
-    )
+    result = agent.run("Say hello")
     assert result.success
     assert result.output["model"] == "direct-test-model"
     assert result.output["model_text"] == "direct output"
@@ -281,7 +272,7 @@ def test_direct_llm_agent_runs_without_tools() -> None:
 
 def test_direct_llm_agent_autogenerates_request_id() -> None:
     llm_client = _StaticResponseLLMClient(response_text="direct output")
-    agent = DirectLLMAgent(llm_client=llm_client)
+    agent = DirectLLMAgent(llm_client=llm_client, model="stream-direct-model")
 
     result = agent.run("Say hello")
     assert result.success
@@ -294,57 +285,11 @@ def test_direct_llm_agent_run_stream_emits_delta_and_completion() -> None:
     llm_client = _StaticResponseLLMClient(response_text="stream output")
     agent = DirectLLMAgent(llm_client=llm_client)
 
-    events = list(
-        agent.run_stream(
-            input={
-                "prompt": "Stream hello",
-                "model": "stream-direct-model",
-            }
-        )
-    )
+    events = list(agent.run_stream("Stream hello"))
     assert [event.kind for event in events] == ["delta", "completed"]
     assert events[0].delta_text == "stream output"
     assert events[1].result is not None
     assert events[1].result.output["model_text"] == "stream output"
-
-
-def test_direct_llm_agent_can_route_alternatives_to_system_prompt() -> None:
-    llm_client = _CapturingParamsLLMClient(response_text="system alternatives output")
-    agent = DirectLLMAgent(llm_client=llm_client)
-
-    result = agent.run(
-        input={
-            "prompt": "Pick the best option.",
-            "alternatives": [
-                {"id": "A", "description": "First option"},
-                {"id": "B", "description": "Second option"},
-            ],
-            "alternatives_prompt_target": "system",
-        }
-    )
-    assert result.success
-    assert llm_client.last_messages is not None
-    assert llm_client.last_messages[0].role == "system"
-    assert "Available alternatives:" in llm_client.last_messages[0].content
-    assert '"id": "A"' in llm_client.last_messages[0].content
-
-
-def test_direct_llm_agent_can_route_alternatives_to_user_prompt() -> None:
-    llm_client = _CapturingParamsLLMClient(response_text="user alternatives output")
-    agent = DirectLLMAgent(llm_client=llm_client)
-
-    result = agent.run(
-        input={
-            "prompt": "Pick the best option.",
-            "alternatives": ["Option A", "Option B"],
-            "alternatives_prompt_target": "user",
-        }
-    )
-    assert result.success
-    assert llm_client.last_messages is not None
-    assert llm_client.last_messages[-1].role == "user"
-    assert "Available alternatives:" in llm_client.last_messages[-1].content
-    assert "Option A" in llm_client.last_messages[-1].content
 
 
 class _StaticResponseLLMClient:
@@ -573,7 +518,7 @@ def test_tool_calling_agent_propagates_explicit_request_id_and_dependencies() ->
     agent = ToolCallingAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
     result = agent.run(
-        input={"prompt": "Calculate 6 * 7"},
+        "Calculate 6 * 7",
         request_id="req-manual-001",
         dependencies={"upstream_result": 42},
     )
@@ -596,7 +541,7 @@ def test_tool_calling_agent_uses_runtime_default_response_schema() -> None:
     tool_runtime = BaseToolRuntime()
     agent = ToolCallingAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(input={"prompt": "Calculate 6 * 7."})
+    result = agent.run("Calculate 6 * 7.")
     assert result.success
     assert llm_client.last_params is not None
     response_schema = llm_client.last_params.response_schema
@@ -608,7 +553,7 @@ def test_tool_calling_agent_uses_runtime_default_response_schema() -> None:
     }
 
 
-def test_tool_calling_agent_can_route_alternatives_to_system_prompt() -> None:
+def test_tool_calling_agent_includes_tools_in_user_prompt() -> None:
     llm_client = _CapturingParamsLLMClient(
         response_text=json.dumps(
             {
@@ -620,34 +565,23 @@ def test_tool_calling_agent_can_route_alternatives_to_system_prompt() -> None:
     tool_runtime = BaseToolRuntime()
     agent = ToolCallingAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Calculate 6 * 7.",
-            "alternatives_prompt_target": "system",
-        }
-    )
+    result = agent.run("Calculate 6 * 7.")
     assert result.success
     assert llm_client.last_messages is not None
     system_message = llm_client.last_messages[0]
     user_message = llm_client.last_messages[1]
     assert system_message.role == "system"
-    assert "Available tools:" in system_message.content
-    assert "calculator_tool" in system_message.content
     assert user_message.role == "user"
-    assert "(provided in system prompt)" in user_message.content
+    assert "Available tools:" in user_message.content
+    assert "calculator_tool" in user_message.content
 
 
 def test_tool_calling_agent_falls_back_when_model_output_is_not_json() -> None:
-    llm_client = _StaticResponseLLMClient(response_text="not-json")
+    llm_client = _StaticResponseLLMClient(response_text="one two three four")
     tool_runtime = BaseToolRuntime()
     agent = ToolCallingAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Count words in this exact sentence.",
-            "analysis_text": "one two three four",
-        }
-    )
+    result = agent.run("Count words in this exact sentence.")
     assert result.success
     assert result.tool_results[0].tool_name == "text_stats_tool"
     assert result.tool_results[0].output["word_count"] == 4
@@ -697,11 +631,7 @@ def test_single_step_code_agent_normalizes_safe_imports_and_module_style_calls()
         normalize_generated_code=True,
     )
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7 and summarize.",
-        }
-    )
+    result = agent.run("Compute 6 * 7 and summarize.")
     assert result.success
     assert result.output["final_output"]["result"] == 42.0
     assert result.output["final_output"]["word_count"] == 3
@@ -734,11 +664,7 @@ def test_single_step_code_agent_normalizes_direct_tool_calls() -> None:
         normalize_generated_code=True,
     )
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7.",
-        }
-    )
+    result = agent.run("Compute 6 * 7.")
     assert result.success
     assert result.output["final_output"]["result"] == 42.0
     assert result.output["raw_generated_code"] != result.output["generated_code"]
@@ -768,11 +694,7 @@ def test_single_step_code_agent_keeps_unknown_import_blocked() -> None:
         normalize_generated_code=True,
     )
 
-    result = agent.run(
-        input={
-            "prompt": "Try import.",
-        }
-    )
+    result = agent.run("Try import.")
     assert not result.success
     assert "Unsupported syntax node: Import" in result.output["error"]
     code_normalization = result.metadata["code_normalization"]
@@ -795,11 +717,7 @@ def test_single_step_code_agent_rejects_disallowed_tool_call() -> None:
         default_tools=[{"tool_name": "calculator_tool"}],
     )
 
-    result = agent.run(
-        input={
-            "prompt": "Try to call disallowed tool.",
-        }
-    )
+    result = agent.run("Try to call disallowed tool.")
     assert not result.success
     assert "allowed tool list" in result.output["error"]
     assert result.metadata["stage"] == "code_execution"
@@ -817,11 +735,7 @@ def test_single_step_code_agent_requires_final_output_dict() -> None:
     tool_runtime = BaseToolRuntime()
     agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Return anything.",
-        }
-    )
+    result = agent.run("Return anything.")
     assert not result.success
     assert "final_output" in result.output["error"]
 
@@ -838,11 +752,7 @@ def test_single_step_code_agent_supports_final_output_update_without_assignment(
     tool_runtime = BaseToolRuntime()
     agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7.",
-        }
-    )
+    result = agent.run("Compute 6 * 7.")
     assert result.success
     assert result.output["final_output"]["result"] == 42.0
 
@@ -854,11 +764,7 @@ def test_single_step_code_agent_uses_last_tool_output_when_final_output_missing(
     tool_runtime = BaseToolRuntime()
     agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Count words.",
-        }
-    )
+    result = agent.run("Count words.")
     assert result.success
     assert result.output["final_output"]["word_count"] == 2
 
@@ -868,11 +774,7 @@ def test_single_step_code_agent_requires_at_least_one_tool_call() -> None:
     tool_runtime = BaseToolRuntime()
     agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Return done.",
-        }
-    )
+    result = agent.run("Return done.")
     assert not result.success
     assert "at least one tool" in result.output["error"]
 
@@ -889,13 +791,13 @@ def test_single_step_code_agent_uses_runtime_tools_when_input_tools_omitted() ->
     tool_runtime = BaseToolRuntime()
     agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(input={"prompt": "Calculate 6 * 7."})
+    result = agent.run("Calculate 6 * 7.")
     assert result.success
     assert result.output["final_output"]["result"] == 42.0
     assert result.metadata["code_execution"]["allowed_tools_source"] == "init_default"
 
 
-def test_single_step_code_agent_can_route_alternatives_to_system_prompt() -> None:
+def test_single_step_code_agent_includes_tools_in_user_prompt() -> None:
     llm_client = _CapturingParamsLLMClient(
         response_text="\n".join(
             [
@@ -907,21 +809,15 @@ def test_single_step_code_agent_can_route_alternatives_to_system_prompt() -> Non
     tool_runtime = BaseToolRuntime()
     agent = SingleStepCodeAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        input={
-            "prompt": "Calculate 6 * 7.",
-            "alternatives_prompt_target": "system",
-        }
-    )
+    result = agent.run("Calculate 6 * 7.")
     assert result.success
     assert llm_client.last_messages is not None
     system_message = llm_client.last_messages[0]
     user_message = llm_client.last_messages[1]
     assert system_message.role == "system"
-    assert "Allowed tools:" in system_message.content
-    assert "calculator_tool" in system_message.content
     assert user_message.role == "user"
-    assert "(provided in system prompt)" in user_message.content
+    assert "Allowed tools:" in user_message.content
+    assert "calculator_tool" in user_message.content
 
 
 def test_single_step_code_agent_supports_init_default_tools_override() -> None:
@@ -940,7 +836,7 @@ def test_single_step_code_agent_supports_init_default_tools_override() -> None:
         default_tools=[{"tool_name": "text_stats_tool"}],
     )
 
-    result = agent.run(input={"prompt": "Try arithmetic with text-only defaults."})
+    result = agent.run("Try arithmetic with text-only defaults.")
     assert not result.success
     assert "allowed tool list" in result.output["error"]
 
@@ -960,20 +856,16 @@ def test_single_step_code_agent_schema_validation_is_optional() -> None:
         validate_tool_input_schema=False,
     )
 
-    non_validating_result = agent.run(
-        input={
-            "prompt": "Calculate 123.",
-        }
-    )
+    non_validating_result = agent.run("Calculate 123.")
     assert non_validating_result.success
     assert non_validating_result.output["final_output"]["result"] == 123.0
 
-    validating_result = agent.run(
-        input={
-            "prompt": "Calculate 123.",
-            "validate_tool_input_schema": True,
-        }
+    validating_agent = SingleStepCodeAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        validate_tool_input_schema=True,
     )
+    validating_result = validating_agent.run("Calculate 123.")
     assert not validating_result.success
     assert "must be a string" in validating_result.output["error"]
 
@@ -1048,11 +940,7 @@ def test_multi_step_agent_normalizes_direct_tool_calls_in_step_code() -> None:
         normalize_generated_code_per_step=True,
     )
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7, then summarize.",
-        }
-    )
+    result = agent.run("Compute 6 * 7, then summarize.")
     assert result.success
     assert result.output["steps_executed"] == 1
     assert result.output["final_output"]["result"] == 42.0
@@ -1080,11 +968,7 @@ def test_multi_step_agent_uses_fallback_continuation_on_invalid_json() -> None:
     tool_runtime = BaseToolRuntime()
     agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=5)
 
-    result = agent.run(
-        input={
-            "prompt": "Count words one time.",
-        }
-    )
+    result = agent.run("Count words one time.")
     assert result.success
     assert result.output["steps_executed"] == 1
     assert result.output["terminated_reason"] == "continuation_stopped:fallback"
@@ -1144,7 +1028,7 @@ def test_multi_step_agent_prefers_thought_field_for_continuation_rationale() -> 
     assert reason == "Need one action step."
 
 
-def test_multi_step_agent_can_route_alternatives_to_system_prompt() -> None:
+def test_multi_step_agent_includes_tools_in_user_prompts() -> None:
     llm_client = _CapturingSequenceLLMClient(
         response_texts=[
             '{"continue": false, "reason": "Task completion"}',
@@ -1160,22 +1044,21 @@ def test_multi_step_agent_can_route_alternatives_to_system_prompt() -> None:
     tool_runtime = BaseToolRuntime()
     agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=3)
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7.",
-            "alternatives_prompt_target": "system",
-        }
-    )
+    result = agent.run("Compute 6 * 7.")
     assert result.success
     assert len(llm_client.calls) >= 2
     continuation_messages = llm_client.calls[0]
     step_messages = llm_client.calls[1]
     assert continuation_messages[0].role == "system"
-    assert "Allowed tools for action steps:" in continuation_messages[0].content
-    assert "calculator_tool" in continuation_messages[0].content
+    assert "Allowed tools for action steps:" not in continuation_messages[0].content
     assert step_messages[0].role == "system"
-    assert "Allowed tools:" in step_messages[0].content
-    assert "calculator_tool" in step_messages[0].content
+    assert "Allowed tools:" not in step_messages[0].content
+    assert continuation_messages[1].role == "user"
+    assert "Allowed tools for action steps:" in continuation_messages[1].content
+    assert "calculator_tool" in continuation_messages[1].content
+    assert step_messages[1].role == "user"
+    assert "Allowed tools:" in step_messages[1].content
+    assert "calculator_tool" in step_messages[1].content
 
 
 def test_multi_step_agent_runs_first_step_even_if_model_stops_immediately() -> None:
@@ -1194,11 +1077,7 @@ def test_multi_step_agent_runs_first_step_even_if_model_stops_immediately() -> N
     tool_runtime = BaseToolRuntime()
     agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=3)
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7.",
-        }
-    )
+    result = agent.run("Compute 6 * 7.")
     assert result.success
     assert result.output["steps_executed"] == 1
     assert result.output["final_output"]["result"] == 42.0
@@ -1224,11 +1103,7 @@ def test_multi_step_agent_recovers_when_step_code_omits_final_output() -> None:
     tool_runtime = BaseToolRuntime()
     agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=3)
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7, then summarize text.",
-        }
-    )
+    result = agent.run("Compute 6 * 7, then summarize text.")
     assert result.success
     assert result.output["steps_executed"] == 1
     assert result.output["final_output"]["word_count"] == 3
@@ -1252,11 +1127,7 @@ def test_multi_step_agent_stops_cleanly_on_empty_step_after_success() -> None:
     tool_runtime = BaseToolRuntime()
     agent = MultiStepAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=3)
 
-    result = agent.run(
-        input={
-            "prompt": "Compute 6 * 7.",
-        }
-    )
+    result = agent.run("Compute 6 * 7.")
     assert result.success
     assert result.output["steps_executed"] == 1
     assert result.output["final_output"]["result"] == 42.0
@@ -1284,11 +1155,7 @@ def test_multi_step_agent_returns_structured_failure_when_step_fails() -> None:
         default_tools_per_step=[{"tool_name": "calculator_tool"}],
     )
 
-    result = agent.run(
-        input={
-            "prompt": "Try forbidden tool.",
-        }
-    )
+    result = agent.run("Try forbidden tool.")
     assert not result.success
     assert result.metadata["stage"] == "step_execution"
     assert result.output["terminated_reason"] == "step_failure"
@@ -1307,12 +1174,7 @@ def test_router_agent_selects_text_stats_from_runtime_alternatives() -> None:
     tool_runtime = BaseToolRuntime()
     agent = RouterAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        {
-            "prompt": "Count words in this exact sentence.",
-            "analysis_text": "one two three four",
-        }
-    )
+    result = agent.run("one two three four")
     assert result.success
     assert result.tool_results[0].tool_name == "text_stats_tool"
     assert result.tool_results[0].output["word_count"] == 4
@@ -1321,7 +1183,7 @@ def test_router_agent_selects_text_stats_from_runtime_alternatives() -> None:
     assert routing["alternatives"] == ["calculator_tool", "text_stats_tool"]
 
 
-def test_router_agent_uses_llm_client_default_model_and_allows_input_override() -> None:
+def test_router_agent_uses_llm_client_default_model_and_init_override() -> None:
     llm_client = _DefaultModelLLMClient(
         response_text=json.dumps(
             {
@@ -1333,47 +1195,35 @@ def test_router_agent_uses_llm_client_default_model_and_allows_input_override() 
     tool_runtime = BaseToolRuntime()
     agent = RouterAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    first_result = agent.run(
-        {
-            "prompt": "Calculate 6 * 7",
-        }
-    )
+    first_result = agent.run("Calculate 6 * 7")
     assert first_result.success
     assert llm_client.last_model == "llama-config-model"
 
-    second_result = agent.run(
-        {
-            "prompt": "Calculate 6 * 7",
-            "model": "input-model-override",
-        }
+    agent_with_model = RouterAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        model="init-model-override",
     )
+    second_result = agent_with_model.run("Calculate 6 * 7")
     assert second_result.success
-    assert llm_client.last_model == "input-model-override"
+    assert llm_client.last_model == "init-model-override"
 
 
-def test_direct_llm_agent_uses_llm_client_default_model_and_allows_input_override() -> None:
+def test_direct_llm_agent_uses_llm_client_default_model_and_init_override() -> None:
     llm_client = _DefaultModelLLMClient(
         response_text="direct model output",
         default_model_name="direct-default-model",
     )
     agent = DirectLLMAgent(llm_client=llm_client)
 
-    first_result = agent.run(
-        {
-            "prompt": "Respond plainly",
-        }
-    )
+    first_result = agent.run("Respond plainly")
     assert first_result.success
     assert llm_client.last_model == "direct-default-model"
 
-    second_result = agent.run(
-        {
-            "prompt": "Respond plainly",
-            "model": "input-direct-model-override",
-        }
-    )
+    agent_with_model = DirectLLMAgent(llm_client=llm_client, model="init-direct-model-override")
+    second_result = agent_with_model.run("Respond plainly")
     assert second_result.success
-    assert llm_client.last_model == "input-direct-model-override"
+    assert llm_client.last_model == "init-direct-model-override"
 
 
 def test_router_agent_uses_runtime_alternatives_when_input_omits_them() -> None:
@@ -1410,12 +1260,7 @@ def test_router_agent_uses_discrete_selection_response_schema() -> None:
     tool_runtime = BaseToolRuntime()
     agent = RouterAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        {
-            "prompt": "Count words in this exact sentence.",
-            "analysis_text": "one two three",
-        }
-    )
+    result = agent.run("Count words in this exact sentence.")
     assert result.success
     assert llm_client.last_params is not None
     response_schema = llm_client.last_params.response_schema
@@ -1424,7 +1269,7 @@ def test_router_agent_uses_discrete_selection_response_schema() -> None:
     assert "model_response" not in response_schema["properties"]
 
 
-def test_router_agent_can_route_alternatives_to_system_prompt() -> None:
+def test_router_agent_includes_routes_in_user_prompt() -> None:
     llm_client = _CapturingParamsLLMClient(
         response_text=json.dumps(
             {
@@ -1435,22 +1280,16 @@ def test_router_agent_can_route_alternatives_to_system_prompt() -> None:
     tool_runtime = BaseToolRuntime()
     agent = RouterAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        {
-            "prompt": "Calculate 6 * 7.",
-            "alternatives_prompt_target": "system",
-        }
-    )
+    result = agent.run("Calculate 6 * 7.")
     assert result.success
     assert llm_client.last_messages is not None
     system_message = llm_client.last_messages[0]
     user_message = llm_client.last_messages[1]
     assert system_message.role == "system"
-    assert "Available routes:" in system_message.content
-    assert "selection_index: 0" in system_message.content
-    assert "calculator_tool" in system_message.content
     assert user_message.role == "user"
-    assert "(provided in system prompt)" in user_message.content
+    assert "Available routes:" in user_message.content
+    assert "selection_index: 0" in user_message.content
+    assert "calculator_tool" in user_message.content
 
 
 def test_router_agent_fails_when_model_output_is_invalid() -> None:
@@ -1458,12 +1297,7 @@ def test_router_agent_fails_when_model_output_is_invalid() -> None:
     tool_runtime = BaseToolRuntime()
     agent = RouterAgent(llm_client=llm_client, tool_runtime=tool_runtime)
 
-    result = agent.run(
-        {
-            "prompt": "Count words in this exact sentence.",
-            "analysis_text": "one two three four",
-        }
-    )
+    result = agent.run("Count words in this exact sentence.")
     assert not result.success
     assert result.metadata["routing"]["source"] == "model_invalid"
     assert result.tool_results == []

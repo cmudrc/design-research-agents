@@ -6,15 +6,15 @@ surface that callers can rely on regardless of which agent strategy they use.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal, Protocol
 
 from .llm import LLMResponse
 from .tools import ToolResult
 
 AgentStreamEventKind = Literal["delta", "completed", "failed"]
-AgentInput = Mapping[str, object] | str
 
 
 @dataclass(slots=True, frozen=True)
@@ -34,6 +34,18 @@ class AgentResult:
     tool_results: list[ToolResult] = field(default_factory=list)
     model_response: LLMResponse | None = None
     metadata: dict[str, object] = field(default_factory=dict)
+
+    def asdict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary representation of the result."""
+        return asdict(self)
+
+    def __str__(self) -> str:
+        """Return a JSON-formatted string representation of the result."""
+        return json.dumps(self.asdict(), indent=2, sort_keys=True)
+
+    def __repr__(self) -> str:
+        """Return a human-readable string representation of the result."""
+        return f"AgentResult({self.asdict()!r})"
 
 
 @dataclass(slots=True, frozen=True)
@@ -61,22 +73,21 @@ class Agent(Protocol):
 
     def run(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
         """Execute one agent run and return the final ``AgentResult`` payload.
 
-        Implementations should treat ``input`` as run-specific request data.
-        Callers may provide a mapping payload or plain string shorthand
-        (interpreted as ``{"prompt": <input>}``). Use ``request_id`` and
-        ``dependencies`` for run metadata and upstream dependency payloads.
+        Implementations should treat ``input`` as the prompt text for one run.
+        Use ``request_id`` and ``dependencies`` for run metadata and upstream
+        dependency payloads.
         """
 
     def run_stream(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,

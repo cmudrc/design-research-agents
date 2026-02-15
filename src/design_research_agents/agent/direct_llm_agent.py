@@ -19,12 +19,7 @@ from design_research_agents.agent._run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import (
-    Agent,
-    AgentInput,
-    AgentResult,
-    AgentStreamEvent,
-)
+from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -34,12 +29,7 @@ from design_research_agents.contracts.llm import (
 
 
 class DirectLLMAgent(Agent):
-    """Agent that performs one direct model call with no tool runtime.
-
-    Input accepts either ``messages`` (chat-message objects with ``role`` and
-    ``content``) or ``prompt``/``text`` (converted into one user message, plus
-    optional ``system_prompt``).
-    """
+    """Agent that performs one direct model call with no tool runtime."""
 
     def __init__(
         self,
@@ -55,7 +45,7 @@ class DirectLLMAgent(Agent):
 
         Args:
             llm_client: LLM client used for prompt execution.
-            model: Optional model override applied when ``input['model']`` is absent.
+            model: Optional model override applied to all runs when provided.
             default_system_prompt: Optional default system prompt.
             temperature: Optional default sampling temperature.
             max_tokens: Optional default output-token cap.
@@ -75,7 +65,7 @@ class DirectLLMAgent(Agent):
 
     def run(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -99,7 +89,7 @@ class DirectLLMAgent(Agent):
 
     def run_stream(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,

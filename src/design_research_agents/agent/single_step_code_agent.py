@@ -27,12 +27,7 @@ from design_research_agents.agent._run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import (
-    Agent,
-    AgentInput,
-    AgentResult,
-    AgentStreamEvent,
-)
+from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -111,7 +106,7 @@ class SingleStepCodeAgent(Agent):
         Args:
             llm_client: LLM client used to generate one action program.
             tool_runtime: Tool runtime used for allowed tool invocation.
-            model: Optional model override applied when ``input['model']`` is absent.
+            model: Optional model override applied to all runs when provided.
             max_tool_calls: Maximum number of tool calls allowed in one run.
             execution_timeout_seconds: Max wall-clock seconds for executing generated code.
             validate_tool_input_schema: Whether to validate tool args against tool input schemas.
@@ -140,7 +135,7 @@ class SingleStepCodeAgent(Agent):
 
     def run(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -302,7 +297,7 @@ class SingleStepCodeAgent(Agent):
 
     def run_stream(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,

@@ -27,12 +27,7 @@ from design_research_agents.agent._run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import (
-    Agent,
-    AgentInput,
-    AgentResult,
-    AgentStreamEvent,
-)
+from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -92,7 +87,7 @@ class RouterAgent(Agent):
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
-            model: Optional model override applied when ``input['model']`` is absent.
+            model: Optional model override applied to all runs when provided.
             default_tool_name: Fallback tool used when no alternatives are supplied.
         """
         self._llm_client = llm_client
@@ -114,7 +109,7 @@ class RouterAgent(Agent):
 
     def run(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -204,7 +199,7 @@ class RouterAgent(Agent):
         output: dict[str, object] = {
             "model_text": model_text,
             "model_response": {
-                "selection": parsed_route.selection if parsed_route is not None else None,
+                "selection": (parsed_route.selection if parsed_route is not None else None),
                 "reason": parsed_route.reason if parsed_route is not None else None,
             },
             "tool_name": selected_alternative.tool_name,
@@ -240,7 +235,7 @@ class RouterAgent(Agent):
 
     def run_stream(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -506,7 +501,11 @@ def _resolve_model_route(
     for index, alternative in enumerate(alternatives):
         if alternative.tool_name != selected_identifier:
             continue
-        return alternative, index, (parsed_route.reason or "validated model selection identifier")
+        return (
+            alternative,
+            index,
+            (parsed_route.reason or "validated model selection identifier"),
+        )
 
     return None
 

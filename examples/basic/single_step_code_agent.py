@@ -4,9 +4,6 @@ The script generates one action program, executes it in the sandbox, and prints
 the resulting structured output.
 """
 
-import dataclasses
-import json
-
 import design_research_agents
 
 
@@ -28,7 +25,7 @@ def main() -> None:
         request_id="example-single-step-code-agent-001",
     )
 
-    print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))
+    print(result)
 
 
 if __name__ == "__main__":

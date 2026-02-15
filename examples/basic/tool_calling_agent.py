@@ -4,9 +4,6 @@ The script configures the local backend and runs a single arithmetic request
 through model-selected tool invocation.
 """
 
-import dataclasses
-import json
-
 import design_research_agents
 
 
@@ -27,7 +24,7 @@ def main() -> None:
         request_id="example-tool-calling-agent-001",
     )
 
-    print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))
+    print(result)
 
 
 if __name__ == "__main__":

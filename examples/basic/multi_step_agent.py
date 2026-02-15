@@ -4,9 +4,6 @@ The script demonstrates iterative continuation/step execution over a short
 multi-step task and prints the final structured result payload.
 """
 
-import dataclasses
-import json
-
 import design_research_agents
 
 
@@ -29,7 +26,7 @@ def main() -> None:
         request_id="example-multi-step-agent-001",
     )
 
-    print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))
+    print(result)
 
 
 if __name__ == "__main__":

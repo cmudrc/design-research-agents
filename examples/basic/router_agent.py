@@ -4,9 +4,6 @@ The script configures a local backend, builds runtime/tool dependencies, and
 executes runtime-driven route selection with built-in default schemas.
 """
 
-import dataclasses
-import json
-
 import design_research_agents
 
 
@@ -25,7 +22,7 @@ def main() -> None:
         request_id="example-router-agent-001",
     )
 
-    print(json.dumps(dataclasses.asdict(result), indent=2, sort_keys=True))
+    print(result)
 
 
 if __name__ == "__main__":

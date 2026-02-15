@@ -26,12 +26,7 @@ from design_research_agents.agent._run_options import (
     resolve_request_id,
 )
 from design_research_agents.agent.single_step_code_agent import SingleStepCodeAgent
-from design_research_agents.contracts.agent import (
-    Agent,
-    AgentInput,
-    AgentResult,
-    AgentStreamEvent,
-)
+from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -69,7 +64,7 @@ class MultiStepAgent(Agent):
         Args:
             llm_client: LLM client used for continuation and action generation.
             tool_runtime: Tool runtime shared across all steps.
-            model: Optional model override applied when ``input['model']`` is absent.
+            model: Optional model override applied to all runs when provided.
             max_steps: Maximum number of action-observation iterations.
             max_tool_calls_per_step: Tool-call limit applied to each action step.
             execution_timeout_seconds_per_step: Code execution timeout for each action step.
@@ -110,7 +105,7 @@ class MultiStepAgent(Agent):
 
     def run(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -231,8 +226,9 @@ class MultiStepAgent(Agent):
             step_input["alternatives_prompt_target"] = alternatives_prompt_target
 
             step_request_id = f"{resolved_request_id}:step-{step_index + 1}"
+
             step_result = step_agent.run(
-                step_input,
+                json.dumps(step_input, indent=2, sort_keys=True, default=str),
                 request_id=step_request_id,
                 dependencies=resolved_dependencies,
             )
@@ -341,7 +337,7 @@ class MultiStepAgent(Agent):
 
     def run_stream(
         self,
-        input: AgentInput,
+        input: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
