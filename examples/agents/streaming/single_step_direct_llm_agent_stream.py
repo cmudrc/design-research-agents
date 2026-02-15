@@ -3,10 +3,12 @@
 import dataclasses
 import json
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient
+from design_research_agents.agent import SingleStepDirectLLMAgent
+from design_research_agents.contracts.agent import AgentStreamEvent
 
 
-def _print_stream_event(event: dra.contracts.agent.AgentStreamEvent) -> None:
+def _print_stream_event(event: AgentStreamEvent) -> None:
     if event.kind == "delta":
         print(f"delta: {event.delta_text or ''}")
         return
@@ -19,8 +21,8 @@ def _print_stream_event(event: dra.contracts.agent.AgentStreamEvent) -> None:
 
 def main() -> None:
     """Execute one direct-LLM streaming run and print events."""
-    llm_client = dra.llm.create_default_llm_client()
-    agent = dra.agents.SingleStepDirectLLMAgent(
+    llm_client = LlamaCppServerLLMClient()
+    agent = SingleStepDirectLLMAgent(
         llm_client=llm_client,
     )
 

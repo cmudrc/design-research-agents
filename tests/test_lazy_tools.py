@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from design_research_agents.tools import ToolRuntimeConfig, UnifiedToolRuntime
-from design_research_agents.tools.config import CoreToolsConfig, LazyToolsConfig
+from design_research_agents.tools import UnifiedToolRuntime
 from design_research_agents.tools.lazy.discovery import discover_lazy_tools
 from design_research_agents.tools.lazy.parser import LazyHeaderError, parse_lazy_tool_header
 
@@ -69,10 +68,9 @@ def test_lazy_discovery_and_run_examples() -> None:
     assert not diagnostics
 
     runtime = UnifiedToolRuntime(
-        config=ToolRuntimeConfig(
-            core_tools=CoreToolsConfig(enabled=False, workspace_root="."),
-            lazy_tools=LazyToolsConfig(enabled=True, search_paths=("examples/lazy_tools",)),
-        )
+        workspace_root=".",
+        enable_core_tools=False,
+        lazy_search_paths=("examples/lazy_tools",),
     )
 
     result = runtime.invoke(

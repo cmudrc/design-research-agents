@@ -6,11 +6,12 @@ import json
 import sys
 from collections.abc import Mapping
 
-import design_research_agents as dra
+from design_research_agents import UnifiedToolRuntime
+from design_research_agents.tools.config import McpServerConfig
 
 
 def _invoke_dict(
-    runtime: dra.tools.UnifiedToolRuntime,
+    runtime: UnifiedToolRuntime,
     tool_name: str,
     payload: Mapping[str, object],
 ) -> dict[str, object]:
@@ -25,21 +26,17 @@ def _invoke_dict(
 
 def main() -> None:
     """Run a minimal MCP-only runtime and print one compact report."""
-    runtime = dra.tools.UnifiedToolRuntime(
-        config=dra.tools.ToolRuntimeConfig(
-            core_tools=dra.tools.CoreToolsConfig(enabled=False, workspace_root="."),
-            mcp=dra.tools.McpConfig(
-                enabled=True,
-                servers=(
-                    dra.tools.McpServerConfig(
-                        id="local_core",
-                        command=(sys.executable, "-m", "design_research_agents.mcp_server"),
-                        env={"PYTHONPATH": "src"},
-                        timeout_s=20,
-                    ),
-                ),
+    runtime = UnifiedToolRuntime.mcp(
+        servers=(
+            McpServerConfig(
+                id="local_core",
+                command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+                env={"PYTHONPATH": "src"},
+                timeout_s=20,
             ),
-        )
+        ),
+        workspace_root=".",
+        enable_core_tools=False,
     )
 
     try:

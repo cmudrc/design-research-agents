@@ -4,21 +4,26 @@ This flow uses ``agent_routing`` runtime mode under the hood, but presents a cle
 intent/agent-routing entrypoint and terminology.
 """
 
-import design_research_agents as dra
+from design_research_agents import (
+    AgentRoutingWorkflow,
+    LlamaCppServerLLMClient,
+    UnifiedToolRuntime,
+)
+from design_research_agents.agent import SingleStepDirectLLMAgent, SingleStepJsonToolCallingAgent
 
 
 def main() -> None:
     """Route one prompt to the best delegate agent and print the final result."""
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
 
-    direct_llm_agent = dra.agents.SingleStepDirectLLMAgent(llm_client=llm_client)
-    json_tool_agent = dra.agents.SingleStepJsonToolCallingAgent(
+    direct_llm_agent = SingleStepDirectLLMAgent(llm_client=llm_client)
+    json_tool_agent = SingleStepJsonToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )
 
-    workflow = dra.workflows.AgentRoutingWorkflow(
+    workflow = AgentRoutingWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives={

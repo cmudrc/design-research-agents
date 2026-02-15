@@ -5,7 +5,7 @@ PYTEST ?= $(PYTHON) -m pytest
 RUFF ?= $(PYTHON) -m ruff
 MYPY ?= $(PYTHON) -m mypy
 
-.PHONY: install install-dev install-all check-python test coverage lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk pre-commit
+.PHONY: install install-dev install-all check-python test coverage examples-deterministic examples-metrics lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk pre-commit
 
 # Install a batteries-included development environment.
 install:
@@ -33,7 +33,17 @@ test: check-python
 # Estimate line coverage for the stable unit-suite baseline.
 coverage: check-python
 	mkdir -p artifacts/coverage
-	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --ignore=tests/test_examples_lazy_shell.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+
+# Run deterministic example tests and emit junit XML for metrics/badge generation.
+examples-deterministic: check-python
+	mkdir -p artifacts/examples
+	PYTHONPATH=src $(PYTEST) tests/test_examples_non_streaming.py tests/test_examples_streaming.py tests/test_examples_lazy_shell.py --junitxml=artifacts/examples/examples-deterministic.junit.xml -q
+
+# Generate deterministic examples metrics and corresponding badges.
+examples-metrics: check-python examples-deterministic
+	$(PYTHON) scripts/generate_examples_metrics.py
+	$(PYTHON) scripts/generate_examples_badges.py
 
 # Run lint checks without modifying files.
 lint: check-python

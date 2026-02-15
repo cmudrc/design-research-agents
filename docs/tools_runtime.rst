@@ -7,17 +7,17 @@ Tools Runtime
 - External MCP tools (stdio)
 - Lazy tools (local scripts with docblock headers)
 
-Use ``dra.tools.UnifiedToolRuntime`` with ``dra.tools.ToolRuntimeConfig``
-to control enabled sources and policy defaults.
+Use ``UnifiedToolRuntime`` constructor and classmethods for common setup.
+Advanced parsing/types remain available under ``design_research_agents.tools.config``.
 
 Quick start
 -----------
 
 .. code-block:: python
 
-   import design_research_agents as dra
+   from design_research_agents import UnifiedToolRuntime
 
-   runtime = dra.tools.UnifiedToolRuntime()
+   runtime = UnifiedToolRuntime()
    tools = runtime.list_tools()  # Sequence[ToolSpec]
 
    result = runtime.invoke(
@@ -95,38 +95,43 @@ checked against a narrow command set:
        dependencies={},
    )
 
-Runtime config (Python)
------------------------
+Ergonomic setup (Python)
+------------------------
 
 .. code-block:: python
 
    import sys
-   import design_research_agents as dra
+   from design_research_agents import UnifiedToolRuntime
+   from design_research_agents.tools.config import McpServerConfig
 
-   config = dra.tools.ToolRuntimeConfig(
-       core_tools=dra.tools.CoreToolsConfig(
-           enabled=True,
-           workspace_root=".",
-           artifacts_dir="artifacts",
-           allow_network=False,
-       ),
-       lazy_tools=dra.tools.LazyToolsConfig(
-           enabled=True,
-           search_paths=("examples/lazy_tools",),
-       ),
-       mcp=dra.tools.McpConfig(
-           enabled=True,
-           servers=(
-               dra.tools.McpServerConfig(
-                   id="local_core",
-                   command=(sys.executable, "-m", "design_research_agents.mcp_server"),
-                   env={"PYTHONPATH": "src"},
-               ),
+   runtime = UnifiedToolRuntime(
+       workspace_root=".",
+       enable_core_tools=True,
+       lazy_search_paths=("examples/lazy_tools",),
+       mcp_servers=(
+           McpServerConfig(
+               id="local_core",
+               command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+               env={"PYTHONPATH": "src"},
            ),
        ),
    )
 
-   runtime = dra.tools.UnifiedToolRuntime(config=config)
+Focused presets:
+
+.. code-block:: python
+
+   from design_research_agents import UnifiedToolRuntime
+   from design_research_agents.tools.config import McpServerConfig
+
+   lazy_runtime = UnifiedToolRuntime.lazy(
+       search_paths=("examples/lazy_tools",),
+       workspace_root=".",
+   )
+   mcp_runtime = UnifiedToolRuntime.mcp(
+       servers=(McpServerConfig(id="local_core", command=("python3", "-m", "design_research_agents.mcp_server")),),
+       workspace_root=".",
+   )
 
 Runtime config (YAML)
 ---------------------
@@ -158,14 +163,13 @@ Runtime config (YAML)
          env:
            PYTHONPATH: src
 
-Load YAML config:
+Load YAML config (advanced):
 
 .. code-block:: python
 
-   import design_research_agents as dra
+   from design_research_agents import UnifiedToolRuntime
 
-   config = dra.tools.load_tool_runtime_config("tool_runtime.yaml")
-   runtime = dra.tools.UnifiedToolRuntime(config=config)
+   runtime = UnifiedToolRuntime.from_yaml("tool_runtime.yaml")
 
 Related docs
 ------------

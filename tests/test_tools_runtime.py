@@ -4,8 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.tools import ToolRuntimeConfig, UnifiedToolRuntime
-from design_research_agents.tools.config import CoreToolsConfig
+from design_research_agents.tools import UnifiedToolRuntime
 
 
 def _bashkit_available() -> bool:
@@ -45,11 +44,7 @@ def test_calculator_invocation() -> None:
 
 
 def test_fs_write_is_restricted_to_artifacts_by_default(tmp_path: Path) -> None:
-    runtime = UnifiedToolRuntime(
-        config=ToolRuntimeConfig(
-            core_tools=CoreToolsConfig(workspace_root=str(tmp_path), artifacts_dir="artifacts")
-        )
-    )
+    runtime = UnifiedToolRuntime(workspace_root=str(tmp_path))
 
     blocked = runtime.invoke(
         "fs.write_text",
@@ -94,9 +89,7 @@ def test_bash_exec_enforces_invocation_allowlist() -> None:
     reason="bashkit dependency is not available in this environment",
 )
 def test_bash_exec_returns_structured_result_and_stays_sandboxed(tmp_path: Path) -> None:
-    runtime = UnifiedToolRuntime(
-        config=ToolRuntimeConfig(core_tools=CoreToolsConfig(workspace_root=str(tmp_path)))
-    )
+    runtime = UnifiedToolRuntime(workspace_root=str(tmp_path))
 
     unique_host_path = tmp_path / "host_should_not_exist.txt"
     if unique_host_path.exists():

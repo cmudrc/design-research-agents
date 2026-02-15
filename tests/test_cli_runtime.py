@@ -2,19 +2,27 @@ from __future__ import annotations
 
 import argparse
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from design_research_agents import cli
 from design_research_agents.contracts.tools import ToolMetadata, ToolResult, ToolSpec
-from design_research_agents.tools.config import McpConfig, McpServerConfig, ToolRuntimeConfig
+from design_research_agents.tools.config import McpServerConfig
 from design_research_agents.tools.lazy.discovery import LazyDiscoveryDiagnostic
 
 
 class _FakeRuntime:
-    def __init__(self, *, config: ToolRuntimeConfig) -> None:
-        self.config = config
+    def __init__(self, *, server_ids: tuple[str, ...] = ()) -> None:
+        self.config = SimpleNamespace(
+            mcp=SimpleNamespace(
+                servers=tuple(
+                    McpServerConfig(id=server_id, command=("echo",)) for server_id in server_ids
+                )
+            )
+        )
         self.last_tool: str | None = None
+        self.closed = False
 
     def list_tools(self) -> list[ToolSpec]:
         return [
@@ -55,6 +63,9 @@ class _FakeRuntime:
             return ToolResult(tool_name=tool_name, ok=False, error="failed")
         return ToolResult(tool_name=tool_name, ok=True, result={"ok": True})
 
+    def close(self) -> None:
+        self.closed = True
+
 
 def test_main_prints_help_when_no_command(capsys: pytest.CaptureFixture[str]) -> None:
     exit_code = cli.main([])
@@ -78,8 +89,8 @@ def test_handle_mcp_ping_missing_server(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config = ToolRuntimeConfig(mcp=McpConfig(enabled=True, servers=()))
-    monkeypatch.setattr(cli, "_load_config", lambda _path: config)
+    runtime = _FakeRuntime()
+    monkeypatch.setattr(cli, "_build_runtime", lambda _path: runtime)
 
     args = argparse.Namespace(mcp_command="ping", server="missing", config=None)
     exit_code = cli._handle_mcp(args)
@@ -87,20 +98,14 @@ def test_handle_mcp_ping_missing_server(
 
     assert exit_code == 1
     assert "is not configured" in captured.out
+    assert runtime.closed is True
 
 
 def test_handle_mcp_ping_and_call(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    config = ToolRuntimeConfig(
-        mcp=McpConfig(
-            enabled=True,
-            servers=(McpServerConfig(id="alpha", command=("echo", "x")),),
-        )
-    )
-    runtime = _FakeRuntime(config=config)
-    monkeypatch.setattr(cli, "_load_config", lambda _path: config)
-    monkeypatch.setattr(cli, "UnifiedToolRuntime", lambda config: runtime)
+    runtime = _FakeRuntime(server_ids=("alpha",))
+    monkeypatch.setattr(cli, "_build_runtime", lambda _path: runtime)
 
     ping_args = argparse.Namespace(mcp_command="ping", server="alpha", config=None)
     assert cli._handle_mcp(ping_args) == 0
@@ -141,10 +146,8 @@ def test_handle_lazy_lint_list_and_run(
     tmp_path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    config = ToolRuntimeConfig()
-    runtime = _FakeRuntime(config=config)
-    monkeypatch.setattr(cli, "_load_config", lambda _path: config)
-    monkeypatch.setattr(cli, "UnifiedToolRuntime", lambda config: runtime)
+    runtime = _FakeRuntime()
+    monkeypatch.setattr(cli, "_build_runtime", lambda _path: runtime)
 
     monkeypatch.setattr(cli, "discover_lazy_tools", lambda _paths: ([], []))
     lint_ok = argparse.Namespace(lazy_command="lint", target=str(tmp_path))
@@ -192,20 +195,31 @@ def test_handle_lazy_unknown_command(capsys: pytest.CaptureFixture[str]) -> None
     assert "Unknown lazy command" in capsys.readouterr().out
 
 
-def test_load_config_parse_json_object_and_server_exists(monkeypatch: pytest.MonkeyPatch) -> None:
-    sentinel = ToolRuntimeConfig()
-    monkeypatch.setattr(cli, "load_tool_runtime_config", lambda _path: sentinel)
+def test_build_runtime_parse_json_object_and_server_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _RuntimeFactory:
+        def __init__(self) -> None:
+            self.origin = "default"
 
-    assert cli._load_config(None) == ToolRuntimeConfig()
-    assert cli._load_config("config.yaml") is sentinel
+        @classmethod
+        def from_yaml(cls, path: str):
+            return {"origin": "yaml", "path": path}
+
+    monkeypatch.setattr(cli, "UnifiedToolRuntime", _RuntimeFactory)
+
+    default_runtime = cli._build_runtime(None)
+    yaml_runtime = cli._build_runtime("config.yaml")
+
+    assert isinstance(default_runtime, _RuntimeFactory)
+    assert default_runtime.origin == "default"
+    assert yaml_runtime == {"origin": "yaml", "path": "config.yaml"}
 
     assert cli._parse_json_object('{"a": 1}') == {"a": 1}
     assert cli._parse_json_object("not-json") is None
     assert cli._parse_json_object("[]") is None
 
-    mcp = McpConfig(enabled=True, servers=(McpServerConfig(id="alpha", command=("echo",)),))
-    assert cli._server_exists(mcp, "alpha") is True
-    assert cli._server_exists(mcp, "beta") is False
+    servers = (McpServerConfig(id="alpha", command=("echo",)),)
+    assert cli._server_exists(servers, "alpha") is True
+    assert cli._server_exists(servers, "beta") is False
 
 
 def test_main_parses_subcommands(monkeypatch: pytest.MonkeyPatch) -> None:

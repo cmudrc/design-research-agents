@@ -1,134 +1,121 @@
-"""Public API contract tests for strict top-level facade namespaces."""
+"""Public API contract tests for curated top-level exports."""
 
 from __future__ import annotations
 
-import dataclasses
+import importlib
 
 import pytest
 
 import design_research_agents as dra
+import design_research_agents.tools as dra_tools
+
+EXPECTED_PUBLIC_API = [
+    "__version__",
+    "SingleStepDirectLLMAgent",
+    "SingleStepRouterAgent",
+    "SingleStepJsonToolCallingAgent",
+    "SingleStepCodeToolCallingAgent",
+    "MultiStepJsonToolCallingAgent",
+    "MultiStepCodeToolCallingAgent",
+    "UnifiedToolRuntime",
+    "PlanExecuteWorkflow",
+    "ProposeAndCritiqueWorkflow",
+    "AgentRoutingWorkflow",
+    "PureToolWorkflow",
+    "MixedAgentWorkflow",
+    "LlamaCppServerLLMClient",
+    "OpenAIServiceLLMClient",
+    "OpenAICompatibleHTTPLLMClient",
+    "TransformersLocalLLMClient",
+    "MlxLocalLLMClient",
+    "TraceConfig",
+    "configure_tracing",
+    "StdioMcpServer",
+    "serve_stdio",
+    "HardwareProfile",
+    "ModelSelectionPolicy",
+    "ModelSelectionIntent",
+    "ModelSelectionConstraints",
+]
 
 
-def test_top_level_exports_only_facade_namespaces_and_version() -> None:
-    assert dra.__all__ == [
-        "__version__",
+def test_top_level_exports_match_curated_contract() -> None:
+    assert dra.__all__ == EXPECTED_PUBLIC_API
+
+
+def test_all_exported_symbols_resolve_and_are_cached() -> None:
+    for symbol_name in dra.__all__:
+        value = getattr(dra, symbol_name)
+        assert value is getattr(dra, symbol_name)
+
+
+def test_removed_namespace_facades_are_not_available() -> None:
+    removed_namespace_facades = (
         "agents",
-        "contracts",
+        "workflows",
         "llm",
-        "mcp",
+        "tools",
         "models",
         "schemas",
-        "tools",
         "tracing",
-        "workflows",
-    ]
+        "contracts",
+        "mcp",
+    )
+    for symbol_name in removed_namespace_facades:
+        assert symbol_name not in dra.__all__
 
 
-def test_top_level_legacy_symbols_are_not_available() -> None:
-    removed_symbols = (
-        "AgentRuntime",
-        "AgentStep",
-        "BaseLLMClient",
-        "SingleStepDirectLLMAgent",
-        "HardwareProfile",
-        "LLMRouter",
-        "LogicStep",
-        "ModelCatalog",
-        "ModelSelectionConstraints",
-        "ModelSelectionDecision",
-        "ModelSelectionIntent",
-        "ModelSelectionPolicy",
-        "ModelSelectionPolicyConfig",
-        "MultiStepCodeToolCallingAgent",
-        "SingleStepRouterAgent",
-        "RuntimeControls",
-        "SingleStepCodeToolCallingAgent",
-        "SingleStepJsonToolCallingAgent",
+def test_agent_runtime_remains_internal() -> None:
+    assert "AgentRuntime" not in dra.__all__
+
+
+def test_workflow_runtime_remains_internal() -> None:
+    assert "WorkflowRuntime" not in dra.__all__
+
+
+def test_tool_config_types_are_not_top_level_exports() -> None:
+    hidden_symbols = (
         "ToolRuntimeConfig",
-        "ToolStep",
-        "TraceConfig",
-        "UnifiedToolRuntime",
-        "WorkflowRuntime",
-        "configure_router_from_yaml",
-        "configure_tracing",
-        "create_default_llm_client",
+        "CoreToolsConfig",
+        "LazyToolsConfig",
+        "McpConfig",
+        "McpServerConfig",
         "load_tool_runtime_config",
     )
-    for symbol_name in removed_symbols:
-        assert not hasattr(dra, symbol_name)
+    for symbol_name in hidden_symbols:
+        assert symbol_name not in dra.__all__
 
 
-def test_facade_namespaces_expose_expected_symbols() -> None:
-    expected_namespace_symbols = {
-        "agents": (
-            "AgentRuntime",
-            "RuntimeControls",
-            "SingleStepDirectLLMAgent",
-            "SingleStepRouterAgent",
-            "SingleStepJsonToolCallingAgent",
-            "SingleStepCodeToolCallingAgent",
-            "MultiStepCodeToolCallingAgent",
-        ),
-        "workflows": (
-            "WorkflowRuntime",
-            "AgentRoutingWorkflow",
-            "PlanExecuteWorkflow",
-            "ProposeAndCritiqueWorkflow",
-            "PureToolWorkflow",
-            "MixedAgentWorkflow",
-            "AgentStep",
-            "LogicStep",
-            "ToolStep",
-        ),
-        "llm": (
-            "BaseLLMClient",
-            "LLMRouter",
-            "configure_router_from_yaml",
-            "create_default_llm_client",
-        ),
-        "tools": (
-            "UnifiedToolRuntime",
-            "ToolRuntimeConfig",
-            "load_tool_runtime_config",
-        ),
-        "models": (
-            "HardwareProfile",
-            "ModelCatalog",
-            "ModelSelectionPolicy",
-            "ModelSelectionIntent",
-            "ModelSelectionConstraints",
-            "ModelSelectionDecision",
-            "ModelSelectionPolicyConfig",
-        ),
-        "tracing": (
-            "TraceConfig",
-            "configure_tracing",
-        ),
-        "contracts": (
-            "agent",
-            "llm",
-            "tools",
-            "workflow",
-        ),
-        "schemas": (
-            "SCHEMA_NAMES",
-            "SchemaValidationError",
-            "load_schema",
-            "validate_payload_against_schema",
-        ),
-        "mcp": (
-            "StdioMcpServer",
-            "serve_stdio",
-        ),
-    }
-    for namespace_name, required_symbols in expected_namespace_symbols.items():
-        namespace_value = getattr(dra, namespace_name)
-        for symbol_name in required_symbols:
-            assert hasattr(namespace_value, symbol_name)
+def test_removed_llm_and_schema_symbols_are_not_top_level_exports() -> None:
+    hidden_symbols = (
+        "BaseLLMClient",
+        "LLMRouter",
+        "configure_router_from_yaml",
+        "resolve_default_model",
+        "set_default_router",
+        "SCHEMA_NAMES",
+        "SchemaValidationError",
+        "load_schema",
+        "validate_payload_against_schema",
+    )
+    for symbol_name in hidden_symbols:
+        assert symbol_name not in dra.__all__
 
 
-def test_facade_namespaces_are_frozen() -> None:
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        dra.agents.MultiStepCodeToolCallingAgent = object  # type: ignore[misc]
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        dra.tools.UnifiedToolRuntime = object  # type: ignore[misc]
+def test_tools_module_exports_only_unified_runtime() -> None:
+    assert dra_tools.__all__ == ["UnifiedToolRuntime"]
+    hidden_symbols = (
+        "ToolRuntimeConfig",
+        "CoreToolsConfig",
+        "LazyToolsConfig",
+        "McpConfig",
+        "McpServerConfig",
+        "load_tool_runtime_config",
+    )
+    for symbol_name in hidden_symbols:
+        assert not hasattr(dra_tools, symbol_name)
+
+
+def test_internal_public_api_module_is_removed() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("design_research_agents._public_api")

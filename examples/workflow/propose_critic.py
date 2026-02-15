@@ -1,13 +1,17 @@
 """Runnable example for the reusable ``propose_critic`` orchestration chunk."""
 
-import design_research_agents as dra
+from design_research_agents import (
+    LlamaCppServerLLMClient,
+    ProposeAndCritiqueWorkflow,
+    UnifiedToolRuntime,
+)
 
 
 def main() -> None:
     """Run ``propose_critic`` orchestration with configurable dependencies."""
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
-    workflow = dra.workflows.ProposeAndCritiqueWorkflow(
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
+    workflow = ProposeAndCritiqueWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

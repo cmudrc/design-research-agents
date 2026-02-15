@@ -10,18 +10,26 @@ This framework exposes six core concrete agent implementations:
 - ``MultiStepJsonToolCallingAgent``
 - ``MultiStepCodeToolCallingAgent``
 
-All core agent types implement ``dra.contracts.agent.Agent`` and return
+All core agent types implement ``design_research_agents.contracts.agent.Agent`` and return
 ``AgentResult``.
 
-Facade access:
+Top-level imports:
 
 .. code-block:: python
 
-   import design_research_agents as dra
+   from design_research_agents import (
+       MultiStepJsonToolCallingAgent,
+       SingleStepDirectLLMAgent,
+       SingleStepRouterAgent,
+   )
+   from design_research_agents.contracts.agent import Agent
 
-   direct = dra.agents.SingleStepDirectLLMAgent(...)
-   router = dra.agents.SingleStepRouterAgent(...)
-   multi_json = dra.agents.MultiStepJsonToolCallingAgent(...)
+   direct = SingleStepDirectLLMAgent(...)
+   router = SingleStepRouterAgent(...)
+   multi_json = MultiStepJsonToolCallingAgent(...)
+
+``AgentRuntime`` remains internal and is intentionally not part of the curated
+top-level API.
 
 Shared Contract
 ---------------
@@ -134,25 +142,6 @@ MultiStepCodeToolCallingAgent
 - Uses model-based continuation decisions with deterministic fallback heuristics.
 - Can forward init-time ``default_tools_per_step`` into each step agent.
 - Returns step traces and continuation metadata for observability/debugging.
-
-AgentRuntime
-------------
-
-``AgentRuntime`` is a runtime facade, not one of the six core implementations.
-
-- Source: ``src/design_research_agents/agent/runtime.py``
-- Examples:
-  - ``examples/workflow/plan_execute.py``
-  - ``examples/workflow/propose_critic.py``
-  - ``examples/workflow/agent_routing.py``
-- Interaction pattern mirrors agent examples: construct first, then call
-  ``.run(prompt=...)`` with an explicit prompt.
-- Provides one runtime that can execute:
-  - ``mode="react"`` (delegates directly to ``MultiStepCodeToolCallingAgent``),
-  - ``mode="plan_execute"`` (planner JSON + step execution),
-  - ``mode="propose_critic"`` (iterative propose/critic loop),
-  - ``mode="agent_routing"`` (tool-routing selection + delegated agent execution).
-- Tracks soft budget metadata (latency/cost observations) across mode loops.
 
 Workflow Runtime
 ----------------

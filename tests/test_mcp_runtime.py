@@ -2,26 +2,23 @@ from __future__ import annotations
 
 import sys
 
-from design_research_agents.tools import ToolRuntimeConfig, UnifiedToolRuntime
-from design_research_agents.tools.config import CoreToolsConfig, McpConfig, McpServerConfig
+from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.tools.config import McpServerConfig
 
 
 def test_mcp_stdio_server_list_and_call() -> None:
-    config = ToolRuntimeConfig(
-        core_tools=CoreToolsConfig(enabled=False, workspace_root="."),
-        mcp=McpConfig(
-            enabled=True,
-            servers=(
-                McpServerConfig(
-                    id="local_core",
-                    command=(sys.executable, "-m", "design_research_agents.mcp_server"),
-                    env={"PYTHONPATH": "src"},
-                    timeout_s=20,
-                ),
+    runtime = UnifiedToolRuntime.mcp(
+        servers=(
+            McpServerConfig(
+                id="local_core",
+                command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+                env={"PYTHONPATH": "src"},
+                timeout_s=20,
             ),
         ),
+        workspace_root=".",
+        enable_core_tools=False,
     )
-    runtime = UnifiedToolRuntime(config=config)
     try:
         names = {spec.name for spec in runtime.list_tools()}
         assert "local_core::calculator" in names

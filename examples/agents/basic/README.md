@@ -40,7 +40,7 @@ PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.
 ## Notes
 
 - These examples default to a live local `llama-cpp-server` endpoint.
-- Default backend settings come from `dra.llm.create_default_llm_client()`.
+- Default backend settings come from `LlamaCppServerLLMClient()`.
 - They print `AgentResult` payloads directly for quick inspection.
 
 ## Troubleshooting

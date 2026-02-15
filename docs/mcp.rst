@@ -53,24 +53,22 @@ Python config example:
 
 .. code-block:: python
 
-   from design_research_agents.tools import ToolRuntimeConfig, UnifiedToolRuntime
-   from design_research_agents.tools.config import McpConfig, McpServerConfig
+   from design_research_agents import UnifiedToolRuntime
+   from design_research_agents.tools.config import McpServerConfig
 
-   config = ToolRuntimeConfig(
-       mcp=McpConfig(
-           enabled=True,
-           servers=(
-               McpServerConfig(
-                   id="design_ops",
-                   command=("uv", "run", "design-ops-mcp"),
-                   timeout_s=30,
-                   env_allowlist=("PATH", "HOME", "USER", "LANG", "LC_ALL", "DESIGN_OPS_API_KEY"),
-                   env={"DESIGN_OPS_API_KEY": "set-at-runtime"},
-               ),
+   runtime = UnifiedToolRuntime.mcp(
+       servers=(
+           McpServerConfig(
+               id="design_ops",
+               command=("uv", "run", "design-ops-mcp"),
+               timeout_s=30,
+               env_allowlist=("PATH", "HOME", "USER", "LANG", "LC_ALL", "DESIGN_OPS_API_KEY"),
+               env={"DESIGN_OPS_API_KEY": "set-at-runtime"},
            ),
-       )
+       ),
+       workspace_root=".",
+       enable_core_tools=False,
    )
-   runtime = UnifiedToolRuntime(config=config)
 
 Tool naming
 -----------

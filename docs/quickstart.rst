@@ -66,24 +66,20 @@ Run additional streaming examples:
    PYTHONPATH=src python3 examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py
 
 Agent/workflow examples default to a local llama-cpp server via
-``dra.llm.create_default_llm_client()``.
+``LlamaCppServerLLMClient()``.
 
-Use router-first backend configuration:
+Use constructor-first provider clients:
 
 .. code-block:: python
 
-   import design_research_agents as dra
+   from design_research_agents import LlamaCppServerLLMClient
+   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
 
-   # Example YAML defines one or more configured backends.
-   # See ``src/design_research_agents/llm/config.py`` for the schema.
-   router = dra.llm.configure_router_from_yaml("configs/llm.yaml", default_backend="llama-local")
-
-   # Optional: ``backend=...`` pins calls to a specific named backend.
-   llm_client = dra.llm.BaseLLMClient(router=router, backend="llama-local")
+   llm_client = LlamaCppServerLLMClient()
    response = llm_client.chat(
-       messages=[dra.contracts.llm.LLMMessage(role="user", content="Hello")],
+       messages=[LLMMessage(role="user", content="Hello")],
        model=llm_client.default_model(),
-       params=dra.contracts.llm.LLMChatParams(),
+       params=LLMChatParams(),
    )
    text = response.text
 

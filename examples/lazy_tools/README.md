@@ -52,5 +52,5 @@ PYTHONPATH=src python3 examples/lazy_tools/bash/single_step_json_lazy_repo_quick
 
 ## Notes
 
-- Agent wrappers use `dra.llm.create_default_llm_client()`.
+- Agent wrappers use `LlamaCppServerLLMClient()`.
 - If your local llama-cpp server is cold, first run may take longer due to startup.

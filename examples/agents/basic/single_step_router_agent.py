@@ -4,7 +4,8 @@ The script calls a local llama-cpp server by default, builds runtime/tool depend
 executes runtime-driven route selection with built-in default schemas.
 """
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents.agent import SingleStepRouterAgent
 
 
 def main() -> None:
@@ -12,9 +13,9 @@ def main() -> None:
 
     Demonstrates route selection plus downstream tool invocation in one call.
     """
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
-    agent = dra.agents.SingleStepRouterAgent(
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
+    agent = SingleStepRouterAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

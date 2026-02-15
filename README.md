@@ -1,6 +1,8 @@
 # design-research-agents
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Coverage](.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Examples Passing](.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Public API In Examples](.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
 A modular framework for researching AI agents with shared runtime contracts,
@@ -10,21 +12,27 @@ workflow orchestration, and pluggable LLM backends.
 
 This project focuses on composable agent systems you can run, inspect, and test:
 
-- Agent implementations: `dra.agents.SingleStepDirectLLMAgent`, `dra.agents.SingleStepRouterAgent`, `dra.agents.SingleStepJsonToolCallingAgent`, `dra.agents.SingleStepCodeToolCallingAgent`, `dra.agents.MultiStepJsonToolCallingAgent`, `dra.agents.MultiStepCodeToolCallingAgent`
-- Unified runtime: `dra.agents.AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `agent_routing`
-- Workflow orchestration: `dra.workflows.WorkflowRuntime` with typed logic, tool, and agent steps
-- Backend architecture: capability-based routing across local and remote LLM backends
+- Agent implementations (top-level exports): `SingleStepDirectLLMAgent`, `SingleStepRouterAgent`, `SingleStepJsonToolCallingAgent`, `SingleStepCodeToolCallingAgent`, `MultiStepJsonToolCallingAgent`, `MultiStepCodeToolCallingAgent`
+- Reusable workflows: `PlanExecuteWorkflow`, `ProposeAndCritiqueWorkflow`, `AgentRoutingWorkflow`, `PureToolWorkflow`, and `MixedAgentWorkflow`
+- Workflow orchestration runtime is available via `design_research_agents.workflow` for advanced usage
+- Provider-specific LLM clients with constructor-first defaults
 - Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads
 
 ## Public API 
 ```python
-import design_research_agents as dra
+from design_research_agents import (
+    LlamaCppServerLLMClient,
+    ModelSelectionPolicy,
+    PlanExecuteWorkflow,
+    SingleStepJsonToolCallingAgent,
+    UnifiedToolRuntime,
+)
 
-agent = dra.agents.SingleStepJsonToolCallingAgent(...)
-tool_runtime = dra.tools.UnifiedToolRuntime(...)
-workflow = dra.workflows.WorkflowRuntime(...)
-policy = dra.models.ModelSelectionPolicy(...)
-router = dra.llm.configure_router_from_yaml("configs/llm.yaml")
+agent = SingleStepJsonToolCallingAgent(...)
+tool_runtime = UnifiedToolRuntime(...)
+workflow = PlanExecuteWorkflow(...)
+policy = ModelSelectionPolicy(...)
+llm_client = LlamaCppServerLLMClient()
 ```
 
 ## Quickstart

@@ -3,10 +3,12 @@
 import dataclasses
 import json
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents.agent import MultiStepJsonToolCallingAgent
+from design_research_agents.contracts.agent import AgentStreamEvent
 
 
-def _print_stream_event(event: dra.contracts.agent.AgentStreamEvent) -> None:
+def _print_stream_event(event: AgentStreamEvent) -> None:
     if event.kind == "delta":
         print(f"delta: {event.delta_text or ''}")
         return
@@ -19,9 +21,9 @@ def _print_stream_event(event: dra.contracts.agent.AgentStreamEvent) -> None:
 
 def main() -> None:
     """Execute one multi-step JSON streaming run and print events."""
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
-    agent = dra.agents.MultiStepJsonToolCallingAgent(
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
+    agent = MultiStepJsonToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         max_steps=1,

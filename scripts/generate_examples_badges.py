@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Generate an SVG coverage badge from pytest-cov JSON output."""
+"""Generate examples status and API-coverage SVG badges."""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-COVERAGE_JSON = Path("artifacts/coverage/coverage.json")
-BADGE_SVG = Path(".github/badges/coverage.svg")
+METRICS_JSON = Path("artifacts/examples/examples_metrics.json")
+EXAMPLES_BADGE_SVG = Path(".github/badges/examples-passing.svg")
+API_COVERAGE_BADGE_SVG = Path(".github/badges/examples-api-coverage.svg")
 
 
 def _pick_color(percent: int) -> str:
@@ -63,24 +64,49 @@ def _render_badge(label: str, message: str, color: str) -> str:
 """
 
 
-def _read_percent_display(path: Path) -> int:
+def _read_metrics(path: Path) -> tuple[int, int, float, int, int]:
     data = json.loads(path.read_text(encoding="utf-8"))
-    totals = data.get("totals", {})
-    raw_display = totals.get("percent_covered_display")
-    if raw_display is None:
-        raise ValueError("coverage JSON missing totals.percent_covered_display")
+    examples = data.get("examples", {})
+    public_api = data.get("public_api", {})
 
-    normalized = str(raw_display).strip().rstrip("%")
-    return int(float(normalized))
+    passed = int(examples.get("passed", 0))
+    total = int(examples.get("total", 0))
+    pass_percent = float(examples.get("pass_percent", 0.0))
+    covered_exports = int(public_api.get("covered_exports", 0))
+    total_exports = int(public_api.get("total_exports", 0))
+    return passed, total, pass_percent, covered_exports, total_exports
+
+
+def _format_percent(percent: float) -> str:
+    return str(int(percent))
 
 
 def main() -> None:
-    """Generate coverage badge."""
-    percent = _read_percent_display(COVERAGE_JSON)
-    badge = _render_badge("Test Coverage", f"{percent}%", _pick_color(percent))
-    BADGE_SVG.parent.mkdir(parents=True, exist_ok=True)
-    BADGE_SVG.write_text(badge, encoding="utf-8")
-    print(f"Wrote {BADGE_SVG} ({percent}%)")
+    """Generate and write SVG badges for deterministic example metrics."""
+    passed, total, pass_percent, covered_exports, total_exports = _read_metrics(METRICS_JSON)
+    api_coverage_percent = (
+        round((covered_exports / total_exports) * 100, 1) if total_exports else 100.0
+    )
+
+    examples_badge = _render_badge(
+        "Examples Passing",
+        f"{passed}/{total}",
+        _pick_color(round(pass_percent)),
+    )
+    api_badge = _render_badge(
+        "Example API Coverage",
+        f"{covered_exports}/{total_exports}",
+        _pick_color(round(api_coverage_percent)),
+    )
+
+    EXAMPLES_BADGE_SVG.parent.mkdir(parents=True, exist_ok=True)
+    EXAMPLES_BADGE_SVG.write_text(examples_badge, encoding="utf-8")
+    API_COVERAGE_BADGE_SVG.write_text(api_badge, encoding="utf-8")
+    print(
+        "Wrote "
+        f"{EXAMPLES_BADGE_SVG} and {API_COVERAGE_BADGE_SVG} "
+        f"(examples: {passed}/{total}, api: {covered_exports}/{total_exports})"
+    )
 
 
 if __name__ == "__main__":

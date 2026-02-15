@@ -40,6 +40,7 @@ jobs:
   coverage-badge:
     # Keep a coverage badge on main in sync with the stable unit-suite baseline.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: lint-test
     concurrency:
       group: coverage-badge-${{ github.ref }}
       cancel-in-progress: true
@@ -67,17 +68,20 @@ jobs:
       - name: Generate coverage badge
         run: python scripts/generate_coverage_badge.py
 
+      - name: Generate deterministic example metrics and badges
+        run: make examples-metrics
+
       - name: Commit and push badge if changed
         env:
           BRANCH_NAME: ${{ github.ref_name }}
         run: |
-          if ! git status --porcelain -- .github/badges/coverage.svg | grep -q .; then
-            echo "Coverage badge unchanged."
+          if ! git status --porcelain -- .github/badges/coverage.svg .github/badges/examples-passing.svg .github/badges/examples-api-coverage.svg | grep -q .; then
+            echo "Badges unchanged."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/coverage.svg
-          git commit -m "chore: update coverage badge [skip ci]"
+          git add .github/badges/coverage.svg .github/badges/examples-passing.svg .github/badges/examples-api-coverage.svg
+          git commit -m "chore: update coverage and examples badges [skip ci]"
           git push origin "HEAD:${BRANCH_NAME}"

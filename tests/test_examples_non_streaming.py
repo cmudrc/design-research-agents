@@ -19,8 +19,6 @@ def _discover_non_streaming_examples() -> tuple[str, ...]:
         parts = relative.parts
         if "__pycache__" in parts:
             continue
-        if "lazy_tools" in parts:
-            continue
         if "streaming" in parts:
             continue
         if path.name.startswith("_"):

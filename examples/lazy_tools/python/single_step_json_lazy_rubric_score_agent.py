@@ -6,7 +6,8 @@ asks the model to execute ``lazy::rubric_score`` in one step.
 
 from pathlib import Path
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents.agent import SingleStepJsonToolCallingAgent
 
 
 def main() -> None:
@@ -14,20 +15,13 @@ def main() -> None:
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parents[2]
 
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime(
-        config=dra.tools.ToolRuntimeConfig(
-            core_tools=dra.tools.CoreToolsConfig(
-                enabled=False,
-                workspace_root=str(repo_root),
-            ),
-            lazy_tools=dra.tools.LazyToolsConfig(
-                enabled=True,
-                search_paths=(str(script_dir),),
-            ),
-        )
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime.lazy(
+        search_paths=(str(script_dir),),
+        workspace_root=str(repo_root),
+        enable_core_tools=False,
     )
-    agent = dra.agents.SingleStepJsonToolCallingAgent(
+    agent = SingleStepJsonToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

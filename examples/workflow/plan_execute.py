@@ -1,13 +1,17 @@
 """Runnable example for the reusable ``plan_execute`` orchestration chunk."""
 
-import design_research_agents as dra
+from design_research_agents import (
+    LlamaCppServerLLMClient,
+    PlanExecuteWorkflow,
+    UnifiedToolRuntime,
+)
 
 
 def main() -> None:
     """Run ``plan_execute`` orchestration with configurable runtime dependencies."""
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
-    workflow = dra.workflows.PlanExecuteWorkflow(
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
+    workflow = PlanExecuteWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

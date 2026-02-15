@@ -84,13 +84,12 @@ Programmatic usage
 
 .. code-block:: python
 
-   from design_research_agents.tools import ToolRuntimeConfig, UnifiedToolRuntime
-   from design_research_agents.tools.config import LazyToolsConfig
+   from design_research_agents import UnifiedToolRuntime
 
-   runtime = UnifiedToolRuntime(
-       config=ToolRuntimeConfig(
-           lazy_tools=LazyToolsConfig(enabled=True, search_paths=("examples/lazy_tools",))
-       )
+   runtime = UnifiedToolRuntime.lazy(
+       search_paths=("examples/lazy_tools",),
+       workspace_root=".",
+       enable_core_tools=False,
    )
 
    result = runtime.invoke(

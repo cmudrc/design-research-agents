@@ -1,56 +1,57 @@
 from __future__ import annotations
 
-import importlib
 from collections.abc import Iterator
-from pathlib import Path
 
 import pytest
 
 from design_research_agents.contracts.llm import (
     BackendCapabilities,
     BackendStatus,
-    LLMCapabilityError,
     LLMChatParams,
     LLMDelta,
     LLMMessage,
     LLMRequest,
     LLMResponse,
-    LLMStreamEvent,
-    TaskProfile,
-)
-from design_research_agents.contracts.tools import ToolSpec
-from design_research_agents.llm import (
-    BaseLLMClient,
-    LLMRouter,
-    configure_router_from_yaml,
-    resolve_default_model,
-    set_default_router,
 )
 from design_research_agents.llm.backends.base import BaseLLMBackend
-from design_research_agents.llm.structured_output import StructuredOutputResult
+from design_research_agents.llm.clients import (
+    LlamaCppServerLLMClient,
+    MlxLocalLLMClient,
+    OpenAICompatibleHTTPLLMClient,
+    OpenAIServiceLLMClient,
+    TransformersLocalLLMClient,
+    _SingleBackendLLMClient,
+)
 
 
 class _StubBackend(BaseLLMBackend):
     def __init__(
         self,
         *,
-        name: str,
-        kind: str,
-        default_model: str,
-        capabilities: BackendCapabilities,
+        name: str = "stub",
+        default_model: str | None = "stub-model",
+        stream_chunks: tuple[str, ...] = ("stub-", "chunk"),
+        json_mode: str = "none",
     ) -> None:
         super().__init__(
             name=name,
-            kind=kind,
+            kind="echo_test",
             default_model=default_model,
             base_url=None,
-            config_hash=f"hash-{name}",
+            config_hash="stub-hash",
         )
-        self._caps = capabilities
+        self._stream_chunks = stream_chunks
+        self._json_mode = json_mode
         self.calls: list[LLMRequest] = []
 
     def capabilities(self) -> BackendCapabilities:
-        return self._caps
+        return BackendCapabilities(
+            streaming=True,
+            tool_calling="none",
+            json_mode=self._json_mode,  # type: ignore[arg-type]
+            vision=False,
+            max_context_tokens=None,
+        )
 
     def healthcheck(self) -> BackendStatus:
         return BackendStatus(ok=True, message="ok")
@@ -65,330 +66,88 @@ class _StubBackend(BaseLLMBackend):
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         self.calls.append(request)
-        yield LLMDelta(text_delta=f"{self.name}-")
-        yield LLMDelta(text_delta="stream")
+        for chunk in self._stream_chunks:
+            yield LLMDelta(text_delta=chunk)
 
 
-@pytest.fixture(autouse=True)
-def _clear_default_router() -> Iterator[None]:
-    set_default_router(None)
-    yield
-    set_default_router(None)
+def test_provider_clients_empty_init_and_default_model() -> None:
+    llama = LlamaCppServerLLMClient()
+    clients = (
+        llama,
+        OpenAIServiceLLMClient(),
+        OpenAICompatibleHTTPLLMClient(),
+        TransformersLocalLLMClient(),
+        MlxLocalLLMClient(),
+    )
+    try:
+        for client in clients:
+            assert isinstance(client.default_model(), str)
+            assert client.default_model().strip()
+    finally:
+        llama.close()
 
 
-def _chat_request(*, model: str) -> LLMRequest:
-    return LLMRequest(
-        messages=[LLMMessage(role="user", content="hello")],
-        model=model,
-        temperature=None,
-        max_tokens=None,
-        tools=(),
-        response_schema=None,
-        response_format=None,
-        metadata={},
-        provider_options={},
-        task_profile=None,
+def test_provider_clients_use_expected_default_backend_names() -> None:
+    llama = LlamaCppServerLLMClient()
+    try:
+        assert llama._backend.name == "llama-local"
+    finally:
+        llama.close()
+
+    assert OpenAIServiceLLMClient()._backend.name == "openai"
+    assert OpenAICompatibleHTTPLLMClient()._backend.name == "openai-compatible"
+    assert TransformersLocalLLMClient()._backend.name == "transformers-local"
+    assert MlxLocalLLMClient()._backend.name == "mlx-local"
+
+
+def test_chat_builds_request_from_chat_params() -> None:
+    backend = _StubBackend(name="chat-backend", default_model="chat-model")
+    client = _SingleBackendLLMClient(backend=backend)
+
+    response = client.chat(
+        [LLMMessage(role="user", content="hello")],
+        model="chat-model",
+        params=LLMChatParams(
+            temperature=0.2,
+            max_tokens=64,
+            provider_options={"seed": 7},
+        ),
     )
 
-
-def test_base_llm_client_requires_router_or_default() -> None:
-    with pytest.raises(ValueError, match="No LLM router configured"):
-        BaseLLMClient()
-
-
-def test_base_llm_client_rejects_unknown_backend_override() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    router = LLMRouter(
-        [_StubBackend(name="primary", kind="openai_service", default_model="m1", capabilities=caps)]
-    )
-
-    with pytest.raises(ValueError, match="Unknown backend"):
-        BaseLLMClient(router=router, backend="missing")
+    assert response.provider == "chat-backend"
+    assert backend.calls
+    request = backend.calls[-1]
+    assert request.model == "chat-model"
+    assert request.temperature == 0.2
+    assert request.max_tokens == 64
+    assert request.response_schema is None
+    assert request.provider_options == {"seed": 7}
+    assert request.tools == ()
+    assert request.response_format is None
 
 
-def test_base_llm_client_generate_uses_backend_override() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    primary = _StubBackend(
-        name="primary",
-        kind="openai_service",
-        default_model="m1",
-        capabilities=caps,
-    )
-    alternate = _StubBackend(
-        name="alternate",
-        kind="openai_compatible_http",
-        default_model="m2",
-        capabilities=caps,
-    )
-    router = LLMRouter([primary, alternate], default_backend="primary")
-    client = BaseLLMClient(router=router, backend="alternate")
-
-    response = client.generate(_chat_request(model="m2"))
-
-    assert response.provider == "alternate"
-    assert alternate.calls
-    assert not primary.calls
-    assert alternate.calls[0].metadata["backend"] == "alternate"
-
-
-def test_base_llm_client_stream_chat_emits_delta_and_completed() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    backend = _StubBackend(
-        name="streamer",
-        kind="openai_service",
-        default_model="m1",
-        capabilities=caps,
-    )
-    client = BaseLLMClient(router=LLMRouter([backend]))
+def test_stream_chat_emits_delta_and_completed() -> None:
+    backend = _StubBackend(name="stream-backend", default_model="stream-model")
+    client = _SingleBackendLLMClient(backend=backend)
 
     events = list(
         client.stream_chat(
             [LLMMessage(role="user", content="hello")],
-            model="m1",
+            model="stream-model",
             params=LLMChatParams(),
         )
     )
 
-    assert events[0] == LLMStreamEvent(kind="delta", delta_text="streamer-")
-    assert events[1] == LLMStreamEvent(kind="delta", delta_text="stream")
-    assert events[2].kind == "completed"
+    assert [event.kind for event in events] == ["delta", "delta", "completed"]
+    assert events[0].delta_text == "stub-"
+    assert events[1].delta_text == "chunk"
     assert events[2].response is not None
-    assert events[2].response.provider == "streamer"
+    assert events[2].response.text == "stub-chunk"
 
 
-def test_router_prefers_quality_backend_kind() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    local = _StubBackend(name="local", kind="llama_cpp", default_model="m-local", capabilities=caps)
-    hosted = _StubBackend(
-        name="hosted",
-        kind="openai_service",
-        default_model="m-hosted",
-        capabilities=caps,
-    )
-    router = LLMRouter([local, hosted], default_backend="local")
+def test_default_model_raises_when_backend_default_missing() -> None:
+    backend = _StubBackend(default_model=None)
+    client = _SingleBackendLLMClient(backend=backend)
 
-    response = router.generate(
-        LLMRequest(
-            messages=[LLMMessage(role="user", content="hello")],
-            model="m-hosted",
-            temperature=None,
-            max_tokens=None,
-            tools=(),
-            response_schema=None,
-            response_format=None,
-            metadata={},
-            provider_options={},
-            task_profile=TaskProfile(priority="quality"),
-        )
-    )
-
-    assert response.provider == "hosted"
-
-
-def test_resolve_default_model_uses_configured_router() -> None:
-    caps = BackendCapabilities(
-        streaming=False,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    backend = _StubBackend(
-        name="echo",
-        kind="echo_test",
-        default_model="echo-model",
-        capabilities=caps,
-    )
-    set_default_router(LLMRouter([backend], default_backend="echo"))
-
-    assert resolve_default_model() == "echo-model"
-    assert resolve_default_model(backend="echo") == "echo-model"
-
-
-def test_router_rejects_unknown_default_backend() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    backend = _StubBackend(
-        name="echo",
-        kind="echo_test",
-        default_model="echo-model",
-        capabilities=caps,
-    )
-
-    with pytest.raises(ValueError, match="Default backend 'missing'"):
-        LLMRouter([backend], default_backend="missing")
-
-
-def test_router_rejects_duplicate_backend_names() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    first = _StubBackend(name="dup", kind="echo_test", default_model="m1", capabilities=caps)
-    second = _StubBackend(name="dup", kind="openai_service", default_model="m2", capabilities=caps)
-
-    with pytest.raises(ValueError, match="Duplicate backend name 'dup'"):
-        LLMRouter([first, second])
-
-
-def test_router_rejects_unknown_backend_hint() -> None:
-    caps = BackendCapabilities(
-        streaming=True,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    router = LLMRouter(
-        [_StubBackend(name="echo", kind="echo_test", default_model="echo-model", capabilities=caps)]
-    )
-    request = _chat_request(model="echo-model")
-    request = LLMRequest(
-        messages=request.messages,
-        model=request.model,
-        temperature=request.temperature,
-        max_tokens=request.max_tokens,
-        tools=request.tools,
-        response_schema=request.response_schema,
-        response_format=request.response_format,
-        metadata={"backend": "missing"},
-        provider_options=request.provider_options,
-        task_profile=request.task_profile,
-    )
-
-    with pytest.raises(LLMCapabilityError, match="Unknown backend 'missing'"):
-        router.generate(request)
-
-
-def test_configure_router_from_yaml_registers_default_router(tmp_path: Path) -> None:
-    path = tmp_path / "llm.yaml"
-    path.write_text(
-        "\n".join(
-            [
-                "backends:",
-                "  - name: echo",
-                "    kind: echo_test",
-                "    model: echo-v1",
-            ]
-        ),
-        encoding="utf-8",
-    )
-
-    router = configure_router_from_yaml(str(path))
-
-    assert isinstance(router, LLMRouter)
-    assert resolve_default_model() == "echo-v1"
-
-
-def test_router_rejects_requests_when_capabilities_missing() -> None:
-    caps = BackendCapabilities(
-        streaming=False,
-        tool_calling="none",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    backend = _StubBackend(name="basic", kind="echo_test", default_model="m", capabilities=caps)
-    router = LLMRouter([backend])
-
-    with pytest.raises(LLMCapabilityError, match="capabilities"):
-        router.stream(_chat_request(model="m"))
-
-
-def test_best_effort_tool_calling_serializes_slot_dataclasses(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    caps = BackendCapabilities(
-        streaming=False,
-        tool_calling="best_effort",
-        json_mode="none",
-        vision=False,
-        max_context_tokens=None,
-    )
-    backend = _StubBackend(
-        name="best-effort",
-        kind="llama_cpp",
-        default_model="m",
-        capabilities=caps,
-    )
-    tool = ToolSpec(
-        name="calculator",
-        description="Compute arithmetic expressions.",
-        input_schema={"type": "object"},
-        output_schema={"type": "object"},
-    )
-    parsed = {
-        "tool_calls": [
-            {
-                "name": "calculator",
-                "arguments": {"expression": "1 + 1"},
-            }
-        ]
-    }
-    base_response = LLMResponse(
-        text='{"tool_calls":[{"name":"calculator","arguments":{"expression":"1 + 1"}}]}',
-        model="m",
-        provider="best-effort",
-    )
-
-    def _fake_generate_json(**kwargs: object) -> StructuredOutputResult:
-        del kwargs
-        return StructuredOutputResult(response=base_response, parsed=parsed, attempts=0)
-
-    base_module = importlib.import_module("design_research_agents.llm.backends.base")
-    monkeypatch.setattr(base_module, "generate_json", _fake_generate_json)
-
-    response = backend.generate(
-        LLMRequest(
-            messages=[LLMMessage(role="user", content="add one plus one")],
-            model="m",
-            tools=(tool,),
-            metadata={},
-            provider_options={},
-        )
-    )
-
-    assert len(response.tool_calls) == 1
-    assert response.tool_calls[0].name == "calculator"
-    assert response.raw is not None
-    structured = response.raw.get("structured_output")
-    assert isinstance(structured, dict)
-    assert structured["tool_calls"] == [
-        {
-            "name": "calculator",
-            "arguments_json": '{"expression": "1 + 1"}',
-            "call_id": "call_1",
-        }
-    ]
+    with pytest.raises(ValueError, match="default_model"):
+        client.default_model()

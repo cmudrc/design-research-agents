@@ -6,11 +6,12 @@ import json
 import sys
 from collections.abc import Mapping
 
-import design_research_agents as dra
+from design_research_agents import UnifiedToolRuntime
+from design_research_agents.tools.config import McpServerConfig
 
 
 def _invoke_dict(
-    runtime: dra.tools.UnifiedToolRuntime,
+    runtime: UnifiedToolRuntime,
     tool_name: str,
     tool_input_payload: Mapping[str, object],
 ) -> dict[str, object]:
@@ -32,24 +33,18 @@ def _invoke_dict(
 
 def main() -> None:
     """Run a deterministic multi-source story and persist a JSON artifact."""
-    runtime = dra.tools.UnifiedToolRuntime(
-        config=dra.tools.ToolRuntimeConfig(
-            core_tools=dra.tools.CoreToolsConfig(workspace_root="."),
-            lazy_tools=dra.tools.LazyToolsConfig(
-                enabled=True, search_paths=("examples/lazy_tools",)
+    runtime = UnifiedToolRuntime(
+        workspace_root=".",
+        enable_core_tools=True,
+        lazy_search_paths=("examples/lazy_tools",),
+        mcp_servers=(
+            McpServerConfig(
+                id="local_core",
+                command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+                env={"PYTHONPATH": "src"},
+                timeout_s=20,
             ),
-            mcp=dra.tools.McpConfig(
-                enabled=True,
-                servers=(
-                    dra.tools.McpServerConfig(
-                        id="local_core",
-                        command=(sys.executable, "-m", "design_research_agents.mcp_server"),
-                        env={"PYTHONPATH": "src"},
-                        timeout_s=20,
-                    ),
-                ),
-            ),
-        )
+        ),
     )
 
     story_text = (

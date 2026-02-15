@@ -13,6 +13,7 @@ from pathlib import Path
 _DETERMINISTIC_MODE = os.environ.get("DRA_EXAMPLE_LLM_MODE", "").strip().lower() == "deterministic"
 
 if _DETERMINISTIC_MODE:
+    import design_research_agents.llm as llm_module
     from design_research_agents.contracts.llm import (
         LLMChatParams,
         LLMDelta,
@@ -21,7 +22,6 @@ if _DETERMINISTIC_MODE:
         LLMResponse,
         LLMStreamEvent,
     )
-    from design_research_agents.llm.backends import default as default_backend
 
 _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     "single_step_direct_llm_agent.py": ("4",),
@@ -222,7 +222,7 @@ if _DETERMINISTIC_MODE:
                 provider="example-test-monkeypatch",
             )
 
-    def _patched_create_default_llm_client() -> _DeterministicExampleClient:
+    def _patched_LlamaCppServerLLMClient() -> _DeterministicExampleClient:
         script_name = Path(sys.argv[0]).name
         responses = _SCRIPT_RESPONSES.get(script_name)
         if responses is None:
@@ -231,19 +231,12 @@ if _DETERMINISTIC_MODE:
             )
         return _DeterministicExampleClient(response_texts=responses)
 
-    default_backend.create_default_llm_client = _patched_create_default_llm_client
+    llm_module.LlamaCppServerLLMClient = _patched_LlamaCppServerLLMClient
 
-    # `design_research_agents._public_api` captures the factory during package import.
-    # Patch that captured reference too so examples calling `dra.llm.create_default_llm_client()`
-    # resolve to deterministic test responses.
+    # Patch top-level exported accessor for tests that import it directly.
     try:
-        from design_research_agents import _public_api as public_api
+        import design_research_agents as package_api
     except Exception:
-        public_api = None
-    if public_api is not None:
-        public_api.create_default_llm_client = _patched_create_default_llm_client
-        object.__setattr__(
-            public_api.llm,
-            "create_default_llm_client",
-            _patched_create_default_llm_client,
-        )
+        package_api = None
+    if package_api is not None:
+        package_api.LlamaCppServerLLMClient = _patched_LlamaCppServerLLMClient

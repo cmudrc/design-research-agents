@@ -4,18 +4,23 @@ The script uses a fixed hardware profile with high load to prefer remote
 selection and prints the decision.
 """
 
-import design_research_agents as dra
+from design_research_agents import (
+    HardwareProfile,
+    ModelSelectionConstraints,
+    ModelSelectionIntent,
+    ModelSelectionPolicy,
+)
 
 
 def main() -> None:
     """Select a remote model when local hardware is overloaded."""
-    policy = dra.models.ModelSelectionPolicy()
-    intent = dra.models.ModelSelectionIntent(
+    policy = ModelSelectionPolicy()
+    intent = ModelSelectionIntent(
         task="Handle a fast-paced live chat session.",
         priority="speed",
     )
-    constraints = dra.models.ModelSelectionConstraints(max_latency_ms=800)
-    hardware_profile = dra.models.HardwareProfile(
+    constraints = ModelSelectionConstraints(max_latency_ms=800)
+    hardware_profile = HardwareProfile(
         total_ram_gb=16.0,
         available_ram_gb=12.0,
         cpu_count=4,

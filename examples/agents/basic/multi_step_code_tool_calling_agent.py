@@ -4,7 +4,8 @@ The script demonstrates iterative continuation/step execution over a short
 multi-step task and prints the final structured result payload.
 """
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents.agent import MultiStepCodeToolCallingAgent
 
 
 def main() -> None:
@@ -12,9 +13,9 @@ def main() -> None:
 
     Demonstrates iterative planning/execution behavior with a bounded step count.
     """
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
-    agent = dra.agents.MultiStepCodeToolCallingAgent(
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
+    agent = MultiStepCodeToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         max_steps=3,

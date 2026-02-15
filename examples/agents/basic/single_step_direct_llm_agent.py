@@ -4,13 +4,14 @@ The script calls a local llama-cpp server by default, runs one prompt directly
 through the model, and prints the resulting ``AgentResult`` payload.
 """
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient
+from design_research_agents.agent import SingleStepDirectLLMAgent
 
 
 def main() -> None:
     """Execute one direct-LLM agent run and print structured output."""
-    llm_client = dra.llm.create_default_llm_client()
-    agent = dra.agents.SingleStepDirectLLMAgent(llm_client=llm_client)
+    llm_client = LlamaCppServerLLMClient()
+    agent = SingleStepDirectLLMAgent(llm_client=llm_client)
 
     result = agent.run(
         prompt="What is two plus two?",

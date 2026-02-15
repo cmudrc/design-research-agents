@@ -4,7 +4,8 @@ The script generates one action program, executes it in the sandbox, and prints
 the resulting structured output.
 """
 
-import design_research_agents as dra
+from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents.agent import SingleStepCodeToolCallingAgent
 
 
 def main() -> None:
@@ -12,9 +13,9 @@ def main() -> None:
 
     Demonstrates generated-code execution with default sandbox constraints.
     """
-    llm_client = dra.llm.create_default_llm_client()
-    tool_runtime = dra.tools.UnifiedToolRuntime()
-    agent = dra.agents.SingleStepCodeToolCallingAgent(
+    llm_client = LlamaCppServerLLMClient()
+    tool_runtime = UnifiedToolRuntime()
+    agent = SingleStepCodeToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         normalize_generated_code=True,

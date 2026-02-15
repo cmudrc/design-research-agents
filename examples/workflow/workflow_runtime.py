@@ -1,14 +1,15 @@
 """Runnable entrypoint demonstrating the core ``WorkflowRuntime`` implementation."""
 
-import design_research_agents as dra
+from design_research_agents.contracts.workflow import LogicStep
+from design_research_agents.workflow import WorkflowRuntime
 
 
 def main() -> None:
     """Run a minimal logic-only workflow and print serialized output."""
-    runtime = dra.workflows.WorkflowRuntime()
+    runtime = WorkflowRuntime()
     result = runtime.run(
         [
-            dra.workflows.LogicStep(
+            LogicStep(
                 step_id="hello_workflow",
                 handler=lambda _context: {"message": "workflow runtime ready"},
             )

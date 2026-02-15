@@ -3,7 +3,8 @@
 import json
 from pathlib import Path
 
-import design_research_agents as dra
+from design_research_agents import PureToolWorkflow, UnifiedToolRuntime
+from design_research_agents.contracts.workflow import LogicStep, ToolStep
 
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -45,7 +46,7 @@ def main() -> None:
     )
 
     workflow_steps = [
-        dra.workflows.ToolStep(
+        ToolStep(
             step_id="describe_dataset",
             tool_name="data.describe",
             input_builder=lambda context: {
@@ -53,7 +54,7 @@ def main() -> None:
                 "kind": "csv",
             },
         ),
-        dra.workflows.ToolStep(
+        ToolStep(
             step_id="load_sample",
             tool_name="data.load_csv",
             dependencies=("describe_dataset",),
@@ -62,7 +63,7 @@ def main() -> None:
                 "nrows": context["inputs"]["sample_nrows"],
             },
         ),
-        dra.workflows.LogicStep(
+        LogicStep(
             step_id="quality_gate",
             dependencies=("describe_dataset", "load_sample"),
             handler=lambda context: {
@@ -76,7 +77,7 @@ def main() -> None:
                 "threshold": context["inputs"]["max_missing_ratio_per_column"],
             },
         ),
-        dra.workflows.ToolStep(
+        ToolStep(
             step_id="persist_report",
             tool_name="fs.write_text",
             dependencies=("quality_gate",),
@@ -92,7 +93,7 @@ def main() -> None:
                 "overwrite": True,
             },
         ),
-        dra.workflows.LogicStep(
+        LogicStep(
             step_id="finalize",
             dependencies=("persist_report",),
             handler=lambda context: {
@@ -103,8 +104,8 @@ def main() -> None:
         ),
     ]
 
-    workflow = dra.workflows.PureToolWorkflow(
-        tool_runtime=dra.tools.UnifiedToolRuntime(),
+    workflow = PureToolWorkflow(
+        tool_runtime=UnifiedToolRuntime(),
         steps=workflow_steps,
         input_schema=INPUT_SCHEMA,
     )
