@@ -101,6 +101,14 @@ class ToolCallingAgent(Agent):
 
         The run prompts for a structured tool call, validates selection, resolves
         tool input, executes the tool, and returns unified output/metadata.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final agent result payload.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -229,6 +237,14 @@ class ToolCallingAgent(Agent):
 
         The wrapper emits one delta containing full model text, followed by a
         completion event with the final ``AgentResult``.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Yields:
+            Streaming events through completion.
         """
         result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
@@ -237,9 +253,15 @@ class ToolCallingAgent(Agent):
 
 
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract request prompt text from input payload.
+    """Extract prompt text from run input.
 
-    Falls back to ``text`` and then a stable default string when absent.
+    Falls back to ``text`` and then a default string when missing.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Prompt text for the run.
     """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
@@ -252,7 +274,15 @@ def _extract_tool_choices(
     tool_specs: Mapping[str, ToolSpec],
     default_tool_name: str,
 ) -> list[_ToolChoice]:
-    """Extract normalized tool choices from runtime specs."""
+    """Extract normalized tool choices from runtime specs.
+
+    Args:
+        tool_specs: Mapping of tool specifications from the runtime.
+        default_tool_name: Fallback tool name when no specs are available.
+
+    Returns:
+        List of normalized tool choices.
+    """
     if tool_specs:
         return [
             _ToolChoice(
@@ -278,6 +308,13 @@ def _build_tool_call_prompt(*, prompt: str, choices_block: str) -> str:
 
     The prompt receives pre-rendered choices text so callers can route
     alternatives either through the user prompt or the system prompt.
+
+    Args:
+        prompt: User prompt text.
+        choices_block: Pre-rendered choices block text.
+
+    Returns:
+        Rendered tool-call prompt text.
     """
     return render_prompt(
         "tool_calling_user_select_tool",
@@ -289,7 +326,14 @@ def _build_tool_call_prompt(*, prompt: str, choices_block: str) -> str:
 
 
 def _build_tool_choices_text(*, choices: Sequence[_ToolChoice]) -> str:
-    """Build formatted runtime tool choices text."""
+    """Build formatted runtime tool choices text.
+
+    Args:
+        choices: Sequence of tool choices to render.
+
+    Returns:
+        Formatted tool choices block text.
+    """
     choice_lines: list[str] = []
     for choice in choices:
         choice_lines.append(
@@ -308,12 +352,25 @@ def _tool_call_response_schema(tool_names: Sequence[str]) -> dict[str, object]:
     """Build JSON schema constraining tool-calling model output payloads.
 
     Restricts ``tool_name`` to currently available choices.
+
+    Args:
+        tool_names: Tool names permitted in the response schema.
+
+    Returns:
+        JSON-schema-like mapping for tool call responses.
     """
     return build_tool_call_response_schema(tool_names=tool_names)
 
 
 def _clone_tool_choice(choice: _ToolChoice) -> _ToolChoice:
-    """Clone one tool choice so run-local payloads remain isolated."""
+    """Clone one tool choice so run-local payloads remain isolated.
+
+    Args:
+        choice: Tool choice to clone.
+
+    Returns:
+        Cloned tool choice instance.
+    """
     return _ToolChoice(
         tool_name=choice.tool_name,
         description=choice.description,
@@ -325,6 +382,12 @@ def _parse_tool_call(raw_text: str) -> dict[str, object] | None:
     """Parse tool-call JSON payload from model text output.
 
     Supports strict JSON responses and JSON objects embedded in surrounding text.
+
+    Args:
+        raw_text: Raw model response text.
+
+    Returns:
+        Parsed tool-call mapping or ``None`` when parsing fails.
     """
     parsed = _load_json_mapping(raw_text)
     if parsed is not None:
@@ -345,9 +408,15 @@ def _parse_tool_call(raw_text: str) -> dict[str, object] | None:
 
 
 def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Load text as JSON object mapping and return ``None`` on invalid input.
+    """Load text as a JSON mapping.
 
-    Non-object JSON payloads are treated as invalid for tool-call parsing.
+    Returns ``None`` when the text is invalid JSON or not an object.
+
+    Args:
+        raw_text: Raw text to parse as JSON.
+
+    Returns:
+        Parsed JSON mapping or ``None`` when invalid.
     """
     try:
         payload = json.loads(raw_text)
@@ -368,6 +437,14 @@ def _select_tool_choice(
 
     Model-provided choices are preferred when valid; otherwise deterministic
     lexical fallback scoring selects a tool.
+
+    Args:
+        parsed_tool_call: Parsed tool-call payload, if available.
+        prompt: User prompt text.
+        choices: Available tool choices.
+
+    Returns:
+        Tuple of selected choice, source label, and reason string.
     """
     allowed_names = {choice.tool_name for choice in choices}
     if parsed_tool_call is not None:
@@ -391,7 +468,17 @@ def _resolve_tool_input(
     input_payload: Mapping[str, object],
     llm_response_text: str,
 ) -> dict[str, object]:
-    """Resolve final tool input from model payload, run input, or heuristics."""
+    """Resolve final tool input from model payload, run input, or heuristics.
+
+    Args:
+        selected_choice: Selected tool choice.
+        parsed_tool_call: Parsed tool-call payload, if available.
+        input_payload: Normalized run input payload mapping.
+        llm_response_text: Raw model response text.
+
+    Returns:
+        Resolved tool input mapping.
+    """
     if parsed_tool_call is not None:
         raw_tool_input = parsed_tool_call.get(
             "tool_input",
@@ -426,6 +513,12 @@ def _coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
     """Convert raw tool-input payload into a JSON-like dictionary when possible.
 
     Supports direct mappings and JSON-encoded string payloads.
+
+    Args:
+        raw_tool_input: Raw tool input payload.
+
+    Returns:
+        Normalized tool input mapping, or ``None`` when invalid.
     """
     if isinstance(raw_tool_input, Mapping):
         return dict(raw_tool_input)
@@ -444,6 +537,13 @@ def _fallback_select_tool_choice(
     """Select fallback tool choice using deterministic lexical-signal scoring.
 
     Scoring combines token overlap and arithmetic/text intent signals.
+
+    Args:
+        prompt: User prompt text.
+        choices: Available tool choices.
+
+    Returns:
+        Tuple of selected tool choice and fallback reason string.
     """
     prompt_text = prompt.lower()
     prompt_tokens = _tokenize(prompt_text)
@@ -476,10 +576,17 @@ def _fallback_select_tool_choice(
 
 
 def _infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:
-    """Infer a calculator expression from payload fields and prompt text.
+    """Infer calculator expression from payload fields and prompt text.
 
-    Explicit payload expressions win; otherwise a regex candidate is extracted
-    from prompt text before falling back to full prompt.
+    Explicit expressions win; otherwise a regex candidate is extracted from the
+    prompt before falling back to the full prompt text.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        prompt: User prompt text.
+
+    Returns:
+        Inferred arithmetic expression string.
     """
     explicit_expression = input_payload.get("expression")
     if explicit_expression is not None:
@@ -502,6 +609,12 @@ def _tokenize(text: str) -> set[str]:
     """Tokenize text into normalized alphanumeric words for lexical matching.
 
     Tokenization is intentionally simple and deterministic.
+
+    Args:
+        text: Text to tokenize.
+
+    Returns:
+        Set of normalized tokens.
     """
     return {token for token in re.findall(r"[a-z0-9_]+", text) if token}
 
@@ -510,6 +623,12 @@ def _looks_like_arithmetic_request(text: str) -> bool:
     """Return whether prompt text appears to request arithmetic computation.
 
     Uses regex patterns and keyword heuristics.
+
+    Args:
+        text: Prompt text to inspect.
+
+    Returns:
+        ``True`` when the text suggests arithmetic computation.
     """
     if re.search(r"\d+\s*[\+\-\*\/%]\s*\d+", text):
         return True
@@ -533,6 +652,12 @@ def _looks_like_text_analysis_request(text: str) -> bool:
     """Return whether prompt text appears to request text analysis.
 
     Uses lightweight keyword heuristics.
+
+    Args:
+        text: Prompt text to inspect.
+
+    Returns:
+        ``True`` when the text suggests text analysis.
     """
     text_keywords = {
         "text",
@@ -555,6 +680,12 @@ def _looks_like_arithmetic_tool(text: str) -> bool:
     """Return whether tool description text appears arithmetic-focused.
 
     Uses tool-name/description keyword matching.
+
+    Args:
+        text: Tool name/description text to inspect.
+
+    Returns:
+        ``True`` when the text suggests an arithmetic tool.
     """
     arithmetic_tool_keywords = {
         "calc",
@@ -572,6 +703,12 @@ def _looks_like_text_tool(text: str) -> bool:
     """Return whether tool description text appears text-analysis-focused.
 
     Uses tool-name/description keyword matching.
+
+    Args:
+        text: Tool name/description text to inspect.
+
+    Returns:
+        ``True`` when the text suggests a text analysis tool.
     """
     text_tool_keywords = {
         "text",

@@ -151,6 +151,14 @@ class SingleStepCodeAgent(Agent):
 
         The method resolves runtime options, generates code, validates AST safety,
         executes within strict constraints, and returns structured artifacts.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final agent result payload.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -342,6 +350,14 @@ class SingleStepCodeAgent(Agent):
 
         The wrapper emits one full delta and then a completion event containing
         the final ``AgentResult``.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Yields:
+            Streaming events through completion.
         """
         result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
@@ -360,6 +376,15 @@ class SingleStepCodeAgent(Agent):
 
         The prompt enumerates allowed tools and their schemas so the model can
         produce executable code aligned with runtime constraints.
+
+        Args:
+            prompt: User prompt text.
+            allowed_tools: Allowed tool list for this run.
+            model: Model identifier for the call.
+            alternatives_prompt_target: Prompt target for allowed-tool context.
+
+        Returns:
+            LLM response containing the generated code.
         """
         tool_lines: list[str] = []
         for allowed_tool in allowed_tools:
@@ -422,6 +447,12 @@ def _extract_allowed_tools(
 
     Runtime input payload does not override allowed tools; tool access is a
     construction-time concern.
+
+    Args:
+        default_allowed_tools: Allowed tools compiled at initialization.
+
+    Returns:
+        Tuple of allowed tools list and source label.
     """
     return (
         [_clone_allowed_tool(tool) for tool in default_allowed_tools],
@@ -437,6 +468,13 @@ def _compile_default_allowed_tools(
     """Compile default allowed tools from init config and runtime tool specs.
 
     When no init defaults are provided, all runtime-registered tools are allowed.
+
+    Args:
+        runtime_specs: Tool specs available in the runtime.
+        default_tools: Optional init-time allowed tool configuration.
+
+    Returns:
+        Tuple of compiled allowed tools.
     """
     if default_tools is not None:
         compiled_from_input = _normalize_allowed_tools(
@@ -463,6 +501,13 @@ def _normalize_allowed_tools(
     """Normalize explicit allowed-tool payload into runtime-backed tool entries.
 
     Unknown or malformed tools are dropped to prevent unsafe dynamic invocation.
+
+    Args:
+        raw_tools: Raw tool configuration payload.
+        runtime_specs: Tool specs available in the runtime.
+
+    Returns:
+        Normalized list of allowed tools.
     """
     if not isinstance(raw_tools, Sequence) or isinstance(raw_tools, (str, bytes)):
         return []
@@ -517,6 +562,12 @@ def _clone_allowed_tool(allowed_tool: _AllowedTool) -> _AllowedTool:
     """Clone one allowed tool to isolate run-level payload mutations.
 
     Mutable dictionaries are copied so per-run writes do not leak globally.
+
+    Args:
+        allowed_tool: Allowed tool to clone.
+
+    Returns:
+        Cloned allowed tool instance.
     """
     return _AllowedTool(
         tool_name=allowed_tool.tool_name,
@@ -531,9 +582,15 @@ def _clone_allowed_tool(allowed_tool: _AllowedTool) -> _AllowedTool:
 
 
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from input payload with stable fallback defaults.
+    """Extract prompt text from run input.
 
-    Falls back to ``text`` and then a concise default instruction string.
+    Falls back to ``text`` and then a default string when missing.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Prompt text for the run.
     """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
@@ -547,9 +604,17 @@ def _extract_positive_int(
     key: str,
     default_value: int,
 ) -> int:
-    """Extract a positive integer run option from input payload.
+    """Extract a positive integer option from run input.
 
-    Invalid, missing, and boolean values resolve to the default.
+    Invalid, missing, or boolean values resolve to the provided default.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        key: Input payload key to extract.
+        default_value: Default value when extraction fails.
+
+    Returns:
+        Positive integer value for the option.
     """
     raw_value = input_payload.get(key)
     if raw_value is None:
@@ -567,9 +632,17 @@ def _extract_boolean(
     key: str,
     default_value: bool,
 ) -> bool:
-    """Extract a boolean run option from input payload.
+    """Extract a boolean option from run input.
 
     Non-boolean values resolve to the provided default.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        key: Input payload key to extract.
+        default_value: Default value when extraction fails.
+
+    Returns:
+        Boolean value for the option.
     """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
@@ -581,6 +654,12 @@ def _extract_python_code(raw_model_text: str) -> str:
     """Extract Python code from model output text, preferring fenced blocks.
 
     If no valid fenced block is found, the raw trimmed model text is used.
+
+    Args:
+        raw_model_text: Raw model response text.
+
+    Returns:
+        Extracted Python code text.
     """
     fenced_match = _match_fenced_code_block(raw_model_text)
     if fenced_match is not None:
@@ -592,6 +671,12 @@ def _match_fenced_code_block(raw_text: str) -> str | None:
     """Return first Python-like fenced code block when present and well-formed.
 
     Only empty, ``python``, or ``py`` fence headers are accepted.
+
+    Args:
+        raw_text: Raw model response text.
+
+    Returns:
+        Code block content when found, otherwise ``None``.
     """
     fence = "```"
     start_index = raw_text.find(fence)
@@ -724,7 +809,15 @@ def _canonicalize_generated_code(
     code_text: str,
     allowed_tools: Sequence[_AllowedTool],
 ) -> _CodeNormalizationResult:
-    """Rewrite narrow, known-safe tool call variants into canonical form."""
+    """Rewrite narrow, known-safe tool call variants into canonical form.
+
+    Args:
+        code_text: Raw generated code text.
+        allowed_tools: Allowed tool list for this run.
+
+    Returns:
+        Normalization result containing rewritten code and metadata.
+    """
     if not code_text:
         return _CodeNormalizationResult(
             code_text=code_text,
@@ -775,6 +868,15 @@ def _compile_sandboxed_code(code_text: str) -> CodeType:
     """Validate and compile generated code under strict sandbox constraints.
 
     The function enforces syntax safety before compilation to bytecode.
+
+    Args:
+        code_text: Python code text to compile.
+
+    Returns:
+        Compiled code object.
+
+    Raises:
+        ValueError: If the code is empty or fails sandbox validation.
     """
     if not code_text:
         raise ValueError("Generated code is empty.")
@@ -788,6 +890,12 @@ def _validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
     """Validate AST uses only explicitly allowed constructs and names.
 
     Disallows imports, dynamic execution helpers, and suspicious dunder access.
+
+    Args:
+        syntax_tree: Parsed AST to validate.
+
+    Raises:
+        ValueError: If the syntax tree contains unsupported constructs.
     """
     banned_node_types: tuple[type[ast.AST], ...] = (
         ast.Import,
@@ -904,6 +1012,22 @@ def _execute_compiled_code(
 
     Enforces allowed tools, tool-call limits, optional schema validation, timeout
     controls, and JSON-serializable final output.
+
+    Args:
+        compiled_code: Compiled code object to execute.
+        prompt: User prompt text.
+        input_payload: Normalized run input payload mapping.
+        request_id: Request identifier for tracing.
+        dependencies: Dependency payload mapping.
+        allowed_tools: Allowed tool list for this run.
+        tool_runtime: Tool runtime used for tool invocation.
+        max_tool_calls: Maximum allowed tool invocations.
+        execution_timeout_seconds: Execution timeout in seconds.
+        validate_tool_input_schema: Whether to validate tool input schemas.
+        tool_results: List that will be populated with tool results.
+
+    Returns:
+        Final output mapping produced by the executed code.
     """
     allowed_tools_map = {tool.tool_name: tool for tool in allowed_tools}
     tool_call_count = 0
@@ -913,6 +1037,17 @@ def _execute_compiled_code(
 
         Tool failures are surfaced as runtime exceptions so generated code cannot
         silently ignore failed calls.
+
+        Args:
+            tool_name: Tool name to invoke.
+            tool_input: Tool input payload mapping.
+
+        Returns:
+            Tool output mapping.
+
+        Raises:
+            ValueError: If tool name or input is invalid.
+            RuntimeError: If tool invocation fails or limits are exceeded.
         """
         nonlocal tool_call_count
         if not isinstance(tool_name, str):
@@ -1059,6 +1194,12 @@ def _execution_timeout(*, seconds: int) -> Iterator[None]:
 
     On platforms/threads where alarms are unavailable, the context manager
     degrades gracefully to no hard timeout.
+
+    Args:
+        seconds: Timeout duration in seconds.
+
+    Yields:
+        None.
     """
     if not hasattr(signal, "SIGALRM"):
         # Non-POSIX fallback: no hard timeout support.
@@ -1093,6 +1234,13 @@ def _validate_input_against_schema(
 
     Supports object type enforcement, required fields, property filtering, and
     primitive field type checks.
+
+    Args:
+        input_payload: Tool input payload mapping.
+        input_schema: JSON-schema-like input schema mapping.
+
+    Raises:
+        ValueError: If the payload violates the schema constraints.
     """
     schema_type = input_schema.get("type")
     if isinstance(schema_type, str) and schema_type != "object":
@@ -1133,6 +1281,14 @@ def _validate_field_type(
     """Validate one input field value against supported schema type hints.
 
     Supported hints include string, number, integer, boolean, object, and array.
+
+    Args:
+        field_name: Field name being validated.
+        field_value: Field value to validate.
+        field_schema: Schema mapping for the field.
+
+    Raises:
+        ValueError: If the field value does not match the schema type.
     """
     field_type = field_schema.get("type")
     if not isinstance(field_type, str):
@@ -1170,6 +1326,19 @@ def _failure_result(
     """Build a structured failure result for predictable error handling.
 
     Keeps failure output shape stable across validation and execution failures.
+
+    Args:
+        error: Error message describing the failure.
+        model_response: Model response payload, if available.
+        tool_results: Tool results collected before failure.
+        request_id: Request identifier for tracing.
+        dependencies: Dependency payload mapping.
+        metadata: Additional metadata to include in the result.
+        generated_code: Generated code text.
+        raw_generated_code: Optional raw unnormalized generated code text.
+
+    Returns:
+        Agent result payload describing the failure.
     """
     output: dict[str, object] = {
         "error": error,

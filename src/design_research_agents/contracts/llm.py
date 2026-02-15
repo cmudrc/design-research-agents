@@ -102,6 +102,14 @@ class LLMClient(Protocol):
 
         Implementations should normalize provider-specific payloads into the
         shared ``LLMResponse`` contract.
+
+        Args:
+            messages: Provider-neutral chat message sequence.
+            model: Model identifier for the configured backend.
+            params: Provider-neutral generation parameters.
+
+        Returns:
+            Normalized response payload.
         """
 
     def stream_chat(
@@ -115,6 +123,14 @@ class LLMClient(Protocol):
 
         Streams should conclude with a ``kind="completed"`` event containing the
         final response payload.
+
+        Args:
+            messages: Provider-neutral chat message sequence.
+            model: Model identifier for the configured backend.
+            params: Provider-neutral generation parameters.
+
+        Returns:
+            Iterator of streaming events through completion.
         """
 
 
@@ -137,6 +153,14 @@ class LLMProviderAdapter(Protocol):
         """Generate one provider-backed chat response in normalized format.
 
         Adapters should translate provider-specific errors to contract exceptions.
+
+        Args:
+            messages: Provider-neutral chat message sequence.
+            model: Model identifier for the configured backend.
+            params: Provider-neutral generation parameters.
+
+        Returns:
+            Normalized response payload.
         """
 
     def stream_chat(
@@ -149,6 +173,14 @@ class LLMProviderAdapter(Protocol):
         """Stream provider-backed chat events in normalized format.
 
         Event ordering and completion semantics should match ``LLMClient`` rules.
+
+        Args:
+            messages: Provider-neutral chat message sequence.
+            model: Model identifier for the configured backend.
+            params: Provider-neutral generation parameters.
+
+        Returns:
+            Iterator of streaming events through completion.
         """
 
 

@@ -126,6 +126,14 @@ class RouterAgent(Agent):
 
         Invalid model routing output is treated as a hard failure result instead
         of triggering deterministic routing fallbacks.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final agent result payload.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -310,6 +318,14 @@ class RouterAgent(Agent):
 
         The wrapper currently emits one full-text delta event followed by a
         completion event that carries the full ``AgentResult`` payload.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Yields:
+            Streaming events through completion.
         """
         result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
@@ -330,6 +346,17 @@ def _routing_failure_result(
 
     The returned payload preserves routing metadata and parsed model artifacts
     so callers can inspect why route validation failed.
+
+    Args:
+        error: Failure message describing the routing issue.
+        llm_response: Model response payload.
+        request_id: Request identifier for tracing.
+        dependencies: Dependency payload mapping.
+        alternatives: Available tool alternatives.
+        parsed_route: Parsed route payload, if available.
+
+    Returns:
+        Agent result payload describing the routing failure.
     """
     output: dict[str, object] = {
         "error": error,
@@ -366,10 +393,15 @@ def _routing_failure_result(
 
 
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract request prompt text from input payload.
+    """Extract prompt text from run input.
 
-    Falls back to ``text`` and then a stable default message when no explicit
-    prompt is supplied.
+    Falls back to ``text`` and then a default string when missing.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Prompt text for the run.
     """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
@@ -383,7 +415,16 @@ def _extract_alternatives(
     compiled_runtime_alternatives: Sequence[_ToolAlternative],
     default_tool_name: str,
 ) -> list[_ToolAlternative]:
-    """Return routing alternatives compiled from runtime tool specifications."""
+    """Return routing alternatives compiled from runtime tool specifications.
+
+    Args:
+        runtime_specs: Tool specs available in the runtime.
+        compiled_runtime_alternatives: Cached runtime alternatives.
+        default_tool_name: Fallback tool name when no alternatives exist.
+
+    Returns:
+        List of tool alternatives for routing.
+    """
     if compiled_runtime_alternatives:
         return [_clone_alternative(alternative) for alternative in compiled_runtime_alternatives]
 
@@ -406,7 +447,14 @@ def _extract_alternatives(
 
 
 def _clone_alternative(alternative: _ToolAlternative) -> _ToolAlternative:
-    """Clone one alternative to keep run-level payload mutations isolated."""
+    """Clone one alternative to keep run-level payload mutations isolated.
+
+    Args:
+        alternative: Alternative to clone.
+
+    Returns:
+        Cloned alternative instance.
+    """
     return _ToolAlternative(
         tool_name=alternative.tool_name,
         description=alternative.description,
@@ -421,6 +469,12 @@ def _compile_runtime_alternatives(
     """Compile default routing alternatives directly from runtime tool specs.
 
     Compiled alternatives are cached at initialization and cloned per run.
+
+    Args:
+        tool_specs: Tool specs available in the runtime.
+
+    Returns:
+        Tuple of compiled tool alternatives.
     """
     return tuple(
         _ToolAlternative(
@@ -437,7 +491,15 @@ def _build_route_prompt(
     prompt: str,
     routes_block: str,
 ) -> str:
-    """Build the route-selection user prompt consumed by the model."""
+    """Build the route-selection user prompt consumed by the model.
+
+    Args:
+        prompt: User prompt text.
+        routes_block: Pre-rendered routes block text.
+
+    Returns:
+        Rendered route-selection prompt text.
+    """
     return render_prompt(
         "router_user_route",
         variables={
@@ -451,7 +513,14 @@ def _build_routes_text(
     *,
     alternatives: Sequence[_ToolAlternative],
 ) -> str:
-    """Build formatted runtime route alternatives text."""
+    """Build formatted runtime route alternatives text.
+
+    Args:
+        alternatives: Tool alternatives to render.
+
+    Returns:
+        Formatted routes block text.
+    """
     route_lines: list[str] = []
     for index, alternative in enumerate(alternatives):
         route_lines.append(
@@ -471,7 +540,14 @@ def _route_response_schema(
     *,
     alternatives: Sequence[_ToolAlternative],
 ) -> dict[str, object]:
-    """Build route-selection schema from runtime-derived alternatives."""
+    """Build route-selection schema from runtime-derived alternatives.
+
+    Args:
+        alternatives: Tool alternatives used to constrain selection.
+
+    Returns:
+        JSON-schema-like mapping for route selection.
+    """
     return build_router_selection_response_schema(
         alternative_identifiers=[alternative.tool_name for alternative in alternatives]
     )
@@ -482,6 +558,12 @@ def _parse_route_response(raw_text: str) -> _ParsedRoute | None:
 
     The parser accepts either strict-JSON responses or JSON objects embedded in
     surrounding text.
+
+    Args:
+        raw_text: Raw model response text.
+
+    Returns:
+        Parsed route payload or ``None`` when parsing fails.
     """
     parsed = _load_json_mapping(raw_text)
     if parsed is None:
@@ -527,9 +609,15 @@ def _parse_route_response(raw_text: str) -> _ParsedRoute | None:
 
 
 def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Load text as a JSON object mapping.
+    """Load text as a JSON mapping.
 
     Returns ``None`` when the text is invalid JSON or not an object.
+
+    Args:
+        raw_text: Raw text to parse as JSON.
+
+    Returns:
+        Parsed JSON mapping or ``None`` when invalid.
     """
     try:
         payload = json.loads(raw_text)
@@ -548,6 +636,13 @@ def _resolve_model_route(
     """Resolve and validate model-selected route against available alternatives.
 
     Supports both integer index selections and string tool-name identifiers.
+
+    Args:
+        parsed_route: Parsed route payload, if available.
+        alternatives: Available tool alternatives.
+
+    Returns:
+        Tuple of selected alternative, index, and reason, or ``None`` when invalid.
     """
     if parsed_route is None:
         return None
@@ -581,7 +676,15 @@ def _resolve_tool_input(
     tool_name: str,
     input_payload: Mapping[str, object],
 ) -> dict[str, object]:
-    """Resolve tool input from run payload and tool-specific heuristics."""
+    """Resolve tool input from run payload and tool-specific heuristics.
+
+    Args:
+        tool_name: Tool name for which input is being resolved.
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Tool input mapping.
+    """
     raw_tool_input = input_payload.get("tool_input")
     if isinstance(raw_tool_input, Mapping):
         return dict(raw_tool_input)
@@ -604,7 +707,18 @@ def _resolve_tool_input(
 
 
 def _infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:
-    """Infer calculator expression from payload fields and prompt text."""
+    """Infer calculator expression from payload fields and prompt text.
+
+    Explicit expressions win; otherwise a regex candidate is extracted from the
+    prompt before falling back to the full prompt text.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        prompt: User prompt text.
+
+    Returns:
+        Inferred arithmetic expression string.
+    """
     explicit_expression = input_payload.get("expression")
     if explicit_expression is not None:
         return str(explicit_expression)

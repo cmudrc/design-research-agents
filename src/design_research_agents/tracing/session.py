@@ -29,7 +29,11 @@ class TraceEvent:
     event_index: int | None = None
 
     def asdict(self) -> dict[str, object]:
-        """Return JSON-serializable dictionary representation."""
+        """Return JSON-serializable dictionary representation.
+
+        Returns:
+            Normalized trace event mapping.
+        """
         payload = dataclasses.asdict(self)
         payload["attributes"] = _normalize_value(self.attributes)
         return payload
@@ -45,7 +49,12 @@ class TraceSession:
     """Run-scoped trace session tracking open spans and sinks."""
 
     def __init__(self, *, run_id: str, sinks: list[TraceSink]) -> None:
-        """Initialize a trace session with a run id and sinks."""
+        """Initialize a trace session with a run id and sinks.
+
+        Args:
+            run_id: Run identifier for this trace session.
+            sinks: Trace sinks that will receive emitted events.
+        """
         self.run_id = run_id
         self.root_span_id = uuid4().hex
         self._sinks = sinks
@@ -59,7 +68,16 @@ class TraceSession:
         parent_span_id: str | None,
         attributes: dict[str, object],
     ) -> str:
-        """Open a new span and emit its start event."""
+        """Open a new span and emit its start event.
+
+        Args:
+            event_type: Event type label for the span start.
+            parent_span_id: Optional parent span id.
+            attributes: Event attributes payload.
+
+        Returns:
+            Generated span id.
+        """
         span_id = uuid4().hex
         self._open_spans[span_id] = _SpanInfo(
             start_time=time.perf_counter(),
@@ -80,7 +98,13 @@ class TraceSession:
         span_id: str,
         attributes: dict[str, object],
     ) -> None:
-        """Finish a span and emit a completion event with duration."""
+        """Finish a span and emit a completion event with duration.
+
+        Args:
+            event_type: Event type label for the span completion.
+            span_id: Span identifier to close.
+            attributes: Event attributes payload.
+        """
         info = self._open_spans.pop(span_id, None)
         duration_ms = None
         parent_span_id = None
@@ -102,7 +126,13 @@ class TraceSession:
         span_id: str,
         attributes: dict[str, object],
     ) -> None:
-        """Emit an event tied to an existing span."""
+        """Emit an event tied to an existing span.
+
+        Args:
+            event_type: Event type label for the span event.
+            span_id: Span identifier for the event.
+            attributes: Event attributes payload.
+        """
         parent_span_id = None
         info = self._open_spans.get(span_id)
         if info is not None:
@@ -123,7 +153,15 @@ class TraceSession:
         attributes: dict[str, object],
         duration_ms: int | None = None,
     ) -> None:
-        """Emit a standalone event payload to all sinks."""
+        """Emit a standalone event payload to all sinks.
+
+        Args:
+            event_type: Event type label.
+            span_id: Span identifier for the event.
+            parent_span_id: Optional parent span id.
+            attributes: Event attributes payload.
+            duration_ms: Optional event duration in milliseconds.
+        """
         timestamp = datetime.now(UTC).isoformat()
         event = TraceEvent(
             event_type=event_type,

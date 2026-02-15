@@ -162,6 +162,9 @@ def _get_openai_backend_config() -> OpenAIBackendConfig:
     """Return a snapshot of the current process-wide OpenAI configuration.
 
     Returning a value object prevents downstream mutation of global settings.
+
+    Returns:
+        Immutable OpenAI backend configuration snapshot.
     """
     # Return a value object so adapters cannot mutate process-wide config by accident.
     return OpenAIBackendConfig(
@@ -176,6 +179,9 @@ def _get_configured_llama_cpp_backend() -> LlamaCppServerBackend | None:
     """Return currently configured llama-cpp backend instance, if any.
 
     Internal helper used by adapter resolution paths.
+
+    Returns:
+        Configured llama-cpp backend instance, if available.
     """
     return _llama_cpp_backend
 
@@ -184,6 +190,9 @@ def _get_active_backend() -> BackendName:
     """Return process-wide active backend used for default completions.
 
     Internal helper consumed by ``BaseLLMClient`` when no backend override is set.
+
+    Returns:
+        Backend name selected for default calls.
     """
     return _active_backend
 

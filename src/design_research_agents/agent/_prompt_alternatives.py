@@ -22,6 +22,13 @@ def resolve_alternatives_prompt_target(
 
     Supported values are ``"user"`` and ``"system"``. Invalid or missing values
     fall back to ``default_target``.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        default_target: Fallback target when no valid override is provided.
+
+    Returns:
+        Prompt target identifier for alternatives injection.
     """
     raw_target = input_payload.get("alternatives_prompt_target")
     if isinstance(raw_target, str):
@@ -37,7 +44,16 @@ def append_alternatives_block(
     section_label: str,
     alternatives_text: str,
 ) -> str:
-    """Append an alternatives section to a prompt when content is non-empty."""
+    """Append an alternatives section to a prompt when content is non-empty.
+
+    Args:
+        prompt_text: Base prompt text to append to.
+        section_label: Section heading label.
+        alternatives_text: Alternatives block body text.
+
+    Returns:
+        Prompt text with alternatives appended when non-empty.
+    """
     normalized_alternatives = alternatives_text.strip()
     if not normalized_alternatives:
         return prompt_text
@@ -54,7 +70,15 @@ def build_alternatives_block(
     section_label: str,
     alternatives_text: str,
 ) -> str:
-    """Build a standalone alternatives section block or return an empty string."""
+    """Build a standalone alternatives section block or return an empty string.
+
+    Args:
+        section_label: Section heading label.
+        alternatives_text: Alternatives block body text.
+
+    Returns:
+        Rendered alternatives block or empty string when no content exists.
+    """
     normalized_alternatives = alternatives_text.strip()
     if not normalized_alternatives:
         return ""
@@ -72,6 +96,14 @@ def build_user_prompt_alternatives_block(
     When ``target`` is ``"user"``, this returns the full alternatives block.
     When ``target`` is ``"system"``, this returns a short marker noting the
     alternatives were provided in the system prompt.
+
+    Args:
+        section_label: Section heading label.
+        alternatives_text: Alternatives block body text.
+        target: Prompt target selection for alternatives injection.
+
+    Returns:
+        User prompt alternatives block or marker string.
     """
     normalized_alternatives = alternatives_text.strip()
     if not normalized_alternatives:
@@ -92,7 +124,18 @@ def inject_alternatives_into_prompt_pair(
     alternatives_text: str,
     target: AlternativesPromptTarget,
 ) -> tuple[str, str]:
-    """Inject alternatives into one of a system/user prompt pair."""
+    """Inject alternatives into one of a system/user prompt pair.
+
+    Args:
+        system_prompt: System prompt text to update.
+        user_prompt: User prompt text to update.
+        section_label: Section heading label.
+        alternatives_text: Alternatives block body text.
+        target: Prompt target selection for alternatives injection.
+
+    Returns:
+        Updated ``(system_prompt, user_prompt)`` tuple.
+    """
     normalized_alternatives = alternatives_text.strip()
     if not normalized_alternatives:
         return system_prompt, user_prompt
@@ -116,7 +159,14 @@ def inject_alternatives_into_prompt_pair(
 
 
 def format_raw_alternatives(raw_alternatives: object) -> str:
-    """Format free-form alternatives payloads into deterministic prompt text."""
+    """Format free-form alternatives payloads into deterministic prompt text.
+
+    Args:
+        raw_alternatives: Raw alternatives payload in string, mapping, or list form.
+
+    Returns:
+        Deterministic prompt-ready alternatives text.
+    """
     if raw_alternatives is None:
         return ""
     if isinstance(raw_alternatives, str):
@@ -136,7 +186,14 @@ def format_raw_alternatives(raw_alternatives: object) -> str:
 
 
 def _render_alternative_item(item: object) -> str:
-    """Render one alternatives list entry into stable text."""
+    """Render one alternatives list entry into stable text.
+
+    Args:
+        item: Alternatives item value to render.
+
+    Returns:
+        Stable string representation for prompt inclusion.
+    """
     if isinstance(item, str):
         return item.strip()
     if isinstance(item, Mapping):

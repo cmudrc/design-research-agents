@@ -13,7 +13,14 @@ from copy import deepcopy
 
 
 def clone_response_schema(schema: dict[str, object]) -> dict[str, object]:
-    """Return a deep-cloned schema so per-call mutation cannot leak globally."""
+    """Return a deep-cloned schema so per-call mutation cannot leak globally.
+
+    Args:
+        schema: JSON-schema-like mapping to clone.
+
+    Returns:
+        Deep copy of the schema mapping.
+    """
     return deepcopy(schema)
 
 
@@ -26,6 +33,12 @@ def build_router_selection_response_schema(
     The schema allows either:
     - an integer selection index within runtime route bounds, or
     - a string selection identifier matching one runtime route tool name.
+
+    Args:
+        alternative_identifiers: Ordered route identifiers available to the router.
+
+    Returns:
+        JSON-schema-like mapping describing the router selection payload.
     """
     max_index = max(0, len(alternative_identifiers) - 1)
     return {
@@ -55,7 +68,14 @@ def build_tool_call_response_schema(
     *,
     tool_names: Sequence[str],
 ) -> dict[str, object]:
-    """Build schema for one-step tool selection with structured arguments."""
+    """Build schema for one-step tool selection with structured arguments.
+
+    Args:
+        tool_names: Ordered tool identifiers available for selection.
+
+    Returns:
+        JSON-schema-like mapping describing the tool selection payload.
+    """
     return {
         "type": "object",
         "additionalProperties": False,
@@ -69,7 +89,11 @@ def build_tool_call_response_schema(
 
 
 def build_continuation_response_schema() -> dict[str, object]:
-    """Build schema for multi-step continuation decisions."""
+    """Build schema for multi-step continuation decisions.
+
+    Returns:
+        JSON-schema-like mapping describing the continuation payload.
+    """
     return {
         "type": "object",
         "additionalProperties": False,

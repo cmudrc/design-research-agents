@@ -30,7 +30,11 @@ _TRACE_CONFIG: TraceConfig | None = None
 
 
 def configure_tracing(*, config: TraceConfig) -> None:
-    """Set a global trace configuration overriding environment defaults."""
+    """Set a global trace configuration overriding environment defaults.
+
+    Args:
+        config: Trace configuration to apply process-wide.
+    """
     global _TRACE_CONFIG
     _TRACE_CONFIG = config
 

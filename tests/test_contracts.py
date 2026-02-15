@@ -40,6 +40,9 @@ def _requires_llm_client(client: LLMClient) -> None:
     """Type-check helper ensuring objects satisfy the ``LLMClient`` protocol.
 
     The body is intentionally empty and used only by static type checkers.
+
+    Args:
+        client: Candidate object to type-check.
     """
 
 
@@ -47,6 +50,9 @@ def _requires_tool_runtime(runtime: ToolRuntime) -> None:
     """Type-check helper ensuring objects satisfy the ``ToolRuntime`` protocol.
 
     The body is intentionally empty and used only by static type checkers.
+
+    Args:
+        runtime: Candidate object to type-check.
     """
 
 
@@ -54,6 +60,9 @@ def _requires_agent(agent: Agent) -> None:
     """Type-check helper ensuring objects satisfy the ``Agent`` protocol.
 
     The body is intentionally empty and used only by static type checkers.
+
+    Args:
+        agent: Candidate object to type-check.
     """
 
 

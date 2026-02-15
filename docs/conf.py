@@ -61,7 +61,15 @@ def _dedupe_viewport_meta(
     context: dict[str, object],
     doctree: object,
 ) -> None:
-    """Keep one viewport tag by removing extra entries from Sphinx metatags."""
+    """Keep one viewport tag by removing extra entries from Sphinx metatags.
+
+    Args:
+        app: Sphinx application instance.
+        pagename: Current page name.
+        templatename: Template name for the page.
+        context: Template context mapping.
+        doctree: Document tree for the page.
+    """
     del app, pagename, templatename, doctree
     metatags = context.get("metatags")
     if isinstance(metatags, str):
@@ -69,5 +77,9 @@ def _dedupe_viewport_meta(
 
 
 def setup(app: Sphinx) -> None:
-    """Register build-time hooks."""
+    """Register build-time hooks.
+
+    Args:
+        app: Sphinx application instance.
+    """
     app.connect("html-page-context", _dedupe_viewport_meta)

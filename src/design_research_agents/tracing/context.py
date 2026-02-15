@@ -29,12 +29,20 @@ _CURRENT_SPAN: ContextVar[str | None] = ContextVar("dra_trace_span", default=Non
 
 
 def current_trace_session() -> TraceSession | None:
-    """Return the current trace session when active."""
+    """Return the current trace session when active.
+
+    Returns:
+        Active trace session, or ``None`` when tracing is inactive.
+    """
     return _CURRENT_TRACE.get()
 
 
 def current_span_id() -> str | None:
-    """Return the current active span id if one is set."""
+    """Return the current active span id if one is set.
+
+    Returns:
+        Active span id, or ``None`` when no span is active.
+    """
     return _CURRENT_SPAN.get()
 
 
@@ -45,7 +53,17 @@ def start_trace_run(
     input_payload: Mapping[str, object],
     dependencies: Mapping[str, object],
 ) -> TraceScope | None:
-    """Start a trace run scope or nested agent span."""
+    """Start a trace run scope or nested agent span.
+
+    Args:
+        agent_name: Agent name for trace metadata.
+        request_id: Request identifier for the run.
+        input_payload: Normalized input payload mapping.
+        dependencies: Dependency payload mapping.
+
+    Returns:
+        Trace scope when tracing is enabled, otherwise ``None``.
+    """
     config = _resolve_trace_config()
     if not config.enabled:
         return None
@@ -109,7 +127,13 @@ def finish_trace_run(
     result: object | None = None,
     error: str | None = None,
 ) -> None:
-    """Finish a trace run scope with success or failure metadata."""
+    """Finish a trace run scope with success or failure metadata.
+
+    Args:
+        scope: Trace scope returned by ``start_trace_run``.
+        result: Optional result payload for success metadata.
+        error: Optional error string for failure metadata.
+    """
     if scope is None:
         return
 

@@ -132,6 +132,12 @@ class OpenAIBackend:
 
         Local OpenAI-compatible servers can return 404 when they do not expose
         ``/v1/responses``. We only retry with chat completions in that case.
+
+        Args:
+            exc: Exception raised by the Responses API call.
+
+        Returns:
+            ``True`` when the error appears tied to ``/responses``.
         """
         # Prefer structured request metadata when available.
         request = getattr(exc, "request", None)
@@ -252,6 +258,12 @@ def _url_contains_responses_path(raw_url: object) -> bool:
     """Return whether a URL-like object appears to target ``/responses``.
 
     Supports URL objects by coercing to string for robust compatibility checks.
+
+    Args:
+        raw_url: URL-like object to inspect.
+
+    Returns:
+        ``True`` when the URL contains a ``/responses`` path segment.
     """
     if raw_url is None:
         return False

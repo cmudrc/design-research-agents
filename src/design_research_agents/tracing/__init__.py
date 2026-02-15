@@ -7,6 +7,7 @@ from .context import TraceScope, current_trace_session, finish_trace_run, start_
 from .emitters import (
     emit_continuation_decision,
     emit_guardrail_decision,
+    emit_model_selection_decision,
     emit_model_token,
     emit_router_decision,
     emit_tool_selection_decision,
@@ -31,6 +32,7 @@ __all__ = [
     "current_trace_session",
     "emit_continuation_decision",
     "emit_guardrail_decision",
+    "emit_model_selection_decision",
     "emit_model_token",
     "emit_router_decision",
     "emit_tool_selection_decision",

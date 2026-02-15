@@ -44,6 +44,10 @@ class BaseToolRuntime(ToolRuntime):
         """Register or replace a tool specification and invocation handler.
 
         Re-registering an existing tool name overwrites the previous spec/handler.
+
+        Args:
+            spec: Tool specification to register.
+            handler: Callable used to execute the tool.
         """
         self._specs[spec.name] = spec
         self._handlers[spec.name] = handler
@@ -52,6 +56,9 @@ class BaseToolRuntime(ToolRuntime):
         """Return all registered tool specifications as an immutable tuple.
 
         Tuple return type prevents accidental caller-side mutation of runtime state.
+
+        Returns:
+            Tuple of registered tool specifications.
         """
         return tuple(self._specs.values())
 
@@ -67,6 +74,15 @@ class BaseToolRuntime(ToolRuntime):
 
         The method never raises tool-handler exceptions directly; failures are
         surfaced through a structured `ToolResult` with `success=False`.
+
+        Args:
+            tool_name: Name of the tool to invoke.
+            input_dict: Input payload for the tool.
+            request_id: Request identifier for tracing.
+            dependencies: Dependency payload mapping for the tool.
+
+        Returns:
+            Tool invocation result payload.
         """
         from design_research_agents.tracing import (
             fail_tool_call,
@@ -123,6 +139,9 @@ def create_calculator_tool_spec() -> ToolSpec:
 
     The spec exposes a single required ``expression`` string input and returns
     both the expression and its numeric result.
+
+    Returns:
+        Tool specification for the calculator tool.
     """
     return ToolSpec(
         name="calculator_tool",
@@ -154,6 +173,9 @@ def create_text_stats_tool_spec() -> ToolSpec:
 
     The tool accepts one ``text`` field and reports basic aggregate metrics such
     as character count, word count, and unique normalized word count.
+
+    Returns:
+        Tool specification for the text-stats tool.
     """
     return ToolSpec(
         name="text_stats_tool",
@@ -190,6 +212,17 @@ def _calculator_tool_handler(
     """Evaluate one arithmetic expression safely via AST-based evaluation.
 
     Requires a non-empty ``expression`` field and returns normalized float output.
+
+    Args:
+        input_dict: Tool input payload mapping.
+        request_id: Request identifier for tracing.
+        dependencies: Dependency payload mapping for the tool.
+
+    Returns:
+        Tool output mapping with the expression and numeric result.
+
+    Raises:
+        ValueError: If the input expression is missing or empty.
     """
     del request_id, dependencies
     expression = str(input_dict.get("expression", "")).strip()
@@ -208,6 +241,14 @@ def _text_stats_tool_handler(
 
     The handler normalizes words with lightweight punctuation/case cleanup so
     unique word counts are more semantically meaningful.
+
+    Args:
+        input_dict: Tool input payload mapping.
+        request_id: Request identifier for tracing.
+        dependencies: Dependency payload mapping for the tool.
+
+    Returns:
+        Tool output mapping with aggregate text statistics.
     """
     del request_id, dependencies
     text = str(input_dict.get("text", ""))
@@ -228,6 +269,12 @@ def _safe_eval_arithmetic(expression: str) -> float:
 
     Input is parsed in ``eval`` mode and only numeric literals plus an operator
     allow-list are accepted.
+
+    Args:
+        expression: Arithmetic expression string to evaluate.
+
+    Returns:
+        Numeric result of the evaluated expression.
     """
     # Parse expression only in eval mode to block statements and assignments.
     tree = ast.parse(expression, mode="eval")
@@ -238,6 +285,15 @@ def _eval_node(node: ast.AST) -> int | float:
     """Recursively evaluate one arithmetic AST node under strict allow-lists.
 
     Any unsupported syntax causes immediate ``ValueError`` failure.
+
+    Args:
+        node: AST node to evaluate.
+
+    Returns:
+        Numeric result of the AST evaluation.
+
+    Raises:
+        ValueError: If the node type or operator is unsupported.
     """
     # Whitelists intentionally limit evaluation to deterministic arithmetic only.
     binary_operations: dict[

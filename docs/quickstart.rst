@@ -33,6 +33,8 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/basic/tool_calling_agent.py
    PYTHONPATH=src python3 examples/basic/single_step_code_agent.py
    PYTHONPATH=src python3 examples/basic/multi_step_agent.py
+   PYTHONPATH=src python3 examples/basic/model_selection_local.py
+   PYTHONPATH=src python3 examples/basic/model_selection_remote.py
 
 Run additional streaming examples:
 

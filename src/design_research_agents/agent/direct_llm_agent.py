@@ -77,7 +77,16 @@ class DirectLLMAgent(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Run one direct model call and return normalized ``AgentResult`` output."""
+        """Run one direct model call and return normalized ``AgentResult`` output.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final agent result payload.
+        """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
@@ -122,7 +131,16 @@ class DirectLLMAgent(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Stream direct model output and emit a final completion event."""
+        """Stream direct model output and emit a final completion event.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Yields:
+            Streaming events through completion.
+        """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
@@ -208,7 +226,14 @@ class DirectLLMAgent(Agent):
         self,
         input_payload: Mapping[str, object],
     ) -> tuple[str, list[LLMMessage], str, LLMChatParams]:
-        """Resolve model/messages/params into one reusable request payload."""
+        """Resolve model/messages/params into one reusable request payload.
+
+        Args:
+            input_payload: Normalized run input payload mapping.
+
+        Returns:
+            Tuple of resolved model, messages, message source, and chat params.
+        """
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
             input_payload=input_payload,
@@ -245,7 +270,19 @@ def _build_success_result(
     message_count: int,
     llm_params: LLMChatParams,
 ) -> AgentResult:
-    """Build a success result payload from one completed model response."""
+    """Build a success result payload from one completed model response.
+
+    Args:
+        llm_response: Completed LLM response payload.
+        request_id: Request identifier for tracing metadata.
+        dependencies: Dependency payload mapping for the run.
+        message_source: Message source label (e.g. ``prompt`` or ``messages``).
+        message_count: Number of messages sent to the model.
+        llm_params: Chat params used for the call.
+
+    Returns:
+        Agent result payload describing the successful run.
+    """
     output: dict[str, object] = {
         "model": llm_response.model,
         "model_text": llm_response.text,
@@ -276,7 +313,15 @@ def _extract_messages(
     input_payload: Mapping[str, object],
     default_system_prompt: str | None,
 ) -> tuple[list[LLMMessage], str]:
-    """Extract normalized message list from explicit messages or prompt fallback."""
+    """Extract normalized message list from explicit messages or prompt fallback.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        default_system_prompt: Optional default system prompt override.
+
+    Returns:
+        Tuple of normalized messages and the source label.
+    """
     normalized_input_messages = _normalize_messages(input_payload.get("messages"))
     if normalized_input_messages:
         return (
@@ -302,7 +347,16 @@ def _extract_messages(
 
 
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from input payload with stable fallback text."""
+    """Extract prompt text from run input.
+
+    Falls back to ``text`` and then a default string when missing.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Prompt text for the run.
+    """
     raw_prompt = input_payload.get(
         "prompt",
         input_payload.get("text", "Provide a concise response."),
@@ -315,7 +369,15 @@ def _extract_system_prompt(
     input_payload: Mapping[str, object],
     default_system_prompt: str | None,
 ) -> str | None:
-    """Extract optional system prompt override from run input or defaults."""
+    """Extract optional system prompt override from run input or defaults.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        default_system_prompt: Optional default system prompt override.
+
+    Returns:
+        System prompt text when provided, otherwise ``None``.
+    """
     raw_system_prompt = input_payload.get("system_prompt", default_system_prompt)
     if raw_system_prompt is None:
         return None
@@ -324,7 +386,14 @@ def _extract_system_prompt(
 
 
 def _normalize_messages(raw_messages: object) -> list[LLMMessage]:
-    """Normalize optional message payload into a validated ``LLMMessage`` list."""
+    """Normalize optional message payload into a validated ``LLMMessage`` list.
+
+    Args:
+        raw_messages: Raw messages payload from input.
+
+    Returns:
+        Normalized list of LLM messages.
+    """
     if not isinstance(raw_messages, Sequence) or isinstance(raw_messages, (str, bytes)):
         return []
 
@@ -351,7 +420,15 @@ def _inject_alternatives_into_messages(
     messages: Sequence[LLMMessage],
     input_payload: Mapping[str, object],
 ) -> list[LLMMessage]:
-    """Inject optional alternatives context into either system or user prompt."""
+    """Inject optional alternatives context into either system or user prompt.
+
+    Args:
+        messages: Existing message sequence.
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Message list with alternatives injected when available.
+    """
     alternatives_text = format_raw_alternatives(input_payload.get("alternatives"))
     if not alternatives_text:
         return list(messages)
@@ -371,7 +448,15 @@ def _inject_alternatives_into_system_message(
     messages: Sequence[LLMMessage],
     alternatives_text: str,
 ) -> list[LLMMessage]:
-    """Inject alternatives text into the first system message or create one."""
+    """Inject alternatives text into the first system message or create one.
+
+    Args:
+        messages: Existing message sequence.
+        alternatives_text: Alternatives block text.
+
+    Returns:
+        Message list with alternatives injected into the system prompt.
+    """
     injected_messages = list(messages)
     for index, message in enumerate(injected_messages):
         if message.role != "system":
@@ -405,7 +490,15 @@ def _inject_alternatives_into_user_message(
     messages: Sequence[LLMMessage],
     alternatives_text: str,
 ) -> list[LLMMessage]:
-    """Inject alternatives text into the last user message or append one."""
+    """Inject alternatives text into the last user message or append one.
+
+    Args:
+        messages: Existing message sequence.
+        alternatives_text: Alternatives block text.
+
+    Returns:
+        Message list with alternatives injected into the user prompt.
+    """
     injected_messages = list(messages)
     for index in range(len(injected_messages) - 1, -1, -1):
         message = injected_messages[index]
@@ -438,7 +531,14 @@ def _inject_alternatives_into_user_message(
 def _extract_response_schema(
     input_payload: Mapping[str, object],
 ) -> dict[str, object] | None:
-    """Extract optional response-schema mapping from run input."""
+    """Extract optional response-schema mapping from run input.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Response schema mapping when present, otherwise ``None``.
+    """
     raw_response_schema = input_payload.get("response_schema")
     if isinstance(raw_response_schema, Mapping):
         return {key: value for key, value in raw_response_schema.items() if isinstance(key, str)}
@@ -450,7 +550,15 @@ def _extract_temperature(
     input_payload: Mapping[str, object],
     default_value: float | None,
 ) -> float | None:
-    """Extract optional sampling temperature from input payload."""
+    """Extract optional sampling temperature from input payload.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        default_value: Default temperature when no valid override is provided.
+
+    Returns:
+        Parsed temperature value or default.
+    """
     raw_temperature = input_payload.get("temperature", default_value)
     if isinstance(raw_temperature, (int, float)):
         return float(raw_temperature)
@@ -470,7 +578,15 @@ def _extract_max_tokens(
     input_payload: Mapping[str, object],
     default_value: int | None,
 ) -> int | None:
-    """Extract optional positive max-token value from input payload."""
+    """Extract optional positive max-token value from input payload.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        default_value: Default max tokens when no valid override is provided.
+
+    Returns:
+        Parsed max tokens value or default.
+    """
     raw_max_tokens = input_payload.get("max_tokens", default_value)
     if isinstance(raw_max_tokens, int):
         return raw_max_tokens if raw_max_tokens > 0 else default_value
@@ -487,14 +603,29 @@ def _merge_provider_options(
     default_provider_options: Mapping[str, object],
     raw_provider_options: object,
 ) -> dict[str, object]:
-    """Merge default and input provider options into a plain dictionary."""
+    """Merge default and input provider options into a plain dictionary.
+
+    Args:
+        default_provider_options: Default provider options mapping.
+        raw_provider_options: Raw provider options payload to merge.
+
+    Returns:
+        Merged provider options dictionary.
+    """
     merged = dict(default_provider_options)
     merged.update(_coerce_provider_options(raw_provider_options))
     return merged
 
 
 def _coerce_provider_options(raw_provider_options: object) -> dict[str, object]:
-    """Normalize optional provider options into ``dict[str, object]``."""
+    """Normalize optional provider options into ``dict[str, object]``.
+
+    Args:
+        raw_provider_options: Raw provider options payload.
+
+    Returns:
+        Normalized provider options dictionary.
+    """
     if not isinstance(raw_provider_options, Mapping):
         return {}
     return {key: value for key, value in raw_provider_options.items() if isinstance(key, str)}

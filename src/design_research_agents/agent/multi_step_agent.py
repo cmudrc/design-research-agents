@@ -122,6 +122,14 @@ class MultiStepAgent(Agent):
 
         The run collects continuation decisions, per-step outputs, and all tool
         results while preserving memory entries that can be inspected by callers.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final agent result payload.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -368,6 +376,14 @@ class MultiStepAgent(Agent):
 
         The current implementation emits exactly one full-text delta followed by
         a completion event containing the full ``AgentResult`` payload.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Yields:
+            Streaming events through completion.
         """
         result = self.run(input, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
@@ -389,6 +405,18 @@ class MultiStepAgent(Agent):
 
         When model output is invalid JSON, the method falls back to deterministic
         continuation heuristics so loop behavior remains predictable.
+
+        Args:
+            prompt: User prompt text.
+            memory: Current memory trace entries.
+            step_index: Zero-based step index.
+            max_steps: Maximum number of steps allowed.
+            model: Model identifier for the call.
+            alternatives_prompt_target: Prompt target for alternatives injection.
+            alternatives_text: Alternatives block text for prompt injection.
+
+        Returns:
+            Tuple of continuation decision, reason, source, and model response.
         """
         system_prompt = load_prompt("multi_step_continue_system")
         user_prompt = _build_continue_prompt(
@@ -470,10 +498,15 @@ class MultiStepAgent(Agent):
 
 
 def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract task prompt text from run input.
+    """Extract prompt text from run input.
 
-    Falls back to ``text`` and then a stable default message so execution never
-    starts without a string prompt.
+    Falls back to ``text`` and then a default string when missing.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+
+    Returns:
+        Prompt text for the run.
     """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
@@ -490,6 +523,14 @@ def _extract_positive_int(
     """Extract a positive integer option from run input.
 
     Invalid, missing, or boolean values resolve to the provided default.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        key: Input payload key to extract.
+        default_value: Default value when extraction fails.
+
+    Returns:
+        Positive integer value for the option.
     """
     raw_value = input_payload.get(key)
     if raw_value is None:
@@ -509,7 +550,15 @@ def _extract_boolean(
 ) -> bool:
     """Extract a boolean option from run input.
 
-    Non-boolean values are ignored in favor of the provided default.
+    Non-boolean values resolve to the provided default.
+
+    Args:
+        input_payload: Normalized run input payload mapping.
+        key: Input payload key to extract.
+        default_value: Default value when extraction fails.
+
+    Returns:
+        Boolean value for the option.
     """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
@@ -527,6 +576,14 @@ def _build_continue_prompt(
 
     The memory payload is intentionally truncated to recent entries to keep
     continuation prompts compact.
+
+    Args:
+        prompt: User prompt text.
+        memory: Current memory trace entries.
+        step_number: One-based step number.
+
+    Returns:
+        Rendered continuation prompt text.
     """
     memory_preview = json.dumps(list(memory)[-6:], sort_keys=True)
     return render_prompt(
@@ -543,6 +600,12 @@ def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
     """Extract normalized continuation thought text from model JSON output.
 
     The model may emit either ``thought`` (preferred) or ``reason`` (legacy).
+
+    Args:
+        parsed: Parsed JSON mapping from the model response.
+
+    Returns:
+        Normalized thought string.
     """
     thought = parsed.get("thought")
     if thought is not None:
@@ -563,6 +626,14 @@ def _build_step_prompt(
 
     The prompt includes a compact memory tail to ground step decisions while
     controlling token growth across longer runs.
+
+    Args:
+        prompt: User prompt text.
+        memory: Current memory trace entries.
+        step_number: One-based step number.
+
+    Returns:
+        Rendered action prompt text.
     """
     memory_preview = json.dumps(list(memory)[-8:], sort_keys=True)
     return render_prompt(
@@ -580,7 +651,15 @@ def _build_step_tools_text(
     tool_specs: Mapping[str, ToolSpec],
     default_tools_per_step: Sequence[Mapping[str, object]] | None,
 ) -> str:
-    """Build formatted allowed-tools text for multi-step prompt injection."""
+    """Build formatted allowed-tools text for multi-step prompt injection.
+
+    Args:
+        tool_specs: Tool specs available in the runtime.
+        default_tools_per_step: Optional default tools configuration.
+
+    Returns:
+        Rendered allowed-tools block text.
+    """
     selected_specs: list[ToolSpec] = []
     if default_tools_per_step is None:
         selected_specs = list(tool_specs.values())
@@ -616,6 +695,12 @@ def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
 
     This allows tolerant parsing when the model adds explanatory text around the
     structured payload.
+
+    Args:
+        raw_text: Raw model response text.
+
+    Returns:
+        Parsed JSON mapping or ``None`` when parsing fails.
     """
     parsed_direct = _load_json_mapping(raw_text)
     if parsed_direct is not None:
@@ -637,8 +722,13 @@ def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
 def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
     """Load text as a JSON mapping.
 
-    Returns ``None`` when the text is invalid JSON or does not deserialize to an
-    object mapping.
+    Returns ``None`` when the text is invalid JSON or not an object.
+
+    Args:
+        raw_text: Raw text to parse as JSON.
+
+    Returns:
+        Parsed JSON mapping or ``None`` when invalid.
     """
     try:
         parsed = json.loads(raw_text)
@@ -659,6 +749,14 @@ def _fallback_should_continue(
 
     The policy guarantees one initial step and then stops unless additional
     heuristics explicitly indicate continuation.
+
+    Args:
+        memory: Current memory trace entries.
+        step_index: Zero-based step index.
+        max_steps: Maximum number of steps allowed.
+
+    Returns:
+        ``True`` when execution should continue.
     """
     if step_index >= max_steps:
         return False
@@ -682,12 +780,25 @@ def _has_observation(memory: Sequence[Mapping[str, object]]) -> bool:
     """Return whether memory includes at least one observation entry.
 
     Observation entries are used by continuation guardrails and heuristics.
+
+    Args:
+        memory: Current memory trace entries.
+
+    Returns:
+        ``True`` when an observation entry exists, otherwise ``False``.
     """
     return any(entry.get("kind") == "observation" for entry in memory)
 
 
 def _is_no_tool_call_step_failure(*, error: str) -> bool:
-    """Return whether a step failed only because no tool call occurred."""
+    """Return whether a step failed only because no tool call occurred.
+
+    Args:
+        error: Error message string to inspect.
+
+    Returns:
+        ``True`` when the error is a no-tool-call failure.
+    """
     return "Generated code must call at least one tool." in error
 
 
@@ -704,6 +815,18 @@ def _failure_result(
     """Build a structured failure ``AgentResult`` with consistent metadata.
 
     This helper keeps failure payload shape stable across all early-return paths.
+
+    Args:
+        error: Error message describing the failure.
+        model_response: Model response payload, if available.
+        tool_results: Tool results collected before failure.
+        request_id: Request identifier for tracing.
+        dependencies: Dependency payload mapping.
+        metadata: Additional metadata to include in the result.
+        output: Additional output payload fields.
+
+    Returns:
+        Agent result payload describing the failure.
     """
     return AgentResult(
         output={"error": error, **dict(output)},

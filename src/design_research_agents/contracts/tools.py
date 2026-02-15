@@ -77,6 +77,9 @@ class ToolRuntime(Protocol):
         """Return all currently registered tool specifications.
 
         Returned specs describe every tool callable through ``invoke``.
+
+        Returns:
+            Sequence of registered tool specifications.
         """
 
     def invoke(
@@ -91,4 +94,13 @@ class ToolRuntime(Protocol):
 
         Implementations should avoid raising for expected tool failures and
         instead return ``ToolResult(success=False)`` with error details.
+
+        Args:
+            tool_name: Name of the tool to invoke.
+            input_dict: Tool input payload mapping.
+            request_id: Request identifier for tracing.
+            dependencies: Dependency payload mapping for the tool.
+
+        Returns:
+            Tool invocation result payload.
         """

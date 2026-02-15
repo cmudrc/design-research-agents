@@ -73,6 +73,9 @@ class LlamaCppServerBackend:
         """Return OpenAI-compatible API base URL exposed by this server.
 
         This URL is used for readiness checks and delegated completion calls.
+
+        Returns:
+            OpenAI-compatible base URL string.
         """
         return f"http://{self.host}:{self.port}/v1"
 
@@ -80,6 +83,9 @@ class LlamaCppServerBackend:
         """Build startup command used to launch ``llama_cpp.server``.
 
         Includes model aliasing and optional Hugging Face repository arguments.
+
+        Returns:
+            Command list suitable for ``subprocess.Popen``.
         """
         # Launch the packaged server module so config stays Python-environment local.
         command = [
@@ -105,6 +111,9 @@ class LlamaCppServerBackend:
         """Return whether managed server subprocess is currently alive.
 
         A process is considered alive when the handle exists and has not exited.
+
+        Returns:
+            ``True`` when the server process is alive, otherwise ``False``.
         """
         return self._process is not None and self._process.poll() is None
 

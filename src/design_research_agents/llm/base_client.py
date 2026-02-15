@@ -51,6 +51,16 @@ class BaseLLMClient(LLMClient):
 
         This applies process-wide OpenAI configuration and returns a client
         pinned to ``backend="openai"``.
+
+        Args:
+            model: OpenAI model name used by default.
+            api_key_env: Environment variable name used for API key lookup.
+            api_key: Explicit API key value. When provided, it overrides ``api_key_env``.
+            base_url: Optional OpenAI-compatible API base URL.
+            require_api_key: Whether missing API keys should raise an error.
+
+        Returns:
+            Base client pinned to the OpenAI backend.
         """
         # Import lazily to avoid cyclic imports between llm package entrypoints and client.
         from design_research_agents.llm import configure_openai
@@ -81,6 +91,19 @@ class BaseLLMClient(LLMClient):
 
         This applies process-wide llama-cpp-server configuration and returns a
         client pinned to ``backend="llama-cpp-server"``.
+
+        Args:
+            model: ``llama_cpp.server`` ``--model`` value.
+            hf_model_repo_id: Optional Hugging Face repository id.
+            api_model: OpenAI-compatible model identifier used for completions.
+            host: Host used by the local server.
+            port: Port used by the local server.
+            startup_timeout_seconds: Max startup wait duration.
+            poll_interval_seconds: Delay between readiness checks.
+            extra_server_args: Extra CLI arguments for ``llama_cpp.server``.
+
+        Returns:
+            Base client pinned to the llama-cpp-server backend.
         """
         # Import lazily to avoid cyclic imports between llm package entrypoints and client.
         from design_research_agents.llm import configure_llama_cpp_server
@@ -107,6 +130,14 @@ class BaseLLMClient(LLMClient):
         """Generate full chat response through resolved backend adapter.
 
         Adapter resolution happens at call time so global config changes apply.
+
+        Args:
+            messages: Provider-neutral chat message sequence.
+            model: Model identifier for the configured backend.
+            params: Provider-neutral generation parameters.
+
+        Returns:
+            Normalized response payload from the backend adapter.
         """
         # Resolve adapters per-call so runtime reconfiguration takes effect immediately.
         adapter = self._resolve_adapter()
@@ -122,6 +153,14 @@ class BaseLLMClient(LLMClient):
         """Stream chat response events through resolved backend adapter.
 
         Adapter resolution happens at call time so global config changes apply.
+
+        Args:
+            messages: Provider-neutral chat message sequence.
+            model: Model identifier for the configured backend.
+            params: Provider-neutral generation parameters.
+
+        Returns:
+            Iterator over normalized streaming events.
         """
         # Resolve adapters per-call so runtime reconfiguration takes effect immediately.
         adapter = self._resolve_adapter()
@@ -131,6 +170,9 @@ class BaseLLMClient(LLMClient):
         """Resolve backend adapter using current runtime configuration.
 
         If no client override exists, process-wide active backend is used.
+
+        Returns:
+            Backend adapter for the resolved backend.
         """
         # Import lazily to avoid cyclic imports between llm package entrypoints and client.
         from design_research_agents.llm import (
@@ -152,6 +194,9 @@ class BaseLLMClient(LLMClient):
         """Resolve default model name for this client's effective backend.
 
         This helper mirrors the same backend-override semantics used by ``chat``.
+
+        Returns:
+            Default model identifier for the effective backend.
         """
         # Import lazily to avoid cyclic imports between llm package entrypoints and client.
         from design_research_agents.llm import resolve_default_model

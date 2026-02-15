@@ -36,15 +36,27 @@ class AgentResult:
     metadata: dict[str, object] = field(default_factory=dict)
 
     def asdict(self) -> dict[str, Any]:
-        """Return a JSON-serializable dictionary representation of the result."""
+        """Return a JSON-serializable dictionary representation of the result.
+
+        Returns:
+            Dictionary representation of the result payload.
+        """
         return asdict(self)
 
     def __str__(self) -> str:
-        """Return a JSON-formatted string representation of the result."""
+        """Return a JSON-formatted string representation of the result.
+
+        Returns:
+            Pretty-printed JSON string for the result.
+        """
         return json.dumps(self.asdict(), indent=2, sort_keys=True)
 
     def __repr__(self) -> str:
-        """Return a human-readable string representation of the result."""
+        """Return a human-readable string representation of the result.
+
+        Returns:
+            Debug-oriented string representation.
+        """
         return f"AgentResult({self.asdict()!r})"
 
 
@@ -83,6 +95,14 @@ class Agent(Protocol):
         Implementations should treat ``input`` as the prompt text for one run.
         Use ``request_id`` and ``dependencies`` for run metadata and upstream
         dependency payloads.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final agent result payload.
         """
 
     def run_stream(
@@ -96,4 +116,12 @@ class Agent(Protocol):
 
         Streams must terminate with a ``kind="completed"`` event containing the
         same logical result payload returned by ``run``.
+
+        Args:
+            input: Prompt text for the run.
+            request_id: Optional caller-provided request id for tracing.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Iterator of streaming events through completion.
         """

@@ -25,6 +25,14 @@ def resolve_agent_model(
     2. ``init_model`` from agent construction,
     3. ``llm_client.default_model()`` when available,
     4. package-level backend default model configuration.
+
+    Args:
+        llm_client: LLM client or compatible object that may define ``default_model``.
+        input_payload: Normalized run input payload mapping.
+        init_model: Optional model override from agent construction.
+
+    Returns:
+        Resolved model name to use for the run.
     """
     raw_input_model = input_payload.get("model")
     if isinstance(raw_input_model, str):

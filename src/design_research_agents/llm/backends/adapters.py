@@ -298,6 +298,17 @@ def build_backend_adapter(
 
     Centralizing this mapping ensures all client call paths resolve backends in
     the same deterministic way.
+
+    Args:
+        backend: Backend identifier to resolve.
+        openai_config: OpenAI backend configuration payload.
+        llama_backend: Optional llama-cpp-server backend instance.
+
+    Returns:
+        Provider adapter instance for the requested backend.
+
+    Raises:
+        LLMInvalidRequestError: If the backend identifier is unsupported.
     """
     # Keep backend routing centralized so every call path uses the same mapping.
     if backend == "echo-test":
@@ -318,6 +329,13 @@ def _messages_to_prompt(
 
     The helper preserves message order and appends compact schema instructions
     when a response schema is supplied.
+
+    Args:
+        messages: Ordered chat messages to include in the prompt.
+        response_schema: Optional response schema for structured output hints.
+
+    Returns:
+        Combined prompt text with optional schema guidance.
     """
     # Preserve order exactly; providers rely on message chronology.
     segments = [f"{message.role}: {message.content}" for message in messages]
@@ -334,6 +352,12 @@ def _build_schema_instruction(response_schema: dict[str, object] | None) -> str 
 
     The generated instruction intentionally avoids embedding full JSON schema
     text to reduce prompt echoing and token overhead.
+
+    Args:
+        response_schema: Optional response schema mapping.
+
+    Returns:
+        Schema instruction string or ``None`` when no schema is provided.
     """
     if response_schema is None:
         return None
@@ -360,6 +384,12 @@ def _extract_schema_string_list(raw_value: object) -> list[str]:
     """Extract normalized list of non-empty strings from schema-like values.
 
     Non-list and non-string values are ignored.
+
+    Args:
+        raw_value: Raw schema value to normalize.
+
+    Returns:
+        List of normalized non-empty strings.
     """
     if not isinstance(raw_value, list):
         return []
@@ -377,6 +407,12 @@ def _extract_schema_property_fields(raw_properties: object) -> list[str]:
     """Extract top-level field/type hints from schema ``properties`` mappings.
 
     Returned values are formatted for compact prompt instructions.
+
+    Args:
+        raw_properties: Raw schema properties mapping.
+
+    Returns:
+        List of formatted field/type hints.
     """
     if not isinstance(raw_properties, dict):
         return []
@@ -397,6 +433,12 @@ def _format_schema_type(raw_type: object) -> str:
     """Format schema ``type`` values into compact, human-readable text.
 
     Supports both string and list-of-string schema type forms.
+
+    Args:
+        raw_type: Raw schema ``type`` value.
+
+    Returns:
+        Normalized type string for prompt inclusion.
     """
     if isinstance(raw_type, str):
         normalized = raw_type.strip()
@@ -420,6 +462,12 @@ def _map_backend_exception(exc: Exception) -> LLMError:
 
     Mapping prefers explicit status-code signals when present and falls back to
     message heuristics for local or compatibility backends.
+
+    Args:
+        exc: Exception raised by the backend adapter.
+
+    Returns:
+        Normalized contract exception.
     """
     # Avoid double-wrapping when callers already raised typed contract errors.
     if isinstance(exc, LLMError):

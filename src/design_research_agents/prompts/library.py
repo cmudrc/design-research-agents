@@ -33,6 +33,15 @@ def load_prompt(name: str) -> str:
 
     The function validates that the name is registered and that the resolved
     file is non-empty, then returns a stripped text template ready for rendering.
+
+    Args:
+        name: Logical prompt template name in the registry.
+
+    Returns:
+        The stripped prompt template text.
+
+    Raises:
+        ValueError: If the prompt name is unknown or the template is empty.
     """
     filename = _PROMPT_FILES.get(name)
     if filename is None:
@@ -51,6 +60,16 @@ def render_prompt(name: str, *, variables: Mapping[str, object]) -> str:
 
     All variable values are coerced to strings before substitution. Missing
     variables raise ``ValueError`` with the missing key name for easier debugging.
+
+    Args:
+        name: Logical prompt template name in the registry.
+        variables: Mapping of template variable names to replacement values.
+
+    Returns:
+        The rendered prompt text.
+
+    Raises:
+        ValueError: If the prompt name is unknown or a variable is missing.
     """
     normalized_variables = {key: str(value) for key, value in variables.items()}
     template = Template(load_prompt(name))

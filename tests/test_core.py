@@ -34,7 +34,15 @@ from design_research_agents.llm.backends.openai import OpenAIBackend
 
 
 def _chat_complete(prompt: str, backend: str | None = None) -> str:
-    """Generate text through BaseLLMClient using default model resolution."""
+    """Generate text through BaseLLMClient using default model resolution.
+
+    Args:
+        prompt: Prompt text for the completion.
+        backend: Optional backend override.
+
+    Returns:
+        Generated text response.
+    """
     llm_client = BaseLLMClient(backend=backend)
     response = llm_client.chat(
         messages=[LLMMessage(role="user", content=prompt)],

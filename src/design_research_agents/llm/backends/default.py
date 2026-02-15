@@ -36,7 +36,11 @@ DEFAULT_LLAMA_CPP_SETTINGS = DefaultLlamaCppSettings()
 
 
 def configure_default_llama_cpp_backend() -> DefaultLlamaCppSettings:
-    """Configure local llama-cpp backend settings and return what was applied."""
+    """Configure local llama-cpp backend settings and return what was applied.
+
+    Returns:
+        Default llama-cpp settings applied to the backend configuration.
+    """
     settings = DEFAULT_LLAMA_CPP_SETTINGS
     # Import lazily to avoid cyclic imports with runtime configuration module.
     from design_research_agents.llm import configure_llama_cpp_server
@@ -52,7 +56,11 @@ def configure_default_llama_cpp_backend() -> DefaultLlamaCppSettings:
 
 
 def create_default_llm_client() -> BaseLLMClient:
-    """Create an LLM client using package default local llama-cpp settings."""
+    """Create an LLM client using package default local llama-cpp settings.
+
+    Returns:
+        Base client configured for the default local llama-cpp backend.
+    """
     settings = DEFAULT_LLAMA_CPP_SETTINGS
     # Import lazily to avoid cyclic imports with runtime configuration module.
     from design_research_agents.llm.base_client import BaseLLMClient

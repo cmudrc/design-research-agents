@@ -15,7 +15,11 @@ class TraceSink(Protocol):
     """Protocol for trace sinks that consume normalized event payloads."""
 
     def emit(self, event: dict[str, object]) -> None:
-        """Handle one trace event payload."""
+        """Handle one trace event payload.
+
+        Args:
+            event: Normalized trace event payload mapping.
+        """
 
     def close(self) -> None:
         """Finalize and release sink resources."""
@@ -25,13 +29,21 @@ class JSONLTraceSink:
     """Append-only JSONL sink for trace events."""
 
     def __init__(self, path: Path) -> None:
-        """Initialize a JSONL sink that appends to the given path."""
+        """Initialize a JSONL sink that appends to the given path.
+
+        Args:
+            path: Output path for the JSONL trace file.
+        """
         self._path = path
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._file = self._path.open("a", encoding="utf-8")
 
     def emit(self, event: dict[str, object]) -> None:
-        """Write one event to the JSONL file."""
+        """Write one event to the JSONL file.
+
+        Args:
+            event: Normalized trace event payload mapping.
+        """
         self._file.write(json.dumps(event, ensure_ascii=True))
         self._file.write("\n")
         self._file.flush()
@@ -45,12 +57,20 @@ class ConsoleTraceSink:
     """Pretty streaming console sink for trace events."""
 
     def __init__(self, stream: TextIO | None = None) -> None:
-        """Initialize a console sink that writes to the given stream."""
+        """Initialize a console sink that writes to the given stream.
+
+        Args:
+            stream: Optional stream to write console output to.
+        """
         self._stream = stream if stream is not None else sys.stderr
         self._streaming_line_open = False
 
     def emit(self, event: dict[str, object]) -> None:
-        """Render one event to the console stream."""
+        """Render one event to the console stream.
+
+        Args:
+            event: Normalized trace event payload mapping.
+        """
         event_type = str(event.get("event_type", ""))
         attrs = event.get("attributes", {})
         if not isinstance(attrs, Mapping):
@@ -145,6 +165,13 @@ class ConsoleTraceSink:
             self._write_line(
                 f"[router] decision tool={_preview(attrs.get('selected_tool_name'))} "
                 f"source={_preview(attrs.get('source'))}"
+            )
+            return
+
+        if event_type == "ModelSelectionDecision":
+            self._write_line(
+                f"[model-select] decision model={_preview(attrs.get('model_id'))} "
+                f"provider={_preview(attrs.get('provider'))}"
             )
             return
 

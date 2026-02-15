@@ -22,6 +22,15 @@ from .agent import (
 )
 from .llm import configure_llama_cpp_server, configure_openai
 from .llm.backends.default import create_default_llm_client
+from .model_selection import (
+    HardwareProfile,
+    ModelCatalog,
+    ModelSelectionConstraints,
+    ModelSelectionDecision,
+    ModelSelectionIntent,
+    ModelSelectionPolicy,
+    ModelSelectionPolicyConfig,
+)
 from .tools import BaseToolRuntime
 from .tracing import TraceConfig, configure_tracing
 
@@ -29,6 +38,13 @@ from .tracing import TraceConfig, configure_tracing
 __all__ = [
     "BaseToolRuntime",
     "DirectLLMAgent",
+    "HardwareProfile",
+    "ModelCatalog",
+    "ModelSelectionConstraints",
+    "ModelSelectionDecision",
+    "ModelSelectionIntent",
+    "ModelSelectionPolicy",
+    "ModelSelectionPolicyConfig",
     "MultiStepAgent",
     "RouterAgent",
     "SingleStepCodeAgent",

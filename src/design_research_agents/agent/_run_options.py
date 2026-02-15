@@ -10,6 +10,15 @@ def normalize_input_payload(input_payload: str) -> dict[str, object]:
     """Normalize one run input payload into a plain dictionary.
 
     Prompts are stored as ``{"prompt": <value>}`` for downstream helpers.
+
+    Args:
+        input_payload: Raw input prompt text.
+
+    Returns:
+        Normalized input payload mapping.
+
+    Raises:
+        TypeError: If ``input_payload`` is not a string.
     """
     if not isinstance(input_payload, str):
         raise TypeError("input must be a string prompt.")
@@ -21,6 +30,12 @@ def resolve_request_id(request_id: str | None) -> str:
 
     Empty, whitespace-only, and non-string ids are rejected by callers before
     this helper is called, so this function only handles ``None`` and strings.
+
+    Args:
+        request_id: Optional caller-provided request id.
+
+    Returns:
+        Non-empty request id suitable for tracing.
     """
     if request_id is not None:
         normalized_request_id = request_id.strip()
@@ -32,7 +47,14 @@ def resolve_request_id(request_id: str | None) -> str:
 def normalize_dependencies(
     dependencies: Mapping[str, object] | None,
 ) -> dict[str, object]:
-    """Normalize optional dependency payload into a plain dictionary."""
+    """Normalize optional dependency payload into a plain dictionary.
+
+    Args:
+        dependencies: Optional dependency mapping.
+
+    Returns:
+        Normalized dependency mapping.
+    """
     if dependencies is None:
         return {}
     return dict(dependencies)
