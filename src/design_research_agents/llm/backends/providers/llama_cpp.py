@@ -18,7 +18,7 @@ from design_research_agents.llm.backends.providers.openai_compatible_http import
 )
 
 _LLAMA_CPP_CAPABILITIES = BackendCapabilities(
-    streaming=False,
+    streaming=True,
     tool_calling="best_effort",
     json_mode="prompt+validate",
     vision=False,

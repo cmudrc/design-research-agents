@@ -29,6 +29,7 @@ class DefaultLlamaCppSettings:
         api_model: OpenAI-compatible model alias served by llama-cpp.
         model: GGUF model filename passed to ``llama_cpp.server --model``.
         hf_model_repo_id: Hugging Face repository containing ``model``.
+        context_window: Context window passed to ``llama_cpp.server --n_ctx``.
         host: Host used by the local server.
         port: Port used by the local server.
     """
@@ -36,6 +37,7 @@ class DefaultLlamaCppSettings:
     api_model: str = "qwen2-1.5b-q4"
     model: str = "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
     hf_model_repo_id: str = "bartowski/Qwen2.5-1.5B-Instruct-GGUF"
+    context_window: int = 4096
     host: str = "127.0.0.1"
     port: int = 8001
 
@@ -72,6 +74,7 @@ def create_default_llm_client() -> BaseLLMClient:
         api_model=backend_config.api_model,
         host=backend_config.host,
         port=backend_config.port,
+        extra_server_args=("--n_ctx", str(settings.context_window)),
     )
     backend = LlamaCppBackend(
         name=backend_config.name,
