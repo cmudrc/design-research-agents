@@ -17,6 +17,10 @@ from design_research_agents.contracts import (
     ToolSpec,
 )
 from design_research_agents.schemas import SCHEMA_NAMES, load_schema
+from design_research_agents.schemas.validation import (
+    SchemaValidationError,
+    validate_payload_against_schema,
+)
 
 
 def test_all_schemas_load_from_packaged_resources() -> None:
@@ -102,3 +106,66 @@ def test_package_no_longer_exports_base_tool_runtime() -> None:
     from design_research_agents import tools as tools_module
 
     assert not hasattr(tools_module, "BaseToolRuntime")
+
+
+def test_schema_validation_supports_anyof_enum_and_arrays() -> None:
+    validate_payload_against_schema(
+        payload={"a": 1},
+        schema={
+            "anyOf": [
+                {"type": "object", "required": ["a"]},
+                {"type": "object", "required": ["b"]},
+            ]
+        },
+    )
+
+    validate_payload_against_schema(
+        payload="x",
+        schema={"enum": ["x", "y"]},
+    )
+
+    with pytest.raises(SchemaValidationError, match="not in enum"):
+        validate_payload_against_schema(payload="z", schema={"enum": ["x", "y"]})
+
+    validate_payload_against_schema(
+        payload=[{"n": 1}, {"n": 2}],
+        schema={
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["n"],
+                "properties": {"n": {"type": "integer"}},
+                "additionalProperties": False,
+            },
+        },
+    )
+
+    with pytest.raises(SchemaValidationError, match="unexpected field"):
+        validate_payload_against_schema(
+            payload={"a": 1, "extra": 2},
+            schema={
+                "type": "object",
+                "required": ["a"],
+                "properties": {"a": {"type": "integer"}},
+                "additionalProperties": False,
+            },
+        )
+
+
+def test_schema_validation_type_union_and_null_paths() -> None:
+    validate_payload_against_schema(payload=3, schema={"type": ["string", "integer"]})
+    validate_payload_against_schema(payload=None, schema={"type": "null"})
+    validate_payload_against_schema(payload=True, schema={"type": "boolean"})
+    validate_payload_against_schema(payload=1.2, schema={"type": "number"})
+
+    with pytest.raises(SchemaValidationError, match="type mismatch"):
+        validate_payload_against_schema(payload=1.2, schema={"type": ["string", "object"]})
+
+    with pytest.raises(SchemaValidationError, match="expected integer"):
+        validate_payload_against_schema(payload=True, schema={"type": "integer"})
+
+    with pytest.raises(SchemaValidationError, match="expected null"):
+        validate_payload_against_schema(payload="x", schema={"type": "null"})
+
+    # A non-string type entry should be ignored while valid entries still apply.
+    validate_payload_against_schema(payload="ok", schema={"type": ["string", 1]})
