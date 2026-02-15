@@ -12,7 +12,7 @@ Use these examples to verify:
 ## What Each Example Does
 
 - `examples/lazy_tools/python/rubric_score.py`
-  - A lazy tool that scores input text with a small rubric and writes `artifacts/rubric_score/report.json`.
+  - A lazy tool that scores input text with a small rubric and writes `artifacts/rubric_score/rubric_score_report.json`.
 - `examples/lazy_tools/bash/repo_quickscan.sh`
   - A lazy tool that produces a quick repository listing and writes `artifacts/repo_quickscan/report.txt`.
 - `examples/lazy_tools/python/single_step_json_lazy_rubric_score_agent.py`

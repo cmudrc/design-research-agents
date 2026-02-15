@@ -77,24 +77,28 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return BackendStatus(ok=True, message="OpenAI backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
-        payload = self._build_payload(request, include_response_format=True)
+        request_payload = self._build_payload(request, include_response_format=True)
         try:
-            response = self._call_with_retry(payload)
-            return _parse_completion_response(response, request, provider=self.name)
+            completion_response = self._call_with_retry(request_payload)
+            return _parse_completion_response(
+                completion_response,
+                request,
+                provider=self.name,
+            )
         except Exception as exc:
-            mapped = map_backend_exception(exc)
-            if _is_response_format_error(mapped) and (
+            mapped_error = map_backend_exception(exc)
+            if _is_response_format_error(mapped_error) and (
                 request.response_schema or request.response_format
             ):
                 return self._fallback_prompt_validate(request)
-            raise mapped from exc
+            raise mapped_error from exc
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        payload = self._build_payload(request, include_response_format=True)
-        payload["stream"] = True
-        payload["stream_options"] = {"include_usage": True}
+        stream_payload = self._build_payload(request, include_response_format=True)
+        stream_payload["stream"] = True
+        stream_payload["stream_options"] = {"include_usage": True}
         try:
-            stream = self._call_with_retry(payload)
+            stream = self._call_with_retry(stream_payload)
         except Exception as exc:
             raise map_backend_exception(exc) from exc
 
@@ -128,19 +132,19 @@ class OpenAIServiceBackend(BaseLLMBackend):
                 yield LLMDelta(usage_delta=usage_payload)
 
     def _fallback_prompt_validate(self, request: LLMRequest) -> LLMResponse:
-        result = generate_json(
+        structured_output_result = generate_json(
             generate_fn=lambda req: self._generate_without_response_format(req),
             request=request,
             schema=request.response_schema,
             max_retries=self.max_retries,
             extra_instructions=None,
         )
-        return _merge_structured_response(result)
+        return _merge_structured_response(structured_output_result)
 
     def _generate_without_response_format(self, request: LLMRequest) -> LLMResponse:
-        payload = self._build_payload(request, include_response_format=False)
-        response = self._call_with_retry(payload)
-        return _parse_completion_response(response, request, provider=self.name)
+        request_payload = self._build_payload(request, include_response_format=False)
+        completion_response = self._call_with_retry(request_payload)
+        return _parse_completion_response(completion_response, request, provider=self.name)
 
     def _build_payload(
         self,
@@ -148,36 +152,36 @@ class OpenAIServiceBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
+        request_payload: dict[str, Any] = {
             "model": request.model,
             "messages": _format_messages(request.messages),
         }
         if request.temperature is not None:
-            payload["temperature"] = request.temperature
+            request_payload["temperature"] = request.temperature
         if request.max_tokens is not None:
-            payload["max_tokens"] = request.max_tokens
+            request_payload["max_tokens"] = request.max_tokens
         if request.tools:
-            payload["tools"] = [_format_tool(tool) for tool in request.tools]
+            request_payload["tools"] = [_format_tool(tool) for tool in request.tools]
         if include_response_format:
             response_format = _format_response_format(request)
             if response_format:
-                payload["response_format"] = response_format
-        payload.update(request.provider_options)
-        return payload
+                request_payload["response_format"] = response_format
+        request_payload.update(request.provider_options)
+        return request_payload
 
-    def _call_with_retry(self, payload: dict[str, Any]) -> Any:
+    def _call_with_retry(self, request_payload: dict[str, Any]) -> Any:
         client = self._client or self._create_client()
         backoff = 0.5
         for attempt in range(self.max_retries + 1):
             try:
-                return client.chat.completions.create(**payload)
+                return client.chat.completions.create(**request_payload)
             except Exception as exc:
-                mapped = map_backend_exception(exc)
-                if attempt >= self.max_retries or not _should_retry(mapped):
-                    raise mapped from exc
+                mapped_error = map_backend_exception(exc)
+                if attempt >= self.max_retries or not _should_retry(mapped_error):
+                    raise mapped_error from exc
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 8.0)
-        return client.chat.completions.create(**payload)
+        return client.chat.completions.create(**request_payload)
 
     def _create_client(self) -> Any:
         api_key = self._resolve_api_key()
@@ -204,21 +208,21 @@ class OpenAIServiceBackend(BaseLLMBackend):
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
-    payloads: list[dict[str, Any]] = []
+    message_payloads: list[dict[str, Any]] = []
     for message in messages:
         role = getattr(message, "role", None)
         content = getattr(message, "content", None)
         if role is None or content is None:
             continue
-        payload: dict[str, Any] = {"role": role, "content": content}
+        message_payload: dict[str, Any] = {"role": role, "content": content}
         name = getattr(message, "name", None)
         if name:
-            payload["name"] = name
+            message_payload["name"] = name
         tool_call_id = getattr(message, "tool_call_id", None)
         if tool_call_id:
-            payload["tool_call_id"] = tool_call_id
-        payloads.append(payload)
-    return payloads
+            message_payload["tool_call_id"] = tool_call_id
+        message_payloads.append(message_payload)
+    return message_payloads
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
@@ -246,60 +250,67 @@ def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
     return None
 
 
-def _parse_completion_response(response: Any, request: LLMRequest, *, provider: str) -> LLMResponse:
-    choices = getattr(response, "choices", None) or []
+def _parse_completion_response(
+    completion_response: Any,
+    request: LLMRequest,
+    *,
+    provider: str,
+) -> LLMResponse:
+    choices = getattr(completion_response, "choices", None) or []
     if not choices:
         raise LLMInvalidRequestError("OpenAI response has no choices.")
-    message = getattr(choices[0], "message", None)
-    content = getattr(message, "content", None) if message else None
-    text = str(content or "").strip()
+    response_message = getattr(choices[0], "message", None)
+    message_content = getattr(response_message, "content", None) if response_message else None
+    response_text = str(message_content or "").strip()
     tool_calls: tuple[ToolCall, ...] = ()
-    if message is not None:
-        tool_calls = parse_tool_calls(_tool_calls_to_list(getattr(message, "tool_calls", None)))
-    usage = parse_usage(_usage_to_dict(getattr(response, "usage", None)))
+    if response_message is not None:
+        tool_calls = parse_tool_calls(
+            _tool_calls_to_list(getattr(response_message, "tool_calls", None))
+        )
+    usage = parse_usage(_usage_to_dict(getattr(completion_response, "usage", None)))
     return LLMResponse(
-        text=text,
+        text=response_text,
         tool_calls=tool_calls,
         usage=usage,
-        raw=_response_to_dict(response),
+        raw=_response_to_dict(completion_response),
         model=request.model,
         provider=provider,
         finish_reason=getattr(choices[0], "finish_reason", None),
     )
 
 
-def _response_to_dict(response: Any) -> dict[str, Any]:
+def _response_to_dict(completion_response: Any) -> dict[str, Any]:
     try:
-        payload = response.model_dump()
-        if isinstance(payload, dict):
-            return payload
-        return {"raw": str(payload)}
+        response_payload = completion_response.model_dump()
+        if isinstance(response_payload, dict):
+            return response_payload
+        return {"raw": str(response_payload)}
     except Exception:
-        return {"raw": str(response)}
+        return {"raw": str(completion_response)}
 
 
-def _tool_calls_to_list(raw: Any) -> list[dict[str, Any]] | None:
-    if raw is None:
+def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
+    if raw_tool_calls is None:
         return None
-    if isinstance(raw, list):
-        return [call if isinstance(call, dict) else call.model_dump() for call in raw]
+    if isinstance(raw_tool_calls, list):
+        return [call if isinstance(call, dict) else call.model_dump() for call in raw_tool_calls]
     try:
-        return [raw.model_dump()]
+        return [raw_tool_calls.model_dump()]
     except Exception:
         return None
 
 
-def _usage_to_dict(raw: Any) -> dict[str, Any] | None:
-    if raw is None:
+def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
+    if raw_usage is None:
         return None
-    if isinstance(raw, dict):
-        return raw
-    dump_fn = getattr(raw, "model_dump", None)
+    if isinstance(raw_usage, dict):
+        return raw_usage
+    dump_fn = getattr(raw_usage, "model_dump", None)
     if not callable(dump_fn):
         return None
-    dumped = dump_fn()
-    if isinstance(dumped, dict):
-        return dumped
+    usage_payload = dump_fn()
+    if isinstance(usage_payload, dict):
+        return usage_payload
     return None
 
 
@@ -312,22 +323,26 @@ def _should_retry(error: Exception) -> bool:
     return isinstance(error, (LLMRateLimitError, LLMProviderError))
 
 
-def _merge_structured_response(result: Any) -> LLMResponse:
-    parsed_text = result.parsed
+def _merge_structured_response(structured_output_result: Any) -> LLMResponse:
+    parsed_text = structured_output_result.parsed
     if not isinstance(parsed_text, str):
         parsed_text = json.dumps(parsed_text, ensure_ascii=True, sort_keys=True)
-    raw = result.response.raw or {}
-    raw["structured_output"] = {
-        "attempts": result.attempts + 1,
-        "parsed": result.parsed,
+    raw_response = structured_output_result.response.raw or {}
+    raw_response["structured_output"] = {
+        "attempts": structured_output_result.attempts + 1,
+        "parsed": structured_output_result.parsed,
     }
     return LLMResponse(
-        text=result.response.text if result.response.text else parsed_text,
-        tool_calls=result.response.tool_calls,
-        usage=result.response.usage,
-        raw=raw,
-        model=result.response.model,
-        provider=result.response.provider,
-        finish_reason=result.response.finish_reason,
-        latency_ms=result.response.latency_ms,
+        text=(
+            structured_output_result.response.text
+            if structured_output_result.response.text
+            else parsed_text
+        ),
+        tool_calls=structured_output_result.response.tool_calls,
+        usage=structured_output_result.response.usage,
+        raw=raw_response,
+        model=structured_output_result.response.model,
+        provider=structured_output_result.response.provider,
+        finish_reason=structured_output_result.response.finish_reason,
+        latency_ms=structured_output_result.response.latency_ms,
     )

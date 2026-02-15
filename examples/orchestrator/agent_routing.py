@@ -1,12 +1,12 @@
 """Runnable example for intent routing across concrete DRA agent delegates.
 
-This flow uses ``triage`` runtime mode under the hood, but presents a clearer
+This flow uses ``agent_routing`` runtime mode under the hood, but presents a clearer
 intent/agent-routing entrypoint and terminology.
 """
 
 import design_research_agents as dra
 from design_research_agents.orchestrator.implementations.agent_routing import (
-    intent_route_and_delegate,
+    agent_routing_and_delegate,
 )
 
 
@@ -21,7 +21,7 @@ def main() -> None:
         tool_runtime=tool_runtime,
     )
 
-    orchestrator = intent_route_and_delegate(
+    orchestrator = agent_routing_and_delegate(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives={

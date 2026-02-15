@@ -1,5 +1,6 @@
 # design-research-agents
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Coverage](.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
 A modular framework for researching AI agents with shared runtime contracts,
@@ -10,7 +11,7 @@ workflow orchestration, and pluggable LLM backends.
 This project focuses on composable agent systems you can run, inspect, and test:
 
 - Agent implementations: `dra.agents.SingleStepDirectLLMAgent`, `dra.agents.SingleStepRouterAgent`, `dra.agents.SingleStepJsonToolCallingAgent`, `dra.agents.SingleStepCodeToolCallingAgent`, `dra.agents.MultiStepJsonToolCallingAgent`, `dra.agents.MultiStepCodeToolCallingAgent`
-- Unified runtime: `dra.agents.AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `triage`
+- Unified runtime: `dra.agents.AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `agent_routing`
 - Workflow orchestration: `dra.workflows.WorkflowRuntime` with typed logic, tool, and agent steps
 - Backend architecture: capability-based routing across local and remote LLM backends
 - Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads

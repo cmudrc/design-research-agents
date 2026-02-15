@@ -12,7 +12,7 @@ from design_research_agents.contracts.tools import ToolRuntime
 
 
 class AgentRoutingOrchestrator(Agent):
-    """Configured orchestrator chunk for runtime ``triage`` mode routing."""
+    """Configured orchestrator chunk for runtime ``agent_routing`` mode."""
 
     def __init__(
         self,
@@ -27,10 +27,10 @@ class AgentRoutingOrchestrator(Agent):
         self._runtime = AgentRuntime(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            mode="triage",
+            mode="agent_routing",
             controls=controls,
-            triage_alternatives=alternatives,
-            triage_descriptions=alternative_descriptions,
+            agent_routing_alternatives=alternatives,
+            agent_routing_descriptions=alternative_descriptions,
         )
 
     def run(
@@ -62,7 +62,7 @@ class AgentRoutingOrchestrator(Agent):
         )
 
 
-def intent_route_and_delegate(
+def agent_routing_and_delegate(
     *,
     llm_client: LLMClient,
     tool_runtime: ToolRuntime,
@@ -70,7 +70,7 @@ def intent_route_and_delegate(
     alternative_descriptions: Mapping[str, str] | None = None,
     controls: RuntimeControls | None = None,
 ) -> AgentRoutingOrchestrator:
-    """Return a configured intent-routing orchestrator chunk."""
+    """Return a configured agent-routing orchestrator chunk."""
     return AgentRoutingOrchestrator(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
@@ -82,5 +82,5 @@ def intent_route_and_delegate(
 
 __all__ = [
     "AgentRoutingOrchestrator",
-    "intent_route_and_delegate",
+    "agent_routing_and_delegate",
 ]

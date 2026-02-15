@@ -29,19 +29,19 @@ from pathlib import Path
 
 def main() -> int:
     """Run rubric scoring over stdin JSON input and emit a tool envelope."""
-    raw = sys.stdin.read()
-    payload = json.loads(raw) if raw.strip() else {}
-    text = str(payload.get("text", ""))
-    max_score = int(payload.get("max_score", 10))
+    raw_input_text = sys.stdin.read()
+    input_payload = json.loads(raw_input_text) if raw_input_text.strip() else {}
+    rubric_text = str(input_payload.get("text", ""))
+    max_score = int(input_payload.get("max_score", 10))
 
-    score = min(max_score, max(0, len(text.split()) // 5))
+    score = min(max_score, max(0, len(rubric_text.split()) // 5))
     artifact_dir = Path("artifacts") / "rubric_score"
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    artifact_path = artifact_dir / "report.json"
+    artifact_path = artifact_dir / "rubric_score_report.json"
     report_payload = {
         "score": score,
         "max_score": max_score,
-        "word_count": len(text.split()),
+        "word_count": len(rubric_text.split()),
     }
     artifact_path.write_text(
         json.dumps(report_payload, indent=2) + "\n",

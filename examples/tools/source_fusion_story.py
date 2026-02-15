@@ -12,15 +12,22 @@ import design_research_agents as dra
 def _invoke_dict(
     runtime: dra.tools.UnifiedToolRuntime,
     tool_name: str,
-    payload: Mapping[str, object],
+    tool_input_payload: Mapping[str, object],
 ) -> dict[str, object]:
-    result = runtime.invoke(tool_name, payload, request_id="example-source-fusion", dependencies={})
-    if not result.ok:
-        message = result.error.message if result.error is not None else "unknown tool error"
+    tool_result = runtime.invoke(
+        tool_name,
+        tool_input_payload,
+        request_id="example-source-fusion",
+        dependencies={},
+    )
+    if not tool_result.ok:
+        message = (
+            tool_result.error.message if tool_result.error is not None else "unknown tool error"
+        )
         raise RuntimeError(f"{tool_name} failed: {message}")
-    if not isinstance(result.result, dict):
+    if not isinstance(tool_result.result, dict):
         raise RuntimeError(f"{tool_name} returned non-object payload.")
-    return result.result
+    return tool_result.result
 
 
 def main() -> None:
@@ -55,7 +62,7 @@ def main() -> None:
             runtime,
             "fs.write_text",
             {
-                "path": "artifacts/examples/source_fusion_story.txt",
+                "path": "artifacts/examples/source_fusion_story_text.txt",
                 "content": story_text,
                 "overwrite": True,
             },
@@ -93,7 +100,7 @@ def main() -> None:
             runtime,
             "fs.write_text",
             {
-                "path": "artifacts/examples/source_fusion_report.json",
+                "path": "artifacts/examples/source_fusion_story_report.json",
                 "content": json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
                 "overwrite": True,
             },

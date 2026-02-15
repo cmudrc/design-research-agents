@@ -1,8 +1,0 @@
-{
-  "draft": {
-    "priority": "high",
-    "summary": "Use one runtime that fuses core, lazy, and MCP tools.",
-    "title": "Deterministic workflow memo"
-  },
-  "topic": "agent orchestration"
-}

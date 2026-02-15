@@ -50,54 +50,67 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.add_argument("--json", required=True, help="JSON object tool input")
     run_parser.add_argument("--config", help="Tool runtime YAML config path")
 
-    args = parser.parse_args(argv)
+    parsed_args = parser.parse_args(argv)
 
-    if args.command == "mcp":
-        return _handle_mcp(args)
-    if args.command == "lazy":
-        return _handle_lazy(args)
+    if parsed_args.command == "mcp":
+        return _handle_mcp(parsed_args)
+    if parsed_args.command == "lazy":
+        return _handle_lazy(parsed_args)
 
     parser.print_help()
     return 1
 
 
-def _handle_mcp(args: argparse.Namespace) -> int:
-    if args.mcp_command == "serve":
+def _handle_mcp(cli_args: argparse.Namespace) -> int:
+    if cli_args.mcp_command == "serve":
         serve_stdio()
         return 0
 
-    if args.mcp_command == "ping":
-        config = _load_config(args.config)
-        server_id = str(args.server).strip()
-        if not _server_exists(config.mcp, server_id):
+    if cli_args.mcp_command == "ping":
+        runtime_config = _load_config(cli_args.config)
+        server_id = str(cli_args.server).strip()
+        if not _server_exists(runtime_config.mcp, server_id):
             print(f"Server '{server_id}' is not configured.")
             return 1
-        runtime = UnifiedToolRuntime(config=config)
-        tools = [
-            spec.name for spec in runtime.list_tools() if spec.name.startswith(f"{server_id}::")
+        tool_runtime = UnifiedToolRuntime(config=runtime_config)
+        server_tool_names = [
+            spec.name
+            for spec in tool_runtime.list_tools()
+            if spec.name.startswith(f"{server_id}::")
         ]
-        print(json.dumps({"server": server_id, "tools": tools}, ensure_ascii=True, indent=2))
+        print(
+            json.dumps(
+                {"server": server_id, "tools": server_tool_names},
+                ensure_ascii=True,
+                indent=2,
+            )
+        )
         return 0
 
-    if args.mcp_command == "call":
-        config = _load_config(args.config)
-        runtime = UnifiedToolRuntime(config=config)
-        payload = _parse_json_object(args.json)
-        if payload is None:
+    if cli_args.mcp_command == "call":
+        runtime_config = _load_config(cli_args.config)
+        tool_runtime = UnifiedToolRuntime(config=runtime_config)
+        tool_input_payload = _parse_json_object(cli_args.json)
+        if tool_input_payload is None:
             print("--json must be a valid JSON object.")
             return 1
-        result = runtime.invoke(args.tool, payload, request_id="cli", dependencies={})
-        print(json.dumps(asdict(result), ensure_ascii=True, indent=2))
-        return 0 if result.ok else 2
+        tool_result = tool_runtime.invoke(
+            cli_args.tool,
+            tool_input_payload,
+            request_id="cli",
+            dependencies={},
+        )
+        print(json.dumps(asdict(tool_result), ensure_ascii=True, indent=2))
+        return 0 if tool_result.ok else 2
 
     print("Unknown mcp command.")
     return 1
 
 
-def _handle_lazy(args: argparse.Namespace) -> int:
-    if args.lazy_command == "lint":
-        target = Path(str(args.target)).expanduser()
-        search_paths = (str(target),)
+def _handle_lazy(cli_args: argparse.Namespace) -> int:
+    if cli_args.lazy_command == "lint":
+        target_path = Path(str(cli_args.target)).expanduser()
+        search_paths = (str(target_path),)
         _, diagnostics = discover_lazy_tools(search_paths)
         if not diagnostics:
             print(json.dumps({"ok": True, "diagnostics": []}, ensure_ascii=True, indent=2))
@@ -114,29 +127,36 @@ def _handle_lazy(args: argparse.Namespace) -> int:
         )
         return 2
 
-    if args.lazy_command == "list":
-        config = _load_config(args.config)
-        runtime = UnifiedToolRuntime(config=config)
-        lazy_tools = [spec.name for spec in runtime.list_tools() if spec.metadata.source == "lazy"]
+    if cli_args.lazy_command == "list":
+        runtime_config = _load_config(cli_args.config)
+        tool_runtime = UnifiedToolRuntime(config=runtime_config)
+        lazy_tools = [
+            spec.name for spec in tool_runtime.list_tools() if spec.metadata.source == "lazy"
+        ]
         print(json.dumps({"tools": lazy_tools}, ensure_ascii=True, indent=2))
         return 0
 
-    if args.lazy_command == "run":
-        config = _load_config(args.config)
-        runtime = UnifiedToolRuntime(config=config)
-        payload = _parse_json_object(args.json)
-        if payload is None:
+    if cli_args.lazy_command == "run":
+        runtime_config = _load_config(cli_args.config)
+        tool_runtime = UnifiedToolRuntime(config=runtime_config)
+        tool_input_payload = _parse_json_object(cli_args.json)
+        if tool_input_payload is None:
             print("--json must be a valid JSON object.")
             return 1
 
-        requested_name = str(args.tool_name).strip()
+        requested_name = str(cli_args.tool_name).strip()
         resolved_name = requested_name
         if not requested_name.startswith("lazy::"):
             resolved_name = f"lazy::{requested_name}"
 
-        result = runtime.invoke(resolved_name, payload, request_id="cli", dependencies={})
-        print(json.dumps(asdict(result), ensure_ascii=True, indent=2))
-        return 0 if result.ok else 2
+        tool_result = tool_runtime.invoke(
+            resolved_name,
+            tool_input_payload,
+            request_id="cli",
+            dependencies={},
+        )
+        print(json.dumps(asdict(tool_result), ensure_ascii=True, indent=2))
+        return 0 if tool_result.ok else 2
 
     print("Unknown lazy command.")
     return 1
@@ -148,14 +168,14 @@ def _load_config(path: str | None) -> ToolRuntimeConfig:
     return ToolRuntimeConfig()
 
 
-def _parse_json_object(raw: str) -> dict[str, object] | None:
+def _parse_json_object(raw_json_text: str) -> dict[str, object] | None:
     try:
-        parsed = json.loads(raw)
+        parsed_payload = json.loads(raw_json_text)
     except json.JSONDecodeError:
         return None
-    if not isinstance(parsed, dict):
+    if not isinstance(parsed_payload, dict):
         return None
-    return {str(key): value for key, value in parsed.items()}
+    return {str(key): value for key, value in parsed_payload.items()}
 
 
 def _server_exists(mcp_config: McpConfig, server_id: str) -> bool:

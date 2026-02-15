@@ -6,6 +6,9 @@ on:
     branches: [ main ]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   lint-test:
     # Validate across supported runtime versions.
@@ -33,3 +36,39 @@ jobs:
       - name: Run checks
         # Lint, format check, typing, and tests.
         run: make ci
+
+  coverage-badge:
+    # Keep a coverage badge on main in sync with the stable unit-suite baseline.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Generate coverage report
+        run: make coverage
+
+      - name: Generate coverage badge
+        run: python scripts/generate_coverage_badge.py
+
+      - name: Commit and push badge if changed
+        run: |
+          if ! git status --porcelain -- .github/badges/coverage.svg | grep -q .; then
+            echo "Coverage badge unchanged."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/badges/coverage.svg
+          git commit -m "chore: update coverage badge [skip ci]"
+          git push

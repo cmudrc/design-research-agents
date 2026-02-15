@@ -23,18 +23,28 @@ from design_research_agents.agent.implementations.single_step_direct_llm_agent i
 from design_research_agents.agent.implementations.single_step_router_agent import (
     SingleStepRouterAgent,
 )
+from design_research_agents.agent.internal.agent_routing_runtime_adapter import (
+    AgentRoutingToolRuntimeAdapter,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.agent.internal.triage_runtime_adapter import TriageToolRuntimeAdapter
 from design_research_agents.agent.runtime_controls import RuntimeControls
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
-from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage, LLMResponse
+from design_research_agents.contracts.llm import (
+    LLMChatParams,
+    LLMClient,
+    LLMMessage,
+    LLMResponse,
+)
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.schemas import SchemaValidationError, validate_payload_against_schema
+from design_research_agents.schemas import (
+    SchemaValidationError,
+    validate_payload_against_schema,
+)
 from design_research_agents.tracing import (
     finish_model_call,
     finish_trace_run,
@@ -42,7 +52,7 @@ from design_research_agents.tracing import (
     start_trace_run,
 )
 
-RuntimeMode = Literal["react", "plan_execute", "propose_critic", "triage"]
+RuntimeMode = Literal["react", "plan_execute", "propose_critic", "agent_routing"]
 
 _PLAN_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -145,8 +155,8 @@ class AgentRuntime(Agent):
         tool_runtime: ToolRuntime,
         mode: RuntimeMode,
         controls: RuntimeControls | None = None,
-        triage_alternatives: Mapping[str, Agent] | None = None,
-        triage_descriptions: Mapping[str, str] | None = None,
+        agent_routing_alternatives: Mapping[str, Agent] | None = None,
+        agent_routing_descriptions: Mapping[str, str] | None = None,
     ) -> None:
         """Initialize a multi-mode runtime.
 
@@ -155,29 +165,29 @@ class AgentRuntime(Agent):
             tool_runtime: Runtime used for tool-enabled modes.
             mode: Active execution mode.
             controls: Shared runtime controls.
-            triage_alternatives: Constructor-provided triage alternatives.
-            triage_descriptions: Optional alternative descriptions for triage routing.
+            agent_routing_alternatives: Constructor-provided agent-routing alternatives.
+            agent_routing_descriptions: Optional alternative descriptions for agent routing.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._mode = mode
         self._controls = controls or RuntimeControls()
-        self._triage_alternatives = {
+        self._agent_routing_alternatives = {
             name.strip(): agent
-            for name, agent in (triage_alternatives or {}).items()
+            for name, agent in (agent_routing_alternatives or {}).items()
             if isinstance(name, str) and name.strip()
         }
-        self._triage_descriptions = {
+        self._agent_routing_descriptions = {
             name.strip(): description.strip()
-            for name, description in (triage_descriptions or {}).items()
+            for name, description in (agent_routing_descriptions or {}).items()
             if isinstance(name, str)
             and name.strip()
             and isinstance(description, str)
             and description.strip()
         }
 
-        if self._mode == "triage" and not self._triage_alternatives:
-            raise ValueError("triage_alternatives must be provided when mode='triage'.")
+        if self._mode == "agent_routing" and not self._agent_routing_alternatives:
+            raise ValueError("agent_routing_alternatives must be given for mode='agent_routing'.")
 
     def run(
         self,
@@ -199,7 +209,7 @@ class AgentRuntime(Agent):
         )
 
         try:
-            result = self._run_mode(
+            mode_result = self._run_mode(
                 prompt=resolved_prompt,
                 request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
@@ -208,8 +218,8 @@ class AgentRuntime(Agent):
         except Exception as exc:
             finish_trace_run(trace_scope, error=str(exc))
             raise
-        finish_trace_run(trace_scope, result=result)
-        return result
+        finish_trace_run(trace_scope, result=mode_result)
+        return mode_result
 
     def run_stream(
         self,
@@ -233,11 +243,11 @@ class AgentRuntime(Agent):
                 yield AgentStreamEvent(
                     kind="completed",
                     result=self._attach_runtime_metadata(
-                        result=event.result,
+                        agent_result=event.result,
                         requested_mode="react",
                         resolved_mode="multi_step_code_tool_calling_agent",
                         budget_metadata=_budget_for_result(
-                            result=event.result,
+                            agent_result=event.result,
                             controls=self._controls,
                             tool_runtime=self._tool_runtime,
                         ),
@@ -246,11 +256,15 @@ class AgentRuntime(Agent):
                 )
             return
 
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
+        runtime_result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         if self._controls.streaming_enabled:
-            delta_text = result.model_response.text if result.model_response is not None else ""
+            delta_text = (
+                runtime_result.model_response.text
+                if runtime_result.model_response is not None
+                else ""
+            )
             yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
+        yield AgentStreamEvent(kind="completed", result=runtime_result)
 
     def _run_mode(
         self,
@@ -261,17 +275,17 @@ class AgentRuntime(Agent):
         normalized_input: Mapping[str, object],
     ) -> AgentResult:
         if self._mode == "react":
-            result = self._build_react_agent().run(
+            react_result = self._build_react_agent().run(
                 prompt,
                 request_id=request_id,
                 dependencies=dependencies,
             )
             return self._attach_runtime_metadata(
-                result=result,
+                agent_result=react_result,
                 requested_mode="react",
                 resolved_mode="multi_step_code_tool_calling_agent",
                 budget_metadata=_budget_for_result(
-                    result=result,
+                    agent_result=react_result,
                     controls=self._controls,
                     tool_runtime=self._tool_runtime,
                 ),
@@ -291,8 +305,8 @@ class AgentRuntime(Agent):
                 dependencies=dependencies,
                 normalized_input=normalized_input,
             )
-        if self._mode == "triage":
-            return self._run_triage(
+        if self._mode == "agent_routing":
+            return self._run_agent_routing(
                 prompt=prompt,
                 request_id=request_id,
                 dependencies=dependencies,
@@ -343,7 +357,11 @@ class AgentRuntime(Agent):
             model=resolved_model,
             messages=planner_messages,
             params=planner_params,
-            metadata={"agent": "AgentRuntime", "mode": "plan_execute", "phase": "planner"},
+            metadata={
+                "agent": "AgentRuntime",
+                "mode": "plan_execute",
+                "phase": "planner",
+            },
         )
         try:
             planner_response = self._llm_client.chat(
@@ -374,7 +392,7 @@ class AgentRuntime(Agent):
                 },
             )
             return self._attach_runtime_metadata(
-                result=failure,
+                agent_result=failure,
                 requested_mode="plan_execute",
                 resolved_mode="plan_execute",
                 budget_metadata=budget_tracker.as_metadata(controls=self._controls),
@@ -403,7 +421,7 @@ class AgentRuntime(Agent):
                 },
             )
             return self._attach_runtime_metadata(
-                result=failure,
+                agent_result=failure,
                 requested_mode="plan_execute",
                 resolved_mode="plan_execute",
                 budget_metadata=budget_tracker.as_metadata(controls=self._controls),
@@ -484,7 +502,7 @@ class AgentRuntime(Agent):
         success = terminated_reason in {"completed", "max_iterations_reached"} and bool(
             step_results
         )
-        result = AgentResult(
+        plan_execute_result = AgentResult(
             output={
                 "plan": parsed_plan,
                 "steps_executed": len(step_results),
@@ -503,7 +521,7 @@ class AgentRuntime(Agent):
             },
         )
         return self._attach_runtime_metadata(
-            result=result,
+            agent_result=plan_execute_result,
             requested_mode="plan_execute",
             resolved_mode="plan_execute",
             budget_metadata=budget_tracker.as_metadata(controls=self._controls),
@@ -591,7 +609,11 @@ class AgentRuntime(Agent):
                 model=resolved_model,
                 messages=critic_messages,
                 params=critic_params,
-                metadata={"agent": "AgentRuntime", "mode": "propose_critic", "phase": "critic"},
+                metadata={
+                    "agent": "AgentRuntime",
+                    "mode": "propose_critic",
+                    "phase": "critic",
+                },
             )
             try:
                 critic_response = self._llm_client.chat(
@@ -621,7 +643,7 @@ class AgentRuntime(Agent):
                     },
                 )
                 return self._attach_runtime_metadata(
-                    result=failure,
+                    agent_result=failure,
                     requested_mode="propose_critic",
                     resolved_mode="propose_critic",
                     budget_metadata=budget_tracker.as_metadata(controls=self._controls),
@@ -648,7 +670,7 @@ class AgentRuntime(Agent):
                     },
                 )
                 return self._attach_runtime_metadata(
-                    result=failure,
+                    agent_result=failure,
                     requested_mode="propose_critic",
                     resolved_mode="propose_critic",
                     budget_metadata=budget_tracker.as_metadata(controls=self._controls),
@@ -681,7 +703,7 @@ class AgentRuntime(Agent):
             current_goals = revision_goals
 
         success = approved
-        result = AgentResult(
+        propose_critic_result = AgentResult(
             output={
                 "proposal": current_proposal,
                 "critique_iterations": critique_iterations,
@@ -699,14 +721,14 @@ class AgentRuntime(Agent):
             },
         )
         return self._attach_runtime_metadata(
-            result=result,
+            agent_result=propose_critic_result,
             requested_mode="propose_critic",
             resolved_mode="propose_critic",
             budget_metadata=budget_tracker.as_metadata(controls=self._controls),
             extra_metadata=None,
         )
 
-    def _run_triage(
+    def _run_agent_routing(
         self,
         *,
         prompt: str,
@@ -715,30 +737,30 @@ class AgentRuntime(Agent):
         normalized_input: Mapping[str, object],
     ) -> AgentResult:
         budget_tracker = _BudgetTracker()
-        triage_runtime = TriageToolRuntimeAdapter(
-            alternatives=self._triage_alternatives,
-            descriptions=self._triage_descriptions,
+        agent_routing_tool_runtime = AgentRoutingToolRuntimeAdapter(
+            alternatives=self._agent_routing_alternatives,
+            descriptions=self._agent_routing_descriptions,
         )
         single_step_router_agent = SingleStepRouterAgent(
             llm_client=self._llm_client,
-            tool_runtime=triage_runtime,
+            tool_runtime=agent_routing_tool_runtime,
         )
         router_result = single_step_router_agent.run(
             prompt,
-            request_id=f"{request_id}:triage-router",
+            request_id=f"{request_id}:agent_routing_router",
             dependencies=dependencies,
         )
         budget_tracker.add_model_response(router_result.model_response)
 
         if not router_result.success:
             failure = _failure_result(
-                error="Triage routing failed.",
+                error="Agent routing selection failed.",
                 model_response=router_result.model_response,
                 request_id=request_id,
                 dependencies=dependencies,
                 metadata={
-                    "stage": "triage_routing",
-                    "mode": "triage",
+                    "stage": "agent_routing_selection",
+                    "mode": "agent_routing",
                     "routing": router_result.metadata.get("routing", {}),
                 },
                 output={
@@ -749,24 +771,24 @@ class AgentRuntime(Agent):
                 },
             )
             return self._attach_runtime_metadata(
-                result=failure,
-                requested_mode="triage",
-                resolved_mode="triage",
+                agent_result=failure,
+                requested_mode="agent_routing",
+                resolved_mode="agent_routing",
                 budget_metadata=budget_tracker.as_metadata(controls=self._controls),
                 extra_metadata=None,
             )
 
         selected_name = str(router_result.output.get("tool_name", "")).strip()
-        selected_agent = self._triage_alternatives.get(selected_name)
+        selected_agent = self._agent_routing_alternatives.get(selected_name)
         if selected_agent is None:
             failure = _failure_result(
-                error=f"Triage selected unknown agent alternative '{selected_name}'.",
+                error=f"Agent routing selected unknown agent alternative '{selected_name}'.",
                 model_response=router_result.model_response,
                 request_id=request_id,
                 dependencies=dependencies,
                 metadata={
-                    "stage": "triage_routing",
-                    "mode": "triage",
+                    "stage": "agent_routing_selection",
+                    "mode": "agent_routing",
                     "routing": router_result.metadata.get("routing", {}),
                 },
                 output={
@@ -777,16 +799,16 @@ class AgentRuntime(Agent):
                 },
             )
             return self._attach_runtime_metadata(
-                result=failure,
-                requested_mode="triage",
-                resolved_mode="triage",
+                agent_result=failure,
+                requested_mode="agent_routing",
+                resolved_mode="agent_routing",
                 budget_metadata=budget_tracker.as_metadata(controls=self._controls),
                 extra_metadata=None,
             )
 
         delegated_result = selected_agent.run(
             prompt,
-            request_id=f"{request_id}:triage:{selected_name}",
+            request_id=f"{request_id}:agent_routing:{selected_name}",
             dependencies=dependencies,
         )
         budget_tracker.add_model_response(delegated_result.model_response)
@@ -795,29 +817,29 @@ class AgentRuntime(Agent):
             tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
         )
 
-        triage_metadata = {
+        agent_routing_metadata = {
             "routing": router_result.metadata.get("routing", {}),
             "selected_alternative": selected_name,
-            "available_alternatives": sorted(self._triage_alternatives.keys()),
+            "available_alternatives": sorted(self._agent_routing_alternatives.keys()),
         }
 
         delegated_output = dict(delegated_result.output)
-        delegated_output["triage_selected_alternative"] = selected_name
+        delegated_output["agent_routing_selected_alternative"] = selected_name
 
-        result = AgentResult(
+        agent_routing_result = AgentResult(
             output=delegated_output,
             success=delegated_result.success,
             tool_results=list(delegated_result.tool_results),
             model_response=delegated_result.model_response,
             metadata={
                 **dict(delegated_result.metadata),
-                "triage": triage_metadata,
+                "agent_routing": agent_routing_metadata,
             },
         )
         return self._attach_runtime_metadata(
-            result=result,
-            requested_mode="triage",
-            resolved_mode="triage",
+            agent_result=agent_routing_result,
+            requested_mode="agent_routing",
+            resolved_mode="agent_routing",
             budget_metadata=budget_tracker.as_metadata(controls=self._controls),
             extra_metadata=None,
         )
@@ -835,13 +857,13 @@ class AgentRuntime(Agent):
     def _attach_runtime_metadata(
         self,
         *,
-        result: AgentResult,
+        agent_result: AgentResult,
         requested_mode: RuntimeMode,
         resolved_mode: str,
         budget_metadata: Mapping[str, object],
         extra_metadata: Mapping[str, object] | None,
     ) -> AgentResult:
-        metadata = dict(result.metadata)
+        metadata = dict(agent_result.metadata)
         runtime_metadata: dict[str, object] = {
             "requested_mode": requested_mode,
             "resolved_mode": resolved_mode,
@@ -852,10 +874,10 @@ class AgentRuntime(Agent):
             runtime_metadata.update(extra_metadata)
         metadata["runtime"] = runtime_metadata
         return AgentResult(
-            output=dict(result.output),
-            success=result.success,
-            tool_results=list(result.tool_results),
-            model_response=result.model_response,
+            output=dict(agent_result.output),
+            success=agent_result.success,
+            tool_results=list(agent_result.tool_results),
+            model_response=agent_result.model_response,
             metadata=metadata,
         )
 
@@ -877,11 +899,11 @@ def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
         if character != "{":
             continue
         try:
-            value, _ = decoder.raw_decode(raw_text[index:])
+            parsed_object, _ = decoder.raw_decode(raw_text[index:])
         except json.JSONDecodeError:
             continue
-        if isinstance(value, Mapping):
-            return dict(value)
+        if isinstance(parsed_object, Mapping):
+            return dict(parsed_object)
     return None
 
 
@@ -919,14 +941,14 @@ def _failure_result(
 
 def _budget_for_result(
     *,
-    result: AgentResult,
+    agent_result: AgentResult,
     controls: RuntimeControls,
     tool_runtime: ToolRuntime,
 ) -> dict[str, object]:
     tracker = _BudgetTracker()
-    tracker.add_model_response(result.model_response)
+    tracker.add_model_response(agent_result.model_response)
     tracker.add_tool_results(
-        tool_results=result.tool_results,
+        tool_results=agent_result.tool_results,
         tool_specs={spec.name: spec for spec in tool_runtime.list_tools()},
     )
     return tracker.as_metadata(controls=controls)

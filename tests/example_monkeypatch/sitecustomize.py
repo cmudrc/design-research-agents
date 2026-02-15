@@ -45,10 +45,10 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             [
                 'csv_text = "tool,source\\ncalculator,core\\nrepo_quickscan,lazy\\n"',
                 'write_result = call_tool("fs.write_text", {"path": '
-                '"artifacts/examples/single_step_tools.csv", "content": csv_text, '
+                '"artifacts/examples/single_step_tool_inventory.csv", "content": csv_text, '
                 '"overwrite": True})',
                 'describe_result = call_tool("data.describe", {"path": '
-                '"artifacts/examples/single_step_tools.csv", "kind": "csv"})',
+                '"artifacts/examples/single_step_tool_inventory.csv", "kind": "csv"})',
                 'search_result = call_tool("search.ripgrep", {"query": '
                 '"UnifiedToolRuntime", "root": "src/design_research_agents/tools", '
                 '"max_matches": 3})',
@@ -98,10 +98,10 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
                 'csv_text = "tool,source\\ncalculator,core\\nrubric_score,lazy\\n'
                 'text.word_count,mcp\\n"',
                 'write_result = call_tool("fs.write_text", {"path": '
-                '"artifacts/examples/runtime_plan_execute.csv", "content": csv_text, '
+                '"artifacts/examples/plan_execute_runtime_inventory.csv", "content": csv_text, '
                 '"overwrite": True})',
                 'describe_result = call_tool("data.describe", {"path": '
-                '"artifacts/examples/runtime_plan_execute.csv", "kind": "csv"})',
+                '"artifacts/examples/plan_execute_runtime_inventory.csv", "kind": "csv"})',
                 'search_result = call_tool("search.ripgrep", {"query": '
                 '"UnifiedToolRuntime", "root": "src/design_research_agents/tools", '
                 '"max_matches": 4})',

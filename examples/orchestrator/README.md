@@ -38,7 +38,7 @@ PYTHONPATH=src python3 examples/orchestrator/mixed_agent_workflow.py
 - `workflow_runtime.py` (`WorkflowRuntime`) -> `examples/orchestrator/workflow_runtime.py`
 - `plan_execute.py` (`plan_and_execute`) -> `examples/orchestrator/plan_execute.py`
 - `propose_critic.py` (`propose_and_critique`) -> `examples/orchestrator/propose_critic.py`
-- `agent_routing.py` (`intent_route_and_delegate`) -> `examples/orchestrator/agent_routing.py`
+- `agent_routing.py` (`agent_routing_and_delegate`) -> `examples/orchestrator/agent_routing.py`
 - `pure_tool_workflow.py` (`pure_tool_workflow`) -> `examples/orchestrator/pure_tool_workflow.py`
 - `mixed_agent_workflow.py` (`mixed_agent_workflow`) -> `examples/orchestrator/mixed_agent_workflow.py`
 

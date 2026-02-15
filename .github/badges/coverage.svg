@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="86" height="20" role="img" aria-label="coverage: 63%">
+  <linearGradient id="g" x2="0" y2="100%">
+    <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
+    <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
+    <stop offset=".9" stop-opacity=".3"/>
+    <stop offset="1" stop-opacity=".5"/>
+  </linearGradient>
+  <clipPath id="r">
+    <rect width="86" height="20" rx="3" fill="#fff"/>
+  </clipPath>
+  <g clip-path="url(#r)">
+    <rect width="58" height="20" fill="#555"/>
+    <rect x="58" width="28" height="20" fill="#dfb317"/>
+    <rect width="86" height="20" fill="url(#g)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="29.0" y="15" fill="#010101" fill-opacity=".3">coverage</text>
+    <text x="29.0" y="14">coverage</text>
+    <text x="72.0" y="15" fill="#010101" fill-opacity=".3">63%</text>
+    <text x="72.0" y="14">63%</text>
+  </g>
+</svg>

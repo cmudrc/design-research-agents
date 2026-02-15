@@ -84,7 +84,7 @@ class _SequenceLLMClient:
 
 
 class _StaticAgent(Agent):
-    """Simple deterministic agent used for triage and workflow tests."""
+    """Simple deterministic agent used for agent_routing and workflow tests."""
 
     def __init__(self, *, marker: str) -> None:
         self._marker = marker
@@ -376,7 +376,7 @@ def test_agent_runtime_propose_critic_stops_on_approval() -> None:
     assert len(result.output["critique_iterations"]) == 2
 
 
-def test_agent_runtime_triage_selects_and_executes_named_alternative() -> None:
+def test_agent_runtime_agent_routing_selects_and_executes_named_alternative() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
             '{"selection": "alt_two", "reason": "best fit"}',
@@ -385,8 +385,8 @@ def test_agent_runtime_triage_selects_and_executes_named_alternative() -> None:
     runtime = AgentRuntime(
         llm_client=llm_client,
         tool_runtime=UnifiedToolRuntime(),
-        mode="triage",
-        triage_alternatives={
+        mode="agent_routing",
+        agent_routing_alternatives={
             "alt_one": _StaticAgent(marker="one"),
             "alt_two": _StaticAgent(marker="two"),
         },
@@ -396,8 +396,8 @@ def test_agent_runtime_triage_selects_and_executes_named_alternative() -> None:
 
     assert result.success
     assert result.output["agent_marker"] == "two"
-    assert result.output["triage_selected_alternative"] == "alt_two"
-    assert result.metadata["triage"]["selected_alternative"] == "alt_two"
+    assert result.output["agent_routing_selected_alternative"] == "alt_two"
+    assert result.metadata["agent_routing"]["selected_alternative"] == "alt_two"
 
 
 def test_agent_runtime_stream_emits_delta_then_completed() -> None:

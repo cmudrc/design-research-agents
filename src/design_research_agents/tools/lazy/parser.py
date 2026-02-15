@@ -63,8 +63,11 @@ def parse_lazy_tool_header(path: str | Path) -> LazyToolHeader:
     if not script_path.exists():
         raise LazyHeaderError(f"Script not found: {script_path}")
 
-    text = script_path.read_text(encoding="utf-8")
-    header_lines, first_line_no = _extract_header_block(script_path=script_path, text=text)
+    file_text = script_path.read_text(encoding="utf-8")
+    header_lines, first_line_no = _extract_header_block(
+        script_path=script_path,
+        text=file_text,
+    )
     return _parse_directives(
         script_path=script_path,
         lines=header_lines,
@@ -165,14 +168,14 @@ def _parse_directives(*, script_path: Path, lines: list[str], first_line_no: int
             if match is None:
                 raise LazyHeaderError(f"Invalid directive line (line {line_number}).")
             key = match.group(1)
-            value = match.group(2)
+            directive_value = match.group(2)
             if key in {"inputs", "outputs", "capabilities", "examples"}:
                 sections[key] = []
                 current_section = key
-                if value.strip():
-                    sections[key].append((line_number, value.strip()))
+                if directive_value.strip():
+                    sections[key].append((line_number, directive_value.strip()))
                 continue
-            key_values[key] = value.strip()
+            key_values[key] = directive_value.strip()
             continue
 
         if not seen_directive:
@@ -274,10 +277,10 @@ def _parse_capabilities(lines: list[tuple[int, str]]) -> LazyCapabilities:
         values[match.group(1)] = match.group(2).strip()
 
     def _bool_field(name: str) -> bool:
-        raw = values.get(name)
-        if raw is None:
+        raw_capability_value = values.get(name)
+        if raw_capability_value is None:
             raise LazyHeaderError(f"Missing capability '{name}' in @capabilities block.")
-        normalized = raw.lower()
+        normalized = raw_capability_value.lower()
         if normalized == "true":
             return True
         if normalized == "false":
@@ -295,14 +298,14 @@ def _parse_capabilities(lines: list[tuple[int, str]]) -> LazyCapabilities:
     )
 
 
-def _parse_platform(raw: str | None) -> tuple[str, ...]:
-    if raw is None or not raw.strip():
+def _parse_platform(raw_platforms: str | None) -> tuple[str, ...]:
+    if raw_platforms is None or not raw_platforms.strip():
         return ()
-    values = _parse_list_literal(raw)
-    for value in values:
-        if value not in {"darwin", "linux", "windows"}:
-            raise LazyHeaderError(f"Unsupported platform '{value}'.")
-    return tuple(values)
+    platform_names = _parse_list_literal(raw_platforms)
+    for platform_name in platform_names:
+        if platform_name not in {"darwin", "linux", "windows"}:
+            raise LazyHeaderError(f"Unsupported platform '{platform_name}'.")
+    return tuple(platform_names)
 
 
 def _parse_examples(lines: list[tuple[int, str]]) -> tuple[str, ...]:
@@ -318,10 +321,10 @@ def _parse_examples(lines: list[tuple[int, str]]) -> tuple[str, ...]:
     return tuple(parsed)
 
 
-def _parse_list_literal(raw: str) -> list[str]:
-    normalized = raw.strip()
+def _parse_list_literal(raw_list_text: str) -> list[str]:
+    normalized = raw_list_text.strip()
     if not normalized.startswith("[") or not normalized.endswith("]"):
-        raise LazyHeaderError(f"Expected list literal like [a,b], got: {raw!r}")
+        raise LazyHeaderError(f"Expected list literal like [a,b], got: {raw_list_text!r}")
     body = normalized[1:-1].strip()
     if not body:
         return []

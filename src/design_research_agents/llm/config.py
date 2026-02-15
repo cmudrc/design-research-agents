@@ -149,21 +149,25 @@ def load_config(path: str) -> LLMConfig:
     return LLMConfig(backends=backends)
 
 
-def backend_config_hash(config: BackendConfig) -> str:
+def backend_config_hash(backend_config: BackendConfig) -> str:
     """Return a stable hash for backend configuration."""
-    payload = json.dumps(asdict(config), sort_keys=True, default=str).encode("utf-8")
-    return sha256(payload).hexdigest()[:12]
+    config_payload = json.dumps(
+        asdict(backend_config),
+        sort_keys=True,
+        default=str,
+    ).encode("utf-8")
+    return sha256(config_payload).hexdigest()[:12]
 
 
-def _parse_backend(raw: object, index: int) -> BackendConfig:
-    if not isinstance(raw, dict):
+def _parse_backend(raw_backend: object, index: int) -> BackendConfig:
+    if not isinstance(raw_backend, dict):
         raise ValueError(f"backends[{index}] must be a mapping.")
-    name = _require_str(raw, "name", index)
-    kind = _require_str(raw, "kind", index)
-    default_model = _optional_str(raw.get("default_model"))
-    model_patterns = _parse_model_patterns(raw.get("models"))
-    max_retries = _optional_int(raw.get("max_retries"), default=2)
-    capabilities = _parse_capabilities(raw.get("capabilities"))
+    name = _require_str(raw_backend, "name", index)
+    kind = _require_str(raw_backend, "kind", index)
+    default_model = _optional_str(raw_backend.get("default_model"))
+    model_patterns = _parse_model_patterns(raw_backend.get("models"))
+    max_retries = _optional_int(raw_backend.get("max_retries"), default=2)
+    capabilities = _parse_capabilities(raw_backend.get("capabilities"))
 
     if kind == "openai_service":
         return OpenAIServiceConfig(
@@ -173,12 +177,12 @@ def _parse_backend(raw: object, index: int) -> BackendConfig:
             model_patterns=model_patterns,
             capabilities=capabilities,
             max_retries=max_retries,
-            api_key_env=_optional_str(raw.get("api_key_env")) or "OPENAI_API_KEY",
-            api_key=_optional_str(raw.get("api_key")),
-            base_url=_optional_str(raw.get("base_url")),
+            api_key_env=_optional_str(raw_backend.get("api_key_env")) or "OPENAI_API_KEY",
+            api_key=_optional_str(raw_backend.get("api_key")),
+            base_url=_optional_str(raw_backend.get("base_url")),
         )
     if kind == "openai_compatible_http":
-        base_url = _optional_str(raw.get("base_url")) or ""
+        base_url = _optional_str(raw_backend.get("base_url")) or ""
         if not base_url:
             raise ValueError(f"backends[{index}].base_url is required for {kind}.")
         return OpenAICompatibleHTTPConfig(
@@ -189,11 +193,11 @@ def _parse_backend(raw: object, index: int) -> BackendConfig:
             capabilities=capabilities,
             max_retries=max_retries,
             base_url=base_url,
-            api_key_env=_optional_str(raw.get("api_key_env")) or "OPENAI_API_KEY",
-            api_key=_optional_str(raw.get("api_key")),
+            api_key_env=_optional_str(raw_backend.get("api_key_env")) or "OPENAI_API_KEY",
+            api_key=_optional_str(raw_backend.get("api_key")),
         )
     if kind == "transformers_local":
-        model_id = _optional_str(raw.get("model_id")) or ""
+        model_id = _optional_str(raw_backend.get("model_id")) or ""
         if not model_id:
             raise ValueError(f"backends[{index}].model_id is required for {kind}.")
         return TransformersLocalConfig(
@@ -204,14 +208,14 @@ def _parse_backend(raw: object, index: int) -> BackendConfig:
             capabilities=capabilities,
             max_retries=max_retries,
             model_id=model_id,
-            device=_optional_str(raw.get("device")) or "auto",
-            dtype=_optional_str(raw.get("dtype")) or "auto",
-            quantization=_optional_str(raw.get("quantization")) or "none",
-            trust_remote_code=bool(raw.get("trust_remote_code", False)),
-            revision=_optional_str(raw.get("revision")),
+            device=_optional_str(raw_backend.get("device")) or "auto",
+            dtype=_optional_str(raw_backend.get("dtype")) or "auto",
+            quantization=_optional_str(raw_backend.get("quantization")) or "none",
+            trust_remote_code=bool(raw_backend.get("trust_remote_code", False)),
+            revision=_optional_str(raw_backend.get("revision")),
         )
     if kind == "mlx_local":
-        model_id = _optional_str(raw.get("model_id")) or ""
+        model_id = _optional_str(raw_backend.get("model_id")) or ""
         if not model_id:
             raise ValueError(f"backends[{index}].model_id is required for {kind}.")
         return MlxLocalConfig(
@@ -222,10 +226,10 @@ def _parse_backend(raw: object, index: int) -> BackendConfig:
             capabilities=capabilities,
             max_retries=max_retries,
             model_id=model_id,
-            quantization=_optional_str(raw.get("quantization")) or "none",
+            quantization=_optional_str(raw_backend.get("quantization")) or "none",
         )
     if kind == "llama_cpp":
-        model_path = _optional_str(raw.get("model_path")) or ""
+        model_path = _optional_str(raw_backend.get("model_path")) or ""
         if not model_path:
             raise ValueError(f"backends[{index}].model_path is required for {kind}.")
         return LlamaCppConfig(
@@ -236,13 +240,19 @@ def _parse_backend(raw: object, index: int) -> BackendConfig:
             capabilities=capabilities,
             max_retries=max_retries,
             model_path=model_path,
-            hf_model_repo_id=_optional_str(raw.get("hf_model_repo_id")),
-            api_model=_optional_str(raw.get("api_model")) or "local-model",
-            host=_optional_str(raw.get("host")) or "127.0.0.1",
-            port=_optional_int(raw.get("port"), default=8001),
-            startup_timeout_seconds=_optional_float(raw.get("startup_timeout_seconds"), 60.0),
-            poll_interval_seconds=_optional_float(raw.get("poll_interval_seconds"), 0.25),
-            extra_server_args=_optional_str_list(raw.get("extra_server_args")),
+            hf_model_repo_id=_optional_str(raw_backend.get("hf_model_repo_id")),
+            api_model=_optional_str(raw_backend.get("api_model")) or "local-model",
+            host=_optional_str(raw_backend.get("host")) or "127.0.0.1",
+            port=_optional_int(raw_backend.get("port"), default=8001),
+            startup_timeout_seconds=_optional_float(
+                raw_backend.get("startup_timeout_seconds"),
+                60.0,
+            ),
+            poll_interval_seconds=_optional_float(
+                raw_backend.get("poll_interval_seconds"),
+                0.25,
+            ),
+            extra_server_args=_optional_str_list(raw_backend.get("extra_server_args")),
         )
     if kind == "echo_test":
         return EchoTestConfig(
@@ -252,7 +262,7 @@ def _parse_backend(raw: object, index: int) -> BackendConfig:
             model_patterns=model_patterns or ("echo-test",),
             capabilities=capabilities,
             max_retries=max_retries,
-            model=_optional_str(raw.get("model")) or "echo-test",
+            model=_optional_str(raw_backend.get("model")) or "echo-test",
         )
     raise ValueError(f"backends[{index}].kind '{kind}' is not supported.")
 
@@ -265,45 +275,45 @@ def _ensure_unique_backend_names(backends: tuple[BackendConfig, ...]) -> None:
         seen.add(backend.name)
 
 
-def _require_str(raw: dict[str, object], key: str, index: int) -> str:
-    value = raw.get(key)
-    if not isinstance(value, str) or not value.strip():
+def _require_str(raw_mapping: dict[str, object], key: str, index: int) -> str:
+    raw_field_value = raw_mapping.get(key)
+    if not isinstance(raw_field_value, str) or not raw_field_value.strip():
         raise ValueError(f"backends[{index}].{key} must be a non-empty string.")
-    return value.strip()
+    return raw_field_value.strip()
 
 
-def _optional_str(value: object) -> str | None:
-    if not isinstance(value, str):
+def _optional_str(raw_field_value: object) -> str | None:
+    if not isinstance(raw_field_value, str):
         return None
-    normalized = value.strip()
+    normalized = raw_field_value.strip()
     return normalized or None
 
 
-def _optional_int(value: object, *, default: int) -> int:
-    if value is None:
+def _optional_int(raw_field_value: object, *, default: int) -> int:
+    if raw_field_value is None:
         return default
-    if isinstance(value, bool) or not isinstance(value, int):
+    if isinstance(raw_field_value, bool) or not isinstance(raw_field_value, int):
         raise ValueError("Expected integer value.")
-    return value
+    return raw_field_value
 
 
-def _optional_float(value: object, default: float) -> float:
-    if value is None:
+def _optional_float(raw_field_value: object, default: float) -> float:
+    if raw_field_value is None:
         return default
-    if isinstance(value, bool):
+    if isinstance(raw_field_value, bool):
         raise ValueError("Expected float value.")
-    if isinstance(value, (int, float)):
-        return float(value)
+    if isinstance(raw_field_value, (int, float)):
+        return float(raw_field_value)
     raise ValueError("Expected float value.")
 
 
-def _optional_str_list(value: object) -> tuple[str, ...]:
-    if value is None:
+def _optional_str_list(raw_field_value: object) -> tuple[str, ...]:
+    if raw_field_value is None:
         return ()
-    if not isinstance(value, list):
+    if not isinstance(raw_field_value, list):
         raise ValueError("Expected list of strings.")
     normalized: list[str] = []
-    for item in value:
+    for item in raw_field_value:
         if not isinstance(item, str):
             raise ValueError("Expected list of strings.")
         item_norm = item.strip()
@@ -312,45 +322,47 @@ def _optional_str_list(value: object) -> tuple[str, ...]:
     return tuple(normalized)
 
 
-def _parse_model_patterns(value: object) -> tuple[str, ...]:
-    if value is None:
+def _parse_model_patterns(raw_model_patterns: object) -> tuple[str, ...]:
+    if raw_model_patterns is None:
         return ()
-    if isinstance(value, str):
-        return (value.strip(),) if value.strip() else ()
-    if not isinstance(value, list):
+    if isinstance(raw_model_patterns, str):
+        return (raw_model_patterns.strip(),) if raw_model_patterns.strip() else ()
+    if not isinstance(raw_model_patterns, list):
         raise ValueError("models must be a string or list of strings.")
     patterns: list[str] = []
-    for item in value:
+    for item in raw_model_patterns:
         if isinstance(item, str) and item.strip():
             patterns.append(item.strip())
     return tuple(patterns)
 
 
-def _parse_capabilities(value: object) -> CapabilityOverrides:
-    if value is None:
+def _parse_capabilities(raw_capabilities: object) -> CapabilityOverrides:
+    if raw_capabilities is None:
         return CapabilityOverrides()
-    if not isinstance(value, dict):
+    if not isinstance(raw_capabilities, dict):
         raise ValueError("capabilities must be a mapping.")
     return CapabilityOverrides(
-        streaming=value.get("streaming"),
-        tool_calling=value.get("tool_calling"),
-        json_mode=value.get("json_mode"),
-        vision=value.get("vision"),
-        max_context_tokens=value.get("max_context_tokens"),
+        streaming=raw_capabilities.get("streaming"),
+        tool_calling=raw_capabilities.get("tool_calling"),
+        json_mode=raw_capabilities.get("json_mode"),
+        vision=raw_capabilities.get("vision"),
+        max_context_tokens=raw_capabilities.get("max_context_tokens"),
     )
 
 
-def _normalize_tool_calling(value: ToolCallingMode | bool | None) -> ToolCallingMode:
-    if value is None:
+def _normalize_tool_calling(
+    tool_calling_setting: ToolCallingMode | bool | None,
+) -> ToolCallingMode:
+    if tool_calling_setting is None:
         return "none"
-    if isinstance(value, bool):
-        return "native" if value else "none"
-    return value
+    if isinstance(tool_calling_setting, bool):
+        return "native" if tool_calling_setting else "none"
+    return tool_calling_setting
 
 
-def _normalize_json_mode(value: JSONMode | bool | None) -> JSONMode:
-    if value is None:
+def _normalize_json_mode(json_mode_setting: JSONMode | bool | None) -> JSONMode:
+    if json_mode_setting is None:
         return "none"
-    if isinstance(value, bool):
-        return "native" if value else "none"
-    return value
+    if isinstance(json_mode_setting, bool):
+        return "native" if json_mode_setting else "none"
+    return json_mode_setting

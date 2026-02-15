@@ -2,7 +2,7 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: install test lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk
+.PHONY: install test coverage lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk
 
 # Install a batteries-included development environment.
 install:
@@ -22,6 +22,11 @@ install-all:
 # Run the unit test suite.
 test:
 	PYTHONPATH=src pytest
+
+# Estimate line coverage for the stable unit-suite baseline.
+coverage:
+	mkdir -p artifacts/coverage
+	PYTHONPATH=src pytest --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
 
 # Run lint checks without modifying files.
 lint:

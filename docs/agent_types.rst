@@ -151,7 +151,7 @@ AgentRuntime
   - ``mode="react"`` (delegates directly to ``MultiStepCodeToolCallingAgent``),
   - ``mode="plan_execute"`` (planner JSON + step execution),
   - ``mode="propose_critic"`` (iterative propose/critic loop),
-  - ``mode="triage"`` (tool-routing selection + delegated agent execution).
+  - ``mode="agent_routing"`` (tool-routing selection + delegated agent execution).
 - Tracks soft budget metadata (latency/cost observations) across mode loops.
 
 Workflow Runtime

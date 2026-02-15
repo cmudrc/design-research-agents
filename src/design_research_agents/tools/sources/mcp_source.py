@@ -34,11 +34,11 @@ class _StdioMcpClient:
         self._initialized = False
 
     def list_tools(self) -> list[dict[str, object]]:
-        response = self._request("tools/list", {})
-        result = response.get("result")
-        if not isinstance(result, Mapping):
+        list_tools_response = self._request("tools/list", {})
+        response_result = list_tools_response.get("result")
+        if not isinstance(response_result, Mapping):
             raise McpProtocolError("tools/list response missing result object.")
-        tools = result.get("tools")
+        tools = response_result.get("tools")
         if not isinstance(tools, list):
             raise McpProtocolError("tools/list result missing tools array.")
         parsed: list[dict[str, object]] = []
@@ -48,14 +48,14 @@ class _StdioMcpClient:
         return parsed
 
     def call_tool(self, *, tool_name: str, arguments: Mapping[str, object]) -> dict[str, object]:
-        response = self._request(
+        call_tool_response = self._request(
             "tools/call",
             {"name": tool_name, "arguments": dict(arguments)},
         )
-        result = response.get("result")
-        if not isinstance(result, Mapping):
+        response_result = call_tool_response.get("result")
+        if not isinstance(response_result, Mapping):
             raise McpProtocolError("tools/call response missing result object.")
-        return dict(result)
+        return dict(response_result)
 
     def _request(self, method: str, params: Mapping[str, object]) -> dict[str, object]:
         self._ensure_started()
@@ -67,24 +67,24 @@ class _StdioMcpClient:
 
         self._request_id += 1
         request_id = self._request_id
-        payload = {
+        request_payload = {
             "jsonrpc": "2.0",
             "id": request_id,
             "method": method,
             "params": dict(params),
         }
-        process.stdin.write(json.dumps(payload, ensure_ascii=True) + "\n")
+        process.stdin.write(json.dumps(request_payload, ensure_ascii=True) + "\n")
         process.stdin.flush()
 
-        response = self._read_response(expected_id=request_id)
-        if "error" in response:
-            error = response.get("error")
+        response_payload = self._read_response(expected_id=request_id)
+        if "error" in response_payload:
+            error = response_payload.get("error")
             if isinstance(error, Mapping):
                 message = str(error.get("message", "Unknown MCP error"))
             else:
                 message = "Unknown MCP error"
             raise McpProtocolError(f"MCP method '{method}' failed: {message}")
-        return response
+        return response_payload
 
     def _ensure_started(self) -> None:
         if self._process is not None:
@@ -165,15 +165,15 @@ class _StdioMcpClient:
                     f"MCP server '{self._server.id}' closed unexpectedly. stderr={stderr_text!r}"
                 )
             try:
-                payload = json.loads(line)
+                response_payload = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if not isinstance(payload, Mapping):
+            if not isinstance(response_payload, Mapping):
                 continue
-            response_id = payload.get("id")
+            response_id = response_payload.get("id")
             if response_id != expected_id:
                 continue
-            return dict(payload)
+            return dict(response_payload)
 
     def close(self) -> None:
         """Terminate the managed MCP subprocess if it is running."""
@@ -248,12 +248,15 @@ class McpToolSource:
             )
 
         try:
-            response = client.call_tool(tool_name=route.remote_tool_name, arguments=input_dict)
+            call_response_payload = client.call_tool(
+                tool_name=route.remote_tool_name,
+                arguments=input_dict,
+            )
         except Exception as exc:
             return ToolResult(tool_name=tool_name, ok=False, error=str(exc))
 
-        is_error = bool(response.get("isError", False))
-        structured_content = response.get("structuredContent")
+        is_error = bool(call_response_payload.get("isError", False))
+        structured_content = call_response_payload.get("structuredContent")
 
         if isinstance(structured_content, Mapping):
             if {"ok", "result", "artifacts", "warnings"}.issubset(structured_content.keys()):
@@ -273,7 +276,7 @@ class McpToolSource:
                 metadata={"server_id": route.server_id, "source": "mcp"},
             )
 
-        content = response.get("content")
+        content = call_response_payload.get("content")
         text_payload = ""
         if isinstance(content, list):
             for item in content:

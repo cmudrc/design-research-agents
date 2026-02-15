@@ -16,7 +16,7 @@ from design_research_agents.contracts.tools import ToolRuntime
 
 from .workflow_runtime import WorkflowRuntime
 
-DEFAULT_INVENTORY_CSV_PATH = "artifacts/examples/workflow_tool_inventory.csv"
+DEFAULT_INVENTORY_CSV_PATH = "artifacts/examples/pure_tool_workflow_inventory.csv"
 DEFAULT_INVENTORY_CSV_CONTENT = (
     "tool,source\n"
     "calculator,core\n"

@@ -1,4 +1,4 @@
-"""Tool runtime adapter used by ``AgentRuntime`` triage mode."""
+"""Tool runtime adapter used by ``AgentRuntime`` agent-routing mode."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from design_research_agents.contracts.agent import Agent
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 
 
-class TriageToolRuntimeAdapter(ToolRuntime):
+class AgentRoutingToolRuntimeAdapter(ToolRuntime):
     """Expose named agent alternatives as router-selectable virtual tools."""
 
     def __init__(
@@ -38,7 +38,7 @@ class TriageToolRuntimeAdapter(ToolRuntime):
         }
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """Return virtual tool specs derived from triage alternatives."""
+        """Return virtual tool specs derived from agent-routing alternatives."""
         specs: list[ToolSpec] = []
         for name, agent in self._alternatives.items():
             specs.append(
@@ -74,7 +74,7 @@ class TriageToolRuntimeAdapter(ToolRuntime):
                 tool_name=tool_name,
                 result={},
                 ok=False,
-                error=f"Unknown triage alternative '{tool_name}'.",
+                error=f"Unknown agent-routing alternative '{tool_name}'.",
                 metadata={
                     "request_id": request_id,
                     "dependency_keys": sorted(dependencies.keys()),

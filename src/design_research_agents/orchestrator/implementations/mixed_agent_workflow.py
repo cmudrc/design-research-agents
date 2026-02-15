@@ -23,7 +23,7 @@ from .workflow_runtime import WorkflowRuntime
 
 DEFAULT_WORKFLOW_TOPIC = "agent orchestration"
 DEFAULT_REPORT_TOPIC = "agent orchestration"
-DEFAULT_REPORT_PATH = "artifacts/examples/mixed_workflow_report.json"
+DEFAULT_REPORT_PATH = "artifacts/examples/mixed_agent_workflow_report.json"
 DEFAULT_WRITER_AGENT_NAME = "writer_agent"
 
 
