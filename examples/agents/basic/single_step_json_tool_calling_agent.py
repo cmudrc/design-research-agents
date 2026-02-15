@@ -4,7 +4,7 @@ The script calls a local llama-cpp server by default and runs a single arithmeti
 through model-selected tool invocation.
 """
 
-from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, Toolbox
 from design_research_agents.agent import SingleStepJsonToolCallingAgent
 
 
@@ -14,7 +14,7 @@ def main() -> None:
     This entrypoint shows model-guided tool selection in a single step.
     """
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     agent = SingleStepJsonToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,

@@ -40,7 +40,7 @@ class ToolSideEffects:
 class ToolMetadata:
     """Tool source and guardrail metadata surfaced to runtimes/agents."""
 
-    source: Literal["core", "mcp", "lazy", "custom"] = "core"
+    source: Literal["core", "mcp", "script", "custom"] = "core"
     side_effects: ToolSideEffects = field(default_factory=ToolSideEffects)
     timeout_s: int = 30
     max_output_bytes: int = 65_536

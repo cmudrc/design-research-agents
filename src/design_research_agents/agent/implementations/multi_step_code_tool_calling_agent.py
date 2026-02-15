@@ -58,6 +58,7 @@ from design_research_agents.contracts.llm import (
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt
 from design_research_agents.tracing import (
+    Tracer,
     emit_continuation_decision,
     emit_guardrail_decision,
     finish_model_call,
@@ -87,6 +88,7 @@ class MultiStepCodeToolCallingAgent(Agent):
         normalize_generated_code_per_step: bool = False,
         stop_on_step_failure: bool = True,
         default_tools_per_step: Sequence[Mapping[str, object]] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step agent.
 
@@ -103,6 +105,7 @@ class MultiStepCodeToolCallingAgent(Agent):
             default_tools_per_step: Optional allowed-tool config forwarded to each
                 ``SingleStepCodeToolCallingAgent`` step. When omitted, all runtime tools are
                 available per step.
+            tracer: Optional explicit tracer dependency.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -113,6 +116,7 @@ class MultiStepCodeToolCallingAgent(Agent):
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
+        self._tracer = tracer
         self._max_steps = max_steps
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._execution_timeout_seconds_per_step = execution_timeout_seconds_per_step
@@ -158,6 +162,7 @@ class MultiStepCodeToolCallingAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         prompt = _extract_prompt(normalized_input)
         max_steps = _extract_positive_int(
@@ -205,6 +210,7 @@ class MultiStepCodeToolCallingAgent(Agent):
             validate_tool_input_schema=validate_tool_input_schema,
             normalize_generated_code=normalize_generated_code_per_step,
             default_tools=self._default_tools_per_step,
+            tracer=self._tracer,
         )
 
         memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]

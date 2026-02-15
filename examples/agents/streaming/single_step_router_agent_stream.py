@@ -3,7 +3,7 @@
 import dataclasses
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, Toolbox
 from design_research_agents.agent import SingleStepRouterAgent
 from design_research_agents.contracts.agent import AgentStreamEvent
 
@@ -22,7 +22,7 @@ def _print_stream_event(event: AgentStreamEvent) -> None:
 def main() -> None:
     """Execute one router-agent streaming run and print events."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     agent = SingleStepRouterAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,

@@ -95,8 +95,8 @@ def test_tool_result_rejects_legacy_success_and_output_fields() -> None:
 
 
 def test_package_no_longer_exports_base_tool_runtime() -> None:
-    assert hasattr(design_research_agents, "UnifiedToolRuntime")
-    assert "UnifiedToolRuntime" in design_research_agents.__all__
+    assert hasattr(design_research_agents, "Toolbox")
+    assert "Toolbox" in design_research_agents.__all__
     assert "tools" not in design_research_agents.__all__
     assert not hasattr(design_research_agents, "BaseToolRuntime")
     from design_research_agents import tools as tools_module

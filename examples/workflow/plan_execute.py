@@ -3,14 +3,14 @@
 from design_research_agents import (
     LlamaCppServerLLMClient,
     PlanExecuteWorkflow,
-    UnifiedToolRuntime,
+    Toolbox,
 )
 
 
 def main() -> None:
     """Run ``plan_execute`` orchestration with configurable runtime dependencies."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     workflow = PlanExecuteWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,

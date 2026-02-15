@@ -33,12 +33,12 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     ),
     "single_step_json_lazy_rubric_score_agent.py": (
         (
-            '{"tool_name":"lazy::rubric_score","tool_input":{"text":"Agents can quickly score '
+            '{"tool_name":"script::rubric_score","tool_input":{"text":"Agents can quickly score '
             'this sample summary.","max_score":12}}'
         ),
     ),
     "single_step_json_lazy_repo_quickscan_agent.py": (
-        '{"tool_name":"lazy::repo_quickscan","tool_input":{"include_hidden":false}}',
+        '{"tool_name":"script::repo_quickscan","tool_input":{"include_hidden":false}}',
     ),
     "single_step_code_tool_calling_agent.py": (
         "\n".join(
@@ -50,7 +50,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
                 'describe_result = call_tool("data.describe", {"path": '
                 '"artifacts/examples/single_step_tool_inventory.csv", "kind": "csv"})',
                 'search_result = call_tool("search.ripgrep", {"query": '
-                '"UnifiedToolRuntime", "root": "src/design_research_agents/tools", '
+                '"Toolbox", "root": "src/design_research_agents/tools", '
                 '"max_matches": 3})',
                 "final_output = {",
                 '    "csv_path": write_result["path"],',
@@ -90,7 +90,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         (
             '{"steps":[{"step_id":"analyze_repo_tools","instruction":"Write a small CSV artifact '
             "describing tool sources, then describe that CSV and search the tools package for "
-            'UnifiedToolRuntime.","success_criteria":"Return csv row stats and source-code '
+            'Toolbox.","success_criteria":"Return csv row stats and source-code '
             'match count."}]}'
         ),
         "\n".join(
@@ -103,7 +103,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
                 'describe_result = call_tool("data.describe", {"path": '
                 '"artifacts/examples/plan_execute_runtime_inventory.csv", "kind": "csv"})',
                 'search_result = call_tool("search.ripgrep", {"query": '
-                '"UnifiedToolRuntime", "root": "src/design_research_agents/tools", '
+                '"Toolbox", "root": "src/design_research_agents/tools", '
                 '"max_matches": 4})',
                 "final_output = {",
                 '  "csv_path": write_result["path"],',
@@ -147,7 +147,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         "\n".join(
             [
                 'repo_files = call_tool("fs.list_dir", {"path": ".", "max_entries": 30})',
-                'search_result = call_tool("search.ripgrep", {"query": "UnifiedToolRuntime", '
+                'search_result = call_tool("search.ripgrep", {"query": "Toolbox", '
                 '"root": "src", "max_matches": 2})',
                 "final_output = {",
                 '  "top_level_entry_count": repo_files["count"],',

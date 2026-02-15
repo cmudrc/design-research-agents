@@ -22,16 +22,17 @@ This project focuses on composable agent systems you can run, inspect, and test:
 ```python
 from design_research_agents import (
     LlamaCppServerLLMClient,
-    ModelSelectionPolicy,
+    ModelSelector,
     PlanExecuteWorkflow,
     SingleStepJsonToolCallingAgent,
-    UnifiedToolRuntime,
+    Toolbox,
 )
 
 agent = SingleStepJsonToolCallingAgent(...)
-tool_runtime = UnifiedToolRuntime(...)
+tool_runtime = Toolbox(...)
 workflow = PlanExecuteWorkflow(...)
-policy = ModelSelectionPolicy(...)
+selector = ModelSelector(...)
+decision = selector.select(task="summarize interview findings", output="decision")
 llm_client = LlamaCppServerLLMClient()
 ```
 
@@ -67,7 +68,10 @@ See the examples index and sub-guides:
 
 - Getting started: [`docs/quickstart.rst`](docs/quickstart.rst)
 - Project philosophy: [`docs/philosophy.rst`](docs/philosophy.rst)
-- Agent types: [`docs/agent_types.rst`](docs/agent_types.rst)
+- LLM clients: [`docs/llm_clients/index.rst`](docs/llm_clients/index.rst)
+- Agents: [`docs/agents/index.rst`](docs/agents/index.rst)
+- Tools: [`docs/tools/index.rst`](docs/tools/index.rst)
+- Workflows: [`docs/workflows/index.rst`](docs/workflows/index.rst)
 - API docs: [`docs/api.rst`](docs/api.rst)
 
 Build docs locally with `make docs`.

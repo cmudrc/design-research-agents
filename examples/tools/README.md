@@ -1,6 +1,6 @@
 ## Tool Runtime Examples
 
-These examples focus on `UnifiedToolRuntime` behavior across different tool
+These examples focus on `Toolbox` behavior across different tool
 sources.
 
 ## What Each Example Demonstrates
@@ -8,7 +8,7 @@ sources.
 - `mcp_minimal.py`
   - Minimal MCP-only runtime with canonical namespaced tool calls.
 - `source_fusion_story.py`
-  - One run combining core tools, lazy tools, and MCP tools into a single report.
+  - One run combining core tools, script tools, and MCP tools into a single report.
 
 ## Quick Start
 
@@ -29,5 +29,5 @@ PYTHONPATH=src python3 examples/tools/source_fusion_story.py
 
 - MCP startup failures:
   - Confirm `PYTHONPATH=src` and that MCP dependencies are installed.
-- Missing lazy tools in `source_fusion_story.py`:
-  - Verify `examples/lazy_tools` exists and lazy headers are valid.
+- Missing script tools in `source_fusion_story.py`:
+  - Verify `examples/lazy_tools` exists and script tool paths are valid.

@@ -2,7 +2,7 @@
 
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, MixedAgentWorkflow, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, MixedAgentWorkflow, Toolbox
 from design_research_agents.agent import SingleStepDirectLLMAgent
 from design_research_agents.contracts.workflow import AgentStep, LogicStep, ToolStep
 
@@ -10,7 +10,7 @@ from design_research_agents.contracts.workflow import AgentStep, LogicStep, Tool
 def main() -> None:
     """Run the configured mixed workflow twice to demonstrate reusable routing."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     writer_agent = SingleStepDirectLLMAgent(llm_client=llm_client)
 
     workflow_steps = [

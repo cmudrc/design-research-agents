@@ -30,7 +30,7 @@ def test_parse_primitives_and_env() -> None:
         cfg._parse_env({"": "x"})
 
 
-def test_parse_core_and_lazy_configs() -> None:
+def test_parse_core_and_script_configs() -> None:
     core = cfg._parse_core_config(
         {
             "enabled": False,
@@ -50,24 +50,38 @@ def test_parse_core_and_lazy_configs() -> None:
 
     assert cfg._parse_core_config("bad") == cfg.CoreToolsConfig()
 
-    lazy = cfg._parse_lazy_config(
+    script = cfg._parse_script_config(
         {
             "enabled": True,
-            "search_paths": ["tools", " ~/.dra/tools "],
-            "allow_network": True,
-            "allow_writes_outside_artifacts": True,
-            "allowed_commands": ["uv", "pytest"],
-            "timeout_s_default": 99,
+            "tools": [
+                {
+                    "name": "quick",
+                    "path": " /tmp/quick.py ",
+                    "description": " quick tool ",
+                    "filesystem_read": True,
+                    "filesystem_write": True,
+                    "network": False,
+                    "commands": ["uv", "pytest"],
+                    "timeout_s": 99,
+                    "permissions": ["tool:quick"],
+                }
+            ],
         }
     )
-    assert lazy.enabled is True
-    assert lazy.search_paths == ("tools", "~/.dra/tools")
-    assert lazy.allow_network is True
-    assert lazy.allow_writes_outside_artifacts is True
-    assert lazy.allowed_commands == ("uv", "pytest")
-    assert lazy.timeout_s_default == 99
+    assert script.enabled is True
+    assert len(script.tools) == 1
+    tool = script.tools[0]
+    assert tool.name == "quick"
+    assert tool.path == "/tmp/quick.py"
+    assert tool.description == "quick tool"
+    assert tool.filesystem_read is True
+    assert tool.filesystem_write is True
+    assert tool.network is False
+    assert tool.commands == ("uv", "pytest")
+    assert tool.timeout_s == 99
+    assert tool.permissions == ("tool:quick",)
 
-    assert cfg._parse_lazy_config("bad") == cfg.LazyToolsConfig()
+    assert cfg._parse_script_config("bad") == cfg.ScriptToolsConfig()
 
 
 def test_parse_mcp_config_validation_and_defaults() -> None:
@@ -124,9 +138,12 @@ def test_load_tool_runtime_config_from_yaml(tmp_path, monkeypatch: pytest.Monkey
                 "  servers:",
                 "    - id: alpha",
                 '      command: ["echo", "hello"]',
-                "lazy_tools:",
+                "script_tools:",
                 "  enabled: true",
-                "  timeout_s_default: 50",
+                "  tools:",
+                "    - name: quick",
+                "      path: /tmp/quick.py",
+                "      description: quick",
             ]
         ),
         encoding="utf-8",
@@ -137,8 +154,13 @@ def test_load_tool_runtime_config_from_yaml(tmp_path, monkeypatch: pytest.Monkey
     assert loaded.core_tools.allow_network is True
     assert loaded.mcp.enabled is True
     assert loaded.mcp.servers[0].id == "alpha"
-    assert loaded.lazy_tools.enabled is True
-    assert loaded.lazy_tools.timeout_s_default == 50
+    assert loaded.script_tools.enabled is True
+    assert loaded.script_tools.tools[0].name == "quick"
+
+    legacy_file = tmp_path / "legacy.yaml"
+    legacy_file.write_text("lazy_tools:\n  enabled: true\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="script_tools"):
+        cfg.load_tool_runtime_config(str(legacy_file))
 
     invalid_file = tmp_path / "invalid.yaml"
     invalid_file.write_text("- not-a-mapping\n", encoding="utf-8")

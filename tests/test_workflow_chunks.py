@@ -19,7 +19,7 @@ from design_research_agents.contracts.llm import (
 )
 from design_research_agents.contracts.workflow import AgentStep, LogicStep, ToolStep
 from design_research_agents.schemas import SchemaValidationError
-from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.tools import Toolbox
 from design_research_agents.workflow.implementations.mixed_agent_workflow import (
     mixed_agent_workflow,
 )
@@ -265,7 +265,7 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
 def test_pure_tool_workflow_accepts_user_defined_steps_with_inputs() -> None:
     dataset_path = _write_dataset(filename="pure_arbitrary_dataset.csv")
     workflow = pure_tool_workflow(
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         steps=_pure_dataset_steps(),
         input_schema=_pure_input_schema(),
     )
@@ -291,7 +291,7 @@ def test_pure_tool_workflow_accepts_user_defined_steps_with_inputs() -> None:
 def test_pure_tool_workflow_validates_inputs_with_schema_hook() -> None:
     dataset_path = _write_dataset(filename="pure_schema_dataset.csv")
     workflow = pure_tool_workflow(
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         steps=_pure_dataset_steps(),
         input_schema=_pure_input_schema(),
     )
@@ -316,7 +316,7 @@ def test_pure_tool_workflow_without_schema_allows_arbitrary_inputs() -> None:
         )
     ]
     workflow = pure_tool_workflow(
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         steps=steps,
     )
 
@@ -329,14 +329,14 @@ def test_pure_tool_workflow_without_schema_allows_arbitrary_inputs() -> None:
 def test_mixed_workflow_requires_non_empty_agents_and_steps() -> None:
     with pytest.raises(ValueError, match="agents"):
         mixed_agent_workflow(
-            tool_runtime=UnifiedToolRuntime(),
+            tool_runtime=Toolbox(),
             agents={},
             steps=[LogicStep(step_id="noop", handler=lambda context: {})],
         )
 
     with pytest.raises(ValueError, match="steps"):
         mixed_agent_workflow(
-            tool_runtime=UnifiedToolRuntime(),
+            tool_runtime=Toolbox(),
             agents={"any": _StaticJsonDraftAgent(payload={"title": "x"})},
             steps=[],
         )
@@ -347,7 +347,7 @@ def test_mixed_workflow_executes_user_defined_branching_steps() -> None:
         payload={"title": "Agent title", "summary": "Agent summary"}
     )
     workflow = mixed_agent_workflow(
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         agents={"writer_agent": writer_agent},
         steps=_mixed_branching_steps(agent_name="writer_agent"),
         base_context={"audience": "research"},
@@ -387,7 +387,7 @@ def test_mixed_workflow_injects_prompt_and_preserves_base_context() -> None:
         ),
     ]
     workflow = mixed_agent_workflow(
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         agents={"analyst_agent": writer_agent},
         steps=custom_steps,
         base_context={"base_tag": "custom"},

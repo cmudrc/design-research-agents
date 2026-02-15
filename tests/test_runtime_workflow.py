@@ -30,7 +30,7 @@ from design_research_agents.contracts.workflow import (
     WorkflowResult,
     WorkflowStepResult,
 )
-from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import WorkflowRuntime
 
 
@@ -212,7 +212,7 @@ def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
 
     llm_runtime = _SequenceLLMClient(response_texts=response_texts)
     llm_direct = _SequenceLLMClient(response_texts=list(response_texts))
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
 
     runtime_agent = AgentRuntime(
         llm_client=llm_runtime,
@@ -247,7 +247,7 @@ def test_multi_step_json_tool_calling_agent_runs_one_successful_step() -> None:
     )
     agent = MultiStepJsonToolCallingAgent(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         max_steps=3,
     )
 
@@ -269,7 +269,7 @@ def test_multi_step_json_tool_calling_agent_uses_fallback_continuation_on_invali
     )
     agent = MultiStepJsonToolCallingAgent(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         max_steps=3,
     )
 
@@ -292,7 +292,7 @@ def test_multi_step_json_tool_calling_agent_stops_on_step_failure() -> None:
     )
     agent = MultiStepJsonToolCallingAgent(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         max_steps=3,
         stop_on_step_failure=True,
     )
@@ -327,7 +327,7 @@ def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         mode="plan_execute",
         controls=RuntimeControls(max_iterations=2),
     )
@@ -363,7 +363,7 @@ def test_agent_runtime_propose_critic_stops_on_approval() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         mode="propose_critic",
         controls=RuntimeControls(max_iterations=3),
     )
@@ -384,7 +384,7 @@ def test_agent_runtime_agent_routing_selects_and_executes_named_alternative() ->
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         mode="agent_routing",
         agent_routing_alternatives={
             "alt_one": _StaticAgent(marker="one"),
@@ -424,7 +424,7 @@ def test_agent_runtime_stream_emits_delta_then_completed() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         mode="plan_execute",
     )
 

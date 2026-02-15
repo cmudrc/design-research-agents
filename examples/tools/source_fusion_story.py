@@ -6,12 +6,12 @@ import json
 import sys
 from collections.abc import Mapping
 
-from design_research_agents import UnifiedToolRuntime
-from design_research_agents.tools.config import McpServerConfig
+from design_research_agents import Toolbox
+from design_research_agents.tools.config import McpServer, ScriptTool
 
 
 def _invoke_dict(
-    runtime: UnifiedToolRuntime,
+    runtime: Toolbox,
     tool_name: str,
     tool_input_payload: Mapping[str, object],
 ) -> dict[str, object]:
@@ -33,12 +33,29 @@ def _invoke_dict(
 
 def main() -> None:
     """Run a deterministic multi-source story and persist a JSON artifact."""
-    runtime = UnifiedToolRuntime(
+    runtime = Toolbox(
         workspace_root=".",
         enable_core_tools=True,
-        lazy_search_paths=("examples/lazy_tools",),
+        script_tools=(
+            ScriptTool(
+                name="rubric_score",
+                path="examples/lazy_tools/python/rubric_score.py",
+                description="Score text against a simple rubric.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "text": {"type": "string"},
+                        "max_score": {"type": "integer"},
+                    },
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+                output_schema={"type": "object"},
+                filesystem_write=True,
+            ),
+        ),
         mcp_servers=(
-            McpServerConfig(
+            McpServer(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents.mcp_server"),
                 env={"PYTHONPATH": "src"},
@@ -64,7 +81,7 @@ def main() -> None:
         )
         lazy_score = _invoke_dict(
             runtime,
-            "lazy::rubric_score",
+            "script::rubric_score",
             {"text": story_text, "max_score": 20},
         )
         mcp_stats = _invoke_dict(runtime, "local_core::text.word_count", {"text": story_text})
@@ -72,7 +89,7 @@ def main() -> None:
             runtime,
             "search.ripgrep",
             {
-                "query": "UnifiedToolRuntime",
+                "query": "Toolbox",
                 "root": "src/design_research_agents/tools",
                 "max_matches": 5,
             },

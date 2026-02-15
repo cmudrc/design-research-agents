@@ -9,6 +9,7 @@ from design_research_agents.agent.runtime_controls import RuntimeControls
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.tracing import Tracer
 
 
 class PlanExecuteWorkflow(Agent):
@@ -20,6 +21,7 @@ class PlanExecuteWorkflow(Agent):
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
         controls: RuntimeControls | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize the underlying runtime."""
         self._runtime = AgentRuntime(
@@ -27,6 +29,7 @@ class PlanExecuteWorkflow(Agent):
             tool_runtime=tool_runtime,
             mode="plan_execute",
             controls=controls,
+            tracer=tracer,
         )
 
     def run(
@@ -63,12 +66,14 @@ def plan_execute_workflow(
     llm_client: LLMClient,
     tool_runtime: ToolRuntime,
     controls: RuntimeControls | None = None,
+    tracer: Tracer | None = None,
 ) -> PlanExecuteWorkflow:
     """Return a configured ``plan_execute`` workflow chunk."""
     return PlanExecuteWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         controls=controls,
+        tracer=tracer,
     )
 
 

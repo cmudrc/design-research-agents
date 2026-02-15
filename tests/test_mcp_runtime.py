@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import sys
 
-from design_research_agents.tools import UnifiedToolRuntime
-from design_research_agents.tools.config import McpServerConfig
+from design_research_agents.tools import Toolbox
+from design_research_agents.tools.config import McpServer
 
 
 def test_mcp_stdio_server_list_and_call() -> None:
-    runtime = UnifiedToolRuntime.mcp(
-        servers=(
-            McpServerConfig(
+    runtime = Toolbox(
+        mcp_servers=(
+            McpServer(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents.mcp_server"),
                 env={"PYTHONPATH": "src"},

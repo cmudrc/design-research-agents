@@ -38,6 +38,7 @@ from design_research_agents.contracts.llm import (
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
+    Tracer,
     emit_guardrail_decision,
     finish_model_call,
     finish_trace_run,
@@ -107,6 +108,7 @@ class SingleStepCodeToolCallingAgent(Agent):
         validate_tool_input_schema: bool = False,
         normalize_generated_code: bool = False,
         default_tools: Sequence[Mapping[str, object]] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a single-step code agent.
 
@@ -120,6 +122,7 @@ class SingleStepCodeToolCallingAgent(Agent):
                 rewrites for common non-canonical tool-call patterns.
             default_tools: Optional default allowed-tool list compiled at init time.
                 When omitted, all runtime-registered tools are allowed by default.
+            tracer: Optional explicit tracer dependency.
         """
         if max_tool_calls < 1:
             raise ValueError("max_tool_calls must be >= 1.")
@@ -130,6 +133,7 @@ class SingleStepCodeToolCallingAgent(Agent):
         self._tool_runtime = tool_runtime
         self._max_tool_calls = max_tool_calls
         self._execution_timeout_seconds = execution_timeout_seconds
+        self._tracer = tracer
         self._validate_tool_input_schema = validate_tool_input_schema
         self._normalize_generated_code = normalize_generated_code
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
@@ -166,6 +170,7 @@ class SingleStepCodeToolCallingAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         allowed_tools, allowed_tools_source = _extract_allowed_tools(
             default_allowed_tools=self._compiled_default_allowed_tools,

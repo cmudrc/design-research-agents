@@ -58,6 +58,7 @@ from design_research_agents.contracts.llm import (
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt
 from design_research_agents.tracing import (
+    Tracer,
     emit_continuation_decision,
     emit_guardrail_decision,
     finish_model_call,
@@ -82,6 +83,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         tool_runtime: ToolRuntime,
         max_steps: int = 5,
         stop_on_step_failure: bool = True,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step JSON tool-calling agent.
 
@@ -90,12 +92,14 @@ class MultiStepJsonToolCallingAgent(Agent):
             tool_runtime: Tool runtime shared across all steps.
             max_steps: Maximum number of action-observation iterations.
             stop_on_step_failure: Whether to stop immediately when one step fails.
+            tracer: Optional explicit tracer dependency.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
+        self._tracer = tracer
         self._max_steps = max_steps
         self._stop_on_step_failure = stop_on_step_failure
         self._continuation_response_schema = build_continuation_response_schema()
@@ -128,6 +132,7 @@ class MultiStepJsonToolCallingAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         prompt = _extract_prompt(normalized_input)
         max_steps = _extract_positive_int(
@@ -153,6 +158,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         step_agent = SingleStepJsonToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
+            tracer=self._tracer,
         )
 
         memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]

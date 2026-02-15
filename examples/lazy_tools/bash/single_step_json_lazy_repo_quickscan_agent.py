@@ -1,25 +1,40 @@
-"""Runnable example using one ``SingleStepJsonToolCallingAgent`` lazy tool call.
+"""Runnable example using one ``SingleStepJsonToolCallingAgent`` script tool call.
 
-This script enables lazy tool discovery for the Bash lazy-tool example and
-asks the model to execute ``lazy::repo_quickscan`` in one step.
+This script configures one script tool for the Bash example and
+asks the model to execute ``script::repo_quickscan`` in one step.
 """
 
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, Toolbox
 from design_research_agents.agent import SingleStepJsonToolCallingAgent
+from design_research_agents.tools.config import ScriptTool
 
 
 def main() -> None:
-    """Run one single-step agent call against ``lazy::repo_quickscan``."""
+    """Run one single-step agent call against ``script::repo_quickscan``."""
     script_dir = Path(__file__).resolve().parent
     repo_root = script_dir.parents[2]
 
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime.lazy(
-        search_paths=(str(script_dir),),
+    tool_runtime = Toolbox(
         workspace_root=str(repo_root),
         enable_core_tools=False,
+        script_tools=(
+            ScriptTool(
+                name="repo_quickscan",
+                path=str(script_dir / "repo_quickscan.sh"),
+                description="Produce a quick repository inventory snapshot.",
+                input_schema={
+                    "type": "object",
+                    "properties": {"include_hidden": {"type": "boolean"}},
+                    "additionalProperties": False,
+                },
+                output_schema={"type": "object"},
+                filesystem_read=True,
+                filesystem_write=True,
+            ),
+        ),
     )
     agent = SingleStepJsonToolCallingAgent(
         llm_client=llm_client,
@@ -27,7 +42,7 @@ def main() -> None:
     )
 
     result = agent.run(
-        prompt="Call lazy::repo_quickscan with include_hidden=false.",
+        prompt="Call script::repo_quickscan with include_hidden=false.",
         request_id="example-lazy-repo-quickscan-agent-001",
     )
 

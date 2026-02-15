@@ -14,6 +14,7 @@ from design_research_agents.contracts.workflow import (
     WorkflowResult,
 )
 from design_research_agents.schemas import validate_payload_against_schema
+from design_research_agents.tracing import Tracer
 
 from .workflow_runtime import WorkflowRuntime
 
@@ -42,9 +43,10 @@ class PureToolWorkflow:
         steps: Sequence[PureWorkflowStep],
         input_schema: Mapping[str, object] | None = None,
         base_context: Mapping[str, object] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Store runtime dependencies, step graph, and optional input schema."""
-        self._runtime = WorkflowRuntime(tool_runtime=tool_runtime)
+        self._runtime = WorkflowRuntime(tool_runtime=tool_runtime, tracer=tracer)
         self._steps = _normalize_steps(steps)
         self._input_schema = input_schema
         self._base_context = dict(base_context or {})
@@ -83,6 +85,7 @@ def pure_tool_workflow(
     steps: Sequence[PureWorkflowStep],
     input_schema: Mapping[str, object] | None = None,
     base_context: Mapping[str, object] | None = None,
+    tracer: Tracer | None = None,
 ) -> PureToolWorkflow:
     """Return a configured pure-tool workflow orchestration chunk."""
     return PureToolWorkflow(
@@ -90,6 +93,7 @@ def pure_tool_workflow(
         steps=steps,
         input_schema=input_schema,
         base_context=base_context,
+        tracer=tracer,
     )
 
 

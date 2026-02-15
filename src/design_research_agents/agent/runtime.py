@@ -53,6 +53,7 @@ from design_research_agents.schemas import (
     validate_payload_against_schema,
 )
 from design_research_agents.tracing import (
+    Tracer,
     finish_model_call,
     finish_trace_run,
     start_model_call,
@@ -164,6 +165,7 @@ class AgentRuntime(Agent):
         controls: RuntimeControls | None = None,
         agent_routing_alternatives: Mapping[str, Agent] | None = None,
         agent_routing_descriptions: Mapping[str, str] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-mode runtime.
 
@@ -174,10 +176,12 @@ class AgentRuntime(Agent):
             controls: Shared runtime controls.
             agent_routing_alternatives: Constructor-provided agent-routing alternatives.
             agent_routing_descriptions: Optional alternative descriptions for agent routing.
+            tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._mode = mode
+        self._tracer = tracer
         self._controls = controls or RuntimeControls()
         self._agent_routing_alternatives = {
             name.strip(): agent
@@ -213,6 +217,7 @@ class AgentRuntime(Agent):
             request_id=resolved_request_id,
             input_payload={"prompt": resolved_prompt, "mode": self._mode},
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
 
         try:
@@ -443,6 +448,7 @@ class AgentRuntime(Agent):
             tool_runtime=self._tool_runtime,
             max_tool_calls=self._controls.max_tool_calls_per_step,
             execution_timeout_seconds=self._controls.execution_timeout_seconds_per_step,
+            tracer=self._tracer,
         )
 
         step_results: list[dict[str, object]] = []
@@ -557,6 +563,7 @@ class AgentRuntime(Agent):
             default_system_prompt=(
                 "You are a proposer. Produce a concrete draft response for the task."
             ),
+            tracer=self._tracer,
         )
 
         critique_iterations: list[dict[str, object]] = []
@@ -751,6 +758,7 @@ class AgentRuntime(Agent):
         single_step_router_agent = SingleStepRouterAgent(
             llm_client=self._llm_client,
             tool_runtime=agent_routing_tool_runtime,
+            tracer=self._tracer,
         )
         router_result = single_step_router_agent.run(
             prompt,
@@ -859,6 +867,7 @@ class AgentRuntime(Agent):
             max_steps=self._controls.max_steps,
             max_tool_calls_per_step=self._controls.max_tool_calls_per_step,
             execution_timeout_seconds_per_step=self._controls.execution_timeout_seconds_per_step,
+            tracer=self._tracer,
         )
 
     def _attach_runtime_metadata(

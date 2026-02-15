@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from typing import TextIO
 
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.tools import Toolbox
 
 from .adapters import tool_result_to_mcp_payload, tool_spec_to_mcp_payload
 
@@ -18,7 +18,7 @@ class StdioMcpServer:
 
     def __init__(self, *, runtime: ToolRuntime | None = None) -> None:
         """Initialize the server with a runtime or default unified runtime."""
-        self._runtime = runtime or UnifiedToolRuntime()
+        self._runtime = runtime or Toolbox()
 
     def serve(self, *, stdin: TextIO, stdout: TextIO) -> None:
         """Serve until stdin closes."""
@@ -141,10 +141,10 @@ class StdioMcpServer:
         stdout.flush()
 
 
-def serve_stdio(runtime: ToolRuntime | None = None) -> None:
+def _serve_stdio(runtime: ToolRuntime | None = None) -> None:
     """Start stdio MCP server."""
     server = StdioMcpServer(runtime=runtime)
     server.serve(stdin=sys.stdin, stdout=sys.stdout)
 
 
-__all__ = ["StdioMcpServer", "serve_stdio"]
+__all__ = ["StdioMcpServer"]

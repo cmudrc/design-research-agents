@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from .server import serve_stdio
+from .server import _serve_stdio
 
 
 def main() -> int:
     """Run stdio MCP server for CLI entrypoints."""
-    serve_stdio()
+    _serve_stdio()
     return 0
 
 

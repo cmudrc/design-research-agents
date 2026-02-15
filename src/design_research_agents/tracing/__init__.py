@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .config import TraceConfig, configure_tracing
+from .config import Tracer
 from .context import TraceScope, current_trace_session, finish_trace_run, start_trace_run
 from .emitters import (
     emit_continuation_decision,
@@ -23,12 +23,11 @@ from .sinks import ConsoleTraceSink, JSONLTraceSink, TraceSink
 __all__ = [
     "ConsoleTraceSink",
     "JSONLTraceSink",
-    "TraceConfig",
     "TraceEvent",
     "TraceScope",
     "TraceSession",
     "TraceSink",
-    "configure_tracing",
+    "Tracer",
     "current_trace_session",
     "emit_continuation_decision",
     "emit_guardrail_decision",

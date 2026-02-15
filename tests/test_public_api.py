@@ -17,7 +17,10 @@ EXPECTED_PUBLIC_API = [
     "SingleStepCodeToolCallingAgent",
     "MultiStepJsonToolCallingAgent",
     "MultiStepCodeToolCallingAgent",
-    "UnifiedToolRuntime",
+    "Toolbox",
+    "CallableTool",
+    "ScriptTool",
+    "McpServer",
     "PlanExecuteWorkflow",
     "ProposeAndCritiqueWorkflow",
     "AgentRoutingWorkflow",
@@ -28,14 +31,7 @@ EXPECTED_PUBLIC_API = [
     "OpenAICompatibleHTTPLLMClient",
     "TransformersLocalLLMClient",
     "MlxLocalLLMClient",
-    "TraceConfig",
-    "configure_tracing",
-    "StdioMcpServer",
-    "serve_stdio",
-    "HardwareProfile",
-    "ModelSelectionPolicy",
-    "ModelSelectionIntent",
-    "ModelSelectionConstraints",
+    "ModelSelector",
 ]
 
 
@@ -77,9 +73,8 @@ def test_tool_config_types_are_not_top_level_exports() -> None:
     hidden_symbols = (
         "ToolRuntimeConfig",
         "CoreToolsConfig",
-        "LazyToolsConfig",
+        "ScriptToolsConfig",
         "McpConfig",
-        "McpServerConfig",
         "load_tool_runtime_config",
     )
     for symbol_name in hidden_symbols:
@@ -102,18 +97,33 @@ def test_removed_llm_and_schema_symbols_are_not_top_level_exports() -> None:
         assert symbol_name not in dra.__all__
 
 
+def test_removed_tracing_and_model_selection_symbols_are_not_top_level_exports() -> None:
+    hidden_symbols = (
+        "TraceConfig",
+        "HardwareProfile",
+        "ModelSelectionPolicy",
+        "ModelSelectionIntent",
+        "ModelSelectionConstraints",
+    )
+    for symbol_name in hidden_symbols:
+        assert symbol_name not in dra.__all__
+
+
 def test_tools_module_exports_only_unified_runtime() -> None:
-    assert dra_tools.__all__ == ["UnifiedToolRuntime"]
+    assert dra_tools.__all__ == ["CallableTool", "McpServer", "ScriptTool", "Toolbox"]
     hidden_symbols = (
         "ToolRuntimeConfig",
         "CoreToolsConfig",
-        "LazyToolsConfig",
+        "ScriptToolsConfig",
         "McpConfig",
-        "McpServerConfig",
         "load_tool_runtime_config",
     )
     for symbol_name in hidden_symbols:
         assert not hasattr(dra_tools, symbol_name)
+
+
+def test_stdio_mcp_server_is_not_top_level_export() -> None:
+    assert "StdioMcpServer" not in dra.__all__
 
 
 def test_internal_public_api_module_is_removed() -> None:

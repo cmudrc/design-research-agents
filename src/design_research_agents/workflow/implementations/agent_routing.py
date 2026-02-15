@@ -9,6 +9,7 @@ from design_research_agents.agent.runtime_controls import RuntimeControls
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.tracing import Tracer
 
 
 class AgentRoutingWorkflow(Agent):
@@ -22,6 +23,7 @@ class AgentRoutingWorkflow(Agent):
         alternatives: Mapping[str, Agent],
         alternative_descriptions: Mapping[str, str] | None = None,
         controls: RuntimeControls | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize the underlying runtime."""
         self._runtime = AgentRuntime(
@@ -31,6 +33,7 @@ class AgentRoutingWorkflow(Agent):
             controls=controls,
             agent_routing_alternatives=alternatives,
             agent_routing_descriptions=alternative_descriptions,
+            tracer=tracer,
         )
 
     def run(
@@ -69,6 +72,7 @@ def agent_routing_workflow(
     alternatives: Mapping[str, Agent],
     alternative_descriptions: Mapping[str, str] | None = None,
     controls: RuntimeControls | None = None,
+    tracer: Tracer | None = None,
 ) -> AgentRoutingWorkflow:
     """Return a configured agent-routing workflow chunk."""
     return AgentRoutingWorkflow(
@@ -77,6 +81,7 @@ def agent_routing_workflow(
         alternatives=alternatives,
         alternative_descriptions=alternative_descriptions,
         controls=controls,
+        tracer=tracer,
     )
 
 

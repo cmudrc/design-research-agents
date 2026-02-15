@@ -46,6 +46,7 @@ from design_research_agents.contracts.llm import (
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
+    Tracer,
     emit_tool_selection_decision,
     finish_model_call,
     finish_trace_run,
@@ -81,15 +82,18 @@ class SingleStepJsonToolCallingAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a tool-calling agent with injected runtime dependencies.
 
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
+            tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
+        self._tracer = tracer
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_tool_choices = _extract_tool_choices(
             tool_specs=self._runtime_specs,
@@ -126,6 +130,7 @@ class SingleStepJsonToolCallingAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(

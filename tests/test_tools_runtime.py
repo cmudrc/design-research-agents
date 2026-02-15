@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.tools import Toolbox
 
 
 def _bashkit_available() -> bool:
@@ -16,7 +16,7 @@ def _bashkit_available() -> bool:
 
 
 def test_unified_runtime_lists_expected_core_tools() -> None:
-    runtime = UnifiedToolRuntime()
+    runtime = Toolbox()
     names = {spec.name for spec in runtime.list_tools()}
 
     assert "calculator" in names
@@ -29,7 +29,7 @@ def test_unified_runtime_lists_expected_core_tools() -> None:
 
 
 def test_calculator_invocation() -> None:
-    runtime = UnifiedToolRuntime()
+    runtime = Toolbox()
 
     result = runtime.invoke(
         "calculator",
@@ -44,7 +44,7 @@ def test_calculator_invocation() -> None:
 
 
 def test_fs_write_is_restricted_to_artifacts_by_default(tmp_path: Path) -> None:
-    runtime = UnifiedToolRuntime(workspace_root=str(tmp_path))
+    runtime = Toolbox(workspace_root=str(tmp_path))
 
     blocked = runtime.invoke(
         "fs.write_text",
@@ -67,7 +67,7 @@ def test_fs_write_is_restricted_to_artifacts_by_default(tmp_path: Path) -> None:
 
 
 def test_bash_exec_enforces_invocation_allowlist() -> None:
-    runtime = UnifiedToolRuntime()
+    runtime = Toolbox()
     result = runtime.invoke(
         "bash.exec",
         {
@@ -89,7 +89,7 @@ def test_bash_exec_enforces_invocation_allowlist() -> None:
     reason="bashkit dependency is not available in this environment",
 )
 def test_bash_exec_returns_structured_result_and_stays_sandboxed(tmp_path: Path) -> None:
-    runtime = UnifiedToolRuntime(workspace_root=str(tmp_path))
+    runtime = Toolbox(workspace_root=str(tmp_path))
 
     unique_host_path = tmp_path / "host_should_not_exist.txt"
     if unique_host_path.exists():
