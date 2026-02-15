@@ -11,10 +11,18 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from design_research_agents.agent.implementations.direct_llm_agent import DirectLLMAgent
-from design_research_agents.agent.implementations.multi_step_agent import MultiStepAgent
-from design_research_agents.agent.implementations.router_agent import RouterAgent
-from design_research_agents.agent.implementations.single_step_code_agent import SingleStepCodeAgent
+from design_research_agents.agent.implementations.multi_step_code_tool_calling_agent import (
+    MultiStepCodeToolCallingAgent,
+)
+from design_research_agents.agent.implementations.single_step_code_tool_calling_agent import (
+    SingleStepCodeToolCallingAgent,
+)
+from design_research_agents.agent.implementations.single_step_direct_llm_agent import (
+    SingleStepDirectLLMAgent,
+)
+from design_research_agents.agent.implementations.single_step_router_agent import (
+    SingleStepRouterAgent,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
@@ -136,7 +144,6 @@ class AgentRuntime(Agent):
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
         mode: RuntimeMode,
-        model: str | None = None,
         controls: RuntimeControls | None = None,
         triage_alternatives: Mapping[str, Agent] | None = None,
         triage_descriptions: Mapping[str, str] | None = None,
@@ -147,7 +154,6 @@ class AgentRuntime(Agent):
             llm_client: LLM client used for model-backed phases.
             tool_runtime: Runtime used for tool-enabled modes.
             mode: Active execution mode.
-            model: Optional default model override.
             controls: Shared runtime controls.
             triage_alternatives: Constructor-provided triage alternatives.
             triage_descriptions: Optional alternative descriptions for triage routing.
@@ -155,7 +161,6 @@ class AgentRuntime(Agent):
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._mode = mode
-        self._model = model
         self._controls = controls or RuntimeControls()
         self._triage_alternatives = {
             name.strip(): agent
@@ -230,7 +235,7 @@ class AgentRuntime(Agent):
                     result=self._attach_runtime_metadata(
                         result=event.result,
                         requested_mode="react",
-                        resolved_mode="multi_step_agent",
+                        resolved_mode="multi_step_code_tool_calling_agent",
                         budget_metadata=_budget_for_result(
                             result=event.result,
                             controls=self._controls,
@@ -264,7 +269,7 @@ class AgentRuntime(Agent):
             return self._attach_runtime_metadata(
                 result=result,
                 requested_mode="react",
-                resolved_mode="multi_step_agent",
+                resolved_mode="multi_step_code_tool_calling_agent",
                 budget_metadata=_budget_for_result(
                     result=result,
                     controls=self._controls,
@@ -307,8 +312,6 @@ class AgentRuntime(Agent):
         runtime_tool_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
         )
 
         planner_messages = [
@@ -410,10 +413,9 @@ class AgentRuntime(Agent):
         raw_steps = parsed_plan.get("steps")
         plan_steps = raw_steps if isinstance(raw_steps, list) else []
 
-        executor_agent = SingleStepCodeAgent(
+        executor_agent = SingleStepCodeToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
-            model=resolved_model,
             max_tool_calls=self._controls.max_tool_calls_per_step,
             execution_timeout_seconds=self._controls.execution_timeout_seconds_per_step,
         )
@@ -524,12 +526,9 @@ class AgentRuntime(Agent):
         budget_tracker = _BudgetTracker()
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
         )
-        proposer = DirectLLMAgent(
+        proposer = SingleStepDirectLLMAgent(
             llm_client=self._llm_client,
-            model=resolved_model,
             default_system_prompt=(
                 "You are a proposer. Produce a concrete draft response for the task."
             ),
@@ -720,18 +719,12 @@ class AgentRuntime(Agent):
             alternatives=self._triage_alternatives,
             descriptions=self._triage_descriptions,
         )
-        resolved_model = resolve_agent_model(
-            llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
-        )
-        router_agent = RouterAgent(
+        single_step_router_agent = SingleStepRouterAgent(
             llm_client=self._llm_client,
             tool_runtime=triage_runtime,
-            model=resolved_model,
             default_tool_name=next(iter(self._triage_alternatives.keys())),
         )
-        router_result = router_agent.run(
+        router_result = single_step_router_agent.run(
             prompt,
             request_id=f"{request_id}:triage-router",
             dependencies=dependencies,
@@ -830,12 +823,11 @@ class AgentRuntime(Agent):
             extra_metadata=None,
         )
 
-    def _build_react_agent(self) -> MultiStepAgent:
-        """Construct the delegated ``MultiStepAgent`` for react mode."""
-        return MultiStepAgent(
+    def _build_react_agent(self) -> MultiStepCodeToolCallingAgent:
+        """Construct the delegated ``MultiStepCodeToolCallingAgent`` for react mode."""
+        return MultiStepCodeToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
-            model=self._model,
             max_steps=self._controls.max_steps,
             max_tool_calls_per_step=self._controls.max_tool_calls_per_step,
             execution_timeout_seconds_per_step=self._controls.execution_timeout_seconds_per_step,

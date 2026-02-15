@@ -105,12 +105,7 @@ class ToolError:
 
 @dataclass(slots=True, frozen=True, init=False)
 class ToolResult:
-    """Result payload emitted from a tool runtime invocation.
-
-    Canonical envelope fields are ``ok``/``result``/``artifacts``/``warnings``.
-    Legacy ``success``/``output`` constructor arguments remain accepted so
-    existing integrations can migrate without immediate breakage.
-    """
+    """Result payload emitted from a tool runtime invocation."""
 
     tool_name: str
     ok: bool
@@ -124,27 +119,15 @@ class ToolResult:
         self,
         *,
         tool_name: str,
-        ok: bool | None = None,
+        ok: bool,
         result: object | None = None,
         artifacts: Sequence[ToolArtifact | Mapping[str, object]] = (),
         warnings: Sequence[str] = (),
         error: ToolError | Mapping[str, object] | str | None = None,
         metadata: Mapping[str, object] | None = None,
-        output: Mapping[str, object] | None = None,
-        success: bool | None = None,
     ) -> None:
-        """Initialize tool result payload with compatibility shims for legacy fields."""
-        resolved_ok = ok if ok is not None else success
-        if resolved_ok is None:
-            raise TypeError("ToolResult requires either 'ok' or legacy 'success'.")
-
-        resolved_result: object
-        if result is not None:
-            resolved_result = result
-        elif output is not None:
-            resolved_result = dict(output)
-        else:
-            resolved_result = {}
+        """Initialize canonical tool result payload."""
+        resolved_result: object = result if result is not None else {}
 
         resolved_artifacts: list[ToolArtifact] = []
         for artifact in artifacts:
@@ -169,24 +152,12 @@ class ToolResult:
             resolved_error = None
 
         object.__setattr__(self, "tool_name", tool_name)
-        object.__setattr__(self, "ok", bool(resolved_ok))
+        object.__setattr__(self, "ok", bool(ok))
         object.__setattr__(self, "result", resolved_result)
         object.__setattr__(self, "artifacts", tuple(resolved_artifacts))
         object.__setattr__(self, "warnings", tuple(str(item) for item in warnings))
         object.__setattr__(self, "error", resolved_error)
         object.__setattr__(self, "metadata", dict(metadata or {}))
-
-    @property
-    def success(self) -> bool:
-        """Legacy alias for ``ok``."""
-        return self.ok
-
-    @property
-    def output(self) -> dict[str, object]:
-        """Legacy alias for ``result`` normalized to mapping payloads."""
-        if isinstance(self.result, Mapping):
-            return dict(self.result)
-        return {"value": self.result}
 
 
 class ToolRuntime(Protocol):

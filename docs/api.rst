@@ -6,7 +6,7 @@ Package entrypoint:
 .. automodule:: design_research_agents
    :members:
    :undoc-members:
-   :exclude-members: BaseToolRuntime, DirectLLMAgent, MultiStepAgent, RouterAgent, SingleStepCodeAgent, ToolCallingAgent
+   :exclude-members: SingleStepDirectLLMAgent, MultiStepCodeToolCallingAgent, MultiStepJsonToolCallingAgent, SingleStepRouterAgent, SingleStepCodeToolCallingAgent, SingleStepJsonToolCallingAgent
 
 Core contracts:
 
@@ -21,31 +21,35 @@ Base implementations:
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.tools.base_runtime
+.. automodule:: design_research_agents.tools.runtime
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.implementations.router_agent
+.. automodule:: design_research_agents.agent.implementations.single_step_direct_llm_agent
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.implementations.tool_calling_agent
+.. automodule:: design_research_agents.agent.implementations.single_step_router_agent
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.implementations.single_step_code_agent
+.. automodule:: design_research_agents.agent.implementations.single_step_json_tool_calling_agent
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.implementations.multi_step_agent
+.. automodule:: design_research_agents.agent.implementations.single_step_code_tool_calling_agent
+   :members:
+   :undoc-members:
+
+.. automodule:: design_research_agents.agent.implementations.multi_step_json_tool_calling_agent
+   :members:
+   :undoc-members:
+
+.. automodule:: design_research_agents.agent.implementations.multi_step_code_tool_calling_agent
    :members:
    :undoc-members:
 
 .. automodule:: design_research_agents.agent.runtime
-   :members:
-   :undoc-members:
-
-.. automodule:: design_research_agents.agent.implementations.direct_llm_agent
    :members:
    :undoc-members:
 

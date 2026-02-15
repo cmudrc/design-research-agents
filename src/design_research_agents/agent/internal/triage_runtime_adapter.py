@@ -72,8 +72,8 @@ class TriageToolRuntimeAdapter(ToolRuntime):
         if tool_name not in self._alternatives:
             return ToolResult(
                 tool_name=tool_name,
-                output={},
-                success=False,
+                result={},
+                ok=False,
                 error=f"Unknown triage alternative '{tool_name}'.",
                 metadata={
                     "request_id": request_id,
@@ -83,11 +83,11 @@ class TriageToolRuntimeAdapter(ToolRuntime):
 
         return ToolResult(
             tool_name=tool_name,
-            output={
+            result={
                 "selected_alternative": tool_name,
                 "tool_input": dict(input_dict),
             },
-            success=True,
+            ok=True,
             metadata={
                 "request_id": request_id,
                 "dependency_keys": sorted(dependencies.keys()),

@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 
-from _runtime_example_support import SequenceResponseLLMClient
+import design_research_agents as dra
 
-import design_research_agents
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+Agent = dra.contracts.agent.Agent
+AgentResult = dra.contracts.agent.AgentResult
+AgentStreamEvent = dra.contracts.agent.AgentStreamEvent
 
 
 class _StaticDelegatedAgent(Agent):
@@ -50,13 +51,11 @@ class _StaticDelegatedAgent(Agent):
 
 def main() -> None:
     """Run the ``triage`` runtime example and print delegated output."""
-    llm_client = SequenceResponseLLMClient(
-        response_texts=['{"selection": "stats_agent", "reason": "best fit"}']
-    )
+    llm_client = dra.llm.create_default_llm_client()
 
-    agent = design_research_agents.AgentRuntime(
+    agent = dra.agents.AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=design_research_agents.BaseToolRuntime(),
+        tool_runtime=dra.tools.UnifiedToolRuntime(),
         mode="triage",
         triage_alternatives={
             "math_agent": _StaticDelegatedAgent(label="math_agent"),

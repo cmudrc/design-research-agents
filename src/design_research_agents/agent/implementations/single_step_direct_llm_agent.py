@@ -43,14 +43,13 @@ from design_research_agents.tracing import (
 )
 
 
-class DirectLLMAgent(Agent):
+class SingleStepDirectLLMAgent(Agent):
     """Agent that performs one direct model call with no tool runtime."""
 
     def __init__(
         self,
         *,
         llm_client: LLMClient,
-        model: str | None = None,
         default_system_prompt: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
@@ -60,7 +59,6 @@ class DirectLLMAgent(Agent):
 
         Args:
             llm_client: LLM client used for prompt execution.
-            model: Optional model override applied to all runs when provided.
             default_system_prompt: Optional default system prompt.
             temperature: Optional default sampling temperature.
             max_tokens: Optional default output-token cap.
@@ -70,7 +68,6 @@ class DirectLLMAgent(Agent):
             raise ValueError("max_tokens must be >= 1 when provided.")
 
         self._llm_client = llm_client
-        self._model = model
         self._default_system_prompt = default_system_prompt
         self._temperature = temperature
         self._max_tokens = max_tokens
@@ -103,7 +100,7 @@ class DirectLLMAgent(Agent):
             request_id=resolved_request_id,
         )
         trace_scope = start_trace_run(
-            agent_name="DirectLLMAgent",
+            agent_name="SingleStepDirectLLMAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -112,7 +109,7 @@ class DirectLLMAgent(Agent):
             model=resolved_model,
             messages=messages,
             params=llm_request,
-            metadata={"agent": "DirectLLMAgent", "message_source": message_source},
+            metadata={"agent": "SingleStepDirectLLMAgent", "message_source": message_source},
         )
         try:
             llm_response = _generate_with_fallback(self._llm_client, llm_request)
@@ -158,7 +155,7 @@ class DirectLLMAgent(Agent):
             request_id=resolved_request_id,
         )
         trace_scope = start_trace_run(
-            agent_name="DirectLLMAgent",
+            agent_name="SingleStepDirectLLMAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -167,7 +164,7 @@ class DirectLLMAgent(Agent):
             model=resolved_model,
             messages=messages,
             params=llm_request,
-            metadata={"agent": "DirectLLMAgent", "message_source": message_source},
+            metadata={"agent": "SingleStepDirectLLMAgent", "message_source": message_source},
         )
         try:
             stream = _stream_with_fallback(self._llm_client, llm_request)
@@ -223,8 +220,6 @@ class DirectLLMAgent(Agent):
         """
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=input_payload,
-            init_model=self._model,
         )
         messages, message_source = _extract_messages(
             input_payload=input_payload,
@@ -244,7 +239,7 @@ class DirectLLMAgent(Agent):
             response_schema=_extract_response_schema(input_payload),
             metadata={
                 "request_id": request_id,
-                "agent": "DirectLLMAgent",
+                "agent": "SingleStepDirectLLMAgent",
                 "message_source": message_source,
             },
             provider_options=_merge_provider_options(
@@ -296,11 +291,20 @@ def _stream_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> Ite
 
 def _resolve_request_model(llm_client: LLMClient, llm_request: LLMRequest) -> str:
     if llm_request.model:
-        return llm_request.model
+        normalized_model = llm_request.model.strip()
+        if normalized_model:
+            return normalized_model
+        raise ValueError("LLM request model must not be empty.")
     default_model_fn = getattr(llm_client, "default_model", None)
-    if callable(default_model_fn):
-        return str(default_model_fn())
-    return "local-model"
+    if not callable(default_model_fn):
+        raise ValueError("LLM client must expose default_model().")
+    resolved_model = default_model_fn()
+    if not isinstance(resolved_model, str):
+        raise ValueError("LLM client default_model() must return a string.")
+    normalized_model = resolved_model.strip()
+    if not normalized_model:
+        raise ValueError("LLM client default_model() returned an empty model id.")
+    return normalized_model
 
 
 def _request_to_chat_params(llm_request: LLMRequest) -> LLMChatParams:

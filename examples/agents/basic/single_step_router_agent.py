@@ -1,0 +1,32 @@
+"""Runnable example showing one ``SingleStepRouterAgent`` execution end-to-end.
+
+The script calls a local llama-cpp server by default, builds runtime/tool dependencies, and
+executes runtime-driven route selection with built-in default schemas.
+"""
+
+import design_research_agents as dra
+
+
+def main() -> None:
+    """Execute one router-agent run and print structured ``AgentResult`` output.
+
+    Demonstrates route selection plus downstream tool invocation in one call.
+    """
+    llm_client = dra.llm.create_default_llm_client()
+    tool_runtime = dra.tools.UnifiedToolRuntime()
+    agent = dra.agents.SingleStepRouterAgent(
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+    )
+
+    # SingleStepRouterAgent will derive available routes from ToolRuntime.list_tools().
+    result = agent.run(
+        prompt="Select which tool to provide a short status summary for this repository.",
+        request_id="example-router-agent-001",
+    )
+
+    print(result)
+
+
+if __name__ == "__main__":
+    main()

@@ -2,12 +2,33 @@
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Mapping
 
 from design_research_agents.contracts.tools import ToolMetadata, ToolSideEffects, ToolSpec
 from design_research_agents.tools.sources.inprocess_source import InProcessToolSource
 
 from ._helpers import get_int, get_str
+
+_COMMAND_SEPARATORS = frozenset({";", "&&", "||", "|", "&", "(", ")"})
+_SHELL_CONTROL_WORDS = frozenset(
+    {
+        "if",
+        "then",
+        "else",
+        "elif",
+        "fi",
+        "for",
+        "while",
+        "until",
+        "do",
+        "done",
+        "case",
+        "in",
+        "esac",
+    }
+)
+_COMMAND_PREFIXES = frozenset({"command", "builtin", "env", "sudo", "time", "nohup"})
 
 
 def register_bash_tools(source: InProcessToolSource) -> None:
@@ -28,6 +49,10 @@ def register_bash_tools(source: InProcessToolSource) -> None:
                     "hostname": {"type": "string"},
                     "max_commands": {"type": "integer"},
                     "max_loop_iterations": {"type": "integer"},
+                    "allowed_commands": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
                 },
                 "required": ["script"],
             },
@@ -53,6 +78,15 @@ def _bash_exec_handler(
     script = get_str(input_dict, "script").strip()
     if not script:
         raise ValueError("script is required.")
+
+    allowed_commands = _get_allowed_commands(input_dict.get("allowed_commands"))
+    if allowed_commands is not None:
+        observed_commands = _extract_command_names(script)
+        disallowed = sorted({name for name in observed_commands if name not in allowed_commands})
+        if disallowed:
+            raise ValueError(
+                "bash.exec blocked commands outside 'allowed_commands': " + ", ".join(disallowed)
+            )
 
     try:
         from bashkit import BashTool
@@ -80,3 +114,93 @@ def _bash_exec_handler(
         "success": bool(exec_result.success),
         "error": exec_result.error,
     }
+
+
+def _get_allowed_commands(value: object) -> set[str] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("'allowed_commands' must be a list of command names.")
+    allowed: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("'allowed_commands' must be a list of command names.")
+        normalized = _normalize_command_name(item)
+        if not normalized:
+            raise ValueError("'allowed_commands' entries must be non-empty strings.")
+        allowed.add(normalized)
+    return allowed
+
+
+def _extract_command_names(script: str) -> tuple[str, ...]:
+    commands: list[str] = []
+    for raw_line in script.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        line_commands = _extract_line_command_names(stripped)
+        commands.extend(line_commands)
+    return tuple(commands)
+
+
+def _extract_line_command_names(line: str) -> tuple[str, ...]:
+    lexer = shlex.shlex(line, posix=True, punctuation_chars="();|&<>")
+    lexer.whitespace_split = True
+    lexer.commenters = "#"
+
+    names: list[str] = []
+    expect_command = True
+    for token in lexer:
+        normalized = token.strip()
+        if not normalized:
+            continue
+        if normalized in _COMMAND_SEPARATORS:
+            expect_command = True
+            continue
+        if _is_redirection_token(normalized):
+            continue
+        if not expect_command:
+            continue
+        if _is_env_assignment(normalized):
+            continue
+        lowered = normalized.lower()
+        if lowered in _SHELL_CONTROL_WORDS:
+            continue
+        if lowered in _COMMAND_PREFIXES:
+            continue
+
+        command_name = _normalize_command_name(normalized)
+        if command_name:
+            names.append(command_name)
+            expect_command = False
+    return tuple(names)
+
+
+def _normalize_command_name(token: str) -> str:
+    candidate = token.strip()
+    if not candidate:
+        return ""
+    if "=" in candidate and candidate.count("=") == 1 and candidate.index("=") > 0:
+        return ""
+    if "/" in candidate:
+        candidate = candidate.rsplit("/", maxsplit=1)[-1]
+    return candidate
+
+
+def _is_env_assignment(token: str) -> bool:
+    if "=" not in token:
+        return False
+    key, _, value = token.partition("=")
+    if not key or key[0].isdigit():
+        return False
+    if not key.replace("_", "").isalnum():
+        return False
+    return bool(value)
+
+
+def _is_redirection_token(token: str) -> bool:
+    if token in {">", ">>", "<", "<<", "<<<", "<>", "&>", "&>>"}:
+        return True
+    return (token.endswith(">") and token[:-1].isdigit()) or (
+        token.endswith(">>") and token[:-2].isdigit()
+    )

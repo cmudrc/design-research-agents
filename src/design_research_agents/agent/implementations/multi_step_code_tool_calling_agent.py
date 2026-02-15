@@ -1,4 +1,4 @@
-"""Multi-step ReAct-style agent built as a loop over ``SingleStepCodeAgent``.
+"""Multi-step ReAct-style agent built as a loop over ``SingleStepCodeToolCallingAgent``.
 
 The agent alternates continuation checks with step execution, recording a
 structured thought-action-observation memory trace and aggregating tool
@@ -10,7 +10,9 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator, Mapping, Sequence
 
-from design_research_agents.agent.implementations.single_step_code_agent import SingleStepCodeAgent
+from design_research_agents.agent.implementations.single_step_code_tool_calling_agent import (
+    SingleStepCodeToolCallingAgent,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
@@ -45,11 +47,11 @@ from design_research_agents.tracing import (
 )
 
 
-class MultiStepAgent(Agent):
+class MultiStepCodeToolCallingAgent(Agent):
     """Agent that iterates action-observation steps until continuation stops.
 
     Each iteration asks the model whether to continue, then delegates one action
-    step to ``SingleStepCodeAgent`` with inherited runtime constraints. The
+    step to ``SingleStepCodeToolCallingAgent`` with inherited runtime constraints. The
     loop keeps explicit ReAct-style thought-action-observation entries in memory.
     """
 
@@ -58,7 +60,6 @@ class MultiStepAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str | None = None,
         max_steps: int = 5,
         max_tool_calls_per_step: int = 5,
         execution_timeout_seconds_per_step: int = 5,
@@ -72,7 +73,6 @@ class MultiStepAgent(Agent):
         Args:
             llm_client: LLM client used for continuation and action generation.
             tool_runtime: Tool runtime shared across all steps.
-            model: Optional model override applied to all runs when provided.
             max_steps: Maximum number of action-observation iterations.
             max_tool_calls_per_step: Tool-call limit applied to each action step.
             execution_timeout_seconds_per_step: Code execution timeout for each action step.
@@ -81,7 +81,7 @@ class MultiStepAgent(Agent):
                 pre-validation code normalization in each step agent run.
             stop_on_step_failure: Whether to stop immediately when one step fails.
             default_tools_per_step: Optional allowed-tool config forwarded to each
-                ``SingleStepCodeAgent`` step. When omitted, all runtime tools are
+                ``SingleStepCodeToolCallingAgent`` step. When omitted, all runtime tools are
                 available per step.
         """
         if max_steps < 1:
@@ -93,7 +93,6 @@ class MultiStepAgent(Agent):
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
-        self._model = model
         self._max_steps = max_steps
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._execution_timeout_seconds_per_step = execution_timeout_seconds_per_step
@@ -135,7 +134,7 @@ class MultiStepAgent(Agent):
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
-            agent_name="MultiStepAgent",
+            agent_name="MultiStepCodeToolCallingAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -169,8 +168,6 @@ class MultiStepAgent(Agent):
         )
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
         )
         alternatives_prompt_target = resolve_alternatives_prompt_target(
             input_payload=normalized_input
@@ -180,10 +177,9 @@ class MultiStepAgent(Agent):
             default_tools_per_step=self._default_tools_per_step,
         )
 
-        step_agent = SingleStepCodeAgent(
+        step_agent = SingleStepCodeToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
-            model=resolved_model,
             max_tool_calls=max_tool_calls_per_step,
             execution_timeout_seconds=execution_timeout_seconds_per_step,
             validate_tool_input_schema=validate_tool_input_schema,
@@ -443,13 +439,13 @@ class MultiStepAgent(Agent):
         ]
         llm_params = LLMChatParams(
             response_schema=clone_response_schema(self._continuation_response_schema),
-            provider_options={"agent": "MultiStepAgent", "phase": "continuation"},
+            provider_options={"agent": "MultiStepCodeToolCallingAgent", "phase": "continuation"},
         )
         model_span_id = start_model_call(
             model=model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "MultiStepAgent", "phase": "continuation"},
+            metadata={"agent": "MultiStepCodeToolCallingAgent", "phase": "continuation"},
         )
         try:
             response = self._llm_client.chat(messages, model=model, params=llm_params)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
-import json
 from collections.abc import Mapping
 
 from design_research_agents.contracts.tools import ToolMetadata, ToolSideEffects, ToolSpec
@@ -70,24 +69,6 @@ def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> Non
     )
     source.register_tool(
         spec=ToolSpec(
-            name="fs.read_json",
-            description="Read and parse JSON from a file.",
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "max_bytes": {"type": "integer"},
-                },
-                "required": ["path"],
-                "additionalProperties": False,
-            },
-            output_schema={"type": "object"},
-            metadata=read_metadata,
-        ),
-        handler=lambda i, r, d: _read_json(i, policy=policy),
-    )
-    source.register_tool(
-        spec=ToolSpec(
             name="fs.write_text",
             description="Write text to a file, restricted to artifacts by default.",
             input_schema={
@@ -104,25 +85,6 @@ def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> Non
             metadata=write_metadata,
         ),
         handler=lambda i, r, d: _write_text(i, policy=policy),
-    )
-    source.register_tool(
-        spec=ToolSpec(
-            name="fs.write_json",
-            description="Write JSON to a file, restricted to artifacts by default.",
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string"},
-                    "obj": {},
-                    "overwrite": {"type": "boolean"},
-                },
-                "required": ["path", "obj"],
-                "additionalProperties": False,
-            },
-            output_schema={"type": "object"},
-            metadata=write_metadata,
-        ),
-        handler=lambda i, r, d: _write_json(i, policy=policy),
     )
     source.register_tool(
         spec=ToolSpec(
@@ -217,17 +179,6 @@ def _read_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappi
     }
 
 
-def _read_json(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    text_payload = _read_text(input_dict, policy=policy)
-    text = str(text_payload["text"])
-    parsed = json.loads(text)
-    return {
-        "path": text_payload["path"],
-        "obj": parsed,
-        "truncated": text_payload["truncated"],
-    }
-
-
 def _write_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
     path = policy.resolve_write_path(get_str(input_dict, "path"))
     content = get_str(input_dict, "content")
@@ -240,21 +191,6 @@ def _write_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapp
     return {
         "path": str(path),
         "bytes_written": len(content.encode("utf-8")),
-    }
-
-
-def _write_json(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    path = policy.resolve_write_path(get_str(input_dict, "path"))
-    overwrite = get_bool(input_dict, "overwrite", default=False)
-    payload = input_dict.get("obj")
-    if path.exists() and not overwrite:
-        raise ValueError(f"Path already exists: {path}. Pass overwrite=true to replace it.")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True)
-    path.write_text(serialized + "\n", encoding="utf-8")
-    return {
-        "path": str(path),
-        "bytes_written": len(serialized.encode("utf-8")) + 1,
     }
 
 

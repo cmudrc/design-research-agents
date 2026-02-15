@@ -4,19 +4,19 @@ The script uses a fixed hardware profile and a strict cost cap to keep
 selection on a local model, then prints the decision.
 """
 
-import design_research_agents
+import design_research_agents as dra
 
 
 def main() -> None:
     """Select a local model under a tight cost cap and print the decision."""
-    policy = design_research_agents.ModelSelectionPolicy()
-    intent = design_research_agents.ModelSelectionIntent(
+    policy = dra.models.ModelSelectionPolicy()
+    intent = dra.models.ModelSelectionIntent(
         task="Summarize a research memo for stakeholders.",
         priority="quality",
     )
     # Cost cap below the remote floor keeps selection local.
-    constraints = design_research_agents.ModelSelectionConstraints(max_cost_usd=0.01)
-    hardware_profile = design_research_agents.HardwareProfile(
+    constraints = dra.models.ModelSelectionConstraints(max_cost_usd=0.01)
+    hardware_profile = dra.models.HardwareProfile(
         total_ram_gb=16.0,
         available_ram_gb=12.0,
         cpu_count=8,

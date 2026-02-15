@@ -1,15 +1,17 @@
 """Concrete agent implementations used by :mod:`design_research_agents.agent`."""
 
-from .direct_llm_agent import DirectLLMAgent
-from .multi_step_agent import MultiStepAgent
-from .router_agent import RouterAgent
-from .single_step_code_agent import SingleStepCodeAgent
-from .tool_calling_agent import ToolCallingAgent
+from .multi_step_code_tool_calling_agent import MultiStepCodeToolCallingAgent
+from .multi_step_json_tool_calling_agent import MultiStepJsonToolCallingAgent
+from .single_step_code_tool_calling_agent import SingleStepCodeToolCallingAgent
+from .single_step_direct_llm_agent import SingleStepDirectLLMAgent
+from .single_step_json_tool_calling_agent import SingleStepJsonToolCallingAgent
+from .single_step_router_agent import SingleStepRouterAgent
 
 __all__ = [
-    "DirectLLMAgent",
-    "MultiStepAgent",
-    "RouterAgent",
-    "SingleStepCodeAgent",
-    "ToolCallingAgent",
+    "MultiStepCodeToolCallingAgent",
+    "MultiStepJsonToolCallingAgent",
+    "SingleStepCodeToolCallingAgent",
+    "SingleStepDirectLLMAgent",
+    "SingleStepJsonToolCallingAgent",
+    "SingleStepRouterAgent",
 ]

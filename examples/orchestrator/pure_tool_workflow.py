@@ -2,48 +2,62 @@
 
 from __future__ import annotations
 
-import design_research_agents
+import design_research_agents as dra
 
 
 def main() -> None:
     """Run the pure tool workflow example and print serialized output."""
-    runtime = design_research_agents.WorkflowRuntime(
-        tool_runtime=design_research_agents.BaseToolRuntime(),
+    runtime = dra.workflows.WorkflowRuntime(
+        tool_runtime=dra.tools.UnifiedToolRuntime(),
     )
     steps = [
-        design_research_agents.ToolStep(
-            step_id="compute",
-            tool_name="calculator",
-            input_data={"expression": "12 * (4 + 1)"},
-        ),
-        design_research_agents.LogicStep(
-            step_id="format",
-            dependencies=("compute",),
-            handler=lambda context: {
-                "summary_text": (
-                    "The calculator result is "
-                    f"{int(context['dependency_results']['compute']['output']['result']['result'])}."
-                )
+        dra.workflows.ToolStep(
+            step_id="seed_csv",
+            tool_name="fs.write_text",
+            input_data={
+                "path": "artifacts/examples/workflow_tool_inventory.csv",
+                "content": (
+                    "tool,source\n"
+                    "calculator,core\n"
+                    "search.ripgrep,core\n"
+                    "repo_quickscan,lazy\n"
+                    "local_core::calculator,mcp\n"
+                ),
+                "overwrite": True,
             },
         ),
-        design_research_agents.ToolStep(
-            step_id="stats",
-            tool_name="text.word_count",
-            dependencies=("format",),
+        dra.workflows.ToolStep(
+            step_id="describe_csv",
+            tool_name="data.describe",
+            dependencies=("seed_csv",),
             input_builder=lambda context: {
-                "text": context["dependency_results"]["format"]["output"]["summary_text"]
+                "path": context["dependency_results"]["seed_csv"]["output"]["result"]["path"],
+                "kind": "csv",
             },
         ),
-        design_research_agents.LogicStep(
+        dra.workflows.ToolStep(
+            step_id="scan_sources",
+            tool_name="search.ripgrep",
+            dependencies=("describe_csv",),
+            input_builder=lambda context: {
+                "query": "UnifiedToolRuntime",
+                "root": "src/design_research_agents/tools",
+                "max_matches": 6,
+            },
+        ),
+        dra.workflows.LogicStep(
             step_id="finalize",
-            dependencies=("stats",),
+            dependencies=("describe_csv", "scan_sources"),
             handler=lambda context: {
-                "word_count": context["dependency_results"]["stats"]["output"]["result"][
-                    "word_count"
+                "csv_rows": context["dependency_results"]["describe_csv"]["output"]["result"][
+                    "rows"
                 ],
-                "line_count": context["dependency_results"]["stats"]["output"]["result"][
-                    "line_count"
+                "csv_columns": context["dependency_results"]["describe_csv"]["output"]["result"][
+                    "columns"
                 ],
+                "runtime_reference_hits": context["dependency_results"]["scan_sources"]["output"][
+                    "result"
+                ]["count"],
             },
         ),
     ]

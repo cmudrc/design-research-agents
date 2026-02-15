@@ -7,7 +7,12 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 
 import pytest
 
-from design_research_agents.agent import AgentRuntime, MultiStepAgent, RuntimeControls
+from design_research_agents.agent import (
+    AgentRuntime,
+    MultiStepCodeToolCallingAgent,
+    MultiStepJsonToolCallingAgent,
+    RuntimeControls,
+)
 from design_research_agents.contracts.agent import Agent, AgentResult
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -20,7 +25,7 @@ from design_research_agents.contracts.llm import (
 from design_research_agents.contracts.orchestrator import AgentStep, LogicStep, ToolStep
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.orchestrator import WorkflowRuntime
-from design_research_agents.tools import BaseToolRuntime
+from design_research_agents.tools import UnifiedToolRuntime
 
 
 class _SequenceLLMClient:
@@ -172,7 +177,7 @@ def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
 
     llm_runtime = _SequenceLLMClient(response_texts=response_texts)
     llm_direct = _SequenceLLMClient(response_texts=list(response_texts))
-    tool_runtime = BaseToolRuntime()
+    tool_runtime = UnifiedToolRuntime()
 
     runtime_agent = AgentRuntime(
         llm_client=llm_runtime,
@@ -180,7 +185,7 @@ def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
         mode="react",
         controls=RuntimeControls(max_steps=3),
     )
-    direct_agent = MultiStepAgent(
+    direct_agent = MultiStepCodeToolCallingAgent(
         llm_client=llm_direct,
         tool_runtime=tool_runtime,
         max_steps=3,
@@ -192,7 +197,75 @@ def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
     assert runtime_result.success == direct_result.success
     assert runtime_result.output["final_output"] == direct_result.output["final_output"]
     assert runtime_result.output["terminated_reason"] == direct_result.output["terminated_reason"]
-    assert runtime_result.metadata["runtime"]["resolved_mode"] == "multi_step_agent"
+    assert (
+        runtime_result.metadata["runtime"]["resolved_mode"] == "multi_step_code_tool_calling_agent"
+    )
+
+
+def test_multi_step_json_tool_calling_agent_runs_one_successful_step() -> None:
+    llm_client = _SequenceLLMClient(
+        response_texts=[
+            '{"continue": true, "reason": "start"}',
+            '{"tool_name": "calculator", "tool_input": {"expression": "6 * 7"}}',
+            '{"continue": false, "reason": "done"}',
+        ]
+    )
+    agent = MultiStepJsonToolCallingAgent(
+        llm_client=llm_client,
+        tool_runtime=UnifiedToolRuntime(),
+        max_steps=3,
+    )
+
+    result = agent.run("Compute 6 * 7.")
+
+    assert result.success
+    assert result.output["steps_executed"] == 1
+    assert result.output["final_output"]["result"] == 42.0
+    assert result.output["terminated_reason"] == "continuation_stopped:model"
+
+
+def test_multi_step_json_tool_calling_agent_uses_fallback_continuation_on_invalid_json() -> None:
+    llm_client = _SequenceLLMClient(
+        response_texts=[
+            "invalid continuation payload",
+            '{"tool_name": "calculator", "tool_input": {"expression": "6 * 7"}}',
+            "invalid continuation payload",
+        ]
+    )
+    agent = MultiStepJsonToolCallingAgent(
+        llm_client=llm_client,
+        tool_runtime=UnifiedToolRuntime(),
+        max_steps=3,
+    )
+
+    result = agent.run("Compute 6 * 7.")
+
+    assert result.success
+    assert result.output["steps_executed"] == 1
+    assert result.output["terminated_reason"] == "continuation_stopped:fallback"
+    continuation = result.metadata["continuation"]
+    assert isinstance(continuation, list)
+    assert continuation[0]["source"] == "fallback"
+
+
+def test_multi_step_json_tool_calling_agent_stops_on_step_failure() -> None:
+    llm_client = _SequenceLLMClient(
+        response_texts=[
+            '{"continue": true, "reason": "start"}',
+            '{"tool_name": "calculator", "tool_input": {"expression": "1 / 0"}}',
+        ]
+    )
+    agent = MultiStepJsonToolCallingAgent(
+        llm_client=llm_client,
+        tool_runtime=UnifiedToolRuntime(),
+        max_steps=3,
+        stop_on_step_failure=True,
+    )
+
+    result = agent.run("Compute 6 * 7.")
+
+    assert result.success is False
+    assert result.output["terminated_reason"] == "step_failure"
 
 
 def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
@@ -219,7 +292,7 @@ def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=BaseToolRuntime(),
+        tool_runtime=UnifiedToolRuntime(),
         mode="plan_execute",
         controls=RuntimeControls(max_iterations=2),
     )
@@ -255,7 +328,7 @@ def test_agent_runtime_propose_critic_stops_on_approval() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=BaseToolRuntime(),
+        tool_runtime=UnifiedToolRuntime(),
         mode="propose_critic",
         controls=RuntimeControls(max_iterations=3),
     )
@@ -276,7 +349,7 @@ def test_agent_runtime_triage_selects_and_executes_named_alternative() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=BaseToolRuntime(),
+        tool_runtime=UnifiedToolRuntime(),
         mode="triage",
         triage_alternatives={
             "alt_one": _StaticAgent(marker="one"),
@@ -316,7 +389,7 @@ def test_agent_runtime_stream_emits_delta_then_completed() -> None:
     )
     runtime = AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=BaseToolRuntime(),
+        tool_runtime=UnifiedToolRuntime(),
         mode="plan_execute",
     )
 

@@ -78,7 +78,7 @@ class _ParsedRoute:
     reason: str | None
 
 
-class RouterAgent(Agent):
+class SingleStepRouterAgent(Agent):
     """Agent that routes one request to one selected tool alternative.
 
     The agent compiles alternatives from tool runtime specs, prompts the model
@@ -91,7 +91,6 @@ class RouterAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str | None = None,
         default_tool_name: str = DEFAULT_FALLBACK_TOOL_NAME,
     ) -> None:
         """Initialize a router agent with injected runtime dependencies.
@@ -99,12 +98,10 @@ class RouterAgent(Agent):
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
-            model: Optional model override applied to all runs when provided.
             default_tool_name: Fallback tool used when no alternatives are supplied.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
-        self._model = model
         self._default_tool_name = default_tool_name
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_runtime_alternatives = _compile_runtime_alternatives(
@@ -143,7 +140,7 @@ class RouterAgent(Agent):
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
-            agent_name="RouterAgent",
+            agent_name="SingleStepRouterAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -151,8 +148,6 @@ class RouterAgent(Agent):
         prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
         )
         alternatives = [
             _clone_alternative(alternative) for alternative in self._default_alternatives
@@ -187,13 +182,13 @@ class RouterAgent(Agent):
         ]
         llm_params = LLMChatParams(
             response_schema=clone_response_schema(self._default_route_response_schema),
-            provider_options={"agent": "RouterAgent", "phase": "route_select"},
+            provider_options={"agent": "SingleStepRouterAgent", "phase": "route_select"},
         )
         model_span_id = start_model_call(
             model=resolved_model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "RouterAgent", "phase": "route_select"},
+            metadata={"agent": "SingleStepRouterAgent", "phase": "route_select"},
         )
         try:
             llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
@@ -281,11 +276,11 @@ class RouterAgent(Agent):
             "tool_name": selected_alternative.tool_name,
             "selected_alternative_index": selected_index,
             "tool_input": tool_input,
-            "tool_output": tool_result.output,
+            "tool_output": tool_result.result,
         }
         result = AgentResult(
             output=output,
-            success=tool_result.success,
+            success=tool_result.ok,
             tool_results=[tool_result],
             model_response=llm_response,
             metadata={

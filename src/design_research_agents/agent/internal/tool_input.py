@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 
 DEFAULT_FALLBACK_TOOL_NAME = "text.word_count"
-CALCULATOR_TOOL_NAMES = frozenset({"calculator", "math.eval"})
+CALCULATOR_TOOL_NAMES = frozenset({"calculator"})
 TEXT_WORD_COUNT_TOOL_NAMES = frozenset({"text.word_count"})
 
 

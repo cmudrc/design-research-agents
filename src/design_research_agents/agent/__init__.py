@@ -9,20 +9,22 @@ project:
 - multi-step iterative planning/execution loops.
 """
 
-from .implementations.direct_llm_agent import DirectLLMAgent
-from .implementations.multi_step_agent import MultiStepAgent
-from .implementations.router_agent import RouterAgent
-from .implementations.single_step_code_agent import SingleStepCodeAgent
-from .implementations.tool_calling_agent import ToolCallingAgent
+from .implementations.multi_step_code_tool_calling_agent import MultiStepCodeToolCallingAgent
+from .implementations.multi_step_json_tool_calling_agent import MultiStepJsonToolCallingAgent
+from .implementations.single_step_code_tool_calling_agent import SingleStepCodeToolCallingAgent
+from .implementations.single_step_direct_llm_agent import SingleStepDirectLLMAgent
+from .implementations.single_step_json_tool_calling_agent import SingleStepJsonToolCallingAgent
+from .implementations.single_step_router_agent import SingleStepRouterAgent
 from .runtime import AgentRuntime
 from .runtime_controls import RuntimeControls
 
 __all__ = [
     "AgentRuntime",
-    "DirectLLMAgent",
-    "MultiStepAgent",
-    "RouterAgent",
+    "MultiStepCodeToolCallingAgent",
+    "MultiStepJsonToolCallingAgent",
     "RuntimeControls",
-    "SingleStepCodeAgent",
-    "ToolCallingAgent",
+    "SingleStepCodeToolCallingAgent",
+    "SingleStepDirectLLMAgent",
+    "SingleStepJsonToolCallingAgent",
+    "SingleStepRouterAgent",
 ]

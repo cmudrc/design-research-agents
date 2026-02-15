@@ -9,11 +9,22 @@ workflow orchestration, and pluggable LLM backends.
 
 This project focuses on composable agent systems you can run, inspect, and test:
 
-- Agent implementations: `DirectLLMAgent`, `ToolCallingAgent`, `SingleStepCodeAgent`, `MultiStepAgent`
-- Unified runtime: `AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `triage`
-- Workflow orchestration: `WorkflowRuntime` with typed logic, tool, and agent steps
+- Agent implementations: `dra.agents.SingleStepDirectLLMAgent`, `dra.agents.SingleStepRouterAgent`, `dra.agents.SingleStepJsonToolCallingAgent`, `dra.agents.SingleStepCodeToolCallingAgent`, `dra.agents.MultiStepJsonToolCallingAgent`, `dra.agents.MultiStepCodeToolCallingAgent`
+- Unified runtime: `dra.agents.AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `triage`
+- Workflow orchestration: `dra.workflows.WorkflowRuntime` with typed logic, tool, and agent steps
 - Backend architecture: capability-based routing across local and remote LLM backends
 - Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads
+
+## Public API 
+```python
+import design_research_agents as dra
+
+agent = dra.agents.SingleStepJsonToolCallingAgent(...)
+tool_runtime = dra.tools.UnifiedToolRuntime(...)
+workflow = dra.workflows.WorkflowRuntime(...)
+policy = dra.models.ModelSelectionPolicy(...)
+router = dra.llm.configure_router_from_yaml("configs/llm.yaml")
+```
 
 ## Quickstart
 
@@ -41,10 +52,8 @@ See the examples index and sub-guides:
 - Runtime modes: [`examples/runtime/README.md`](examples/runtime/README.md)
 - Orchestrators: [`examples/orchestrator/README.md`](examples/orchestrator/README.md)
 - Model selection: [`examples/model_selection/README.md`](examples/model_selection/README.md)
+- Tool runtime source fusion: [`examples/tools/README.md`](examples/tools/README.md)
 
-Most examples run with deterministic in-repo stubs. Backends like
-`llama_cpp`, `transformers_local`, and `mlx_local` are available when optional
-dependencies are installed.
 
 ## Docs
 

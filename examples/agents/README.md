@@ -6,5 +6,5 @@ This folder contains examples for the core agent types.
   - Non-streaming, end-to-end examples that typically use the default local backend.
   - See `examples/agents/basic/README.md`.
 - `examples/agents/streaming`
-  - Streaming examples using deterministic local LLM stubs.
+  - Streaming examples against the default local llama-cpp server backend.
   - See `examples/agents/streaming/README.md`.

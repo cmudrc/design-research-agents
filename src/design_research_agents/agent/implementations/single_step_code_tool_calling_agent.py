@@ -89,7 +89,7 @@ class _CodeNormalizationResult:
         }
 
 
-class SingleStepCodeAgent(Agent):
+class SingleStepCodeToolCallingAgent(Agent):
     """Agent that writes and executes one sandboxed Python action program.
 
     The agent is designed for deterministic single-turn execution with strict
@@ -101,7 +101,6 @@ class SingleStepCodeAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str | None = None,
         max_tool_calls: int = 5,
         execution_timeout_seconds: int = 5,
         validate_tool_input_schema: bool = False,
@@ -113,7 +112,6 @@ class SingleStepCodeAgent(Agent):
         Args:
             llm_client: LLM client used to generate one action program.
             tool_runtime: Tool runtime used for allowed tool invocation.
-            model: Optional model override applied to all runs when provided.
             max_tool_calls: Maximum number of tool calls allowed in one run.
             execution_timeout_seconds: Max wall-clock seconds for executing generated code.
             validate_tool_input_schema: Whether to validate tool args against tool input schemas.
@@ -129,7 +127,6 @@ class SingleStepCodeAgent(Agent):
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
-        self._model = model
         self._max_tool_calls = max_tool_calls
         self._execution_timeout_seconds = execution_timeout_seconds
         self._validate_tool_input_schema = validate_tool_input_schema
@@ -164,7 +161,7 @@ class SingleStepCodeAgent(Agent):
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
-            agent_name="SingleStepCodeAgent",
+            agent_name="SingleStepCodeToolCallingAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -211,8 +208,6 @@ class SingleStepCodeAgent(Agent):
         normalize_generated_code = self._normalize_generated_code
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
         )
         prompt = _extract_prompt(normalized_input)
         alternatives_prompt_target = resolve_alternatives_prompt_target(
@@ -312,13 +307,13 @@ class SingleStepCodeAgent(Agent):
             "generated_code": code_text,
             "final_output": final_output,
             "tool_name": tool_results[-1].tool_name if tool_results else None,
-            "tool_output": tool_results[-1].output if tool_results else {},
+            "tool_output": tool_results[-1].result if tool_results else {},
         }
         if raw_generated_code is not None:
             output["raw_generated_code"] = raw_generated_code
         result = AgentResult(
             output=output,
-            success=all(tool_result.success for tool_result in tool_results),
+            success=all(tool_result.ok for tool_result in tool_results),
             tool_results=tool_results,
             model_response=llm_response,
             metadata={
@@ -415,7 +410,7 @@ class SingleStepCodeAgent(Agent):
                 alternatives_text=tools_text,
             )
         llm_params = LLMChatParams(
-            provider_options={"agent": "SingleStepCodeAgent"},
+            provider_options={"agent": "SingleStepCodeToolCallingAgent"},
         )
         messages = [
             LLMMessage(
@@ -428,7 +423,7 @@ class SingleStepCodeAgent(Agent):
             model=model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "SingleStepCodeAgent"},
+            metadata={"agent": "SingleStepCodeToolCallingAgent"},
         )
         try:
             response = self._llm_client.chat(messages, model=model, params=llm_params)
@@ -883,7 +878,7 @@ def _compile_sandboxed_code(code_text: str) -> CodeType:
 
     syntax_tree = ast.parse(code_text, mode="exec")
     _validate_sandbox_syntax_tree(syntax_tree)
-    return compile(syntax_tree, filename="<single_step_code_agent>", mode="exec")
+    return compile(syntax_tree, filename="<single_step_code_tool_calling_agent>", mode="exec")
 
 
 def _validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
@@ -1110,10 +1105,18 @@ def _execute_compiled_code(
             dependencies=dependencies,
         )
         tool_results.append(tool_result)
-        if not tool_result.success:
-            error = tool_result.error or "Unknown tool runtime error."
+        if not tool_result.ok:
+            if tool_result.error is not None:
+                error = tool_result.error.message
+            else:
+                error = "Unknown tool runtime error."
             raise RuntimeError(f"Tool '{normalized_tool_name}' failed: {error}")
-        return dict(tool_result.output)
+        if not isinstance(tool_result.result, Mapping):
+            raise RuntimeError(
+                f"Tool '{normalized_tool_name}' returned a non-object payload: "
+                f"{type(tool_result.result).__name__}."
+            )
+        return dict(tool_result.result)
 
     sandbox_globals = {
         "__builtins__": {
@@ -1167,7 +1170,9 @@ def _execute_compiled_code(
     if final_output is None:
         # Local models occasionally omit the required assignment.
         # Fall back to the last successful tool output to keep execution usable.
-        final_output = dict(tool_results[-1].output)
+        if not isinstance(tool_results[-1].result, Mapping):
+            raise ValueError("final_output fallback requires the last tool result to be an object.")
+        final_output = dict(tool_results[-1].result)
     if not isinstance(final_output, Mapping):
         emit_guardrail_decision(
             guardrail="final_output_type",

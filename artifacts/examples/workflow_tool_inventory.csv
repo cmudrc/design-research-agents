@@ -1,0 +1,5 @@
+tool,source
+calculator,core
+search.ripgrep,core
+repo_quickscan,lazy
+local_core::calculator,mcp

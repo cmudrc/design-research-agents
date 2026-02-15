@@ -66,7 +66,7 @@ class _ToolChoice:
     input_schema: dict[str, object]
 
 
-class ToolCallingAgent(Agent):
+class SingleStepJsonToolCallingAgent(Agent):
     """Agent that asks the model to select a tool and structured arguments.
 
     The execution path is: gather choices, request strict JSON tool call, parse
@@ -78,7 +78,6 @@ class ToolCallingAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        model: str | None = None,
         default_tool_name: str = DEFAULT_FALLBACK_TOOL_NAME,
     ) -> None:
         """Initialize a tool-calling agent with injected runtime dependencies.
@@ -86,12 +85,10 @@ class ToolCallingAgent(Agent):
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
-            model: Optional model override applied to all runs when provided.
             default_tool_name: Fallback tool used when no explicit choices are supplied.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
-        self._model = model
         self._default_tool_name = default_tool_name
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_tool_choices = _extract_tool_choices(
@@ -126,7 +123,7 @@ class ToolCallingAgent(Agent):
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
-            agent_name="ToolCallingAgent",
+            agent_name="SingleStepJsonToolCallingAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -134,8 +131,6 @@ class ToolCallingAgent(Agent):
         prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
-            input_payload=normalized_input,
-            init_model=self._model,
         )
         choices = [_clone_tool_choice(choice) for choice in self._compiled_tool_choices]
         alternatives_prompt_target = resolve_alternatives_prompt_target(
@@ -172,9 +167,9 @@ class ToolCallingAgent(Agent):
             tools=list(self._runtime_specs.values()),
             metadata={
                 "request_id": resolved_request_id,
-                "agent": "ToolCallingAgent",
+                "agent": "SingleStepJsonToolCallingAgent",
             },
-            provider_options={"agent": "ToolCallingAgent"},
+            provider_options={"agent": "SingleStepJsonToolCallingAgent"},
         )
         model_call_payload: LLMRequest | LLMChatParams
         if _supports_generate(self._llm_client):
@@ -188,7 +183,7 @@ class ToolCallingAgent(Agent):
             model=resolved_model,
             messages=model_messages,
             params=model_call_payload,
-            metadata={"agent": "ToolCallingAgent"},
+            metadata={"agent": "SingleStepJsonToolCallingAgent"},
         )
         try:
             llm_response = _request_tool_call_response(
@@ -233,11 +228,11 @@ class ToolCallingAgent(Agent):
             "model_text": llm_response.text,
             "tool_name": selected_choice.tool_name,
             "tool_input": tool_input,
-            "tool_output": tool_result.output,
+            "tool_output": tool_result.result,
         }
         result = AgentResult(
             output=output,
-            success=tool_result.success,
+            success=tool_result.ok,
             tool_results=[tool_result],
             model_response=llm_response,
             metadata={
@@ -409,9 +404,15 @@ def _request_tool_call_response(
 
 def _resolve_default_model(llm_client: LLMClient) -> str:
     default_model_fn = getattr(llm_client, "default_model", None)
-    if callable(default_model_fn):
-        return str(default_model_fn())
-    return "local-model"
+    if not callable(default_model_fn):
+        raise ValueError("LLM client must expose default_model().")
+    resolved_model = default_model_fn()
+    if not isinstance(resolved_model, str):
+        raise ValueError("LLM client default_model() must return a string.")
+    normalized_model = resolved_model.strip()
+    if not normalized_model:
+        raise ValueError("LLM client default_model() returned an empty model id.")
+    return normalized_model
 
 
 def _tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, object]:

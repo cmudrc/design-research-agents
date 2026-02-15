@@ -2,43 +2,19 @@
 
 from __future__ import annotations
 
-import json
-
-from _runtime_example_support import SequenceResponseLLMClient
-
-import design_research_agents
+import design_research_agents as dra
 
 
 def main() -> None:
-    """Run the ``plan_execute`` runtime example with deterministic responses."""
-    llm_client = SequenceResponseLLMClient(
-        response_texts=[
-            json.dumps(
-                {
-                    "steps": [
-                        {
-                            "step_id": "compute",
-                            "instruction": "Compute 6 * 7.",
-                            "success_criteria": "Return numeric result.",
-                        }
-                    ]
-                }
-            ),
-            "\n".join(
-                [
-                    'calc = call_tool("calculator", {"expression": "6 * 7"})',
-                    'final_output = {"result": calc["result"]}',
-                ]
-            ),
-        ]
-    )
+    """Run the ``plan_execute`` runtime example."""
+    llm_client = dra.llm.create_default_llm_client()
 
-    agent = design_research_agents.AgentRuntime(
+    agent = dra.agents.AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=design_research_agents.BaseToolRuntime(),
+        tool_runtime=dra.tools.UnifiedToolRuntime(),
         mode="plan_execute",
     )
-    result = agent.run("Compute 6 * 7.")
+    result = agent.run("Create and analyze a tiny runtime tools inventory.")
     print(result)
 
 

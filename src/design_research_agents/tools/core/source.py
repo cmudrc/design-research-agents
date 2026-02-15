@@ -13,7 +13,6 @@ from .data_tools import register_data_tools
 from .fs_tools import register_fs_tools
 from .git_tools import register_git_tools
 from .math_tools import register_math_tools
-from .run_tools import register_run_tools
 from .search_tools import register_search_tools
 from .text_tools import register_text_tools
 
@@ -36,7 +35,6 @@ class CoreToolSource:
         register_search_tools(self._source, policy=self._policy)
         register_git_tools(self._source, policy=self._policy)
         register_data_tools(self._source, policy=self._policy)
-        register_run_tools(self._source, policy=self._policy)
         register_bash_tools(self._source)
 
     def list_tools(self) -> Sequence[ToolSpec]:
@@ -79,8 +77,7 @@ class CoreToolSource:
         return result
 
     def register_tool(self, *, spec: ToolSpec, handler: object) -> None:
-        """Compatibility hook for runtime shim usage."""
-        # Compatibility method mirrors old BaseToolRuntime customization behavior.
+        """Register an additional in-process core tool handler."""
         self._source.register_tool(spec=spec, handler=handler)  # type: ignore[arg-type]
 
 

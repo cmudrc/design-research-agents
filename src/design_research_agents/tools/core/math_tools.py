@@ -27,7 +27,7 @@ def register_math_tools(source: InProcessToolSource) -> None:
         risky=False,
     )
 
-    for name in ("math.eval", "calculator"):
+    for name in ("calculator",):
         source.register_tool(
             spec=ToolSpec(
                 name=name,

@@ -28,11 +28,12 @@ Run additional contract-focused examples:
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/basic/router_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/direct_llm_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/tool_calling_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/single_step_code_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/multi_step_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/single_step_router_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/single_step_json_tool_calling_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
+   PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
    PYTHONPATH=src python3 examples/runtime/plan_execute.py
    PYTHONPATH=src python3 examples/runtime/propose_critic.py
    PYTHONPATH=src python3 examples/runtime/triage.py
@@ -40,37 +41,39 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/orchestrator/mixed_agent_workflow.py
    PYTHONPATH=src python3 examples/model_selection/local.py
    PYTHONPATH=src python3 examples/model_selection/remote.py
+   PYTHONPATH=src python3 examples/tools/mcp_minimal.py
+   PYTHONPATH=src python3 examples/tools/source_fusion_story.py
 
 Run additional streaming examples:
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/streaming/direct_llm_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/router_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/tool_calling_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/single_step_code_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/multi_step_agent_stream.py
+   PYTHONPATH=src python3 examples/agents/streaming/single_step_direct_llm_agent_stream.py
+   PYTHONPATH=src python3 examples/agents/streaming/single_step_router_agent_stream.py
+   PYTHONPATH=src python3 examples/agents/streaming/single_step_json_tool_calling_agent_stream.py
+   PYTHONPATH=src python3 examples/agents/streaming/single_step_code_tool_calling_agent_stream.py
+   PYTHONPATH=src python3 examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py
+   PYTHONPATH=src python3 examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py
 
-These streaming examples use deterministic in-script LLM stubs and do not need
-an external model backend.
+Agent/runtime/orchestrator examples default to a local llama-cpp server via
+``dra.llm.create_default_llm_client()``.
 
 Use router-first backend configuration:
 
 .. code-block:: python
 
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
-   from design_research_agents.llm import BaseLLMClient, configure_router_from_yaml
+   import design_research_agents as dra
 
    # Example YAML defines one or more configured backends.
    # See ``src/design_research_agents/llm/config.py`` for the schema.
-   router = configure_router_from_yaml("configs/llm.yaml", default_backend="llama-local")
+   router = dra.llm.configure_router_from_yaml("configs/llm.yaml", default_backend="llama-local")
 
    # Optional: ``backend=...`` pins calls to a specific named backend.
-   llm_client = BaseLLMClient(router=router, backend="llama-local")
+   llm_client = dra.llm.BaseLLMClient(router=router, backend="llama-local")
    response = llm_client.chat(
-       messages=[LLMMessage(role="user", content="Hello")],
+       messages=[dra.contracts.llm.LLMMessage(role="user", content="Hello")],
        model=llm_client.default_model(),
-       params=LLMChatParams(),
+       params=dra.contracts.llm.LLMChatParams(),
    )
    text = response.text
 

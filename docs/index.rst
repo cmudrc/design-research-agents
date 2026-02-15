@@ -1,7 +1,7 @@
 design-research-agents
 ======================
 
-A flexible, modular framework for researching AI agents that design
+A flexible, modular framework for researching AI agents for design workflows.
 
 Build and compare agent behaviors, swap LLM backends, and capture traces
 without rewriting your pipeline. The library favors small, composable
@@ -10,7 +10,9 @@ pieces so you can test ideas quickly and keep experiments reproducible.
 Highlights
 ----------
 
-- Multiple agent styles: direct LLM, tool-calling, router, and multi-step.
+- Six core agent styles: ``SingleStepDirectLLMAgent``, ``SingleStepRouterAgent``,
+  ``SingleStepJsonToolCallingAgent``, ``SingleStepCodeToolCallingAgent``,
+  ``MultiStepJsonToolCallingAgent``, and ``MultiStepCodeToolCallingAgent``.
 - Model selection policies with local/remote catalogs.
 - Tool contracts and schemas for safe, structured I/O.
 - Tracing hooks and emitters for debugging and evaluation.

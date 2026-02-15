@@ -33,7 +33,8 @@ def test_mcp_stdio_server_list_and_call() -> None:
             dependencies={},
         )
         assert qualified.ok is True
-        assert qualified.output["result"] == 5.0
+        assert isinstance(qualified.result, dict)
+        assert qualified.result["result"] == 5.0
 
         unqualified = runtime.invoke(
             "calculator",
@@ -42,6 +43,7 @@ def test_mcp_stdio_server_list_and_call() -> None:
             dependencies={},
         )
         assert unqualified.ok is True
-        assert unqualified.output["result"] == 5.0
+        assert isinstance(unqualified.result, dict)
+        assert unqualified.result["result"] == 5.0
     finally:
         runtime.close()

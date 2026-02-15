@@ -64,5 +64,6 @@ def test_lazy_discovery_and_run_examples() -> None:
         dependencies={},
     )
     assert result.ok is True
-    assert "score" in result.output
+    assert isinstance(result.result, dict)
+    assert "score" in result.result
     assert result.artifacts

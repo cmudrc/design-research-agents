@@ -2,39 +2,16 @@
 
 from __future__ import annotations
 
-import json
-
-from _runtime_example_support import SequenceResponseLLMClient
-
-import design_research_agents
+import design_research_agents as dra
 
 
 def main() -> None:
-    """Run the ``propose_critic`` runtime example with fixed model outputs."""
-    llm_client = SequenceResponseLLMClient(
-        response_texts=[
-            "Draft v1: simple proposal.",
-            json.dumps(
-                {
-                    "approved": False,
-                    "feedback": "Add more detail.",
-                    "revision_goals": ["expand rationale"],
-                }
-            ),
-            "Draft v2: proposal with more detail.",
-            json.dumps(
-                {
-                    "approved": True,
-                    "feedback": "Looks good.",
-                    "revision_goals": [],
-                }
-            ),
-        ]
-    )
+    """Run the ``propose_critic`` runtime example."""
+    llm_client = dra.llm.create_default_llm_client()
 
-    agent = design_research_agents.AgentRuntime(
+    agent = dra.agents.AgentRuntime(
         llm_client=llm_client,
-        tool_runtime=design_research_agents.BaseToolRuntime(),
+        tool_runtime=dra.tools.UnifiedToolRuntime(),
         mode="propose_critic",
     )
     result = agent.run("Write a short design summary for this repository.")

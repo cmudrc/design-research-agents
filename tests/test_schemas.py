@@ -6,6 +6,9 @@ Confirms packaged schemas load correctly and dataclasses serialize cleanly.
 import json
 from dataclasses import asdict
 
+import pytest
+
+import design_research_agents
 from design_research_agents.contracts import (
     AgentResult,
     LLMResponse,
@@ -53,8 +56,8 @@ def test_tool_result_and_agent_result_serialize_and_deserialize_cleanly() -> Non
     # Result dataclasses should serialize cleanly for logging and persistence.
     tool_result = ToolResult(
         tool_name="calculator",
-        output={"expression": "6*7", "result": 42},
-        success=True,
+        ok=True,
+        result={"expression": "6*7", "result": 42},
         metadata={"source": "unit-test"},
     )
     agent_result = AgentResult(
@@ -80,3 +83,20 @@ def test_tool_result_and_agent_result_serialize_and_deserialize_cleanly() -> Non
     assert round_trip_agent_result["output"]["final"] == "hello"
     assert round_trip_agent_result["tool_results"][0]["tool_name"] == "calculator"
     assert round_trip_agent_result["model_response"]["model"] == "base-model"
+
+
+def test_tool_result_rejects_legacy_success_and_output_fields() -> None:
+    with pytest.raises(TypeError):
+        ToolResult(
+            tool_name="calculator",
+            success=True,  # type: ignore[call-arg]
+            output={"result": 42},  # type: ignore[call-arg]
+        )
+
+
+def test_package_no_longer_exports_base_tool_runtime() -> None:
+    assert hasattr(design_research_agents, "tools")
+    assert hasattr(design_research_agents.tools, "UnifiedToolRuntime")
+    assert not hasattr(design_research_agents, "UnifiedToolRuntime")
+    assert not hasattr(design_research_agents, "BaseToolRuntime")
+    assert not hasattr(design_research_agents.tools, "BaseToolRuntime")

@@ -91,7 +91,7 @@ def run_tool_step(
         )
 
     serialized_output = asdict(tool_result)
-    if not tool_result.success:
+    if not tool_result.ok:
         if tool_result.error is not None:
             tool_error_message = tool_result.error.message
         else:

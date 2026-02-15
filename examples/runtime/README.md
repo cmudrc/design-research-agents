@@ -11,5 +11,6 @@ PYTHONPATH=src python3 examples/runtime/triage.py
 ```
 
 Notes:
-- `_runtime_example_support.py` provides deterministic sequence-based LLM stubs.
-- `react` mode is represented by `MultiStepAgent` semantics in the runtime implementation.
+- These examples default to a live local `llama-cpp-server` endpoint.
+- Default backend settings come from `dra.llm.create_default_llm_client()`.
+- `react` mode is represented by `MultiStepCodeToolCallingAgent` semantics in the runtime implementation.
