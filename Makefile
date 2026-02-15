@@ -2,7 +2,7 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: install test lint lint-fix format format-check typecheck run-example docs ci clean
+.PHONY: install test lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk
 
 # Install a batteries-included development environment.
 install:
@@ -47,8 +47,19 @@ typecheck:
 docs:
 	sphinx-build -b html docs docs/_build/html
 
+# Remove traces/ dirs anywhere + Sphinx build output + egg-info.
+purge-ignored-junk:
+	@echo "Removing traces/ directories, Sphinx _build, and egg-info..."
+	@find . -type d -name traces -prune -exec rm -rf {} + 2>/dev/null || true
+	@rm -rf docs/_build
+	@rm -rf src/design_research_agents.egg-info
+	@find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
+
 # Aggregate checks used by CI.
 ci: lint format-check typecheck test
 
 # Make me squeaky clean
-clean: lint-fix format
+clean: purge-ignored-junk lint-fix format
+
+# Check for pre-commit
+pre-commit: lint format-check typecheck test

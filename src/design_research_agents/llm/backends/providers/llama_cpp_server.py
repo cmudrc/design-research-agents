@@ -265,6 +265,9 @@ class LlamaCppServerBackend:
             except URLError as exc:
                 # Keep most recent probe failure for timeout diagnostics.
                 last_error = exc
+            except TimeoutError as exc:
+                # Slow local startup may time out one probe; continue until deadline.
+                last_error = exc
 
             time.sleep(self.poll_interval_seconds)
 

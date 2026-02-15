@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from design_research_agents.llm.backends.factory import build_backend, build_backends
+from design_research_agents.llm.backends.providers import llama_cpp_server
 from design_research_agents.llm.backends.providers.echo_test import EchoTestBackend
 from design_research_agents.llm.backends.providers.llama_cpp import LlamaCppBackend
 from design_research_agents.llm.config import (
@@ -164,3 +165,96 @@ def test_llama_cpp_server_command_contains_expected_args() -> None:
     assert "--hf_model_repo_id" in command
     assert "repo/id" in command
     assert "--n-gpu-layers" in command
+
+
+def test_llama_cpp_wait_until_ready_retries_after_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = llama_cpp_server.LlamaCppServerBackend(
+        model="/tmp/model.gguf",
+        startup_timeout_seconds=1.0,
+        poll_interval_seconds=0.0,
+    )
+
+    class _AliveProcess:
+        def __init__(self) -> None:
+            self._terminated = False
+
+        def poll(self) -> int | None:
+            return 0 if self._terminated else None
+
+        def terminate(self) -> None:
+            self._terminated = True
+
+        def kill(self) -> None:
+            self._terminated = True
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self._terminated = True
+            return 0
+
+    backend._process = _AliveProcess()  # type: ignore[assignment]
+    attempts = {"count": 0}
+
+    class _ReadyResponse:
+        status = 200
+
+        def __enter__(self) -> _ReadyResponse:
+            return self
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> bool:
+            del exc_type, exc, tb
+            return False
+
+    def _flaky_probe(url: str, timeout: float) -> _ReadyResponse:
+        del url, timeout
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise TimeoutError("timed out")
+        return _ReadyResponse()
+
+    monkeypatch.setattr(llama_cpp_server, "urlopen", _flaky_probe)
+    backend._wait_until_ready()
+
+    assert attempts["count"] == 2
+
+
+def test_llama_cpp_wait_until_ready_timeout_error_becomes_runtime_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = llama_cpp_server.LlamaCppServerBackend(
+        model="/tmp/model.gguf",
+        startup_timeout_seconds=0.01,
+        poll_interval_seconds=0.0,
+    )
+
+    class _AliveProcess:
+        def __init__(self) -> None:
+            self._terminated = False
+
+        def poll(self) -> int | None:
+            return 0 if self._terminated else None
+
+        def terminate(self) -> None:
+            self._terminated = True
+
+        def kill(self) -> None:
+            self._terminated = True
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self._terminated = True
+            return 0
+
+    backend._process = _AliveProcess()  # type: ignore[assignment]
+
+    def _timeout_probe(url: str, timeout: float) -> object:
+        del url, timeout
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(llama_cpp_server, "urlopen", _timeout_probe)
+    monkeypatch.setattr(llama_cpp_server.time, "sleep", lambda _: None)
+
+    with pytest.raises(RuntimeError, match="Timed out waiting for llama-cpp server readiness"):
+        backend._wait_until_ready()

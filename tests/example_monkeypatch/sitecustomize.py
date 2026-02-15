@@ -31,6 +31,15 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     "single_step_json_tool_calling_agent.py": (
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
+    "single_step_json_lazy_rubric_score_agent.py": (
+        (
+            '{"tool_name":"lazy::rubric_score","tool_input":{"text":"Agents can quickly score '
+            'this sample summary.","max_score":12}}'
+        ),
+    ),
+    "single_step_json_lazy_repo_quickscan_agent.py": (
+        '{"tool_name":"lazy::repo_quickscan","tool_input":{"include_hidden":false}}',
+    ),
     "single_step_code_tool_calling_agent.py": (
         "\n".join(
             [
@@ -114,7 +123,10 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         "Draft v2: proposal with more detail.",
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
-    "triage.py": ('{"selection":"stats_agent","reason":"best fit"}',),
+    "agent_routing.py": (
+        '{"selection":"json_tool_agent","reason":"Arithmetic request uses tools."}',
+        '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
+    ),
     "mixed_agent_workflow.py": (
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
@@ -145,7 +157,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
     ),
     "multi_step_code_tool_calling_agent_stream.py": (
-        '{"continue": true, "reason": "Run one action step."}',
+        '{"continue": true, "thought": "Run one action step."}',
         "\n".join(
             [
                 'readme = call_tool("fs.read_text", {"path": "README.md", "max_bytes": 1200})',
@@ -155,7 +167,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
     ),
     "multi_step_json_tool_calling_agent_stream.py": (
-        '{"continue": true, "reason": "Run one action step."}',
+        '{"continue": true, "thought": "Run one action step."}',
         (
             '{"tool_name":"text.word_count","tool_input":{"text":"README measured"},'
             '"reason":"Compute compact metric."}'

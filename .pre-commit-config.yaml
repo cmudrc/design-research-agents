@@ -10,27 +10,8 @@ repos:
   # Delegate quality checks to Make targets so local hooks and CI stay aligned.
   - repo: local
     hooks:
-      - id: make-lint
-        name: make lint
-        entry: make lint
+      - id: make-pre-commit
+        name: make pre-commit
+        entry: make pre-commit
         language: system
         pass_filenames: false
-
-      - id: make-format-check
-        name: make format-check
-        entry: make format-check
-        language: system
-        pass_filenames: false
-
-      - id: make-typecheck
-        name: make typecheck
-        entry: make typecheck
-        language: system
-        pass_filenames: false
-
-      - id: make-test
-        name: make test
-        entry: make test
-        language: system
-        pass_filenames: false
-        stages: [pre-push]

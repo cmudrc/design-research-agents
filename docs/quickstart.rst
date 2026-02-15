@@ -34,9 +34,10 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
-   PYTHONPATH=src python3 examples/runtime/plan_execute.py
-   PYTHONPATH=src python3 examples/runtime/propose_critic.py
-   PYTHONPATH=src python3 examples/runtime/triage.py
+   PYTHONPATH=src python3 examples/orchestrator/workflow_runtime.py
+   PYTHONPATH=src python3 examples/orchestrator/plan_execute.py
+   PYTHONPATH=src python3 examples/orchestrator/propose_critic.py
+   PYTHONPATH=src python3 examples/orchestrator/agent_routing.py
    PYTHONPATH=src python3 examples/orchestrator/pure_tool_workflow.py
    PYTHONPATH=src python3 examples/orchestrator/mixed_agent_workflow.py
    PYTHONPATH=src python3 examples/model_selection/local.py
@@ -55,7 +56,7 @@ Run additional streaming examples:
    PYTHONPATH=src python3 examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py
    PYTHONPATH=src python3 examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py
 
-Agent/runtime/orchestrator examples default to a local llama-cpp server via
+Agent/orchestrator examples default to a local llama-cpp server via
 ``dra.llm.create_default_llm_client()``.
 
 Use router-first backend configuration:

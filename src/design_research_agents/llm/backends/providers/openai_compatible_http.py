@@ -23,7 +23,6 @@ from design_research_agents.contracts.tools import ToolSpec
 from design_research_agents.llm.backends.base import BaseLLMBackend
 from design_research_agents.llm.backends.errors import map_backend_exception
 from design_research_agents.llm.backends.utils import (
-    parse_function_call,
     parse_tool_calls,
     parse_usage,
 )
@@ -206,8 +205,6 @@ def _parse_completion_response(
     message = choices[0].get("message") or {}
     content = message.get("content") or ""
     tool_calls = parse_tool_calls(message.get("tool_calls"))
-    if not tool_calls:
-        tool_calls = parse_function_call(message.get("function_call"))
     usage = parse_usage(response.get("usage"))
     return LLMResponse(
         text=str(content).strip(),

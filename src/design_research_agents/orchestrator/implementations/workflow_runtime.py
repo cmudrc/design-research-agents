@@ -9,10 +9,10 @@ from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import Agent
 from design_research_agents.contracts.orchestrator import (
     AgentStep,
     LogicStep,
+    WorkflowDelegate,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
     WorkflowResult,
@@ -47,9 +47,9 @@ class WorkflowRuntime(WorkflowRunner):
         self,
         *,
         tool_runtime: ToolRuntime | None = None,
-        agents: Mapping[str, Agent] | None = None,
+        agents: Mapping[str, WorkflowDelegate] | None = None,
     ) -> None:
-        """Initialize workflow runtime dependencies for tool and agent steps."""
+        """Initialize workflow runtime dependencies for tool and delegate steps."""
         self._tool_runtime = tool_runtime
         self._agents = {
             name.strip(): agent

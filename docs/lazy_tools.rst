@@ -114,3 +114,5 @@ See examples in:
 
 - ``examples/lazy_tools/python/rubric_score.py``
 - ``examples/lazy_tools/bash/repo_quickscan.sh``
+- ``examples/lazy_tools/python/single_step_json_lazy_rubric_score_agent.py``
+- ``examples/lazy_tools/bash/single_step_json_lazy_repo_quickscan_agent.py``

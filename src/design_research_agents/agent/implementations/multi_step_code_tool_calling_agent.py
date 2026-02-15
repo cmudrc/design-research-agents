@@ -595,8 +595,6 @@ def _build_continue_prompt(
 def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
     """Extract normalized continuation thought text from model JSON output.
 
-    The model may emit either ``thought`` (preferred) or ``reason`` (legacy).
-
     Args:
         parsed: Parsed JSON mapping from the model response.
 
@@ -606,9 +604,6 @@ def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
     thought = parsed.get("thought")
     if thought is not None:
         return str(thought)
-    reason = parsed.get("reason")
-    if reason is not None:
-        return str(reason)
     return "model decision"
 
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from typing import Any
 
@@ -46,18 +45,10 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
         call_id = str(entry.get("id") or "")
         name = ""
         arguments_json = ""
-        function_call: dict[str, Any] | None = None
         function = entry.get("function")
         if isinstance(function, dict):
             name = str(function.get("name") or "")
             arguments_json = str(function.get("arguments") or "")
-        else:
-            raw_function_call = entry.get("function_call")
-            if isinstance(raw_function_call, dict):
-                function_call = raw_function_call
-        if function_call is not None:
-            name = str(function_call.get("name") or "")
-            arguments_json = str(function_call.get("arguments") or "")
         if name:
             if not call_id:
                 call_id = f"call_{len(tool_calls) + 1}"
@@ -69,18 +60,6 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
                 )
             )
     return tuple(tool_calls)
-
-
-def parse_function_call(raw_function_call: Any) -> tuple[ToolCall, ...]:
-    """Parse legacy single ``function_call`` payload into tool call tuple."""
-    if not isinstance(raw_function_call, dict):
-        return ()
-    name = raw_function_call.get("name")
-    arguments = raw_function_call.get("arguments")
-    if not isinstance(name, str) or not name:
-        return ()
-    arguments_json = arguments if isinstance(arguments, str) else json.dumps(arguments)
-    return (ToolCall(name=name, arguments_json=arguments_json, call_id="call_1"),)
 
 
 def _coerce_int(value: Any) -> int | None:

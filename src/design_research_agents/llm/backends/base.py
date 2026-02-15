@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from design_research_agents.contracts.llm import (
     BackendCapabilities,
@@ -171,7 +171,7 @@ class BaseLLMBackend(ABC):
                     "structured_output": {
                         "attempts": result.attempts + 1,
                         "parsed": result.parsed,
-                        "tool_calls": [call.__dict__ for call in tool_calls],
+                        "tool_calls": [asdict(call) for call in tool_calls],
                     }
                 },
             ),

@@ -86,6 +86,7 @@ SingleStepRouterAgent
 - Example: ``examples/agents/basic/single_step_router_agent.py``
 - Streaming example: ``examples/agents/streaming/single_step_router_agent_stream.py``
 - Chooses exactly one runtime tool route from model-generated structured output.
+- ``SingleStepRouterAgent`` is a tool-routing agent (not an agent-delegation orchestrator).
 - Compiles route choices directly from ``ToolRuntime.list_tools()``.
 - Uses a built-in default route-selection schema generated from runtime routes.
 - Fails the run when model routing output is invalid (no heuristic route fallback).
@@ -141,28 +142,42 @@ AgentRuntime
 
 - Source: ``src/design_research_agents/agent/runtime.py``
 - Examples:
-  - ``examples/runtime/plan_execute.py``
-  - ``examples/runtime/propose_critic.py``
-  - ``examples/runtime/triage.py``
+  - ``examples/orchestrator/plan_execute.py``
+  - ``examples/orchestrator/propose_critic.py``
+  - ``examples/orchestrator/agent_routing.py``
+- Interaction pattern mirrors agent examples: construct first, then call
+  ``.run(prompt=...)`` with an explicit prompt.
 - Provides one runtime that can execute:
   - ``mode="react"`` (delegates directly to ``MultiStepCodeToolCallingAgent``),
   - ``mode="plan_execute"`` (planner JSON + step execution),
   - ``mode="propose_critic"`` (iterative propose/critic loop),
-  - ``mode="triage"`` (router selection + delegated agent execution).
+  - ``mode="triage"`` (tool-routing selection + delegated agent execution).
 - Tracks soft budget metadata (latency/cost observations) across mode loops.
 
 Workflow Runtime
 ----------------
 
 - Source:
-  - ``src/design_research_agents/orchestrator/runtime.py``
+  - ``src/design_research_agents/orchestrator/implementations/workflow_runtime.py``
+- Reusable orchestration chunks:
+  - ``src/design_research_agents/orchestrator/implementations/agent_routing.py``
+  - ``src/design_research_agents/orchestrator/implementations/plan_execute.py``
+  - ``src/design_research_agents/orchestrator/implementations/propose_critic.py``
+  - ``src/design_research_agents/orchestrator/implementations/pure_tool_workflow.py``
+  - ``src/design_research_agents/orchestrator/implementations/mixed_agent_workflow.py``
 - Examples:
+  - ``examples/orchestrator/workflow_runtime.py``
+  - ``examples/orchestrator/plan_execute.py``
+  - ``examples/orchestrator/propose_critic.py``
+  - ``examples/orchestrator/agent_routing.py``
   - ``examples/orchestrator/pure_tool_workflow.py``
   - ``examples/orchestrator/mixed_agent_workflow.py``
 - ``WorkflowRuntime`` executes typed workflow steps:
   - ``LogicStep`` for deterministic local handlers,
   - ``ToolStep`` for runtime tool invocations,
-  - ``AgentStep`` for registered-agent delegation.
+  - ``AgentStep`` for registered agent-or-orchestrator delegation.
+- Reusable orchestration chunks align to the
+  ``dra.contracts.orchestrator.WorkflowOrchestrator`` protocol.
 - Supports deterministic ``execution_mode="sequential"`` and
   ``execution_mode="dag"`` scheduling, per-step dependency injection through
   ``dependency_results``, route-based branch skipping via ``LogicStep.route_map``,

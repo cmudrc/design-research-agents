@@ -24,7 +24,6 @@ class ToolRegistry:
         """Initialize an empty source map and resolved routing tables."""
         self._sources: dict[str, ToolSource] = {}
         self._routes: dict[str, _ToolRoute] = {}
-        self._alias_map: dict[str, str] = {}
 
     def add_source(self, source: ToolSource) -> None:
         """Add a source and rebuild routing tables."""
@@ -49,14 +48,9 @@ class ToolRegistry:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke a routed tool name, resolving aliases when available."""
+        """Invoke a routed tool name."""
         self._rebuild_routes()
-        canonical_name = tool_name
-        route = self._routes.get(canonical_name)
-        if route is None:
-            aliased = self._alias_map.get(tool_name)
-            route = self._routes.get(aliased) if aliased is not None else None
-            canonical_name = aliased or tool_name
+        route = self._routes.get(tool_name)
 
         if route is None:
             return ToolResult(
@@ -72,10 +66,10 @@ class ToolRegistry:
             request_id=request_id,
             dependencies=dependencies,
         )
-        if result.tool_name == canonical_name:
+        if result.tool_name == tool_name:
             return result
         return ToolResult(
-            tool_name=canonical_name,
+            tool_name=tool_name,
             ok=result.ok,
             result=result.result,
             artifacts=result.artifacts,
@@ -98,26 +92,7 @@ class ToolRegistry:
                     spec=spec,
                 )
 
-        alias_counts: dict[str, int] = {}
-        for tool_name in rebuilt_routes:
-            if "::" not in tool_name:
-                continue
-            alias = tool_name.split("::", 1)[1]
-            alias_counts[alias] = alias_counts.get(alias, 0) + 1
-
-        alias_map: dict[str, str] = {}
-        for tool_name in rebuilt_routes:
-            if "::" not in tool_name:
-                continue
-            alias = tool_name.split("::", 1)[1]
-            if alias_counts.get(alias, 0) != 1:
-                continue
-            if alias in rebuilt_routes:
-                continue
-            alias_map[alias] = tool_name
-
         self._routes = rebuilt_routes
-        self._alias_map = alias_map
 
 
 __all__ = ["ToolRegistry"]

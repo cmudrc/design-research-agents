@@ -24,6 +24,15 @@ class LazyToolDefinition:
     header: LazyToolHeader
 
 
+_LAZY_DIRECTIVE_PREFIXES = (
+    "@tool_name:",
+    "@description:",
+    "@inputs:",
+    "@outputs:",
+    "@capabilities:",
+)
+
+
 def discover_lazy_tools(
     search_paths: tuple[str, ...],
 ) -> tuple[list[LazyToolDefinition], list[LazyDiscoveryDiagnostic]]:
@@ -45,6 +54,8 @@ def discover_lazy_tools(
         for candidate in sorted(candidates):
             if candidate.suffix not in {".py", ".sh"}:
                 continue
+            if not _looks_like_lazy_script(candidate):
+                continue
             try:
                 header = parse_lazy_tool_header(candidate)
             except LazyHeaderError as exc:
@@ -53,6 +64,24 @@ def discover_lazy_tools(
             found_tools.append(LazyToolDefinition(path=str(candidate.resolve()), header=header))
 
     return found_tools, diagnostics
+
+
+def _looks_like_lazy_script(path: Path) -> bool:
+    """Return True when file contains lazy header directives near the top."""
+    try:
+        with path.open(encoding="utf-8") as handle:
+            for _, raw_line in zip(range(120), handle, strict=False):
+                normalized = raw_line.strip()
+                if not normalized:
+                    continue
+                if normalized.startswith("#"):
+                    normalized = normalized[1:].strip()
+                lowered = normalized.lower()
+                if lowered.startswith(_LAZY_DIRECTIVE_PREFIXES):
+                    return True
+    except OSError:
+        return False
+    return False
 
 
 __all__ = ["LazyDiscoveryDiagnostic", "LazyToolDefinition", "discover_lazy_tools"]

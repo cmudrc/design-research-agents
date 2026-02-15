@@ -20,7 +20,6 @@ from design_research_agents.agent.internal.prompt_alternatives import (
 )
 from design_research_agents.agent.internal.response_schemas import (
     build_tool_call_response_schema,
-    clone_response_schema,
 )
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
@@ -28,13 +27,11 @@ from design_research_agents.agent.internal.run_options import (
     resolve_request_id,
 )
 from design_research_agents.agent.internal.tool_input import (
-    DEFAULT_FALLBACK_TOOL_NAME,
     extract_prompt,
     resolve_known_tool_input,
 )
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
-    LLMChatParams,
     LLMClient,
     LLMMessage,
     LLMRequest,
@@ -78,22 +75,18 @@ class SingleStepJsonToolCallingAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        default_tool_name: str = DEFAULT_FALLBACK_TOOL_NAME,
     ) -> None:
         """Initialize a tool-calling agent with injected runtime dependencies.
 
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
-            default_tool_name: Fallback tool used when no explicit choices are supplied.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
-        self._default_tool_name = default_tool_name
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_tool_choices = _extract_tool_choices(
             tool_specs=self._runtime_specs,
-            default_tool_name=self._default_tool_name,
         )
         self._default_tool_call_response_schema = _tool_call_response_schema(
             [choice.tool_name for choice in self._compiled_tool_choices]
@@ -171,25 +164,16 @@ class SingleStepJsonToolCallingAgent(Agent):
             },
             provider_options={"agent": "SingleStepJsonToolCallingAgent"},
         )
-        model_call_payload: LLMRequest | LLMChatParams
-        if _supports_generate(self._llm_client):
-            model_call_payload = llm_request
-        else:
-            model_call_payload = LLMChatParams(
-                response_schema=clone_response_schema(self._default_tool_call_response_schema),
-                provider_options=dict(llm_request.provider_options),
-            )
         model_span_id = start_model_call(
             model=resolved_model,
             messages=model_messages,
-            params=model_call_payload,
+            params=llm_request,
             metadata={"agent": "SingleStepJsonToolCallingAgent"},
         )
         try:
             llm_response = _request_tool_call_response(
                 llm_client=self._llm_client,
                 llm_request=llm_request,
-                response_schema=self._default_tool_call_response_schema,
             )
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
@@ -278,13 +262,11 @@ class SingleStepJsonToolCallingAgent(Agent):
 def _extract_tool_choices(
     *,
     tool_specs: Mapping[str, ToolSpec],
-    default_tool_name: str,
 ) -> list[_ToolChoice]:
     """Extract normalized tool choices from runtime specs.
 
     Args:
         tool_specs: Mapping of tool specifications from the runtime.
-        default_tool_name: Fallback tool name when no specs are available.
 
     Returns:
         List of normalized tool choices.
@@ -299,14 +281,9 @@ def _extract_tool_choices(
             for spec in tool_specs.values()
         ]
 
-    # Keep legacy one-tool behavior as a last resort.
-    return [
-        _ToolChoice(
-            tool_name=default_tool_name,
-            description="Default fallback route.",
-            input_schema={"type": "object"},
-        )
-    ]
+    raise ValueError(
+        "SingleStepJsonToolCallingAgent requires at least one tool in ToolRuntime.list_tools()."
+    )
 
 
 def _build_tool_call_prompt(*, prompt: str, choices_block: str) -> str:
@@ -370,49 +347,12 @@ def _clone_tool_choice(choice: _ToolChoice) -> _ToolChoice:
     )
 
 
-def _supports_generate(llm_client: LLMClient) -> bool:
-    return callable(getattr(llm_client, "generate", None))
-
-
 def _request_tool_call_response(
     *,
     llm_client: LLMClient,
     llm_request: LLMRequest,
-    response_schema: Mapping[str, object],
 ) -> LLMResponse:
-    generate_fn = getattr(llm_client, "generate", None)
-    if callable(generate_fn):
-        typed_generate = cast(Callable[[LLMRequest], LLMResponse], generate_fn)
-        return typed_generate(llm_request)
-
-    chat_fn = getattr(llm_client, "chat", None)
-    if not callable(chat_fn):
-        raise AttributeError("LLM client does not expose generate() or chat().")
-
-    resolved_model = llm_request.model or _resolve_default_model(llm_client)
-    llm_params = LLMChatParams(
-        response_schema=clone_response_schema(dict(response_schema)),
-        provider_options=dict(llm_request.provider_options),
-    )
-    typed_chat = cast(Callable[..., LLMResponse], chat_fn)
-    return typed_chat(
-        llm_request.messages,
-        model=resolved_model,
-        params=llm_params,
-    )
-
-
-def _resolve_default_model(llm_client: LLMClient) -> str:
-    default_model_fn = getattr(llm_client, "default_model", None)
-    if not callable(default_model_fn):
-        raise ValueError("LLM client must expose default_model().")
-    resolved_model = default_model_fn()
-    if not isinstance(resolved_model, str):
-        raise ValueError("LLM client default_model() must return a string.")
-    normalized_model = resolved_model.strip()
-    if not normalized_model:
-        raise ValueError("LLM client default_model() returned an empty model id.")
-    return normalized_model
+    return cast(Callable[[LLMRequest], LLMResponse], llm_client.generate)(llm_request)
 
 
 def _tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, object]:

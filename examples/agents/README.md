@@ -1,10 +1,23 @@
 ## Agent Examples
 
-This folder contains examples for the core agent types.
+This folder demonstrates the core agent interfaces and execution styles used in
+the project.
+
+## Subfolders
 
 - `examples/agents/basic`
-  - Non-streaming, end-to-end examples that typically use the default local backend.
+  - Non-streaming runs for the major agent types.
   - See `examples/agents/basic/README.md`.
 - `examples/agents/streaming`
-  - Streaming examples against the default local llama-cpp server backend.
+  - Streaming runs that emit incremental events and completion payloads.
   - See `examples/agents/streaming/README.md`.
+
+## When To Use What
+
+- Use `basic` examples to validate agent behavior and result payload structure.
+- Use `streaming` examples to validate event handling (`delta`, `completed`).
+
+## Notes
+
+- Examples are intended to run from repository root with `PYTHONPATH=src`.
+- By default, agent examples use `dra.llm.create_default_llm_client()`.

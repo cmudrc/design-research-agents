@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal, Protocol, TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
+
+from .agent import Agent
 
 WorkflowExecutionMode = Literal["sequential", "dag"]
 WorkflowFailurePolicy = Literal["skip_dependents", "propagate_failed_state"]
@@ -28,7 +30,7 @@ class ToolStep:
 
 @dataclass(slots=True, frozen=True)
 class AgentStep:
-    """Workflow step that invokes one registered agent."""
+    """Workflow step that invokes one registered agent-like delegate."""
 
     step_id: str
     agent_name: str
@@ -94,3 +96,22 @@ class WorkflowRunner(Protocol):
         dependencies: Mapping[str, object] | None = None,
     ) -> WorkflowResult:
         """Execute a workflow definition and return aggregated results."""
+
+
+@runtime_checkable
+class WorkflowOrchestrator(Protocol):
+    """Protocol for configured orchestration chunks with fixed step topology."""
+
+    def run(
+        self,
+        *,
+        context: Mapping[str, object] | None = None,
+        execution_mode: WorkflowExecutionMode = "dag",
+        failure_policy: WorkflowFailurePolicy = "skip_dependents",
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> WorkflowResult:
+        """Execute the configured orchestration and return aggregated results."""
+
+
+WorkflowDelegate: TypeAlias = Agent | WorkflowOrchestrator

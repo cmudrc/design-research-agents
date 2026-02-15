@@ -27,7 +27,6 @@ from design_research_agents.agent.internal.run_options import (
     resolve_request_id,
 )
 from design_research_agents.agent.internal.tool_input import (
-    DEFAULT_FALLBACK_TOOL_NAME,
     extract_prompt,
     resolve_known_tool_input,
 )
@@ -91,18 +90,15 @@ class SingleStepRouterAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        default_tool_name: str = DEFAULT_FALLBACK_TOOL_NAME,
     ) -> None:
         """Initialize a router agent with injected runtime dependencies.
 
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
-            default_tool_name: Fallback tool used when no alternatives are supplied.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
-        self._default_tool_name = default_tool_name
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_runtime_alternatives = _compile_runtime_alternatives(
             tool_specs=self._runtime_specs
@@ -110,7 +106,6 @@ class SingleStepRouterAgent(Agent):
         self._default_alternatives = _extract_alternatives(
             runtime_specs=self._runtime_specs,
             compiled_runtime_alternatives=self._compiled_runtime_alternatives,
-            default_tool_name=self._default_tool_name,
         )
         self._default_route_response_schema = _route_response_schema(
             alternatives=self._default_alternatives,
@@ -395,14 +390,12 @@ def _extract_alternatives(
     *,
     runtime_specs: Mapping[str, ToolSpec],
     compiled_runtime_alternatives: Sequence[_ToolAlternative],
-    default_tool_name: str,
 ) -> list[_ToolAlternative]:
     """Return routing alternatives compiled from runtime tool specifications.
 
     Args:
         runtime_specs: Tool specs available in the runtime.
         compiled_runtime_alternatives: Cached runtime alternatives.
-        default_tool_name: Fallback tool name when no alternatives exist.
 
     Returns:
         List of tool alternatives for routing.
@@ -410,22 +403,9 @@ def _extract_alternatives(
     if compiled_runtime_alternatives:
         return [_clone_alternative(alternative) for alternative in compiled_runtime_alternatives]
 
-    default_runtime_spec = runtime_specs.get(default_tool_name)
-    return [
-        _ToolAlternative(
-            tool_name=default_tool_name,
-            description=(
-                default_runtime_spec.description
-                if default_runtime_spec is not None
-                else "Default fallback route."
-            ),
-            input_schema=(
-                dict(default_runtime_spec.input_schema)
-                if default_runtime_spec is not None
-                else {"type": "object"}
-            ),
-        )
-    ]
+    raise ValueError(
+        "SingleStepRouterAgent requires at least one tool in ToolRuntime.list_tools()."
+    )
 
 
 def _clone_alternative(alternative: _ToolAlternative) -> _ToolAlternative:

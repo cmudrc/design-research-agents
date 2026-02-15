@@ -6,8 +6,7 @@ and returns the response as a standard ``AgentResult``.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import cast
+from collections.abc import Iterator, Mapping, Sequence
 
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
@@ -26,13 +25,11 @@ from design_research_agents.agent.internal.streaming import (
 )
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
-    LLMChatParams,
     LLMClient,
     LLMDelta,
     LLMMessage,
     LLMRequest,
     LLMResponse,
-    LLMStreamEvent,
 )
 from design_research_agents.tracing import (
     emit_model_token,
@@ -112,7 +109,7 @@ class SingleStepDirectLLMAgent(Agent):
             metadata={"agent": "SingleStepDirectLLMAgent", "message_source": message_source},
         )
         try:
-            llm_response = _generate_with_fallback(self._llm_client, llm_request)
+            llm_response = _generate_response(self._llm_client, llm_request)
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             finish_trace_run(trace_scope, error=str(exc))
@@ -167,7 +164,7 @@ class SingleStepDirectLLMAgent(Agent):
             metadata={"agent": "SingleStepDirectLLMAgent", "message_source": message_source},
         )
         try:
-            stream = _stream_with_fallback(self._llm_client, llm_request)
+            stream = _stream_response(self._llm_client, llm_request)
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             finish_trace_run(trace_scope, error=str(exc))
@@ -250,90 +247,12 @@ class SingleStepDirectLLMAgent(Agent):
         return resolved_model, messages, message_source, llm_request
 
 
-def _generate_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResponse:
-    generate_fn = getattr(llm_client, "generate", None)
-    if callable(generate_fn):
-        typed_generate = cast(Callable[[LLMRequest], LLMResponse], generate_fn)
-        return typed_generate(llm_request)
-
-    chat_fn = getattr(llm_client, "chat", None)
-    if not callable(chat_fn):
-        raise AttributeError("LLM client does not expose generate() or chat().")
-
-    resolved_model = _resolve_request_model(llm_client, llm_request)
-    typed_chat = cast(Callable[..., LLMResponse], chat_fn)
-    return typed_chat(
-        llm_request.messages,
-        model=resolved_model,
-        params=_request_to_chat_params(llm_request),
-    )
+def _generate_response(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResponse:
+    return llm_client.generate(llm_request)
 
 
-def _stream_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[LLMDelta]:
-    stream_fn = getattr(llm_client, "stream", None)
-    if callable(stream_fn):
-        typed_stream = cast(Callable[[LLMRequest], Iterator[LLMDelta]], stream_fn)
-        return typed_stream(llm_request)
-
-    stream_chat_fn = getattr(llm_client, "stream_chat", None)
-    if not callable(stream_chat_fn):
-        raise AttributeError("LLM client does not expose stream() or stream_chat().")
-
-    resolved_model = _resolve_request_model(llm_client, llm_request)
-    typed_stream_chat = cast(Callable[..., Iterator[LLMStreamEvent]], stream_chat_fn)
-    chat_stream = typed_stream_chat(
-        llm_request.messages,
-        model=resolved_model,
-        params=_request_to_chat_params(llm_request),
-    )
-    return _ChatStreamDeltaAdapter(chat_stream)
-
-
-def _resolve_request_model(llm_client: LLMClient, llm_request: LLMRequest) -> str:
-    if llm_request.model:
-        normalized_model = llm_request.model.strip()
-        if normalized_model:
-            return normalized_model
-        raise ValueError("LLM request model must not be empty.")
-    default_model_fn = getattr(llm_client, "default_model", None)
-    if not callable(default_model_fn):
-        raise ValueError("LLM client must expose default_model().")
-    resolved_model = default_model_fn()
-    if not isinstance(resolved_model, str):
-        raise ValueError("LLM client default_model() must return a string.")
-    normalized_model = resolved_model.strip()
-    if not normalized_model:
-        raise ValueError("LLM client default_model() returned an empty model id.")
-    return normalized_model
-
-
-def _request_to_chat_params(llm_request: LLMRequest) -> LLMChatParams:
-    return LLMChatParams(
-        temperature=llm_request.temperature,
-        max_tokens=llm_request.max_tokens,
-        response_schema=llm_request.response_schema,
-        provider_options=dict(llm_request.provider_options),
-    )
-
-
-class _ChatStreamDeltaAdapter(Iterator[LLMDelta]):
-    """Adapt chat-style stream events into request-object deltas."""
-
-    def __init__(self, stream: Iterator[LLMStreamEvent]) -> None:
-        self._stream = iter(stream)
-        self.response: LLMResponse | None = None
-
-    def __iter__(self) -> _ChatStreamDeltaAdapter:
-        return self
-
-    def __next__(self) -> LLMDelta:
-        while True:
-            event = next(self._stream)
-            if event.kind == "delta":
-                return LLMDelta(text_delta=event.delta_text or "")
-            if event.kind == "completed":
-                self.response = event.response
-                raise StopIteration
+def _stream_response(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[LLMDelta]:
+    return llm_client.stream(llm_request)
 
 
 def _build_success_result(

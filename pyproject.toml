@@ -46,6 +46,7 @@ local = [
     "llama-cpp-python[server]>=0.2.90",
     "mlx-lm>=0.14",
     "transformers>=4.44",
+    "jsonschema>=4.21",
 ]
 
 # Use src-layout packaging.

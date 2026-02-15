@@ -28,7 +28,6 @@ from design_research_agents.agent.internal.run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.agent.internal.tool_input import DEFAULT_FALLBACK_TOOL_NAME
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -63,7 +62,6 @@ class MultiStepJsonToolCallingAgent(Agent):
         tool_runtime: ToolRuntime,
         max_steps: int = 5,
         stop_on_step_failure: bool = True,
-        default_tool_name_per_step: str = DEFAULT_FALLBACK_TOOL_NAME,
     ) -> None:
         """Initialize a multi-step JSON tool-calling agent.
 
@@ -72,21 +70,14 @@ class MultiStepJsonToolCallingAgent(Agent):
             tool_runtime: Tool runtime shared across all steps.
             max_steps: Maximum number of action-observation iterations.
             stop_on_step_failure: Whether to stop immediately when one step fails.
-            default_tool_name_per_step: Fallback tool name used by each delegated
-                single-step JSON tool-calling step.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
-
-        normalized_default_tool_name = default_tool_name_per_step.strip()
-        if not normalized_default_tool_name:
-            raise ValueError("default_tool_name_per_step must not be empty.")
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._max_steps = max_steps
         self._stop_on_step_failure = stop_on_step_failure
-        self._default_tool_name_per_step = normalized_default_tool_name
         self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
@@ -142,7 +133,6 @@ class MultiStepJsonToolCallingAgent(Agent):
         step_agent = SingleStepJsonToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
-            default_tool_name=self._default_tool_name_per_step,
         )
 
         memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]
@@ -288,7 +278,6 @@ class MultiStepJsonToolCallingAgent(Agent):
                 "config": {
                     "max_steps": max_steps,
                     "stop_on_step_failure": stop_on_step_failure,
-                    "default_tool_name_per_step": self._default_tool_name_per_step,
                 },
             },
         )
@@ -529,8 +518,6 @@ def _build_continue_prompt(
 def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
     """Extract normalized continuation thought text from model JSON output.
 
-    The model may emit either ``thought`` (preferred) or ``reason`` (legacy).
-
     Args:
         parsed: Parsed JSON mapping from the model response.
 
@@ -540,9 +527,6 @@ def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
     thought = parsed.get("thought")
     if thought is not None:
         return str(thought)
-    reason = parsed.get("reason")
-    if reason is not None:
-        return str(reason)
     return "model decision"
 
 

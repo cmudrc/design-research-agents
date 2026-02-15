@@ -47,7 +47,6 @@ def main() -> None:
             spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::")
         )
         direct = _invoke_dict(runtime, "local_core::calculator", {"expression": "(9 + 3) / 2"})
-        alias = _invoke_dict(runtime, "calculator", {"expression": "8 * 5"})
     finally:
         runtime.close()
 
@@ -57,7 +56,6 @@ def main() -> None:
                 "mcp_tool_count": len(mcp_tools),
                 "sample_tools": mcp_tools[:5],
                 "direct_result": direct["result"],
-                "alias_result": alias["result"],
             },
             ensure_ascii=True,
             indent=2,

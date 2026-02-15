@@ -40,7 +40,7 @@ make run-example
 Example run:
 
 ```bash
-PYTHONPATH=src python3 examples/runtime/plan_execute.py
+PYTHONPATH=src python3 examples/orchestrator/plan_execute.py
 ```
 
 ## Examples
@@ -49,7 +49,6 @@ See the examples index and sub-guides:
 
 - Top-level examples index: [`examples/README.md`](examples/README.md)
 - Agents: [`examples/agents/README.md`](examples/agents/README.md)
-- Runtime modes: [`examples/runtime/README.md`](examples/runtime/README.md)
 - Orchestrators: [`examples/orchestrator/README.md`](examples/orchestrator/README.md)
 - Model selection: [`examples/model_selection/README.md`](examples/model_selection/README.md)
 - Tool runtime source fusion: [`examples/tools/README.md`](examples/tools/README.md)

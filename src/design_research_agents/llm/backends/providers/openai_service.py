@@ -24,7 +24,6 @@ from design_research_agents.contracts.tools import ToolSpec
 from design_research_agents.llm.backends.base import BaseLLMBackend
 from design_research_agents.llm.backends.errors import map_backend_exception
 from design_research_agents.llm.backends.utils import (
-    parse_function_call,
     parse_tool_calls,
     parse_usage,
 )
@@ -257,8 +256,6 @@ def _parse_completion_response(response: Any, request: LLMRequest, *, provider: 
     tool_calls: tuple[ToolCall, ...] = ()
     if message is not None:
         tool_calls = parse_tool_calls(_tool_calls_to_list(getattr(message, "tool_calls", None)))
-        if not tool_calls:
-            tool_calls = parse_function_call(getattr(message, "function_call", None))
     usage = parse_usage(_usage_to_dict(getattr(response, "usage", None)))
     return LLMResponse(
         text=text,

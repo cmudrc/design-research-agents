@@ -722,7 +722,6 @@ class AgentRuntime(Agent):
         single_step_router_agent = SingleStepRouterAgent(
             llm_client=self._llm_client,
             tool_runtime=triage_runtime,
-            default_tool_name=next(iter(self._triage_alternatives.keys())),
         )
         router_result = single_step_router_agent.run(
             prompt,

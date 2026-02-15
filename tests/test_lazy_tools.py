@@ -42,6 +42,24 @@ def test_lazy_parser_reports_directive_errors_with_line_numbers(tmp_path: Path) 
         raise AssertionError("Expected LazyHeaderError for malformed header.")
 
 
+def test_lazy_discovery_ignores_non_lazy_scripts(tmp_path: Path) -> None:
+    helper = tmp_path / "helper.py"
+    helper.write_text(
+        "\n".join(
+            [
+                '"""Regular helper script, not a lazy tool."""',
+                "print('hello')",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    tools, diagnostics = discover_lazy_tools((str(tmp_path),))
+    assert not tools
+    assert not diagnostics
+
+
 def test_lazy_discovery_and_run_examples() -> None:
     tools, diagnostics = discover_lazy_tools(("examples/lazy_tools",))
     names = {tool.header.tool_name for tool in tools}

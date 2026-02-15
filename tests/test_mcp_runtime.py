@@ -42,8 +42,8 @@ def test_mcp_stdio_server_list_and_call() -> None:
             request_id="unit-test",
             dependencies={},
         )
-        assert unqualified.ok is True
-        assert isinstance(unqualified.result, dict)
-        assert unqualified.result["result"] == 5.0
+        assert unqualified.ok is False
+        assert unqualified.error is not None
+        assert "not registered" in unqualified.error.message
     finally:
         runtime.close()

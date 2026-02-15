@@ -1,5 +1,5 @@
 """Workflow runtime implementation exports."""
 
-from .runtime import WorkflowRuntime
+from .implementations.workflow_runtime import WorkflowRuntime
 
 __all__ = ["WorkflowRuntime"]

@@ -72,13 +72,11 @@ Python config example:
    )
    runtime = UnifiedToolRuntime(config=config)
 
-Tool naming and alias behavior
-------------------------------
+Tool naming
+-----------
 
-- Canonical MCP tool name is always ``<server_id>::<tool_name>``.
-- Unqualified invocation (for example ``calculator``) works only when exactly
-  one MCP server exposes that tool name and no core/lazy tool conflicts.
-- For predictable behavior in multi-server setups, always use namespaced names.
+- MCP tool names are always canonical ``<server_id>::<tool_name>``.
+- Unqualified names (for example ``calculator``) are not routed.
 
 CLI helpers:
 

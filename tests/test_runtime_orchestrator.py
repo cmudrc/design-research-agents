@@ -22,7 +22,13 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
-from design_research_agents.contracts.orchestrator import AgentStep, LogicStep, ToolStep
+from design_research_agents.contracts.orchestrator import (
+    AgentStep,
+    LogicStep,
+    ToolStep,
+    WorkflowResult,
+    WorkflowStepResult,
+)
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.orchestrator import WorkflowRuntime
 from design_research_agents.tools import UnifiedToolRuntime
@@ -163,16 +169,45 @@ class _StubToolRuntime(ToolRuntime):
         return ToolResult(tool_name=tool_name, ok=True, result=output)
 
 
+class _StaticWorkflowOrchestrator:
+    """Deterministic nested orchestrator used for workflow delegation tests."""
+
+    def run(
+        self,
+        *,
+        context: Mapping[str, object] | None = None,
+        execution_mode: str = "dag",
+        failure_policy: str = "skip_dependents",
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> WorkflowResult:
+        del execution_mode, failure_policy, request_id, dependencies
+        prompt = str((context or {}).get("prompt", ""))
+        nested_step = WorkflowStepResult(
+            step_id="nested_logic",
+            status="completed",
+            success=True,
+            output={"prompt_echo": prompt},
+            metadata={"stage": "execution"},
+        )
+        return WorkflowResult(
+            success=True,
+            step_results={"nested_logic": nested_step},
+            execution_order=["nested_logic"],
+            metadata={"runtime": "nested_stub"},
+        )
+
+
 def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
     response_texts = [
-        '{"continue": true, "reason": "start"}',
+        '{"continue": true, "thought": "start"}',
         "\n".join(
             [
                 'calc = call_tool("calculator", {"expression": "6 * 7"})',
                 'final_output = {"result": calc["result"]}',
             ]
         ),
-        '{"continue": false, "reason": "done"}',
+        '{"continue": false, "thought": "done"}',
     ]
 
     llm_runtime = _SequenceLLMClient(response_texts=response_texts)
@@ -205,9 +240,9 @@ def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
 def test_multi_step_json_tool_calling_agent_runs_one_successful_step() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
-            '{"continue": true, "reason": "start"}',
+            '{"continue": true, "thought": "start"}',
             '{"tool_name": "calculator", "tool_input": {"expression": "6 * 7"}}',
-            '{"continue": false, "reason": "done"}',
+            '{"continue": false, "thought": "done"}',
         ]
     )
     agent = MultiStepJsonToolCallingAgent(
@@ -251,7 +286,7 @@ def test_multi_step_json_tool_calling_agent_uses_fallback_continuation_on_invali
 def test_multi_step_json_tool_calling_agent_stops_on_step_failure() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
-            '{"continue": true, "reason": "start"}',
+            '{"continue": true, "thought": "start"}',
             '{"tool_name": "calculator", "tool_input": {"expression": "1 / 0"}}',
         ]
     )
@@ -562,6 +597,23 @@ def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
     step_output = result.step_results["delegate"].output
     assert step_output["success"] is True
     assert step_output["output"]["agent_marker"] == "math"
+
+
+def test_workflow_runtime_agent_step_accepts_nested_orchestrator_delegate() -> None:
+    workflow = WorkflowRuntime(agents={"nested_flow": _StaticWorkflowOrchestrator()})
+    steps = [
+        AgentStep(step_id="delegate", agent_name="nested_flow", prompt="Route this prompt."),
+    ]
+
+    result = workflow.run(steps, execution_mode="sequential")
+
+    assert result.success
+    step_output = result.step_results["delegate"].output
+    assert step_output["success"] is True
+    assert (
+        step_output["step_results"]["nested_logic"]["output"]["prompt_echo"] == "Route this prompt."
+    )
+    assert result.step_results["delegate"].metadata["delegate_type"] == "orchestrator"
 
 
 def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -> None:

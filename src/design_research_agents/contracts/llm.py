@@ -132,7 +132,6 @@ class LLMResponse:
     usage: Usage | dict[str, int] | None = None
     latency_ms: int | None = None
     raw_output: dict[str, object] | None = None
-    # Compatibility with newer request-object contracts.
     tool_calls: tuple[ToolCall, ...] = ()
     raw: dict[str, object] | None = None
     provenance: Provenance | None = None

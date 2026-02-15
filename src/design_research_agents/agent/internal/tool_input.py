@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 
-DEFAULT_FALLBACK_TOOL_NAME = "text.word_count"
 CALCULATOR_TOOL_NAMES = frozenset({"calculator"})
 TEXT_WORD_COUNT_TOOL_NAMES = frozenset({"text.word_count"})
 
@@ -64,7 +63,6 @@ def resolve_known_tool_input(
 
 
 __all__ = [
-    "DEFAULT_FALLBACK_TOOL_NAME",
     "extract_prompt",
     "resolve_known_tool_input",
 ]

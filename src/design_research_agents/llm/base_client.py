@@ -55,7 +55,7 @@ class BaseLLMClient(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
-        """Compatibility wrapper that builds a request from chat-style inputs."""
+        """Build and execute a request-object call from chat-style inputs."""
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -82,7 +82,7 @@ class BaseLLMClient(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> Iterator[LLMStreamEvent]:
-        """Compatibility streaming wrapper for chat-style callers."""
+        """Build and execute a streaming request from chat-style inputs."""
         request = LLMRequest(
             messages=messages,
             model=model,

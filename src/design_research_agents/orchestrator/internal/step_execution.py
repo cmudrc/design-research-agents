@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Mapping
 from dataclasses import asdict
+from typing import TypeGuard, cast
 
 from design_research_agents.contracts.agent import Agent
 from design_research_agents.contracts.orchestrator import (
     AgentStep,
     LogicStep,
     ToolStep,
+    WorkflowDelegate,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
+    WorkflowOrchestrator,
     WorkflowStepResult,
 )
 from design_research_agents.contracts.tools import ToolRuntime
@@ -116,7 +120,7 @@ def run_tool_step(
 
 def run_agent_step(
     *,
-    agents: Mapping[str, Agent],
+    agents: Mapping[str, WorkflowDelegate],
     step: AgentStep,
     step_id: str,
     step_context: Mapping[str, object],
@@ -125,9 +129,9 @@ def run_agent_step(
     failure_policy: WorkflowFailurePolicy,
     dependencies: Mapping[str, object],
 ) -> WorkflowStepResult:
-    """Execute one agent step and return normalized workflow step result."""
-    selected_agent = agents.get(step.agent_name)
-    if selected_agent is None:
+    """Execute one agent-like step and return normalized workflow step result."""
+    selected_delegate = agents.get(step.agent_name)
+    if selected_delegate is None:
         return WorkflowStepResult(
             step_id=step_id,
             status="failed",
@@ -158,10 +162,65 @@ def run_agent_step(
         step_context=step_context,
     )
 
+    request_scope = f"{request_id}:workflow:{step_id}"
+
+    if _is_workflow_orchestrator_delegate(selected_delegate):
+        nested_context = dict(step_context)
+        nested_context["prompt"] = prompt
+        try:
+            workflow_result = selected_delegate.run(
+                context=nested_context,
+                execution_mode=execution_mode,
+                failure_policy=failure_policy,
+                request_id=request_scope,
+                dependencies=invocation_dependencies,
+            )
+        except Exception as exc:
+            return WorkflowStepResult(
+                step_id=step_id,
+                status="failed",
+                success=False,
+                output={},
+                error=str(exc),
+                metadata={
+                    "stage": "execution",
+                    "agent_name": step.agent_name,
+                    "delegate_type": "orchestrator",
+                },
+            )
+
+        serialized_output = workflow_result.asdict()
+        if not workflow_result.success:
+            return WorkflowStepResult(
+                step_id=step_id,
+                status="failed",
+                success=False,
+                output=serialized_output,
+                error="Nested orchestrator execution failed.",
+                metadata={
+                    "stage": "execution",
+                    "agent_name": step.agent_name,
+                    "delegate_type": "orchestrator",
+                },
+            )
+
+        return WorkflowStepResult(
+            step_id=step_id,
+            status="completed",
+            success=True,
+            output=serialized_output,
+            metadata={
+                "stage": "execution",
+                "agent_name": step.agent_name,
+                "delegate_type": "orchestrator",
+            },
+        )
+
+    selected_agent = cast(Agent, selected_delegate)
     try:
         agent_result = selected_agent.run(
             prompt,
-            request_id=f"{request_id}:workflow:{step_id}",
+            request_id=request_scope,
             dependencies=invocation_dependencies,
         )
     except Exception as exc:
@@ -171,7 +230,11 @@ def run_agent_step(
             success=False,
             output={},
             error=str(exc),
-            metadata={"stage": "execution", "agent_name": step.agent_name},
+            metadata={
+                "stage": "execution",
+                "agent_name": step.agent_name,
+                "delegate_type": "agent",
+            },
         )
 
     serialized_output = agent_result.asdict()
@@ -182,7 +245,11 @@ def run_agent_step(
             success=False,
             output=serialized_output,
             error=str(agent_result.output.get("error", "Agent execution failed.")),
-            metadata={"stage": "execution", "agent_name": step.agent_name},
+            metadata={
+                "stage": "execution",
+                "agent_name": step.agent_name,
+                "delegate_type": "agent",
+            },
         )
 
     return WorkflowStepResult(
@@ -190,7 +257,38 @@ def run_agent_step(
         status="completed",
         success=True,
         output=serialized_output,
-        metadata={"stage": "execution", "agent_name": step.agent_name},
+        metadata={
+            "stage": "execution",
+            "agent_name": step.agent_name,
+            "delegate_type": "agent",
+        },
+    )
+
+
+def _is_workflow_orchestrator_delegate(
+    delegate: WorkflowDelegate,
+) -> TypeGuard[WorkflowOrchestrator]:
+    """Return true when delegate ``run`` signature matches orchestrator style."""
+    run_callable = getattr(delegate, "run", None)
+    if run_callable is None:
+        return False
+    try:
+        signature = inspect.signature(run_callable)
+    except (TypeError, ValueError):
+        return False
+
+    parameters = list(signature.parameters.values())
+    if not parameters:
+        return True
+
+    first_parameter = parameters[0]
+    return not (
+        first_parameter.kind
+        in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+        and first_parameter.name == "prompt"
     )
 
 

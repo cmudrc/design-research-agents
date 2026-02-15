@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from design_research_agents.contracts.llm import (
     LLMStreamEvent,
     TaskProfile,
 )
+from design_research_agents.contracts.tools import ToolSpec
 from design_research_agents.llm import (
     BaseLLMClient,
     LLMRouter,
@@ -25,6 +27,7 @@ from design_research_agents.llm import (
     set_default_router,
 )
 from design_research_agents.llm.backends.base import BaseLLMBackend
+from design_research_agents.llm.structured_output import StructuredOutputResult
 
 
 class _StubBackend(BaseLLMBackend):
@@ -322,3 +325,70 @@ def test_router_rejects_requests_when_capabilities_missing() -> None:
 
     with pytest.raises(LLMCapabilityError, match="capabilities"):
         router.stream(_chat_request(model="m"))
+
+
+def test_best_effort_tool_calling_serializes_slot_dataclasses(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    caps = BackendCapabilities(
+        streaming=False,
+        tool_calling="best_effort",
+        json_mode="none",
+        vision=False,
+        max_context_tokens=None,
+    )
+    backend = _StubBackend(
+        name="best-effort",
+        kind="llama_cpp",
+        default_model="m",
+        capabilities=caps,
+    )
+    tool = ToolSpec(
+        name="calculator",
+        description="Compute arithmetic expressions.",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    )
+    parsed = {
+        "tool_calls": [
+            {
+                "name": "calculator",
+                "arguments": {"expression": "1 + 1"},
+            }
+        ]
+    }
+    base_response = LLMResponse(
+        text='{"tool_calls":[{"name":"calculator","arguments":{"expression":"1 + 1"}}]}',
+        model="m",
+        provider="best-effort",
+    )
+
+    def _fake_generate_json(**kwargs: object) -> StructuredOutputResult:
+        del kwargs
+        return StructuredOutputResult(response=base_response, parsed=parsed, attempts=0)
+
+    base_module = importlib.import_module("design_research_agents.llm.backends.base")
+    monkeypatch.setattr(base_module, "generate_json", _fake_generate_json)
+
+    response = backend.generate(
+        LLMRequest(
+            messages=[LLMMessage(role="user", content="add one plus one")],
+            model="m",
+            tools=(tool,),
+            metadata={},
+            provider_options={},
+        )
+    )
+
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0].name == "calculator"
+    assert response.raw is not None
+    structured = response.raw.get("structured_output")
+    assert isinstance(structured, dict)
+    assert structured["tool_calls"] == [
+        {
+            "name": "calculator",
+            "arguments_json": '{"expression": "1 + 1"}',
+            "call_id": "call_1",
+        }
+    ]
