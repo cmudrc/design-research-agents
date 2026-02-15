@@ -40,10 +40,17 @@ jobs:
   coverage-badge:
     # Keep a coverage badge on main in sync with the stable unit-suite baseline.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: coverage-badge-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Check out the named branch to avoid detached-HEAD push issues.
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -61,6 +68,8 @@ jobs:
         run: python scripts/generate_coverage_badge.py
 
       - name: Commit and push badge if changed
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
         run: |
           if ! git status --porcelain -- .github/badges/coverage.svg | grep -q .; then
             echo "Coverage badge unchanged."
@@ -71,4 +80,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .github/badges/coverage.svg
           git commit -m "chore: update coverage badge [skip ci]"
-          git push
+          git push origin "HEAD:${BRANCH_NAME}"
