@@ -10,6 +10,9 @@ from pathlib import Path
 
 from sphinx.application import Sphinx
 
+# Include class docs and __init__
+autoclass_content = "both"
+
 # Add the project `src/` directory to sys.path so autodoc can import the package.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
