@@ -14,13 +14,15 @@ from __future__ import annotations
 from importlib.metadata import PackageNotFoundError, version
 
 from .agent import (
+    AgentRuntime,
     DirectLLMAgent,
     MultiStepAgent,
     RouterAgent,
+    RuntimeControls,
     SingleStepCodeAgent,
     ToolCallingAgent,
 )
-from .llm import configure_llama_cpp_server, configure_openai
+from .llm import BaseLLMClient, LLMRouter, configure_router_from_yaml
 from .llm.backends.default import create_default_llm_client
 from .model_selection import (
     HardwareProfile,
@@ -31,14 +33,19 @@ from .model_selection import (
     ModelSelectionPolicy,
     ModelSelectionPolicyConfig,
 )
+from .orchestrator import DagOrchestrator, SequentialOrchestrator
 from .tools import BaseToolRuntime
 from .tracing import TraceConfig, configure_tracing
 
 # Keep a small, stable public surface for downstream users.
 __all__ = [
+    "AgentRuntime",
+    "BaseLLMClient",
     "BaseToolRuntime",
+    "DagOrchestrator",
     "DirectLLMAgent",
     "HardwareProfile",
+    "LLMRouter",
     "ModelCatalog",
     "ModelSelectionConstraints",
     "ModelSelectionDecision",
@@ -47,12 +54,13 @@ __all__ = [
     "ModelSelectionPolicyConfig",
     "MultiStepAgent",
     "RouterAgent",
+    "RuntimeControls",
+    "SequentialOrchestrator",
     "SingleStepCodeAgent",
     "ToolCallingAgent",
     "TraceConfig",
     "__version__",
-    "configure_llama_cpp_server",
-    "configure_openai",
+    "configure_router_from_yaml",
     "configure_tracing",
     "create_default_llm_client",
 ]

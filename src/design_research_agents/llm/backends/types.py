@@ -9,12 +9,13 @@ from __future__ import annotations
 from typing import Final, Literal, cast
 
 # Literal keeps backend names precise at type-check time.
-BackendName = Literal["echo-test", "openai", "llama-cpp-server"]
+BackendName = Literal["echo-test", "openai", "llama-cpp-server", "transformers"]
 # Runtime tuple is reused for validation and CLI choices.
 SUPPORTED_BACKENDS: Final[tuple[BackendName, ...]] = (
     "echo-test",
     "openai",
     "llama-cpp-server",
+    "transformers",
 )
 
 

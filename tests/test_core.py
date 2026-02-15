@@ -20,9 +20,11 @@ from design_research_agents.llm import (
     BaseLLMClient,
     configure_llama_cpp_server,
     configure_openai,
+    configure_transformers,
     parse_backend,
     resolve_default_model,
     shutdown_llama_cpp_server,
+    shutdown_transformers_backend,
 )
 from design_research_agents.llm.backends.llama_cpp_server import (
     LlamaCppServerBackend,
@@ -69,6 +71,7 @@ def test_backend_name_parsing() -> None:
     # Parsing normalizes backend names as plain strings.
     assert parse_backend("openai") == "openai"
     assert parse_backend(" echo-test ") == "echo-test"
+    assert parse_backend(" transformers ") == "transformers"
     with pytest.raises(ValueError):
         parse_backend(" LOCAL ")
 
@@ -229,6 +232,13 @@ def test_llama_backend_requires_configuration() -> None:
     shutdown_llama_cpp_server()
     with pytest.raises(LLMInvalidRequestError):
         _chat_complete("hello", backend="llama-cpp-server")
+
+
+def test_transformers_backend_requires_configuration() -> None:
+    # Transformers backend must be configured before it can be used.
+    shutdown_transformers_backend()
+    with pytest.raises(LLMInvalidRequestError):
+        _chat_complete("hello", backend="transformers")
 
 
 def test_default_backend_is_llama_cpp_server() -> None:
@@ -507,6 +517,85 @@ def test_configure_openai_sets_active_backend_for_default_complete(
         base_url=None,
         require_api_key=True,
     )
+    configure_llama_cpp_server(model="/tmp/reset-default-backend.gguf")
+    shutdown_llama_cpp_server()
+
+
+def test_configure_transformers_updates_default_call_kwargs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeTransformersBackend:
+        def __init__(self, **kwargs: object) -> None:
+            self.model = str(kwargs["model"])
+            self.generation_kwargs = dict(kwargs.get("generation_kwargs", {}))
+            captured["create_kwargs"] = dict(kwargs)
+
+        def close(self) -> None:
+            return
+
+        def complete(
+            self,
+            prompt: str,
+            *,
+            generation_kwargs: dict[str, object] | None = None,
+        ) -> str:
+            captured["prompt"] = prompt
+            captured["generation_kwargs"] = dict(generation_kwargs or {})
+            return "ok-transformers"
+
+    def fake_factory(**kwargs: object) -> FakeTransformersBackend:
+        return FakeTransformersBackend(**kwargs)
+
+    monkeypatch.setattr("design_research_agents.llm.create_transformers_backend", fake_factory)
+
+    configure_transformers(
+        model="distilgpt2",
+        tokenizer="distilgpt2",
+        revision="main",
+        trust_remote_code=True,
+        device=0,
+        device_map="auto",
+        torch_dtype="float16",
+        cache_dir="/tmp/hf-cache",
+        use_fast=False,
+        pipeline_task="text-generation",
+        model_kwargs={"low_cpu_mem_usage": True},
+        tokenizer_kwargs={"padding_side": "left"},
+        pipeline_kwargs={"batch_size": 2},
+        generation_kwargs={"top_p": 0.9},
+    )
+
+    llm_client = BaseLLMClient(backend="transformers")
+    response = llm_client.chat(
+        messages=[LLMMessage(role="user", content="hello")],
+        model="distilgpt2",
+        params=LLMChatParams(
+            temperature=0.3,
+            max_tokens=5,
+            provider_options={"generation_kwargs": {"top_k": 50}},
+        ),
+    )
+
+    assert response.text == "ok-transformers"
+    assert captured["prompt"] == "user: hello"
+    create_kwargs = captured["create_kwargs"]
+    assert create_kwargs["tokenizer"] == "distilgpt2"
+    assert create_kwargs["pipeline_task"] == "text-generation"
+    assert create_kwargs["model_kwargs"] == {"low_cpu_mem_usage": True}
+    assert create_kwargs["tokenizer_kwargs"] == {"padding_side": "left"}
+    assert create_kwargs["pipeline_kwargs"] == {"batch_size": 2}
+    assert create_kwargs["generation_kwargs"] == {"top_p": 0.9}
+
+    generation_kwargs = captured["generation_kwargs"]
+    assert generation_kwargs["temperature"] == 0.3
+    assert generation_kwargs["max_new_tokens"] == 5
+    assert generation_kwargs["top_k"] == 50
+    assert generation_kwargs["top_p"] == 0.9
+    assert generation_kwargs["do_sample"] is True
+
+    shutdown_transformers_backend()
     configure_llama_cpp_server(model="/tmp/reset-default-backend.gguf")
     shutdown_llama_cpp_server()
 

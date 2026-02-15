@@ -41,7 +41,23 @@ Base implementations:
    :members:
    :undoc-members:
 
+.. automodule:: design_research_agents.agent.runtime
+   :members:
+   :undoc-members:
+
 .. automodule:: design_research_agents.agent.direct_llm_agent
+   :members:
+   :undoc-members:
+
+.. automodule:: design_research_agents.orchestrator.sequential
+   :members:
+   :undoc-members:
+
+.. automodule:: design_research_agents.orchestrator.dag
+   :members:
+   :undoc-members:
+
+.. automodule:: design_research_agents.contracts.orchestrator
    :members:
    :undoc-members:
 

@@ -8,7 +8,7 @@ LLM contracts.
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
 from design_research_agents.contracts.llm import (
@@ -27,6 +27,7 @@ from design_research_agents.contracts.llm import (
 from .echo_test_backend import complete as echo_test_complete
 from .llama_cpp_server import LlamaCppServerBackend
 from .openai import complete as openai_complete
+from .transformers_backend import TransformersBackend
 from .types import BackendName
 
 
@@ -288,11 +289,72 @@ class LlamaCppServerProviderAdapter(LLMProviderAdapter):
         yield LLMStreamEvent(kind="completed", response=response)
 
 
+@dataclass(slots=True)
+class TransformersProviderAdapter(LLMProviderAdapter):
+    """Adapter for local Hugging Face Transformers backend."""
+
+    backend: TransformersBackend | None
+    provider_name: str = "transformers"
+
+    def chat(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str,
+        params: LLMChatParams,
+    ) -> LLMResponse:
+        """Generate a Transformers-backed response from contract chat inputs."""
+        if self.backend is None:
+            raise LLMInvalidRequestError(
+                "transformers backend is not configured. "
+                "Call configure_transformers(model=...) before use."
+            )
+
+        start = time.perf_counter()
+        prompt = _messages_to_prompt(messages, response_schema=params.response_schema)
+        generation_kwargs = _build_transformers_generation_kwargs(
+            self.backend.generation_kwargs,
+            params,
+        )
+        try:
+            text = self.backend.complete(prompt, generation_kwargs=generation_kwargs)
+        except Exception as exc:
+            raise _map_backend_exception(exc) from exc
+
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        return LLMResponse(
+            model=model,
+            text=text,
+            provider=self.provider_name,
+            finish_reason="completed",
+            latency_ms=latency_ms,
+            raw_output={
+                "backend": self.provider_name,
+                "requested_model": model,
+                "response_schema": params.response_schema,
+                "provider_options": dict(params.provider_options),
+            },
+        )
+
+    def stream_chat(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str,
+        params: LLMChatParams,
+    ) -> Iterator[LLMStreamEvent]:
+        """Stream Transformers output as normalized events."""
+        response = self.chat(messages, model=model, params=params)
+        yield LLMStreamEvent(kind="delta", delta_text=response.text)
+        yield LLMStreamEvent(kind="completed", response=response)
+
+
 def build_backend_adapter(
     backend: BackendName,
     *,
     openai_config: OpenAIBackendConfig,
     llama_backend: LlamaCppServerBackend | None,
+    transformers_backend: TransformersBackend | None,
 ) -> LLMProviderAdapter:
     """Build an adapter instance for one validated backend identifier.
 
@@ -303,6 +365,7 @@ def build_backend_adapter(
         backend: Backend identifier to resolve.
         openai_config: OpenAI backend configuration payload.
         llama_backend: Optional llama-cpp-server backend instance.
+        transformers_backend: Optional Transformers backend instance.
 
     Returns:
         Provider adapter instance for the requested backend.
@@ -317,6 +380,8 @@ def build_backend_adapter(
         return OpenAIProviderAdapter(config=openai_config)
     if backend == "llama-cpp-server":
         return LlamaCppServerProviderAdapter(backend=llama_backend)
+    if backend == "transformers":
+        return TransformersProviderAdapter(backend=transformers_backend)
     raise LLMInvalidRequestError(f"Unsupported backend '{backend}'.")
 
 
@@ -345,6 +410,30 @@ def _messages_to_prompt(
         return prompt
 
     return f"{prompt}\n\n{schema_instruction}"
+
+
+def _build_transformers_generation_kwargs(
+    defaults: Mapping[str, object],
+    params: LLMChatParams,
+) -> dict[str, object]:
+    generation_kwargs = dict(defaults)
+    generation_kwargs.update(_extract_generation_kwargs(params.provider_options))
+
+    if params.temperature is not None:
+        generation_kwargs["temperature"] = params.temperature
+        if params.temperature > 0:
+            generation_kwargs.setdefault("do_sample", True)
+    if params.max_tokens is not None:
+        generation_kwargs["max_new_tokens"] = params.max_tokens
+
+    return generation_kwargs
+
+
+def _extract_generation_kwargs(provider_options: Mapping[str, object]) -> dict[str, object]:
+    raw = provider_options.get("generation_kwargs")
+    if not isinstance(raw, Mapping):
+        return {}
+    return {key: value for key, value in raw.items() if isinstance(key, str)}
 
 
 def _build_schema_instruction(response_schema: dict[str, object] | None) -> str | None:

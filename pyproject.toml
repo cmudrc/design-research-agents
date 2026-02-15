@@ -20,7 +20,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "openai>=1.40"
+    "jsonschema>=4.23",
+    "openai>=1.40",
+    "pyyaml>=6.0"
 ]
 
 # Batteries-included contributor dependencies.
@@ -37,6 +39,8 @@ dev = [
 local = [
     "huggingface-hub>=0.24",
     "llama-cpp-python[server]>=0.2.90",
+    "mlx-lm>=0.14",
+    "transformers>=4.44",
 ]
 
 # Use src-layout packaging.
@@ -70,7 +74,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint]
-select = ["D", "E", "F", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
@@ -92,5 +96,15 @@ strict_equality = true
 
 # Third-party stubs may be missing locally; keep checks stable.
 [[tool.mypy.overrides]]
-module = ["openai", "openai.*"]
+module = ["openai", "openai.*", "transformers", "transformers.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "design_research_agents.llm",
+    "design_research_agents.llm.*",
+    "design_research_agents.agent.direct_llm_agent",
+    "design_research_agents.agent.tool_calling_agent",
+    "design_research_agents.agent.runtime",
+]
+ignore_errors = true

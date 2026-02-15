@@ -171,10 +171,6 @@ class RouterAgent(Agent):
                 alternatives_text=routes_text,
             )
 
-        llm_params = LLMChatParams(
-            response_schema=clone_response_schema(self._default_route_response_schema),
-            provider_options={"agent": "RouterAgent", "phase": "route_select"},
-        )
         messages = [
             LLMMessage(
                 role="system",
@@ -185,6 +181,10 @@ class RouterAgent(Agent):
                 content=user_prompt,
             ),
         ]
+        llm_params = LLMChatParams(
+            response_schema=clone_response_schema(self._default_route_response_schema),
+            provider_options={"agent": "RouterAgent", "phase": "route_select"},
+        )
         model_span_id = start_model_call(
             model=resolved_model,
             messages=messages,
@@ -703,7 +703,11 @@ def _resolve_tool_input(
             return {"text": str(analysis_text)}
         return {"text": _extract_prompt(input_payload)}
 
-    return {}
+    prompt_text = _extract_prompt(input_payload)
+    return {
+        "prompt": prompt_text,
+        "request": prompt_text,
+    }
 
 
 def _infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:

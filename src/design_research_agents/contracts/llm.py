@@ -1,17 +1,24 @@
 """Provider-agnostic LLM interfaces, payloads, and normalized error taxonomy.
 
-These contracts are shared by client implementations and backend adapters so
-agent code can remain independent of any specific provider SDK.
+These contracts are shared across agent code and backend adapters so call sites
+can stay provider-neutral while still supporting both chat-style and request-
+object style execution paths.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Literal, Protocol
+
+from .tools import ToolSpec
 
 LLMRole = Literal["system", "user", "assistant", "tool"]
 LLMStreamEventKind = Literal["delta", "completed"]
+ToolCallingMode = Literal["native", "best_effort", "none"]
+JSONMode = Literal["native", "prompt+validate", "none"]
+TaskPriority = Literal["latency", "quality", "cost", "balanced"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -22,23 +29,20 @@ class LLMMessage:
         role: Semantic message role (system, user, assistant, or tool).
         content: Plain text content sent to the model.
         name: Optional participant name used by providers that support it.
+        tool_call_id: Optional tool call id for tool-result messages.
+        tool_name: Optional tool name for tool-result messages.
     """
 
     role: LLMRole
     content: str
     name: str | None = None
+    tool_call_id: str | None = None
+    tool_name: str | None = None
 
 
 @dataclass(slots=True)
 class LLMChatParams:
-    """Provider-neutral generation controls passed with chat requests.
-
-    Attributes:
-        temperature: Optional sampling temperature.
-        max_tokens: Optional output token cap.
-        response_schema: Optional JSON schema used for structured responses.
-        provider_options: Backend-specific options carried through unchanged.
-    """
+    """Provider-neutral generation controls passed with chat requests."""
 
     temperature: float | None = None
     max_tokens: int | None = None
@@ -47,48 +51,156 @@ class LLMChatParams:
 
 
 @dataclass(slots=True, frozen=True)
+class ToolCall:
+    """Tool-call intent emitted by a backend."""
+
+    name: str
+    arguments_json: str
+    call_id: str
+
+
+@dataclass(slots=True, frozen=True)
+class ToolResult:
+    """Result payload used to feed tool outputs back into model turns."""
+
+    call_id: str
+    output_json: str
+    error: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class Usage:
+    """Token accounting information for an LLM call."""
+
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class TaskProfile:
+    """Routing hints for selecting a backend."""
+
+    priority: TaskPriority = "balanced"
+    max_cost_usd: float | None = None
+    max_latency_ms: int | None = None
+    tags: tuple[str, ...] = ()
+
+
+@dataclass(slots=True, frozen=True)
+class LLMRequest:
+    """Provider-neutral request payload for LLM generation."""
+
+    messages: Sequence[LLMMessage]
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    tools: Sequence[ToolSpec] = ()
+    response_schema: dict[str, object] | None = None
+    response_format: dict[str, object] | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
+    provider_options: dict[str, object] = field(default_factory=dict)
+    task_profile: TaskProfile | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class Provenance:
+    """Provenance metadata for reproducibility and audit trails."""
+
+    backend_name: str
+    backend_kind: str
+    model_id: str
+    base_url: str | None
+    started_at: str
+    completed_at: str
+    config_hash: str
+
+    @staticmethod
+    def now_iso() -> str:
+        """Return the current UTC timestamp in ISO 8601 format."""
+        return datetime.now(timezone.utc).isoformat()  # noqa: UP017
+
+
+@dataclass(slots=True, frozen=True)
 class LLMResponse:
-    """Normalized non-streaming response payload returned by a backend adapter.
+    """Normalized non-streaming response payload returned by a backend."""
 
-    Attributes:
-        model: Model identifier used for the request.
-        text: Final generated text content.
-        provider: Optional backend/provider label.
-        finish_reason: Optional provider stop reason.
-        usage: Optional token accounting information.
-        latency_ms: Optional wall-clock latency measurement.
-        raw_output: Optional provider-native diagnostic payload.
-    """
-
-    model: str
     text: str
+    model: str | None = None
     provider: str | None = None
     finish_reason: str | None = None
-    usage: dict[str, int] | None = None
+    usage: Usage | dict[str, int] | None = None
     latency_ms: int | None = None
     raw_output: dict[str, object] | None = None
+    # Compatibility with newer request-object contracts.
+    tool_calls: tuple[ToolCall, ...] = ()
+    raw: dict[str, object] | None = None
+    provenance: Provenance | None = None
 
 
 @dataclass(slots=True, frozen=True)
 class LLMStreamEvent:
-    """One event emitted from a streaming model response.
-
-    Attributes:
-        kind: Event type; either an incremental text delta or completion.
-        delta_text: Incremental text for ``kind="delta"``.
-        response: Final normalized response for ``kind="completed"``.
-    """
+    """One event emitted from a streaming model response."""
 
     kind: LLMStreamEventKind
     delta_text: str | None = None
     response: LLMResponse | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class ToolCallDelta:
+    """Incremental tool-call delta used for streaming responses."""
+
+    call_id: str | None = None
+    name: str | None = None
+    arguments_json_delta: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class LLMDelta:
+    """Incremental delta emitted by streaming model responses."""
+
+    text_delta: str | None = None
+    tool_call_delta: ToolCallDelta | None = None
+    usage_delta: Usage | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class EmbeddingResult:
+    """Embedding response payload returned by a backend."""
+
+    vectors: Sequence[Sequence[float]]
+    model_id: str | None = None
+    usage: Usage | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class BackendCapabilities:
+    """Capabilities supported by a backend."""
+
+    streaming: bool
+    tool_calling: ToolCallingMode
+    json_mode: JSONMode
+    vision: bool
+    max_context_tokens: int | None
+
+
+@dataclass(slots=True, frozen=True)
+class BackendStatus:
+    """Healthcheck status returned by a backend."""
+
+    ok: bool
+    message: str | None = None
+    details: Mapping[str, object] | None = None
+    checked_at: str | None = None
+
+
 class LLMClient(Protocol):
     """Protocol implemented by provider-agnostic LLM clients.
 
-    Callers can depend on this interface for both full-response and streaming
-    generation paths without coupling to provider-specific SDK contracts.
+    Implementations may support one or both call styles used in this package:
+    chat-style methods (``chat``/``stream_chat``) and request-object methods
+    (``generate``/``stream``).
     """
 
     def chat(
@@ -98,19 +210,7 @@ class LLMClient(Protocol):
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
-        """Generate and return a full chat completion response.
-
-        Implementations should normalize provider-specific payloads into the
-        shared ``LLMResponse`` contract.
-
-        Args:
-            messages: Provider-neutral chat message sequence.
-            model: Model identifier for the configured backend.
-            params: Provider-neutral generation parameters.
-
-        Returns:
-            Normalized response payload.
-        """
+        """Generate and return a full chat completion response."""
 
     def stream_chat(
         self,
@@ -119,27 +219,20 @@ class LLMClient(Protocol):
         model: str,
         params: LLMChatParams,
     ) -> Iterator[LLMStreamEvent]:
-        """Generate a streaming chat completion event sequence.
+        """Generate a streaming chat completion event sequence."""
 
-        Streams should conclude with a ``kind="completed"`` event containing the
-        final response payload.
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        """Generate and return a full response from a request object."""
 
-        Args:
-            messages: Provider-neutral chat message sequence.
-            model: Model identifier for the configured backend.
-            params: Provider-neutral generation parameters.
+    def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Stream a response from a request object."""
 
-        Returns:
-            Iterator of streaming events through completion.
-        """
+    def default_model(self) -> str:
+        """Return default model identifier for the configured backend."""
 
 
 class LLMProviderAdapter(Protocol):
-    """Backend adapter contract consumed by :class:`LLMClient` implementations.
-
-    Adapters are responsible for translating provider-specific SDK behavior into
-    normalized contract payloads and exceptions.
-    """
+    """Backend adapter contract consumed by ``LLMClient`` implementations."""
 
     provider_name: str
 
@@ -150,18 +243,7 @@ class LLMProviderAdapter(Protocol):
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
-        """Generate one provider-backed chat response in normalized format.
-
-        Adapters should translate provider-specific errors to contract exceptions.
-
-        Args:
-            messages: Provider-neutral chat message sequence.
-            model: Model identifier for the configured backend.
-            params: Provider-neutral generation parameters.
-
-        Returns:
-            Normalized response payload.
-        """
+        """Generate one provider-backed chat response in normalized format."""
 
     def stream_chat(
         self,
@@ -170,50 +252,32 @@ class LLMProviderAdapter(Protocol):
         model: str,
         params: LLMChatParams,
     ) -> Iterator[LLMStreamEvent]:
-        """Stream provider-backed chat events in normalized format.
-
-        Event ordering and completion semantics should match ``LLMClient`` rules.
-
-        Args:
-            messages: Provider-neutral chat message sequence.
-            model: Model identifier for the configured backend.
-            params: Provider-neutral generation parameters.
-
-        Returns:
-            Iterator of streaming events through completion.
-        """
+        """Stream provider-backed chat events in normalized format."""
 
 
 class LLMError(Exception):
-    """Base exception for provider-independent LLM runtime failures.
-
-    Concrete subclasses classify common provider failure categories.
-    """
+    """Base exception for provider-independent LLM runtime failures."""
 
 
 class LLMAuthError(LLMError):
-    """Authentication or authorization failure raised by provider backends.
-
-    Typically indicates invalid credentials, missing keys, or permission denial.
-    """
+    """Authentication or authorization failure raised by provider backends."""
 
 
 class LLMRateLimitError(LLMError):
-    """Provider rate-limit failure indicating callers should throttle or retry.
-
-    Callers should use retry/backoff policies appropriate for the provider.
-    """
+    """Provider rate-limit failure indicating callers should throttle or retry."""
 
 
 class LLMInvalidRequestError(LLMError):
-    """Invalid request payload or unsupported provider/backend configuration.
-
-    Raised when request shape, model selection, or backend setup is invalid.
-    """
+    """Invalid request payload or unsupported provider/backend configuration."""
 
 
 class LLMProviderError(LLMError):
-    """General provider runtime failure not covered by specialized subclasses.
+    """General provider runtime failure not covered by specialized subclasses."""
 
-    Serves as catch-all for provider errors without stronger classification.
-    """
+
+class LLMBadResponseError(LLMError):
+    """Raised when a provider returns an invalid or empty response payload."""
+
+
+class LLMCapabilityError(LLMError):
+    """Raised when a backend cannot satisfy required capabilities."""

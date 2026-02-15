@@ -32,6 +32,7 @@ from design_research_agents.llm import (
     configure_llama_cpp_server,
     configure_openai,
     shutdown_llama_cpp_server,
+    shutdown_transformers_backend,
 )
 from design_research_agents.tools import BaseToolRuntime
 
@@ -231,6 +232,76 @@ def test_base_llm_client_from_llama_cpp_server_configures_and_pins_backend(
     assert captured["port"] == 9001
 
     shutdown_llama_cpp_server()
+    # Reset to project defaults and active llama backend for deterministic follow-up tests.
+    configure_openai(
+        model="gpt-4o-mini",
+        api_key_env="OPENAI_API_KEY",
+        api_key=None,
+        base_url=None,
+        require_api_key=True,
+    )
+    configure_llama_cpp_server(model="/tmp/reset-default-backend.gguf")
+    shutdown_llama_cpp_server()
+
+
+def test_base_llm_client_from_transformers_configures_and_pins_backend(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeTransformersBackend:
+        def __init__(self, **kwargs: object) -> None:
+            self.model = str(kwargs["model"])
+            self.generation_kwargs = dict(kwargs.get("generation_kwargs", {}))
+
+        def close(self) -> None:
+            return
+
+        def complete(
+            self,
+            prompt: str,
+            *,
+            generation_kwargs: dict[str, object] | None = None,
+        ) -> str:
+            captured["prompt"] = prompt
+            captured["generation_kwargs"] = dict(generation_kwargs or {})
+            return f"transformers:{prompt}"
+
+    def fake_factory(**kwargs: object) -> FakeTransformersBackend:
+        captured["create_kwargs"] = dict(kwargs)
+        return FakeTransformersBackend(**kwargs)
+
+    monkeypatch.setattr("design_research_agents.llm.create_transformers_backend", fake_factory)
+
+    llm_client = BaseLLMClient.from_transformers(
+        model="distilgpt2",
+        generation_kwargs={"top_p": 0.8},
+    )
+    configure_openai(
+        model="gpt-active-backend-switch",
+        api_key_env="ALT_OPENAI_API_KEY",
+        api_key="explicit-key",
+        base_url="http://localhost:9000/v1",
+        require_api_key=False,
+    )
+
+    response = llm_client.chat(
+        messages=[LLMMessage(role="user", content="hello")],
+        model="distilgpt2",
+        params=LLMChatParams(temperature=0.7, max_tokens=3),
+    )
+    assert response.provider == "transformers"
+    assert response.text == "transformers:user: hello"
+    assert llm_client.default_model() == "distilgpt2"
+    assert captured["create_kwargs"]["generation_kwargs"] == {"top_p": 0.8}
+
+    generation_kwargs = captured["generation_kwargs"]
+    assert generation_kwargs["top_p"] == 0.8
+    assert generation_kwargs["temperature"] == 0.7
+    assert generation_kwargs["max_new_tokens"] == 3
+    assert generation_kwargs["do_sample"] is True
+
+    shutdown_transformers_backend()
     # Reset to project defaults and active llama backend for deterministic follow-up tests.
     configure_openai(
         model="gpt-4o-mini",

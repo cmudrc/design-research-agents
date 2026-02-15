@@ -1,43 +1,44 @@
-"""LLM configuration and backend entrypoints for the package runtime.
+"""LLM configuration and backend entrypoints for package runtime.
 
-This module owns process-wide backend configuration, default model resolution,
-and backend routing helpers. It acts as the bridge between high-level agent
-code and backend-specific implementations.
+This module keeps legacy backend configuration APIs stable while also exposing
+the newer router/config entrypoints for capability-based backend selection.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from .backends.adapters import OpenAIBackendConfig
-from .backends.llama_cpp_server import (
-    LlamaCppServerBackend,
-)
-from .backends.llama_cpp_server import (
-    create_backend as create_llama_cpp_server_backend,
-)
+from .backends.factory import build_backends
+from .backends.llama_cpp_server import LlamaCppServerBackend
+from .backends.llama_cpp_server import create_backend as create_llama_cpp_server_backend
+from .backends.transformers_backend import TransformersBackend
+from .backends.transformers_backend import create_backend as create_transformers_backend
 from .backends.types import BackendName, parse_backend
 from .base_client import BaseLLMClient
+from .config import LLMConfig, load_config
+from .router import LLMRouter
 
 __all__ = [
     "BaseLLMClient",
+    "LLMConfig",
+    "LLMRouter",
+    "build_backends",
     "configure_llama_cpp_server",
     "configure_openai",
+    "configure_router_from_yaml",
+    "configure_transformers",
+    "load_config",
     "parse_backend",
     "resolve_default_model",
     "shutdown_llama_cpp_server",
+    "shutdown_transformers_backend",
 ]
 
 
 @dataclass(slots=True)
 class _OpenAIConfig:
-    """In-process defaults used for the OpenAI backend integration.
-
-    Instances of this dataclass represent mutable process-level configuration
-    that is copied into immutable adapter config objects per request.
-    """
-
     model: str = "gpt-4o-mini"
     api_key_env: str = "OPENAI_API_KEY"
     api_key: str | None = None
@@ -45,11 +46,12 @@ class _OpenAIConfig:
     require_api_key: bool = True
 
 
-# Process-wide singleton so llama server persists across repeated calls.
 _llama_cpp_backend: LlamaCppServerBackend | None = None
+_transformers_backend: TransformersBackend | None = None
 _openai_config = _OpenAIConfig()
-# Active backend powers "set it once, use it everywhere" call paths.
 _active_backend: BackendName = "llama-cpp-server"
+_default_router: LLMRouter | None = None
+_use_router_default: bool = False
 
 
 def configure_openai(
@@ -60,19 +62,7 @@ def configure_openai(
     base_url: str | None = None,
     require_api_key: bool = True,
 ) -> None:
-    """Configure OpenAI defaults and activate the OpenAI backend.
-
-    Args:
-        model: OpenAI model name used by default.
-        api_key_env: Environment variable name used for API key lookup.
-        api_key: Explicit API key value. When provided, it overrides ``api_key_env``.
-        base_url: Optional OpenAI-compatible API base URL.
-        require_api_key: Whether missing API keys should raise an error.
-
-    Raises:
-        ValueError: If required string parameters are empty.
-    """
-    # Normalize once so all call paths inherit clean defaults.
+    """Configure OpenAI defaults and activate the OpenAI backend."""
     normalized_model = model.strip()
     if not normalized_model:
         raise ValueError("model must not be empty.")
@@ -89,15 +79,14 @@ def configure_openai(
     if normalized_base_url == "":
         normalized_base_url = None
 
-    global _active_backend
-
+    global _active_backend, _use_router_default
     _openai_config.model = normalized_model
     _openai_config.api_key_env = normalized_api_key_env
     _openai_config.api_key = normalized_api_key
     _openai_config.base_url = normalized_base_url
     _openai_config.require_api_key = require_api_key
-    # Configure selects OpenAI as the default backend for later calls.
     _active_backend = "openai"
+    _use_router_default = False
 
 
 def configure_llama_cpp_server(
@@ -110,24 +99,9 @@ def configure_llama_cpp_server(
     startup_timeout_seconds: float = 60.0,
     poll_interval_seconds: float = 0.25,
     extra_server_args: Sequence[str] = (),
-) -> LlamaCppServerBackend | None:
-    """Configure the llama-cpp backend and activate it for default calls.
-
-    Args:
-        model: ``llama_cpp.server`` ``--model`` value.
-        hf_model_repo_id: Optional Hugging Face repository id.
-        api_model: OpenAI-compatible model identifier used for completions.
-        host: Host used by the local server.
-        port: Port used by the local server.
-        startup_timeout_seconds: Max startup wait duration.
-        poll_interval_seconds: Delay between readiness checks.
-        extra_server_args: Extra CLI arguments for ``llama_cpp.server``.
-
-    Returns:
-        Configured backend instance that will be reused across calls.
-    """
-    global _active_backend, _llama_cpp_backend
-    # Reconfiguration replaces any existing managed server instance.
+) -> LlamaCppServerBackend:
+    """Configure the llama-cpp backend and activate it for default calls."""
+    global _active_backend, _llama_cpp_backend, _use_router_default
     shutdown_llama_cpp_server()
     _llama_cpp_backend = create_llama_cpp_server_backend(
         model=model,
@@ -139,34 +113,85 @@ def configure_llama_cpp_server(
         poll_interval_seconds=poll_interval_seconds,
         extra_server_args=extra_server_args,
     )
-    # Configure selects llama-cpp-server as the default backend for later calls.
     _active_backend = "llama-cpp-server"
+    _use_router_default = False
     return _llama_cpp_backend
 
 
 def shutdown_llama_cpp_server() -> None:
-    """Stop and clear the configured llama-cpp backend, if present.
-
-    The function is idempotent and safe to call even when no backend has been
-    configured yet.
-    """
+    """Stop and clear the configured llama-cpp backend, if present."""
     global _llama_cpp_backend
     if _llama_cpp_backend is None:
-        # Idempotent shutdown keeps callers from needing extra state checks.
         return
     _llama_cpp_backend.close()
     _llama_cpp_backend = None
 
 
+def configure_transformers(
+    *,
+    model: str,
+    tokenizer: str | None = None,
+    revision: str | None = None,
+    trust_remote_code: bool = False,
+    device: int | str | None = None,
+    device_map: str | None = None,
+    torch_dtype: object | None = None,
+    cache_dir: str | None = None,
+    use_fast: bool = True,
+    pipeline_task: str = "text-generation",
+    model_kwargs: Mapping[str, object] | None = None,
+    tokenizer_kwargs: Mapping[str, object] | None = None,
+    pipeline_kwargs: Mapping[str, object] | None = None,
+    generation_kwargs: Mapping[str, object] | None = None,
+) -> TransformersBackend:
+    """Configure the Transformers backend and activate it for default calls."""
+    normalized_model = model.strip()
+    if not normalized_model:
+        raise ValueError("model must not be empty.")
+
+    global _active_backend, _transformers_backend, _use_router_default
+    shutdown_transformers_backend()
+    _transformers_backend = create_transformers_backend(
+        model=normalized_model,
+        tokenizer=tokenizer,
+        revision=revision,
+        trust_remote_code=trust_remote_code,
+        device=device,
+        device_map=device_map,
+        torch_dtype=torch_dtype,
+        cache_dir=cache_dir,
+        use_fast=use_fast,
+        pipeline_task=pipeline_task,
+        model_kwargs=dict(model_kwargs or {}),
+        tokenizer_kwargs=dict(tokenizer_kwargs or {}),
+        pipeline_kwargs=dict(pipeline_kwargs or {}),
+        generation_kwargs=dict(generation_kwargs or {}),
+    )
+    _active_backend = "transformers"
+    _use_router_default = False
+    return _transformers_backend
+
+
+def shutdown_transformers_backend() -> None:
+    """Stop and clear the configured Transformers backend, if present."""
+    global _transformers_backend
+    if _transformers_backend is None:
+        return
+    _transformers_backend.close()
+    _transformers_backend = None
+
+
+def configure_router_from_yaml(path: str, *, default_backend: str | None = None) -> LLMRouter:
+    """Load YAML config, build a router, and register it as runtime default."""
+    global _default_router, _use_router_default
+    config = load_config(path)
+    router = LLMRouter(build_backends(config.backends), default_backend=default_backend)
+    _default_router = router
+    _use_router_default = True
+    return router
+
+
 def _get_openai_backend_config() -> OpenAIBackendConfig:
-    """Return a snapshot of the current process-wide OpenAI configuration.
-
-    Returning a value object prevents downstream mutation of global settings.
-
-    Returns:
-        Immutable OpenAI backend configuration snapshot.
-    """
-    # Return a value object so adapters cannot mutate process-wide config by accident.
     return OpenAIBackendConfig(
         api_key_env=_openai_config.api_key_env,
         api_key=_openai_config.api_key,
@@ -176,44 +201,45 @@ def _get_openai_backend_config() -> OpenAIBackendConfig:
 
 
 def _get_configured_llama_cpp_backend() -> LlamaCppServerBackend | None:
-    """Return currently configured llama-cpp backend instance, if any.
-
-    Internal helper used by adapter resolution paths.
-
-    Returns:
-        Configured llama-cpp backend instance, if available.
-    """
     return _llama_cpp_backend
 
 
+def _get_configured_transformers_backend() -> TransformersBackend | None:
+    return _transformers_backend
+
+
 def _get_active_backend() -> BackendName:
-    """Return process-wide active backend used for default completions.
-
-    Internal helper consumed by ``BaseLLMClient`` when no backend override is set.
-
-    Returns:
-        Backend name selected for default calls.
-    """
     return _active_backend
 
 
-def resolve_default_model(*, backend: BackendName | None = None) -> str:
-    """Resolve the default model name from configured backend state.
+def _get_default_router() -> LLMRouter | None:
+    if not _use_router_default:
+        return None
+    return _default_router
 
-    Args:
-        backend: Optional backend override. Uses active backend when omitted.
 
-    Returns:
-        Default model name for the selected backend.
-    """
-    selected_backend = _active_backend if backend is None else parse_backend(backend)
-    if selected_backend == "openai":
+def resolve_default_model(*, backend: str | None = None) -> str:
+    """Resolve default model from legacy runtime config or default router."""
+    if backend is not None:
+        return _resolve_legacy_default_model(parse_backend(backend))
+
+    router = _get_default_router()
+    if router is not None:
+        return router.default_model()
+    return _resolve_legacy_default_model(_active_backend)
+
+
+def _resolve_legacy_default_model(backend: BackendName) -> str:
+    if backend == "openai":
         return _openai_config.model
-    if selected_backend == "llama-cpp-server":
+    if backend == "llama-cpp-server":
         if _llama_cpp_backend is not None:
             return _llama_cpp_backend.api_model
-        # Keep a stable fallback when llama backend has not been configured yet.
         return "local-model"
-    if selected_backend == "echo-test":
+    if backend == "transformers":
+        if _transformers_backend is not None:
+            return _transformers_backend.model
+        return "transformers-model"
+    if backend == "echo-test":
         return "echo-test-model"
-    raise ValueError(f"Unsupported backend '{selected_backend}'.")
+    raise ValueError(f"Unsupported backend '{backend}'.")

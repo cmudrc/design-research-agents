@@ -19,12 +19,16 @@ from design_research_agents.agent._run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
+from design_research_agents.agent._streaming import StreamAccumulator, finalize_stream_response
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
+    LLMDelta,
     LLMMessage,
+    LLMRequest,
     LLMResponse,
+    LLMStreamEvent,
 )
 from design_research_agents.tracing import (
     emit_model_token,
@@ -90,8 +94,9 @@ class DirectLLMAgent(Agent):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
-        resolved_model, messages, message_source, llm_params = self._prepare_request(
-            normalized_input
+        resolved_model, messages, message_source, llm_request = self._prepare_request(
+            normalized_input,
+            request_id=resolved_request_id,
         )
         trace_scope = start_trace_run(
             agent_name="DirectLLMAgent",
@@ -102,11 +107,11 @@ class DirectLLMAgent(Agent):
         model_span_id = start_model_call(
             model=resolved_model,
             messages=messages,
-            params=llm_params,
+            params=llm_request,
             metadata={"agent": "DirectLLMAgent", "message_source": message_source},
         )
         try:
-            llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
+            llm_response = _generate_with_fallback(self._llm_client, llm_request)
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             finish_trace_run(trace_scope, error=str(exc))
@@ -119,7 +124,7 @@ class DirectLLMAgent(Agent):
             dependencies=resolved_dependencies,
             message_source=message_source,
             message_count=len(messages),
-            llm_params=llm_params,
+            llm_request=llm_request,
         )
         finish_trace_run(trace_scope, result=result)
         return result
@@ -144,8 +149,9 @@ class DirectLLMAgent(Agent):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
-        resolved_model, messages, message_source, llm_params = self._prepare_request(
-            normalized_input
+        resolved_model, messages, message_source, llm_request = self._prepare_request(
+            normalized_input,
+            request_id=resolved_request_id,
         )
         trace_scope = start_trace_run(
             agent_name="DirectLLMAgent",
@@ -156,76 +162,52 @@ class DirectLLMAgent(Agent):
         model_span_id = start_model_call(
             model=resolved_model,
             messages=messages,
-            params=llm_params,
+            params=llm_request,
             metadata={"agent": "DirectLLMAgent", "message_source": message_source},
         )
         try:
-            stream = self._llm_client.stream_chat(messages, model=resolved_model, params=llm_params)
+            stream = _stream_with_fallback(self._llm_client, llm_request)
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             finish_trace_run(trace_scope, error=str(exc))
             raise
 
-        delta_parts: list[str] = []
-        completed_response: LLMResponse | None = None
+        accumulator = StreamAccumulator()
         try:
             for stream_event in stream:
-                if stream_event.kind == "delta":
-                    delta_text = stream_event.delta_text or ""
-                    if delta_text:
-                        delta_parts.append(delta_text)
-                        emit_model_token(model_span_id, delta_text=delta_text)
-                    yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-                    continue
-                if stream_event.kind == "completed":
-                    completed_response = stream_event.response
+                accumulator.apply(stream_event)
+                delta_text = stream_event.text_delta or ""
+                if delta_text:
+                    emit_model_token(model_span_id, delta_text=delta_text)
+                yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             finish_trace_run(trace_scope, error=str(exc))
             raise
 
-        if completed_response is None:
-            completed_response = LLMResponse(
-                model=resolved_model,
-                text="".join(delta_parts),
-                provider=None,
-            )
-        elif not completed_response.text and delta_parts:
-            completed_response = LLMResponse(
-                model=completed_response.model,
-                text="".join(delta_parts),
-                provider=completed_response.provider,
-                finish_reason=completed_response.finish_reason,
-                usage=completed_response.usage,
-                latency_ms=completed_response.latency_ms,
-                raw_output=completed_response.raw_output,
-            )
-
-        if completed_response is not None:
-            finish_model_call(model_span_id, response=completed_response)
-            result = _build_success_result(
-                llm_response=completed_response,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-                message_source=message_source,
-                message_count=len(messages),
-                llm_params=llm_params,
-            )
-            finish_trace_run(trace_scope, result=result)
-            yield AgentStreamEvent(kind="completed", result=result)
-        else:
-            finish_model_call(
-                model_span_id,
-                error="streaming response missing completion event",
-                model=resolved_model,
-            )
-            finish_trace_run(trace_scope, error="streaming response missing completion event")
-            yield AgentStreamEvent(kind="failed", result=None)
+        completed_response = finalize_stream_response(
+            stream=stream,
+            accumulator=accumulator,
+            model=resolved_model,
+        )
+        finish_model_call(model_span_id, response=completed_response)
+        result = _build_success_result(
+            llm_response=completed_response,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
+            message_source=message_source,
+            message_count=len(messages),
+            llm_request=llm_request,
+        )
+        finish_trace_run(trace_scope, result=result)
+        yield AgentStreamEvent(kind="completed", result=result)
 
     def _prepare_request(
         self,
         input_payload: Mapping[str, object],
-    ) -> tuple[str, list[LLMMessage], str, LLMChatParams]:
+        *,
+        request_id: str | None,
+    ) -> tuple[str, list[LLMMessage], str, LLMRequest]:
         """Resolve model/messages/params into one reusable request payload.
 
         Args:
@@ -243,7 +225,9 @@ class DirectLLMAgent(Agent):
             input_payload=input_payload,
             default_system_prompt=self._default_system_prompt,
         )
-        llm_params = LLMChatParams(
+        llm_request = LLMRequest(
+            messages=messages,
+            model=resolved_model,
             temperature=_extract_temperature(
                 input_payload=input_payload,
                 default_value=self._temperature,
@@ -253,12 +237,90 @@ class DirectLLMAgent(Agent):
                 default_value=self._max_tokens,
             ),
             response_schema=_extract_response_schema(input_payload),
+            metadata={
+                "request_id": request_id,
+                "agent": "DirectLLMAgent",
+                "message_source": message_source,
+            },
             provider_options=_merge_provider_options(
                 default_provider_options=self._provider_options,
                 raw_provider_options=input_payload.get("provider_options"),
             ),
         )
-        return resolved_model, messages, message_source, llm_params
+        return resolved_model, messages, message_source, llm_request
+
+
+def _generate_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResponse:
+    generate_fn = getattr(llm_client, "generate", None)
+    if callable(generate_fn):
+        return generate_fn(llm_request)
+
+    chat_fn = getattr(llm_client, "chat", None)
+    if not callable(chat_fn):
+        raise AttributeError("LLM client does not expose generate() or chat().")
+
+    resolved_model = _resolve_request_model(llm_client, llm_request)
+    return chat_fn(
+        llm_request.messages,
+        model=resolved_model,
+        params=_request_to_chat_params(llm_request),
+    )
+
+
+def _stream_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[LLMDelta]:
+    stream_fn = getattr(llm_client, "stream", None)
+    if callable(stream_fn):
+        return stream_fn(llm_request)
+
+    stream_chat_fn = getattr(llm_client, "stream_chat", None)
+    if not callable(stream_chat_fn):
+        raise AttributeError("LLM client does not expose stream() or stream_chat().")
+
+    resolved_model = _resolve_request_model(llm_client, llm_request)
+    chat_stream = stream_chat_fn(
+        llm_request.messages,
+        model=resolved_model,
+        params=_request_to_chat_params(llm_request),
+    )
+    return _ChatStreamDeltaAdapter(chat_stream)
+
+
+def _resolve_request_model(llm_client: LLMClient, llm_request: LLMRequest) -> str:
+    if llm_request.model:
+        return llm_request.model
+    default_model_fn = getattr(llm_client, "default_model", None)
+    if callable(default_model_fn):
+        return str(default_model_fn())
+    return "local-model"
+
+
+def _request_to_chat_params(llm_request: LLMRequest) -> LLMChatParams:
+    return LLMChatParams(
+        temperature=llm_request.temperature,
+        max_tokens=llm_request.max_tokens,
+        response_schema=llm_request.response_schema,
+        provider_options=dict(llm_request.provider_options),
+    )
+
+
+class _ChatStreamDeltaAdapter(Iterator[LLMDelta]):
+    """Adapt chat-style stream events into request-object deltas."""
+
+    def __init__(self, stream: Iterator[LLMStreamEvent]) -> None:
+        self._stream = iter(stream)
+        self.response: LLMResponse | None = None
+
+    def __iter__(self) -> _ChatStreamDeltaAdapter:
+        return self
+
+    def __next__(self) -> LLMDelta:
+        while True:
+            event = next(self._stream)
+            if event.kind == "delta":
+                return LLMDelta(text_delta=event.delta_text or "")
+            if event.kind == "completed":
+                self.response = event.response
+                raise StopIteration
 
 
 def _build_success_result(
@@ -268,7 +330,7 @@ def _build_success_result(
     dependencies: Mapping[str, object],
     message_source: str,
     message_count: int,
-    llm_params: LLMChatParams,
+    llm_request: LLMRequest,
 ) -> AgentResult:
     """Build a success result payload from one completed model response.
 
@@ -299,10 +361,10 @@ def _build_success_result(
                 "source": "direct",
                 "message_source": message_source,
                 "message_count": message_count,
-                "temperature": llm_params.temperature,
-                "max_tokens": llm_params.max_tokens,
-                "response_schema_supplied": llm_params.response_schema is not None,
-                "provider_options_keys": sorted(llm_params.provider_options.keys()),
+                "temperature": llm_request.temperature,
+                "max_tokens": llm_request.max_tokens,
+                "response_schema_supplied": llm_request.response_schema is not None,
+                "provider_options_keys": sorted(llm_request.provider_options.keys()),
             },
         },
     )

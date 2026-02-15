@@ -27,7 +27,13 @@ from design_research_agents.agent._run_options import (
     resolve_request_id,
 )
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
-from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage
+from design_research_agents.contracts.llm import (
+    LLMChatParams,
+    LLMClient,
+    LLMMessage,
+    LLMRequest,
+    LLMResponse,
+)
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
@@ -154,21 +160,35 @@ class ToolCallingAgent(Agent):
                 content=user_prompt,
             ),
         ]
-        llm_params = LLMChatParams(
-            response_schema=clone_response_schema(self._default_tool_call_response_schema),
+        llm_request = LLMRequest(
+            messages=model_messages,
+            model=resolved_model,
+            tools=list(self._runtime_specs.values()),
+            metadata={
+                "request_id": resolved_request_id,
+                "agent": "ToolCallingAgent",
+            },
             provider_options={"agent": "ToolCallingAgent"},
         )
+        model_call_payload: LLMRequest | LLMChatParams
+        if _supports_generate(self._llm_client):
+            model_call_payload = llm_request
+        else:
+            model_call_payload = LLMChatParams(
+                response_schema=clone_response_schema(self._default_tool_call_response_schema),
+                provider_options=dict(llm_request.provider_options),
+            )
         model_span_id = start_model_call(
             model=resolved_model,
             messages=model_messages,
-            params=llm_params,
+            params=model_call_payload,
             metadata={"agent": "ToolCallingAgent"},
         )
         try:
-            llm_response = self._llm_client.chat(
-                model_messages,
-                model=resolved_model,
-                params=llm_params,
+            llm_response = _request_tool_call_response(
+                llm_client=self._llm_client,
+                llm_request=llm_request,
+                response_schema=self._default_tool_call_response_schema,
             )
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
@@ -176,7 +196,9 @@ class ToolCallingAgent(Agent):
             raise
         finish_model_call(model_span_id, response=llm_response)
 
-        parsed_tool_call = _parse_tool_call(llm_response.text)
+        parsed_tool_call = _parse_tool_call_from_response(llm_response)
+        if parsed_tool_call is None:
+            parsed_tool_call = _parse_tool_call(llm_response.text)
         selected_choice, tool_call_source, tool_call_reason = _select_tool_choice(
             parsed_tool_call=parsed_tool_call,
             prompt=prompt,
@@ -348,20 +370,6 @@ def _build_tool_choices_text(*, choices: Sequence[_ToolChoice]) -> str:
     return "\n".join(choice_lines)
 
 
-def _tool_call_response_schema(tool_names: Sequence[str]) -> dict[str, object]:
-    """Build JSON schema constraining tool-calling model output payloads.
-
-    Restricts ``tool_name`` to currently available choices.
-
-    Args:
-        tool_names: Tool names permitted in the response schema.
-
-    Returns:
-        JSON-schema-like mapping for tool call responses.
-    """
-    return build_tool_call_response_schema(tool_names=tool_names)
-
-
 def _clone_tool_choice(choice: _ToolChoice) -> _ToolChoice:
     """Clone one tool choice so run-local payloads remain isolated.
 
@@ -376,6 +384,64 @@ def _clone_tool_choice(choice: _ToolChoice) -> _ToolChoice:
         description=choice.description,
         input_schema=dict(choice.input_schema),
     )
+
+
+def _supports_generate(llm_client: LLMClient) -> bool:
+    return callable(getattr(llm_client, "generate", None))
+
+
+def _request_tool_call_response(
+    *,
+    llm_client: LLMClient,
+    llm_request: LLMRequest,
+    response_schema: Mapping[str, object],
+) -> LLMResponse:
+    generate_fn = getattr(llm_client, "generate", None)
+    if callable(generate_fn):
+        return generate_fn(llm_request)
+
+    chat_fn = getattr(llm_client, "chat", None)
+    if not callable(chat_fn):
+        raise AttributeError("LLM client does not expose generate() or chat().")
+
+    resolved_model = llm_request.model or _resolve_default_model(llm_client)
+    llm_params = LLMChatParams(
+        response_schema=clone_response_schema(dict(response_schema)),
+        provider_options=dict(llm_request.provider_options),
+    )
+    return chat_fn(
+        llm_request.messages,
+        model=resolved_model,
+        params=llm_params,
+    )
+
+
+def _resolve_default_model(llm_client: LLMClient) -> str:
+    default_model_fn = getattr(llm_client, "default_model", None)
+    if callable(default_model_fn):
+        return str(default_model_fn())
+    return "local-model"
+
+
+def _tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, object]:
+    return build_tool_call_response_schema(
+        tool_names=available_tool_names,
+    )
+
+
+def _parse_tool_call_from_response(llm_response: LLMResponse) -> dict[str, object] | None:
+    if not llm_response.tool_calls:
+        return None
+    call = llm_response.tool_calls[0]
+    try:
+        tool_input = json.loads(call.arguments_json)
+    except json.JSONDecodeError:
+        tool_input = call.arguments_json
+    return {
+        "tool_name": call.name,
+        "tool_input": tool_input,
+        "call_id": call.call_id,
+    }
 
 
 def _parse_tool_call(raw_text: str) -> dict[str, object] | None:

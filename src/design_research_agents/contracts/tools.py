@@ -46,6 +46,11 @@ class ToolSpec:
     permissions: tuple[str, ...] = ()
     cost_hints: ToolCostHints = field(default_factory=ToolCostHints)
 
+    @property
+    def json_schema(self) -> dict[str, object]:
+        """Return the input schema for LLM tool-calling payloads."""
+        return self.input_schema
+
 
 @dataclass(slots=True, frozen=True)
 class ToolResult:

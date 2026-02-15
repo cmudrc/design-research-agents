@@ -18,29 +18,36 @@ make run-example
 Run additional basic examples:
 
 ```bash
-PYTHONPATH=src python3 examples/basic/router_agent.py
-PYTHONPATH=src python3 examples/basic/direct_llm_agent.py
-PYTHONPATH=src python3 examples/basic/tool_calling_agent.py
-PYTHONPATH=src python3 examples/basic/single_step_code_agent.py
-PYTHONPATH=src python3 examples/basic/multi_step_agent.py
-PYTHONPATH=src python3 examples/basic/model_selection_local.py
-PYTHONPATH=src python3 examples/basic/model_selection_remote.py
+PYTHONPATH=src python3 examples/agents/basic/router_agent.py
+PYTHONPATH=src python3 examples/agents/basic/direct_llm_agent.py
+PYTHONPATH=src python3 examples/agents/basic/tool_calling_agent.py
+PYTHONPATH=src python3 examples/agents/basic/single_step_code_agent.py
+PYTHONPATH=src python3 examples/agents/basic/multi_step_agent.py
+PYTHONPATH=src python3 examples/runtime/plan_execute.py
+PYTHONPATH=src python3 examples/runtime/propose_critic.py
+PYTHONPATH=src python3 examples/runtime/triage.py
+PYTHONPATH=src python3 examples/orchestrator/sequential.py
+PYTHONPATH=src python3 examples/orchestrator/dag.py
+PYTHONPATH=src python3 examples/orchestrator/research_pipeline_dag.py
+PYTHONPATH=src python3 examples/model_selection/local.py
+PYTHONPATH=src python3 examples/model_selection/remote.py
 ```
 
 Run additional streaming examples:
 
 ```bash
-PYTHONPATH=src python3 examples/streaming/direct_llm_agent_stream.py
-PYTHONPATH=src python3 examples/streaming/router_agent_stream.py
-PYTHONPATH=src python3 examples/streaming/tool_calling_agent_stream.py
-PYTHONPATH=src python3 examples/streaming/single_step_code_agent_stream.py
-PYTHONPATH=src python3 examples/streaming/multi_step_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/direct_llm_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/router_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/tool_calling_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/single_step_code_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/multi_step_agent_stream.py
 ```
 
 These streaming examples use deterministic in-script LLM stubs and do not
 require a running model backend.
 
 Default backend is `llama-cpp-server`; examples use hardcoded local llama-cpp settings.
+Optional local backend: `transformers` (install `transformers` + a torch runtime).
 
 ## Docs
 

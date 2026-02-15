@@ -19,7 +19,7 @@ STREAMING_EXAMPLES = (
 
 @pytest.mark.parametrize("example_name", STREAMING_EXAMPLES)
 def test_streaming_example_runs(example_name: str) -> None:
-    example_path = REPO_ROOT / "examples" / "streaming" / example_name
+    example_path = REPO_ROOT / "examples" / "agents" / "streaming" / example_name
     env = dict(os.environ)
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = f"src{os.pathsep}{existing_pythonpath}" if existing_pythonpath else "src"

@@ -88,7 +88,7 @@ class ModelSpec:
         Returns:
             ``True`` when the provider is a local backend.
         """
-        return self.provider in {"llama-cpp-server", "local"}
+        return self.provider in {"llama-cpp-server", "transformers", "local"}
 
 
 @dataclass(slots=True, frozen=True)
