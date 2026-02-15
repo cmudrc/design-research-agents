@@ -45,6 +45,15 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/tools/mcp_minimal.py
    PYTHONPATH=src python3 examples/tools/source_fusion_story.py
 
+Orchestrator run signatures in the two reusable workflow chunks:
+
+- ``mixed_agent_workflow``: initialize once, then call ``run(prompt=...)``.
+- Supply ``agents`` and ``steps`` at init; no built-in mixed-step builder.
+- ``pure_tool_workflow``: initialize once, then call ``run(inputs=...)`` with
+  user-defined tool/logic ``steps`` supplied at init.
+- Optional ``input_schema`` can validate run inputs; step topology and any
+  scenario-specific behavior are caller-owned.
+
 Run additional streaming examples:
 
 .. code-block:: bash

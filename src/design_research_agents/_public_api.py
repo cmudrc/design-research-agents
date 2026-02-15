@@ -33,7 +33,14 @@ from .model_selection import (
     ModelSelectionPolicy,
     ModelSelectionPolicyConfig,
 )
-from .orchestrator import WorkflowRuntime
+from .orchestrator import (
+    AgentRoutingOrchestrator,
+    MixedAgentWorkflowOrchestrator,
+    PlanExecuteOrchestrator,
+    ProposeAndCritiqueOrchestrator,
+    PureToolWorkflowOrchestrator,
+    WorkflowRuntime,
+)
 from .schemas import (
     SCHEMA_NAMES,
     SchemaValidationError,
@@ -79,6 +86,15 @@ class WorkflowsNamespace:
     """User-facing namespace for workflow orchestration primitives."""
 
     WorkflowRuntime: type[WorkflowRuntime] = WorkflowRuntime
+    AgentRoutingOrchestrator: type[AgentRoutingOrchestrator] = AgentRoutingOrchestrator
+    PlanExecuteOrchestrator: type[PlanExecuteOrchestrator] = PlanExecuteOrchestrator
+    ProposeAndCritiqueOrchestrator: type[ProposeAndCritiqueOrchestrator] = (
+        ProposeAndCritiqueOrchestrator
+    )
+    PureToolWorkflowOrchestrator: type[PureToolWorkflowOrchestrator] = PureToolWorkflowOrchestrator
+    MixedAgentWorkflowOrchestrator: type[MixedAgentWorkflowOrchestrator] = (
+        MixedAgentWorkflowOrchestrator
+    )
     AgentStep: type[AgentStep] = AgentStep
     LogicStep: type[LogicStep] = LogicStep
     ToolStep: type[ToolStep] = ToolStep

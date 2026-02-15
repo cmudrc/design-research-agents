@@ -1,14 +1,13 @@
 """Runnable example for the reusable ``plan_execute`` orchestration chunk."""
 
 import design_research_agents as dra
-from design_research_agents.orchestrator.implementations.plan_execute import plan_and_execute
 
 
 def main() -> None:
     """Run ``plan_execute`` orchestration with configurable runtime dependencies."""
     llm_client = dra.llm.create_default_llm_client()
     tool_runtime = dra.tools.UnifiedToolRuntime()
-    orchestrator = plan_and_execute(
+    orchestrator = dra.workflows.PlanExecuteOrchestrator(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

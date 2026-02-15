@@ -1,14 +1,13 @@
 """Runnable example for the reusable ``propose_critic`` orchestration chunk."""
 
 import design_research_agents as dra
-from design_research_agents.orchestrator.implementations.propose_critic import propose_and_critique
 
 
 def main() -> None:
     """Run ``propose_critic`` orchestration with configurable dependencies."""
     llm_client = dra.llm.create_default_llm_client()
     tool_runtime = dra.tools.UnifiedToolRuntime()
-    orchestrator = propose_and_critique(
+    orchestrator = dra.workflows.ProposeAndCritiqueOrchestrator(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

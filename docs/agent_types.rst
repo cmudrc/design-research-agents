@@ -176,8 +176,11 @@ Workflow Runtime
   - ``LogicStep`` for deterministic local handlers,
   - ``ToolStep`` for runtime tool invocations,
   - ``AgentStep`` for registered agent-or-orchestrator delegation.
-- Reusable orchestration chunks align to the
-  ``dra.contracts.orchestrator.WorkflowOrchestrator`` protocol.
+- Reusable chunks emphasize init-time configuration and run-time reuse:
+  - ``mixed_agent_workflow`` uses ``.run(prompt=...)`` for prompt-driven runs,
+    with user-supplied ``agents`` and ``steps`` at init.
+  - ``pure_tool_workflow`` uses ``.run(inputs=...)`` for input-driven runs,
+    with user-supplied tool/logic ``steps`` at init (plus optional input schema).
 - Supports deterministic ``execution_mode="sequential"`` and
   ``execution_mode="dag"`` scheduling, per-step dependency injection through
   ``dependency_results``, route-based branch skipping via ``LogicStep.route_map``,

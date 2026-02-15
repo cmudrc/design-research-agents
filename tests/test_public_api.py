@@ -71,6 +71,11 @@ def test_facade_namespaces_expose_expected_symbols() -> None:
         ),
         "workflows": (
             "WorkflowRuntime",
+            "AgentRoutingOrchestrator",
+            "PlanExecuteOrchestrator",
+            "ProposeAndCritiqueOrchestrator",
+            "PureToolWorkflowOrchestrator",
+            "MixedAgentWorkflowOrchestrator",
             "AgentStep",
             "LogicStep",
             "ToolStep",

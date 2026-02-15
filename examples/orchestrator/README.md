@@ -2,8 +2,8 @@
 
 These entrypoints exercise orchestration-level flows, including reusable
 workflow chunks in `src/design_research_agents/orchestrator/implementations/`.
-Prompt-driven chunks follow the same interaction style as agent examples:
-initialize first, then call `.run(prompt=...)`.
+Most chunks follow agent-like reuse semantics:
+initialize once, then call `.run(...)` repeatedly with per-run input.
 
 ## What Each Example Demonstrates
 
@@ -16,9 +16,9 @@ initialize first, then call `.run(prompt=...)`.
 - `agent_routing.py`
   - Intent/agent routing with delegate execution.
 - `pure_tool_workflow.py`
-  - Deterministic tool-only workflow execution.
+  - User-defined pure tool/logic step graph with `run(inputs=...)`.
 - `mixed_agent_workflow.py`
-  - Mixed agent + tool workflow composition.
+  - User-defined mixed (logic + agent + tool) step graph with `run(prompt=...)`.
 
 ## Quick Start
 

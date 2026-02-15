@@ -180,3 +180,7 @@ Runnable examples
 
    PYTHONPATH=src python3 examples/tools/source_fusion_story.py
    PYTHONPATH=src python3 examples/orchestrator/pure_tool_workflow.py
+
+``examples/orchestrator/pure_tool_workflow.py`` initializes one orchestrator and
+reuses ``run(inputs=...)`` for multiple runs over a caller-defined pure
+tool/logic step graph.

@@ -5,9 +5,6 @@ intent/agent-routing entrypoint and terminology.
 """
 
 import design_research_agents as dra
-from design_research_agents.orchestrator.implementations.agent_routing import (
-    agent_routing_and_delegate,
-)
 
 
 def main() -> None:
@@ -21,7 +18,7 @@ def main() -> None:
         tool_runtime=tool_runtime,
     )
 
-    orchestrator = agent_routing_and_delegate(
+    orchestrator = dra.workflows.AgentRoutingOrchestrator(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives={
