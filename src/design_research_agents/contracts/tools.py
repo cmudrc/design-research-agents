@@ -48,6 +48,7 @@ class ToolMetadata:
     server_id: str | None = None
 
     def __post_init__(self) -> None:
+        """Infer ``risky`` from side effects when not explicitly provided."""
         if self.risky is not None:
             return
         is_risky = (
@@ -132,6 +133,7 @@ class ToolResult:
         output: Mapping[str, object] | None = None,
         success: bool | None = None,
     ) -> None:
+        """Initialize tool result payload with compatibility shims for legacy fields."""
         resolved_ok = ok if ok is not None else success
         if resolved_ok is None:
             raise TypeError("ToolResult requires either 'ok' or legacy 'success'.")

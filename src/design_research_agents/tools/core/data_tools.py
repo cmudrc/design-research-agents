@@ -13,6 +13,7 @@ from ._helpers import get_int, get_str
 
 
 def register_data_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
+    """Register CSV loading and summary tools with policy-guarded reads."""
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=True),

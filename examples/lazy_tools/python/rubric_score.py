@@ -1,4 +1,5 @@
-"""
+"""Lazy tool header metadata.
+
 @tool_name: rubric_score
 @description: Score text against a simple rubric.
 @inputs:
@@ -27,6 +28,7 @@ from pathlib import Path
 
 
 def main() -> int:
+    """Run rubric scoring over stdin JSON input and emit a tool envelope."""
     raw = sys.stdin.read()
     payload = json.loads(raw) if raw.strip() else {}
     text = str(payload.get("text", ""))

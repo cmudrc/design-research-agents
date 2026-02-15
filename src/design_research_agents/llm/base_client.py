@@ -25,6 +25,7 @@ class BaseLLMClient(LLMClient):
         backend: str | None = None,
         router: LLMRouter | None = None,
     ) -> None:
+        """Initialize the client with an optional backend override."""
         resolved_router = router or _resolve_default_router()
         if resolved_router is None:
             raise ValueError(
@@ -43,6 +44,7 @@ class BaseLLMClient(LLMClient):
             )
 
     def generate(self, request: LLMRequest) -> LLMResponse:
+        """Generate one response using the configured router."""
         routed_request = _with_backend_override(request, self._backend_override)
         return self._router.generate(routed_request)
 
@@ -53,6 +55,7 @@ class BaseLLMClient(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
+        """Compatibility wrapper that builds a request from chat-style inputs."""
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -68,6 +71,7 @@ class BaseLLMClient(LLMClient):
         return self.generate(request)
 
     def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Stream response deltas for one request."""
         routed_request = _with_backend_override(request, self._backend_override)
         return self._router.stream(routed_request)
 
@@ -78,6 +82,7 @@ class BaseLLMClient(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> Iterator[LLMStreamEvent]:
+        """Compatibility streaming wrapper for chat-style callers."""
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -113,6 +118,7 @@ class BaseLLMClient(LLMClient):
         yield LLMStreamEvent(kind="completed", response=completed)
 
     def default_model(self) -> str:
+        """Return the default model for the selected backend context."""
         if self._backend_override:
             return self._router.default_model_for_backend(self._backend_override)
         return self._router.default_model()

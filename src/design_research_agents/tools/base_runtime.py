@@ -17,29 +17,30 @@ class BaseToolRuntime(UnifiedToolRuntime):
     """Backward-compatible runtime alias backed by ``UnifiedToolRuntime``."""
 
     def __init__(self, *, config: ToolRuntimeConfig | None = None) -> None:
+        """Initialize compatibility runtime with optional config override."""
         super().__init__(config=config or ToolRuntimeConfig())
 
 
-def create_calculator_tool_spec() -> ToolSpec:
-    """Return calculator compatibility tool spec from runtime defaults."""
+def create_calculator_spec() -> ToolSpec:
+    """Return calculator tool spec from runtime defaults."""
     runtime = BaseToolRuntime()
     for spec in runtime.list_tools():
-        if spec.name == "calculator_tool":
+        if spec.name == "calculator":
             return spec
-    raise RuntimeError("calculator_tool is not registered.")
+    raise RuntimeError("calculator is not registered.")
 
 
-def create_text_stats_tool_spec() -> ToolSpec:
-    """Return text-stats compatibility tool spec from runtime defaults."""
+def create_text_word_count_spec() -> ToolSpec:
+    """Return text word-count tool spec from runtime defaults."""
     runtime = BaseToolRuntime()
     for spec in runtime.list_tools():
-        if spec.name == "text_stats_tool":
+        if spec.name == "text.word_count":
             return spec
-    raise RuntimeError("text_stats_tool is not registered.")
+    raise RuntimeError("text.word_count is not registered.")
 
 
 __all__ = [
     "BaseToolRuntime",
-    "create_calculator_tool_spec",
-    "create_text_stats_tool_spec",
+    "create_calculator_spec",
+    "create_text_word_count_spec",
 ]

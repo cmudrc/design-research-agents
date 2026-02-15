@@ -20,7 +20,7 @@ def main() -> None:
         response_texts=[
             json.dumps(
                 {
-                    "tool_name": "calculator_tool",
+                    "tool_name": "calculator",
                     "tool_input": {"expression": "12 * (4 + 1)"},
                 }
             )
@@ -33,7 +33,7 @@ def main() -> None:
     )
 
     result = agent.run(
-        input="Calculate this expression and return the numeric result: 12 * (4 + 1)",
+        prompt="Calculate this expression and return the numeric result: 12 * (4 + 1)",
         request_id="example-tool-calling-agent-001",
     )
 

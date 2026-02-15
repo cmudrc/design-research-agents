@@ -18,7 +18,7 @@ def main() -> None:
         response_texts=[
             "\n".join(
                 [
-                    'calc = call_tool("calculator_tool", {"expression": "12 * (4 + 1)"})',
+                    'calc = call_tool("calculator", {"expression": "12 * (4 + 1)"})',
                     'final_output = {"result": calc["result"]}',
                 ]
             )
@@ -32,7 +32,7 @@ def main() -> None:
     )
 
     result = agent.run(
-        input="Calculate 12 * (4 + 1), then summarize the numeric result as text stats.",
+        prompt="Calculate 12 * (4 + 1), then summarize the numeric result as text stats.",
         request_id="example-single-step-code-agent-001",
     )
 

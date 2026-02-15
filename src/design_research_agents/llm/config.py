@@ -26,6 +26,8 @@ BackendKind = Literal[
 
 @dataclass(slots=True, frozen=True)
 class CapabilityOverrides:
+    """Optional per-backend capability overrides from YAML config."""
+
     streaming: bool | None = None
     tool_calling: ToolCallingMode | bool | None = None
     json_mode: JSONMode | bool | None = None
@@ -33,6 +35,7 @@ class CapabilityOverrides:
     max_context_tokens: int | None = None
 
     def apply(self, base: BackendCapabilities) -> BackendCapabilities:
+        """Apply override values onto a base capability declaration."""
         return BackendCapabilities(
             streaming=base.streaming if self.streaming is None else bool(self.streaming),
             tool_calling=(
@@ -54,6 +57,8 @@ class CapabilityOverrides:
 
 @dataclass(slots=True, frozen=True)
 class BackendConfig:
+    """Shared backend configuration fields used by all backend kinds."""
+
     name: str
     kind: BackendKind
     default_model: str | None = None
@@ -64,6 +69,8 @@ class BackendConfig:
 
 @dataclass(slots=True, frozen=True)
 class OpenAIServiceConfig(BackendConfig):
+    """Configuration for the official OpenAI SDK backend."""
+
     api_key_env: str = "OPENAI_API_KEY"
     api_key: str | None = None
     base_url: str | None = None
@@ -71,6 +78,8 @@ class OpenAIServiceConfig(BackendConfig):
 
 @dataclass(slots=True, frozen=True)
 class OpenAICompatibleHTTPConfig(BackendConfig):
+    """Configuration for generic OpenAI-compatible HTTP endpoints."""
+
     base_url: str = ""
     api_key_env: str = "OPENAI_API_KEY"
     api_key: str | None = None
@@ -78,6 +87,8 @@ class OpenAICompatibleHTTPConfig(BackendConfig):
 
 @dataclass(slots=True, frozen=True)
 class TransformersLocalConfig(BackendConfig):
+    """Configuration for in-process Transformers local inference backend."""
+
     model_id: str = ""
     device: str | None = "auto"
     dtype: str | None = "auto"
@@ -88,12 +99,16 @@ class TransformersLocalConfig(BackendConfig):
 
 @dataclass(slots=True, frozen=True)
 class MlxLocalConfig(BackendConfig):
+    """Configuration for Apple MLX local inference backend."""
+
     model_id: str = ""
     quantization: str = "none"
 
 
 @dataclass(slots=True, frozen=True)
 class LlamaCppConfig(BackendConfig):
+    """Configuration for managed llama.cpp server backend."""
+
     model_path: str = ""
     hf_model_repo_id: str | None = None
     api_model: str = "local-model"
@@ -106,11 +121,15 @@ class LlamaCppConfig(BackendConfig):
 
 @dataclass(slots=True, frozen=True)
 class EchoTestConfig(BackendConfig):
+    """Configuration for deterministic echo backend used in tests."""
+
     model: str = "echo-test"
 
 
 @dataclass(slots=True, frozen=True)
 class LLMConfig:
+    """Top-level container for configured backend declarations."""
+
     backends: tuple[BackendConfig, ...]
 
 

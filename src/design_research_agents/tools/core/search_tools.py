@@ -16,6 +16,7 @@ from ._helpers import get_int, get_str
 
 
 def register_search_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
+    """Register workspace text-search tools with rg and Python fallback."""
     source.register_tool(
         spec=ToolSpec(
             name="search.ripgrep",

@@ -20,6 +20,7 @@ def messages_to_prompt(messages: Sequence[LLMMessage]) -> str:
 
 
 def parse_usage(payload: Any) -> Usage | None:
+    """Parse OpenAI-style usage fields into a typed usage payload."""
     if not isinstance(payload, dict):
         return None
     prompt_tokens = _coerce_int(payload.get("prompt_tokens"))
@@ -35,6 +36,7 @@ def parse_usage(payload: Any) -> Usage | None:
 
 
 def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
+    """Parse tool-call payloads from provider responses into canonical form."""
     if not isinstance(raw_tool_calls, list):
         return ()
     tool_calls: list[ToolCall] = []
@@ -70,6 +72,7 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
 
 
 def parse_function_call(raw_function_call: Any) -> tuple[ToolCall, ...]:
+    """Parse legacy single ``function_call`` payload into tool call tuple."""
     if not isinstance(raw_function_call, dict):
         return ()
     name = raw_function_call.get("name")

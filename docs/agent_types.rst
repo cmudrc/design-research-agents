@@ -18,11 +18,11 @@ Shared Contract
 
 .. code-block:: python
 
-   result = agent.run(input="Summarize this changelog.", request_id=request_id, dependencies=dependencies)
-   for event in agent.run_stream(input="Stream a short greeting."):
+   result = agent.run(prompt="Summarize this changelog.", request_id=request_id, dependencies=dependencies)
+   for event in agent.run_stream(prompt="Stream a short greeting."):
        ...
 
-``input`` is a plain prompt string.
+``prompt`` is a plain prompt string.
 
 Comparison
 ----------

@@ -24,6 +24,7 @@ class CoreToolSource:
     source_id = "core"
 
     def __init__(self, *, policy: ToolPolicy) -> None:
+        """Initialize core source and register default built-in tools."""
         self._policy = policy
         self._source = InProcessToolSource(source_id=self.source_id)
         self._register_default_tools()
@@ -39,6 +40,7 @@ class CoreToolSource:
         register_bash_tools(self._source)
 
     def list_tools(self) -> Sequence[ToolSpec]:
+        """List all core tools after validating policy compatibility."""
         specs = tuple(self._source.list_tools())
         for spec in specs:
             self._policy.validate_tool_spec(spec)
@@ -52,6 +54,7 @@ class CoreToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
+        """Invoke one core tool with policy validation and artifact checks."""
         spec = next(
             (candidate for candidate in self._source.list_tools() if candidate.name == tool_name),
             None,

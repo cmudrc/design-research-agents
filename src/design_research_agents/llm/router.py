@@ -38,6 +38,7 @@ class StreamAccumulator:
     usage: Usage | None = None
 
     def apply(self, delta: LLMDelta) -> None:
+        """Apply one LLM delta into accumulated text/tool/usage state."""
         if delta.text_delta:
             self.text_parts.append(delta.text_delta)
         if delta.tool_call_delta:
@@ -57,6 +58,7 @@ class StreamAccumulator:
             self.usage = delta.usage_delta
 
     def build_tool_calls(self) -> tuple[ToolCall, ...]:
+        """Build normalized tool calls from accumulated deltas."""
         calls: list[ToolCall] = []
         for call_id, payload in self.tool_calls.items():
             name = payload.get("name") or ""
@@ -65,6 +67,7 @@ class StreamAccumulator:
         return tuple(calls)
 
     def text(self) -> str:
+        """Return accumulated plain-text output."""
         return "".join(self.text_parts)
 
 
@@ -76,18 +79,22 @@ class LLMStream(Iterator[LLMDelta]):
         iterator: Iterator[LLMDelta],
         accumulator: StreamAccumulator,
     ) -> None:
+        """Wrap a delta iterator and expose a completed response later."""
         self._iterator = iterator
         self._accumulator = accumulator
         self.response: LLMResponse | None = None
 
     def __iter__(self) -> LLMStream:
+        """Return this stream iterator instance."""
         return self
 
     def __next__(self) -> LLMDelta:
+        """Yield the next streaming delta."""
         return next(self._iterator)
 
     @property
     def accumulator(self) -> StreamAccumulator:
+        """Return the accumulator attached to this stream."""
         return self._accumulator
 
 
@@ -100,6 +107,7 @@ class LLMRouter(LLMClient):
         *,
         default_backend: str | None = None,
     ) -> None:
+        """Initialize backend routing with optional default backend override."""
         if not backends:
             raise ValueError("At least one backend must be configured.")
         seen_names: set[str] = set()
@@ -131,6 +139,7 @@ class LLMRouter(LLMClient):
         raise ValueError(f"Backend '{name}' does not define a default model.")
 
     def generate(self, request: LLMRequest) -> LLMResponse:
+        """Generate one response by selecting the best matching backend."""
         backend = self._select_backend(request, require_streaming=False)
         started_at = Provenance.now_iso()
         start_time = time.perf_counter()
@@ -161,6 +170,7 @@ class LLMRouter(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
+        """Compatibility wrapper for chat-style callers."""
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -176,6 +186,7 @@ class LLMRouter(LLMClient):
         return self.generate(request)
 
     def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Stream response deltas from the selected backend."""
         backend = self._select_backend(request, require_streaming=True)
         started_at = Provenance.now_iso()
         start_time = time.perf_counter()
@@ -224,6 +235,7 @@ class LLMRouter(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> Iterator[LLMStreamEvent]:
+        """Compatibility streaming wrapper for chat-style callers."""
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -259,6 +271,7 @@ class LLMRouter(LLMClient):
         yield LLMStreamEvent(kind="completed", response=completed)
 
     def default_model(self) -> str:
+        """Return the default model of the resolved default backend."""
         backend = self._resolve_default_backend()
         if backend.default_model:
             return backend.default_model

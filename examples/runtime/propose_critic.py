@@ -10,6 +10,7 @@ import design_research_agents
 
 
 def main() -> None:
+    """Run the ``propose_critic`` runtime example with fixed model outputs."""
     llm_client = SequenceResponseLLMClient(
         response_texts=[
             "Draft v1: simple proposal.",

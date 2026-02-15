@@ -69,6 +69,7 @@ Please include:
 
 - Python 3.11+ target.
 - Ruff for linting/formatting.
+- Google-style docstrings for public modules, classes, and functions.
 - Mypy for type checking.
 - Pytest for tests.
 

@@ -24,6 +24,7 @@ class StreamAccumulator:
     usage: Usage | None = None
 
     def apply(self, delta: LLMDelta) -> None:
+        """Apply one streaming delta to the accumulator state."""
         if delta.text_delta:
             self.text_parts.append(delta.text_delta)
         if delta.tool_call_delta:
@@ -32,6 +33,7 @@ class StreamAccumulator:
             self.usage = delta.usage_delta
 
     def text(self) -> str:
+        """Return the accumulated text payload."""
         return "".join(self.text_parts)
 
     def _apply_tool_call_delta(self, delta: ToolCallDelta) -> None:
@@ -49,6 +51,7 @@ class StreamAccumulator:
             entry["arguments"] += delta.arguments_json_delta
 
     def build_tool_calls(self) -> tuple[ToolCall, ...]:
+        """Build normalized tool calls from accumulated call fragments."""
         calls: list[ToolCall] = []
         for call_id, payload in self.tool_calls.items():
             name = payload.get("name") or ""
@@ -63,6 +66,7 @@ def finalize_stream_response(
     accumulator: StreamAccumulator,
     model: str,
 ) -> LLMResponse:
+    """Return the final stream response, preferring backend-attached responses."""
     response = getattr(stream, "response", None)
     if isinstance(response, LLMResponse):
         if not response.text and accumulator.text_parts:

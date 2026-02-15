@@ -49,6 +49,7 @@ class WorkflowRuntime(WorkflowRunner):
         tool_runtime: ToolRuntime | None = None,
         agents: Mapping[str, Agent] | None = None,
     ) -> None:
+        """Initialize workflow runtime dependencies for tool and agent steps."""
         self._tool_runtime = tool_runtime
         self._agents = {
             name.strip(): agent

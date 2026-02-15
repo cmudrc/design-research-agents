@@ -24,10 +24,10 @@ def test_mcp_stdio_server_list_and_call() -> None:
     runtime = UnifiedToolRuntime(config=config)
     try:
         names = {spec.name for spec in runtime.list_tools()}
-        assert "local_core::calculator_tool" in names
+        assert "local_core::calculator" in names
 
         qualified = runtime.invoke(
-            "local_core::calculator_tool",
+            "local_core::calculator",
             {"expression": "2 + 3"},
             request_id="unit-test",
             dependencies={},
@@ -36,7 +36,7 @@ def test_mcp_stdio_server_list_and_call() -> None:
         assert qualified.output["result"] == 5.0
 
         unqualified = runtime.invoke(
-            "calculator_tool",
+            "calculator",
             {"expression": "8 - 3"},
             request_id="unit-test",
             dependencies={},

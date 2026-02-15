@@ -17,6 +17,7 @@ class StdioMcpServer:
     """Minimal JSON-RPC MCP server over stdio."""
 
     def __init__(self, *, runtime: ToolRuntime | None = None) -> None:
+        """Initialize the server with a runtime or default unified runtime."""
         self._runtime = runtime or UnifiedToolRuntime(config=ToolRuntimeConfig())
 
     def serve(self, *, stdin: TextIO, stdout: TextIO) -> None:

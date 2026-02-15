@@ -9,7 +9,7 @@ def main() -> None:
     """Execute one single-step code-agent streaming run and print events."""
     llm_client = StaticResponseLLMClient(
         response_text=(
-            'result = call_tool("calculator_tool", {"expression": "12 * (4 + 1)"})\n'
+            'result = call_tool("calculator", {"expression": "12 * (4 + 1)"})\n'
             'final_output = {"expression": result["expression"], "result": result["result"]}'
         )
     )
@@ -22,7 +22,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        input="Calculate 12 * (4 + 1) and return the result.",
+        prompt="Calculate 12 * (4 + 1) and return the result.",
         request_id="example-single-step-code-agent-stream-001",
     ):
         print_stream_event(event)

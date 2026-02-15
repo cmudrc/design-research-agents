@@ -14,7 +14,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        input="What is two plus two?",
+        prompt="What is two plus two?",
         request_id="example-direct-llm-agent-stream-001",
     ):
         print_stream_event(event)

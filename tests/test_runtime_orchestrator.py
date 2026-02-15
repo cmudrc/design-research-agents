@@ -80,12 +80,12 @@ class _StaticAgent(Agent):
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        del input, request_id, dependencies
+        del prompt, request_id, dependencies
         return AgentResult(
             output={"agent_marker": self._marker},
             success=True,
@@ -96,12 +96,12 @@ class _StaticAgent(Agent):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator:
-        del input, request_id, dependencies
+        del prompt, request_id, dependencies
         raise NotImplementedError
 
 
@@ -163,7 +163,7 @@ def test_agent_runtime_react_mode_aliases_multi_step_agent() -> None:
         '{"continue": true, "reason": "start"}',
         "\n".join(
             [
-                'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                'calc = call_tool("calculator", {"expression": "6 * 7"})',
                 'final_output = {"result": calc["result"]}',
             ]
         ),
@@ -211,7 +211,7 @@ def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
             ),
             "\n".join(
                 [
-                    'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                    'calc = call_tool("calculator", {"expression": "6 * 7"})',
                     'final_output = {"result": calc["result"]}',
                 ]
             ),
@@ -308,7 +308,7 @@ def test_agent_runtime_stream_emits_delta_then_completed() -> None:
             ),
             "\n".join(
                 [
-                    'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                    'calc = call_tool("calculator", {"expression": "6 * 7"})',
                     'final_output = {"result": calc["result"]}',
                 ]
             ),

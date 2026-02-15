@@ -32,6 +32,7 @@ from design_research_agents.llm.config import (
 
 
 def build_backend(config: BackendConfig) -> BaseLLMBackend:
+    """Build one concrete backend instance from typed backend config."""
     if isinstance(config, OpenAIServiceConfig):
         capabilities = _resolve_capabilities(config, default=_default_openai_service_caps())
         return OpenAIServiceBackend(
@@ -111,6 +112,7 @@ def build_backend(config: BackendConfig) -> BaseLLMBackend:
 
 
 def build_backends(configs: tuple[BackendConfig, ...]) -> list[BaseLLMBackend]:
+    """Build all backend instances in declaration order."""
     return [build_backend(config) for config in configs]
 
 

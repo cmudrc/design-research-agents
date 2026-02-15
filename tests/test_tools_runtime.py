@@ -20,18 +20,18 @@ def test_unified_runtime_lists_expected_core_tools() -> None:
     runtime = BaseToolRuntime()
     names = {spec.name for spec in runtime.list_tools()}
 
-    assert "calculator_tool" in names
-    assert "text_stats_tool" in names
+    assert "calculator" in names
+    assert "text.word_count" in names
     assert "bash.exec" in names
     assert "run.command" in names
     assert "fs.read_text" in names
 
 
-def test_calculator_tool_alias_invocation() -> None:
+def test_calculator_invocation() -> None:
     runtime = BaseToolRuntime()
 
     result = runtime.invoke(
-        "calculator_tool",
+        "calculator",
         {"expression": "6 * 7"},
         request_id="unit-test",
         dependencies={},

@@ -21,19 +21,23 @@ class ToolRegistry:
     """Merge and route tool calls across heterogeneous sources."""
 
     def __init__(self) -> None:
+        """Initialize an empty source map and resolved routing tables."""
         self._sources: dict[str, ToolSource] = {}
         self._routes: dict[str, _ToolRoute] = {}
         self._alias_map: dict[str, str] = {}
 
     def add_source(self, source: ToolSource) -> None:
+        """Add a source and rebuild routing tables."""
         self._sources[source.source_id] = source
         self._rebuild_routes()
 
     def remove_source(self, source_id: str) -> None:
+        """Remove a source by id and rebuild routing tables."""
         self._sources.pop(source_id, None)
         self._rebuild_routes()
 
     def list_tools(self) -> Sequence[ToolSpec]:
+        """List routed tool specs across all registered sources."""
         self._rebuild_routes()
         return tuple(route.spec for route in self._routes.values())
 
@@ -45,6 +49,7 @@ class ToolRegistry:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
+        """Invoke a routed tool name, resolving aliases when available."""
         self._rebuild_routes()
         canonical_name = tool_name
         route = self._routes.get(canonical_name)

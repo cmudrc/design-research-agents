@@ -31,6 +31,7 @@ class MlxLocalBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
+        """Configure MLX backend parameters and deferred model loading."""
         super().__init__(
             name=name,
             kind="mlx_local",
@@ -46,6 +47,7 @@ class MlxLocalBackend(BaseLLMBackend):
         self._tokenizer: Any | None = None
 
     def capabilities(self) -> BackendCapabilities:
+        """Return capabilities inferred from installed MLX version."""
         return BackendCapabilities(
             streaming=_mlx_supports_streaming(),
             tool_calling="best_effort",
@@ -55,6 +57,7 @@ class MlxLocalBackend(BaseLLMBackend):
         )
 
     def healthcheck(self) -> BackendStatus:
+        """Return static health state for configured MLX backend."""
         return BackendStatus(ok=True, message="MLX backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:

@@ -17,6 +17,7 @@ class UnifiedToolRuntime(ToolRuntime):
     """Tool runtime that routes calls across enabled tool sources."""
 
     def __init__(self, *, config: ToolRuntimeConfig | None = None) -> None:
+        """Initialize runtime sources based on the provided configuration."""
         self._config = config or ToolRuntimeConfig()
         self._registry = ToolRegistry()
 
@@ -82,6 +83,7 @@ class UnifiedToolRuntime(ToolRuntime):
         return self._config
 
     def list_tools(self) -> Sequence[ToolSpec]:
+        """List all tools currently exposed by enabled runtime sources."""
         return self._registry.list_tools()
 
     def invoke(
@@ -92,6 +94,7 @@ class UnifiedToolRuntime(ToolRuntime):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
+        """Invoke one tool through the registry routing layer."""
         return self._registry.invoke(
             tool_name,
             input_dict,
@@ -109,6 +112,7 @@ class UnifiedToolRuntime(ToolRuntime):
             self._mcp_source.close()
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Best-effort cleanup for external sources during GC."""
         self.close()
 
 

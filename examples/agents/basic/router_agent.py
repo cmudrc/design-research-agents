@@ -18,7 +18,7 @@ def main() -> None:
     """
     llm_client = RecordingSequenceLLMClient(
         response_texts=[
-            json.dumps({"selection": "text_stats_tool", "reason": "Analyze text content."}),
+            json.dumps({"selection": "text.word_count", "reason": "Analyze text content."}),
         ]
     )
     tool_runtime = design_research_agents.BaseToolRuntime()
@@ -26,7 +26,7 @@ def main() -> None:
 
     # RouterAgent will derive available routes from ToolRuntime.list_tools().
     result = agent.run(
-        input="Select which tool to provide a short status summary for this repository.",
+        prompt="Select which tool to provide a short status summary for this repository.",
         request_id="example-router-agent-001",
     )
 

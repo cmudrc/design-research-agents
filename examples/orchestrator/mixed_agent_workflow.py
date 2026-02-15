@@ -48,7 +48,7 @@ def _build_steps() -> Sequence[
         ),
         design_research_agents.ToolStep(
             step_id="stats",
-            tool_name="text_stats_tool",
+            tool_name="text.word_count",
             dependencies=("draft",),
             input_builder=lambda context: {
                 "text": context["dependency_results"]["draft"]["output"]["output"]["model_text"]
@@ -67,6 +67,7 @@ def _build_steps() -> Sequence[
 
 
 def main() -> None:
+    """Run the mixed workflow example and print the aggregated result."""
     runtime = design_research_agents.WorkflowRuntime(
         tool_runtime=design_research_agents.BaseToolRuntime(),
         agents={"writer_agent": _build_writer_agent()},

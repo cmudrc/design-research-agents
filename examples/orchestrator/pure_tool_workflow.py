@@ -6,13 +6,14 @@ import design_research_agents
 
 
 def main() -> None:
+    """Run the pure tool workflow example and print serialized output."""
     runtime = design_research_agents.WorkflowRuntime(
         tool_runtime=design_research_agents.BaseToolRuntime(),
     )
     steps = [
         design_research_agents.ToolStep(
             step_id="compute",
-            tool_name="calculator_tool",
+            tool_name="calculator",
             input_data={"expression": "12 * (4 + 1)"},
         ),
         design_research_agents.LogicStep(
@@ -27,7 +28,7 @@ def main() -> None:
         ),
         design_research_agents.ToolStep(
             step_id="stats",
-            tool_name="text_stats_tool",
+            tool_name="text.word_count",
             dependencies=("format",),
             input_builder=lambda context: {
                 "text": context["dependency_results"]["format"]["output"]["summary_text"]

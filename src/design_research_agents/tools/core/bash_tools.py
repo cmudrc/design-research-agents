@@ -11,6 +11,7 @@ from ._helpers import get_int, get_str
 
 
 def register_bash_tools(source: InProcessToolSource) -> None:
+    """Register BashKit-backed execution tooling in the in-process source."""
     source.register_tool(
         spec=ToolSpec(
             name="bash.exec",

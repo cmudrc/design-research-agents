@@ -113,7 +113,7 @@ class MultiStepAgent(Agent):
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -124,7 +124,7 @@ class MultiStepAgent(Agent):
         results while preserving memory entries that can be inspected by callers.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
@@ -133,7 +133,7 @@ class MultiStepAgent(Agent):
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(input)
+        normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
             agent_name="MultiStepAgent",
             request_id=resolved_request_id,
@@ -367,7 +367,7 @@ class MultiStepAgent(Agent):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -378,14 +378,14 @@ class MultiStepAgent(Agent):
         a completion event containing the full ``AgentResult`` payload.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
         Yields:
             Streaming events through completion.
         """
-        result = self.run(input, request_id=request_id, dependencies=dependencies)
+        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)

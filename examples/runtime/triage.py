@@ -18,12 +18,12 @@ class _StaticDelegatedAgent(Agent):
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        del input, request_id, dependencies
+        del prompt, request_id, dependencies
         return AgentResult(
             output={"selected_delegate": self._label},
             success=True,
@@ -33,7 +33,7 @@ class _StaticDelegatedAgent(Agent):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -41,7 +41,7 @@ class _StaticDelegatedAgent(Agent):
         yield AgentStreamEvent(
             kind="completed",
             result=self.run(
-                input,
+                prompt,
                 request_id=request_id,
                 dependencies=dependencies,
             ),
@@ -49,6 +49,7 @@ class _StaticDelegatedAgent(Agent):
 
 
 def main() -> None:
+    """Run the ``triage`` runtime example and print delegated output."""
     llm_client = SequenceResponseLLMClient(
         response_texts=['{"selection": "stats_agent", "reason": "best fit"}']
     )

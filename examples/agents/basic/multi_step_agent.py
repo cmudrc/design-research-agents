@@ -21,7 +21,7 @@ def main() -> None:
             json.dumps({"continue": True, "thought": "Use calculator first."}),
             "\n".join(
                 [
-                    'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                    'calc = call_tool("calculator", {"expression": "6 * 7"})',
                     'final_output = {"result": calc["result"]}',
                 ]
             ),
@@ -37,7 +37,7 @@ def main() -> None:
     )
 
     result = agent.run(
-        input="Compute 6 * 7.",
+        prompt="Compute 6 * 7.",
         request_id="example-multi-step-agent-001",
     )
 

@@ -27,6 +27,11 @@ from design_research_agents.agent.internal.run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
+from design_research_agents.agent.internal.tool_input import (
+    DEFAULT_FALLBACK_TOOL_NAME,
+    extract_prompt,
+    resolve_known_tool_input,
+)
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -74,7 +79,7 @@ class ToolCallingAgent(Agent):
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
         model: str | None = None,
-        default_tool_name: str = "text_stats_tool",
+        default_tool_name: str = DEFAULT_FALLBACK_TOOL_NAME,
     ) -> None:
         """Initialize a tool-calling agent with injected runtime dependencies.
 
@@ -99,7 +104,7 @@ class ToolCallingAgent(Agent):
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -110,7 +115,7 @@ class ToolCallingAgent(Agent):
         tool input, executes the tool, and returns unified output/metadata.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
@@ -119,14 +124,14 @@ class ToolCallingAgent(Agent):
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(input)
+        normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
             agent_name="ToolCallingAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
         )
-        prompt = _extract_prompt(normalized_input)
+        prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
             input_payload=normalized_input,
@@ -251,7 +256,7 @@ class ToolCallingAgent(Agent):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -262,34 +267,17 @@ class ToolCallingAgent(Agent):
         completion event with the final ``AgentResult``.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
         Yields:
             Streaming events through completion.
         """
-        result = self.run(input, request_id=request_id, dependencies=dependencies)
+        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         delta_text = result.model_response.text if result.model_response is not None else ""
         yield AgentStreamEvent(kind="delta", delta_text=delta_text)
         yield AgentStreamEvent(kind="completed", result=result)
-
-
-def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from run input.
-
-    Falls back to ``text`` and then a default string when missing.
-
-    Args:
-        input_payload: Normalized run input payload mapping.
-
-    Returns:
-        Prompt text for the run.
-    """
-    raw_prompt = input_payload.get(
-        "prompt", input_payload.get("text", "Provide a concise response.")
-    )
-    return str(raw_prompt)
 
 
 def _extract_tool_choices(
@@ -562,18 +550,13 @@ def _resolve_tool_input(
     if normalized_from_input:
         return normalized_from_input
 
-    if selected_choice.tool_name == "calculator_tool":
-        expression = _infer_expression(
-            input_payload=input_payload,
-            prompt=_extract_prompt(input_payload),
-        )
-        return {"expression": expression}
-
-    if selected_choice.tool_name == "text_stats_tool":
-        analysis_text = input_payload.get("analysis_text")
-        if analysis_text is not None:
-            return {"text": str(analysis_text)}
-        return {"text": llm_response_text}
+    known_tool_input = resolve_known_tool_input(
+        tool_name=selected_choice.tool_name,
+        input_payload=input_payload,
+        text_fallback=llm_response_text,
+    )
+    if known_tool_input is not None:
+        return known_tool_input
 
     return {}
 
@@ -642,36 +625,6 @@ def _fallback_select_tool_choice(
             selected_reason = ", ".join(reason_parts) if reason_parts else "fallback-first-choice"
 
     return selected_choice, selected_reason
-
-
-def _infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:
-    """Infer calculator expression from payload fields and prompt text.
-
-    Explicit expressions win; otherwise a regex candidate is extracted from the
-    prompt before falling back to the full prompt text.
-
-    Args:
-        input_payload: Normalized run input payload mapping.
-        prompt: User prompt text.
-
-    Returns:
-        Inferred arithmetic expression string.
-    """
-    explicit_expression = input_payload.get("expression")
-    if explicit_expression is not None:
-        return str(explicit_expression)
-
-    text_expression = input_payload.get("text")
-    if text_expression is not None:
-        return str(text_expression)
-
-    match = re.search(r"(\(?-?\d[\d\s\.\+\-\*\/%\(\)]*\d\)?)", prompt)
-    if match is not None:
-        expression = match.group(1).strip()
-        if expression and any(operator in expression for operator in "+-*/%"):
-            return expression
-
-    return prompt
 
 
 def _tokenize(text: str) -> set[str]:

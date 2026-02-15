@@ -45,6 +45,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
+        """Initialize HTTP endpoint routing and authentication settings."""
         super().__init__(
             name=name,
             kind="openai_compatible_http",
@@ -59,9 +60,11 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         self._capabilities = capabilities
 
     def capabilities(self) -> BackendCapabilities:
+        """Return declared capabilities for this endpoint."""
         return self._capabilities
 
     def healthcheck(self) -> BackendStatus:
+        """Return static status for configured HTTP backend."""
         return BackendStatus(ok=True, message="OpenAI-compatible backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:

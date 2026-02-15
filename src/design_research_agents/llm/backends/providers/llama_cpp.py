@@ -39,6 +39,7 @@ class LlamaCppBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
+        """Initialize the managed llama.cpp server wrapper backend."""
         super().__init__(
             name=name,
             kind="llama_cpp",
@@ -62,9 +63,11 @@ class LlamaCppBackend(BaseLLMBackend):
         )
 
     def capabilities(self) -> BackendCapabilities:
+        """Return capabilities provided by the wrapped llama.cpp server."""
         return _LLAMA_CPP_CAPABILITIES
 
     def healthcheck(self) -> BackendStatus:
+        """Return static health status for configured llama.cpp backend."""
         return BackendStatus(ok=True, message="llama.cpp backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:

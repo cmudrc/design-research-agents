@@ -54,6 +54,7 @@ class BaseLLMBackend(ABC):
         max_retries: int = 2,
         model_patterns: Sequence[str] | None = None,
     ) -> None:
+        """Initialize immutable backend identity and routing metadata."""
         self.name = name
         self.kind = kind
         self.default_model = default_model

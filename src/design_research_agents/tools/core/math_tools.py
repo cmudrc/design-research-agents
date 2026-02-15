@@ -27,7 +27,7 @@ def register_math_tools(source: InProcessToolSource) -> None:
         risky=False,
     )
 
-    for name in ("math.eval", "calculator_tool"):
+    for name in ("math.eval", "calculator"):
         source.register_tool(
             spec=ToolSpec(
                 name=name,
@@ -55,11 +55,11 @@ def register_math_tools(source: InProcessToolSource) -> None:
                     usd_cost_estimate=0.0,
                 ),
             ),
-            handler=_calculator_tool_handler,
+            handler=_calculator_handler,
         )
 
 
-def _calculator_tool_handler(
+def _calculator_handler(
     input_dict: Mapping[str, object],
     request_id: str,
     dependencies: Mapping[str, object],
@@ -67,7 +67,7 @@ def _calculator_tool_handler(
     del request_id, dependencies
     expression = get_str(input_dict, "expression").strip()
     if not expression:
-        raise ValueError("calculator_tool requires a non-empty 'expression'.")
+        raise ValueError("calculator requires a non-empty 'expression'.")
     result = _safe_eval_arithmetic(expression)
     return {"expression": expression, "result": float(result)}
 

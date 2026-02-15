@@ -10,7 +10,7 @@ def main() -> None:
     llm_client = SequenceResponseLLMClient(
         response_texts=[
             '{"continue": true, "reason": "Run one action step."}',
-            'result = call_tool("calculator_tool", {"expression": "6 * 7"})\n'
+            'result = call_tool("calculator", {"expression": "6 * 7"})\n'
             'final_output = {"result": result["result"], "summary": "Computed in one step."}',
         ]
     )
@@ -24,7 +24,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        input="Compute 6 * 7, then provide a short summary.",
+        prompt="Compute 6 * 7, then provide a short summary.",
         request_id="example-multi-step-agent-stream-001",
     ):
         print_stream_event(event)

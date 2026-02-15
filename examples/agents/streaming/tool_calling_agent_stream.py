@@ -9,7 +9,7 @@ def main() -> None:
     """Execute one tool-calling streaming run and print events."""
     llm_client = StaticResponseLLMClient(
         response_text=(
-            '{"tool_name":"calculator_tool","tool_input":{"expression":"12 * (4 + 1)"},'
+            '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"},'
             '"reason":"Arithmetic request."}'
         )
     )
@@ -21,7 +21,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        input="Calculate this expression and return only the numeric result: 12 * (4 + 1)",
+        prompt="Calculate this expression and return only the numeric result: 12 * (4 + 1)",
         request_id="example-tool-calling-agent-stream-001",
     ):
         print_stream_event(event)

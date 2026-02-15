@@ -176,7 +176,7 @@ class AgentRuntime(Agent):
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -184,18 +184,18 @@ class AgentRuntime(Agent):
         """Execute one run using the configured runtime mode."""
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(input)
-        prompt = _extract_prompt(normalized_input)
+        normalized_input = normalize_input_payload(prompt)
+        resolved_prompt = _extract_prompt(normalized_input)
         trace_scope = start_trace_run(
             agent_name="AgentRuntime",
             request_id=resolved_request_id,
-            input_payload={"prompt": prompt, "mode": self._mode},
+            input_payload={"prompt": resolved_prompt, "mode": self._mode},
             dependencies=resolved_dependencies,
         )
 
         try:
             result = self._run_mode(
-                prompt=prompt,
+                prompt=resolved_prompt,
                 request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
                 normalized_input=normalized_input,
@@ -208,7 +208,7 @@ class AgentRuntime(Agent):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -217,7 +217,7 @@ class AgentRuntime(Agent):
         if self._mode == "react":
             react_agent = self._build_react_agent()
             for event in react_agent.run_stream(
-                input,
+                prompt,
                 request_id=request_id,
                 dependencies=dependencies,
             ):
@@ -241,7 +241,7 @@ class AgentRuntime(Agent):
                 )
             return
 
-        result = self.run(input, request_id=request_id, dependencies=dependencies)
+        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         if self._controls.streaming_enabled:
             delta_text = result.model_response.text if result.model_response is not None else ""
             yield AgentStreamEvent(kind="delta", delta_text=delta_text)

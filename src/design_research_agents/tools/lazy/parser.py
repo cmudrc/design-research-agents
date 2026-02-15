@@ -13,6 +13,8 @@ class LazyHeaderError(ValueError):
 
 @dataclass(slots=True, frozen=True)
 class LazyInputSpec:
+    """One parsed input entry from a lazy-tool header."""
+
     name: str
     input_type: str
     default: str | None = None
@@ -20,6 +22,8 @@ class LazyInputSpec:
 
 @dataclass(slots=True, frozen=True)
 class LazyCapabilities:
+    """Declared side-effect capabilities for one lazy tool."""
+
     filesystem_read: bool
     filesystem_write: bool
     network: bool
@@ -28,6 +32,8 @@ class LazyCapabilities:
 
 @dataclass(slots=True, frozen=True)
 class LazyToolHeader:
+    """Normalized metadata extracted from one lazy-tool header block."""
+
     tool_name: str
     description: str
     inputs: tuple[LazyInputSpec, ...]
@@ -144,6 +150,7 @@ def _parse_directives(*, script_path: Path, lines: list[str], first_line_no: int
     key_values: dict[str, str] = {}
     sections: dict[str, list[tuple[int, str]]] = {}
     current_section: str | None = None
+    seen_directive = False
 
     for offset, raw_line in enumerate(lines):
         line_number = first_line_no + offset
@@ -152,6 +159,7 @@ def _parse_directives(*, script_path: Path, lines: list[str], first_line_no: int
             continue
 
         if line.lstrip().startswith("@"):
+            seen_directive = True
             current_section = None
             match = re.match(r"^\s*@([a-z_]+):\s*(.*)$", line)
             if match is None:
@@ -165,6 +173,9 @@ def _parse_directives(*, script_path: Path, lines: list[str], first_line_no: int
                     sections[key].append((line_number, value.strip()))
                 continue
             key_values[key] = value.strip()
+            continue
+
+        if not seen_directive:
             continue
 
         if current_section is None:

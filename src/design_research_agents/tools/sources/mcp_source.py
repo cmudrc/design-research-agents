@@ -206,6 +206,7 @@ class McpToolSource:
     source_id = "mcp"
 
     def __init__(self, *, mcp_config: McpConfig, policy: ToolPolicy) -> None:
+        """Initialize MCP clients and route table for configured servers."""
         self._config = mcp_config
         self._policy = policy
         self._clients: dict[str, _StdioMcpClient] = {
@@ -215,6 +216,7 @@ class McpToolSource:
         self._routes: dict[str, _McpRoute] = {}
 
     def list_tools(self) -> Sequence[ToolSpec]:
+        """List tools discovered across configured MCP servers."""
         self._refresh_routes()
         return tuple(route.spec for _, route in sorted(self._routes.items()))
 
@@ -226,6 +228,7 @@ class McpToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
+        """Invoke one routed MCP tool and normalize response payload."""
         del request_id, dependencies
         self._refresh_routes()
         route = self._routes.get(tool_name)
@@ -335,6 +338,7 @@ class McpToolSource:
             client.close()
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Best-effort cleanup of managed MCP client processes."""
         self.close()
 
 

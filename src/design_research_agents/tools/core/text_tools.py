@@ -13,6 +13,7 @@ from ._helpers import get_str
 
 
 def register_text_tools(source: InProcessToolSource) -> None:
+    """Register core text analysis and extraction utilities."""
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=False, filesystem_write=False),
@@ -44,33 +45,7 @@ def register_text_tools(source: InProcessToolSource) -> None:
             },
             metadata=metadata,
         ),
-        handler=_text_stats_tool_handler,
-    )
-
-    source.register_tool(
-        spec=ToolSpec(
-            name="text_stats_tool",
-            description="Compatibility alias for text.word_count.",
-            input_schema={
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {"text": {"type": "string"}},
-                "required": ["text"],
-            },
-            output_schema={
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
-                    "char_count": {"type": "integer"},
-                    "word_count": {"type": "integer"},
-                    "line_count": {"type": "integer"},
-                    "unique_word_count": {"type": "integer"},
-                },
-                "required": ["char_count", "word_count", "line_count", "unique_word_count"],
-            },
-            metadata=metadata,
-        ),
-        handler=_text_stats_tool_handler,
+        handler=_word_count_handler,
     )
 
     source.register_tool(
@@ -119,7 +94,7 @@ def register_text_tools(source: InProcessToolSource) -> None:
     )
 
 
-def _text_stats_tool_handler(
+def _word_count_handler(
     input_dict: Mapping[str, object],
     request_id: str,
     dependencies: Mapping[str, object],

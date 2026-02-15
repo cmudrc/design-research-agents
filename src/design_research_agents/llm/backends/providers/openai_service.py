@@ -47,6 +47,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
+        """Configure OpenAI client defaults and optional capability overrides."""
         super().__init__(
             name=name,
             kind="openai_service",
@@ -62,6 +63,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         self._capabilities_override = capabilities
 
     def capabilities(self) -> BackendCapabilities:
+        """Return effective capabilities for this OpenAI backend."""
         default_caps = BackendCapabilities(
             streaming=True,
             tool_calling="native",
@@ -72,6 +74,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return self._capabilities_override or default_caps
 
     def healthcheck(self) -> BackendStatus:
+        """Return static status for a configured OpenAI backend."""
         return BackendStatus(ok=True, message="OpenAI backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:

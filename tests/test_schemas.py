@@ -30,7 +30,7 @@ def test_all_schemas_load_from_packaged_resources() -> None:
 def test_tool_spec_serializes_and_deserializes_cleanly() -> None:
     # ToolSpec should round-trip through JSON without losing typed fields.
     tool_spec = ToolSpec(
-        name="calculator_tool",
+        name="calculator",
         description="Calculator tool",
         input_schema={"type": "object"},
         output_schema={"type": "object"},
@@ -43,7 +43,7 @@ def test_tool_spec_serializes_and_deserializes_cleanly() -> None:
     )
     serialized = json.dumps(asdict(tool_spec))
     round_trip = json.loads(serialized)
-    assert round_trip["name"] == "calculator_tool"
+    assert round_trip["name"] == "calculator"
     assert round_trip["metadata"]["source"] == "core"
     assert round_trip["permissions"] == ["compute:arithmetic"]
     assert round_trip["cost_hints"]["token_cost_estimate"] == 3
@@ -52,7 +52,7 @@ def test_tool_spec_serializes_and_deserializes_cleanly() -> None:
 def test_tool_result_and_agent_result_serialize_and_deserialize_cleanly() -> None:
     # Result dataclasses should serialize cleanly for logging and persistence.
     tool_result = ToolResult(
-        tool_name="calculator_tool",
+        tool_name="calculator",
         output={"expression": "6*7", "result": 42},
         success=True,
         metadata={"source": "unit-test"},
@@ -71,12 +71,12 @@ def test_tool_result_and_agent_result_serialize_and_deserialize_cleanly() -> Non
 
     serialized_tool_result = json.dumps(asdict(tool_result))
     round_trip_tool_result = json.loads(serialized_tool_result)
-    assert round_trip_tool_result["tool_name"] == "calculator_tool"
+    assert round_trip_tool_result["tool_name"] == "calculator"
     assert round_trip_tool_result["ok"] is True
     assert round_trip_tool_result["result"]["result"] == 42
 
     serialized_agent_result = json.dumps(asdict(agent_result))
     round_trip_agent_result = json.loads(serialized_agent_result)
     assert round_trip_agent_result["output"]["final"] == "hello"
-    assert round_trip_agent_result["tool_results"][0]["tool_name"] == "calculator_tool"
+    assert round_trip_agent_result["tool_results"][0]["tool_name"] == "calculator"
     assert round_trip_agent_result["model_response"]["model"] == "base-model"

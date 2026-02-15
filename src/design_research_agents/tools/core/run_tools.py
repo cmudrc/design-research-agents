@@ -13,6 +13,7 @@ from ._helpers import get_int, get_str
 
 
 def register_run_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
+    """Register guarded direct subprocess execution tooling."""
     source.register_tool(
         spec=ToolSpec(
             name="run.command",

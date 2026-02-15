@@ -80,7 +80,7 @@ class DirectLLMAgent(Agent):
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -88,7 +88,7 @@ class DirectLLMAgent(Agent):
         """Run one direct model call and return normalized ``AgentResult`` output.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
@@ -97,7 +97,7 @@ class DirectLLMAgent(Agent):
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(input)
+        normalized_input = normalize_input_payload(prompt)
         resolved_model, messages, message_source, llm_request = self._prepare_request(
             normalized_input,
             request_id=resolved_request_id,
@@ -135,7 +135,7 @@ class DirectLLMAgent(Agent):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -143,7 +143,7 @@ class DirectLLMAgent(Agent):
         """Stream direct model output and emit a final completion event.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
@@ -152,7 +152,7 @@ class DirectLLMAgent(Agent):
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(input)
+        normalized_input = normalize_input_payload(prompt)
         resolved_model, messages, message_source, llm_request = self._prepare_request(
             normalized_input,
             request_id=resolved_request_id,
@@ -216,6 +216,7 @@ class DirectLLMAgent(Agent):
 
         Args:
             input_payload: Normalized run input payload mapping.
+            request_id: Optional request identifier used in metadata.
 
         Returns:
             Tuple of resolved model, messages, message source, and chat params.
@@ -348,7 +349,7 @@ def _build_success_result(
         dependencies: Dependency payload mapping for the run.
         message_source: Message source label (e.g. ``prompt`` or ``messages``).
         message_count: Number of messages sent to the model.
-        llm_params: Chat params used for the call.
+        llm_request: Request payload sent to the LLM backend.
 
     Returns:
         Agent result payload describing the successful run.

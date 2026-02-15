@@ -79,25 +79,25 @@ class Agent(Protocol):
     """Protocol that every agent implementation must satisfy.
 
     The protocol intentionally keeps the execution contract small: one
-    non-streaming call and one streaming call that mirrors the same input plus
+    non-streaming call and one streaming call that mirrors the same prompt plus
     explicit runtime options and dependencies.
     """
 
     def run(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
         """Execute one agent run and return the final ``AgentResult`` payload.
 
-        Implementations should treat ``input`` as the prompt text for one run.
+        Implementations should treat ``prompt`` as the prompt text for one run.
         Use ``request_id`` and ``dependencies`` for run metadata and upstream
         dependency payloads.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 
@@ -107,7 +107,7 @@ class Agent(Protocol):
 
     def run_stream(
         self,
-        input: str,
+        prompt: str,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -118,7 +118,7 @@ class Agent(Protocol):
         same logical result payload returned by ``run``.
 
         Args:
-            input: Prompt text for the run.
+            prompt: Prompt text for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 

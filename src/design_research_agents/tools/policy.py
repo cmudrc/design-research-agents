@@ -48,20 +48,24 @@ class ToolPolicy:
     """Policy engine for validating side effects and runtime boundaries."""
 
     def __init__(self, config: ToolPolicyConfig) -> None:
+        """Initialize policy with resolved workspace and artifacts roots."""
         self._config = config
         self._workspace_root = Path(config.workspace_root).expanduser().resolve()
         self._artifacts_root = (self._workspace_root / config.artifacts_dir).resolve()
 
     @property
     def workspace_root(self) -> Path:
+        """Return resolved workspace root directory."""
         return self._workspace_root
 
     @property
     def artifacts_root(self) -> Path:
+        """Return resolved artifacts output directory."""
         return self._artifacts_root
 
     @property
     def config(self) -> ToolPolicyConfig:
+        """Return immutable policy configuration."""
         return self._config
 
     def validate_tool_spec(self, spec: ToolSpec) -> None:

@@ -10,6 +10,7 @@ import design_research_agents
 
 
 def main() -> None:
+    """Run the ``plan_execute`` runtime example with deterministic responses."""
     llm_client = SequenceResponseLLMClient(
         response_texts=[
             json.dumps(
@@ -25,7 +26,7 @@ def main() -> None:
             ),
             "\n".join(
                 [
-                    'calc = call_tool("calculator_tool", {"expression": "6 * 7"})',
+                    'calc = call_tool("calculator", {"expression": "6 * 7"})',
                     'final_output = {"result": calc["result"]}',
                 ]
             ),

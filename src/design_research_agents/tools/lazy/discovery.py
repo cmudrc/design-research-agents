@@ -10,12 +10,16 @@ from .parser import LazyHeaderError, LazyToolHeader, parse_lazy_tool_header
 
 @dataclass(slots=True, frozen=True)
 class LazyDiscoveryDiagnostic:
+    """Diagnostic emitted when one lazy-tool script fails header parsing."""
+
     path: str
     error: str
 
 
 @dataclass(slots=True, frozen=True)
 class LazyToolDefinition:
+    """Resolved lazy-tool definition including source path and parsed header."""
+
     path: str
     header: LazyToolHeader
 

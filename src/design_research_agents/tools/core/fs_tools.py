@@ -15,6 +15,7 @@ from ._helpers import get_bool, get_int, get_str
 
 
 def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
+    """Register policy-guarded filesystem read/write utility tools."""
     read_metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=True),

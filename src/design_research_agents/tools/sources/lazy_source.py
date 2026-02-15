@@ -26,6 +26,7 @@ class LazyToolSource:
     source_id = "lazy"
 
     def __init__(self, *, lazy_config: LazyToolsConfig, policy: ToolPolicy) -> None:
+        """Initialize lazy tool source with discovery settings and policy."""
         self._config = lazy_config
         self._policy = policy
         self._definitions: dict[str, LazyToolDefinition] = {}
@@ -37,6 +38,7 @@ class LazyToolSource:
         return tuple(self._diagnostics)
 
     def list_tools(self) -> Sequence[ToolSpec]:
+        """Discover lazy tools and return their generated tool specs."""
         self._refresh_discovery()
         specs: list[ToolSpec] = []
         for canonical_name, definition in sorted(self._definitions.items()):
@@ -84,6 +86,7 @@ class LazyToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
+        """Invoke one discovered lazy tool script by canonical name."""
         del request_id, dependencies
         self._refresh_discovery()
         definition = self._definitions.get(tool_name)

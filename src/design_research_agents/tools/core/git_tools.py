@@ -13,6 +13,7 @@ from ._helpers import get_bool, get_int, get_str
 
 
 def register_git_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
+    """Register read-oriented git inspection tools."""
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=True, commands=("git",)),

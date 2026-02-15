@@ -15,7 +15,7 @@ def main() -> None:
     agent = design_research_agents.DirectLLMAgent(llm_client=llm_client)
 
     result = agent.run(
-        input="What is two plus two?",
+        prompt="What is two plus two?",
         request_id="example-direct-llm-agent-001",
     )
 

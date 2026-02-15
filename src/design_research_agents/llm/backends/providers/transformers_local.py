@@ -35,6 +35,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
+        """Configure local Transformers backend and deferred model loading."""
         super().__init__(
             name=name,
             kind="transformers_local",
@@ -54,6 +55,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         self._model: Any | None = None
 
     def capabilities(self) -> BackendCapabilities:
+        """Return capabilities inferred from installed Transformers features."""
         return BackendCapabilities(
             streaming=_streaming_available(),
             tool_calling="best_effort",
@@ -63,6 +65,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         )
 
     def healthcheck(self) -> BackendStatus:
+        """Return static health status for configured backend."""
         return BackendStatus(ok=True, message="Transformers backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
