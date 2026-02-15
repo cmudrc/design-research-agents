@@ -99,7 +99,7 @@ class WorkflowRunner(Protocol):
 
 
 @runtime_checkable
-class WorkflowOrchestrator(Protocol):
+class WorkflowDelegateRunner(Protocol):
     """Protocol for configured orchestration chunks with fixed step topology."""
 
     def run(
@@ -114,4 +114,4 @@ class WorkflowOrchestrator(Protocol):
         """Execute the configured orchestration and return aggregated results."""
 
 
-WorkflowDelegate: TypeAlias = Agent | WorkflowOrchestrator
+WorkflowDelegate: TypeAlias = Agent | WorkflowDelegateRunner

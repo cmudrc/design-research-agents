@@ -11,7 +11,7 @@ def main() -> None:
     tool_runtime = dra.tools.UnifiedToolRuntime()
     writer_agent = dra.agents.SingleStepDirectLLMAgent(llm_client=llm_client)
 
-    orchestrator_steps = [
+    workflow_steps = [
         dra.workflows.LogicStep(
             step_id="router",
             handler=lambda context: {
@@ -77,17 +77,17 @@ def main() -> None:
         ),
     ]
 
-    orchestrator = dra.workflows.MixedAgentWorkflowOrchestrator(
+    workflow = dra.workflows.MixedAgentWorkflow(
         tool_runtime=tool_runtime,
         agents={"writer_agent": writer_agent},
-        steps=orchestrator_steps,
+        steps=workflow_steps,
     )
 
-    agent_result = orchestrator.run(
+    agent_result = workflow.run(
         "Write a research brief for synthesis findings on prototype onboarding friction.",
         request_id="example-mixed-workflow-agent-branch",
     )
-    template_result = orchestrator.run(
+    template_result = workflow.run(
         "template: Draft a deterministic fallback brief for accessibility review findings.",
         request_id="example-mixed-workflow-template-branch",
     )

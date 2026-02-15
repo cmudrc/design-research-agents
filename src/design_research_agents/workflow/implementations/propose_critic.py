@@ -1,4 +1,4 @@
-"""Reusable ``plan_execute`` orchestration chunk."""
+"""Reusable ``propose_critic`` orchestration chunk."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
 
 
-class PlanExecuteOrchestrator(Agent):
-    """Configured orchestrator chunk for ``plan_execute`` mode."""
+class ProposeAndCritiqueWorkflow(Agent):
+    """Configured workflow chunk for ``propose_critic`` mode."""
 
     def __init__(
         self,
@@ -25,7 +25,7 @@ class PlanExecuteOrchestrator(Agent):
         self._runtime = AgentRuntime(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            mode="plan_execute",
+            mode="propose_critic",
             controls=controls,
         )
 
@@ -36,7 +36,7 @@ class PlanExecuteOrchestrator(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one plan-execute orchestration run."""
+        """Execute one propose-and-critique orchestration run."""
         return self._runtime.run(
             prompt,
             request_id=request_id,
@@ -58,14 +58,14 @@ class PlanExecuteOrchestrator(Agent):
         )
 
 
-def plan_and_execute(
+def propose_and_critique_workflow(
     *,
     llm_client: LLMClient,
     tool_runtime: ToolRuntime,
     controls: RuntimeControls | None = None,
-) -> PlanExecuteOrchestrator:
-    """Return a configured ``plan_execute`` orchestrator chunk."""
-    return PlanExecuteOrchestrator(
+) -> ProposeAndCritiqueWorkflow:
+    """Return a configured ``propose_critic`` workflow chunk."""
+    return ProposeAndCritiqueWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         controls=controls,
@@ -73,6 +73,6 @@ def plan_and_execute(
 
 
 __all__ = [
-    "PlanExecuteOrchestrator",
-    "plan_and_execute",
+    "ProposeAndCritiqueWorkflow",
+    "propose_and_critique_workflow",
 ]

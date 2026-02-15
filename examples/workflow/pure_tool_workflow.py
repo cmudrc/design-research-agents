@@ -44,7 +44,7 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    orchestrator_steps = [
+    workflow_steps = [
         dra.workflows.ToolStep(
             step_id="describe_dataset",
             tool_name="data.describe",
@@ -103,13 +103,13 @@ def main() -> None:
         ),
     ]
 
-    orchestrator = dra.workflows.PureToolWorkflowOrchestrator(
+    workflow = dra.workflows.PureToolWorkflow(
         tool_runtime=dra.tools.UnifiedToolRuntime(),
-        steps=orchestrator_steps,
+        steps=workflow_steps,
         input_schema=INPUT_SCHEMA,
     )
 
-    strict_result = orchestrator.run(
+    strict_result = workflow.run(
         inputs={
             "dataset_csv_path": str(dataset_path),
             "required_columns": [
@@ -125,7 +125,7 @@ def main() -> None:
         execution_mode="sequential",
         request_id="example-pure-tool-workflow-strict",
     )
-    relaxed_result = orchestrator.run(
+    relaxed_result = workflow.run(
         inputs={
             "dataset_csv_path": str(dataset_path),
             "required_columns": [

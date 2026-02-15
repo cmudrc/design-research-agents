@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from design_research_agents.contracts.orchestrator import WorkflowStep
+from design_research_agents.contracts.workflow import WorkflowStep
 
 
 @dataclass(slots=True, frozen=True)

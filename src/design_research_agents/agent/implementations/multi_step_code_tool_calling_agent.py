@@ -13,7 +13,26 @@ from collections.abc import Iterator, Mapping, Sequence
 from design_research_agents.agent.implementations.single_step_code_tool_calling_agent import (
     SingleStepCodeToolCallingAgent,
 )
+from design_research_agents.agent.internal.input_parsing import (
+    extract_boolean as _extract_boolean,
+)
+from design_research_agents.agent.internal.input_parsing import (
+    extract_positive_int as _extract_positive_int,
+)
+from design_research_agents.agent.internal.input_parsing import (
+    extract_prompt as _extract_prompt,
+)
+from design_research_agents.agent.internal.input_parsing import (
+    parse_json_mapping as _parse_json_mapping,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.multi_step_common import (
+    build_continue_prompt,
+    build_step_prompt,
+    extract_continuation_thought,
+    fallback_should_continue,
+    has_observation,
+)
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     inject_alternatives_into_prompt_pair,
@@ -23,6 +42,7 @@ from design_research_agents.agent.internal.response_schemas import (
     build_continuation_response_schema,
     clone_response_schema,
 )
+from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
@@ -36,7 +56,7 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.prompts import load_prompt, render_prompt
+from design_research_agents.prompts import load_prompt
 from design_research_agents.tracing import (
     emit_continuation_decision,
     emit_guardrail_decision,
@@ -235,10 +255,11 @@ class MultiStepCodeToolCallingAgent(Agent):
                 terminated_reason = f"continuation_stopped:{continue_source}"
                 break
 
-            step_prompt = _build_step_prompt(
+            step_prompt = build_step_prompt(
                 prompt=prompt,
                 memory=memory,
                 step_number=step_index + 1,
+                prompt_template="multi_step_step_user",
             )
             step_input = dict(normalized_input)
             step_input["prompt"] = step_prompt
@@ -415,7 +436,7 @@ class MultiStepCodeToolCallingAgent(Agent):
             Tuple of continuation decision, reason, source, and model response.
         """
         system_prompt = load_prompt("multi_step_continue_system")
-        user_prompt = _build_continue_prompt(
+        user_prompt = build_continue_prompt(
             prompt=prompt,
             memory=memory,
             step_number=step_index + 1,
@@ -456,7 +477,7 @@ class MultiStepCodeToolCallingAgent(Agent):
         parsed = _parse_json_mapping(response.text)
         if parsed is not None and isinstance(parsed.get("continue"), bool):
             # Ensure at least one action-observation cycle runs before stopping.
-            if step_index == 0 and not bool(parsed["continue"]) and not _has_observation(memory):
+            if step_index == 0 and not bool(parsed["continue"]) and not has_observation(memory):
                 emit_guardrail_decision(
                     guardrail="continuation_first_step",
                     decision="override_continue",
@@ -470,7 +491,7 @@ class MultiStepCodeToolCallingAgent(Agent):
                     source="guardrail",
                 )
                 return True, "first-step guardrail", "guardrail", response
-            thought = _extract_continuation_thought(parsed)
+            thought = extract_continuation_thought(parsed)
             emit_continuation_decision(
                 step=step_index + 1,
                 should_continue=bool(parsed["continue"]),
@@ -479,7 +500,7 @@ class MultiStepCodeToolCallingAgent(Agent):
             )
             return bool(parsed["continue"]), thought, "model", response
 
-        fallback_decision = _fallback_should_continue(
+        fallback_decision = fallback_should_continue(
             memory=memory,
             step_index=step_index,
             max_steps=max_steps,
@@ -491,150 +512,6 @@ class MultiStepCodeToolCallingAgent(Agent):
             source="fallback",
         )
         return fallback_decision, "fallback heuristic", "fallback", response
-
-
-def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from run input.
-
-    Falls back to ``text`` and then a default string when missing.
-
-    Args:
-        input_payload: Normalized run input payload mapping.
-
-    Returns:
-        Prompt text for the run.
-    """
-    raw_prompt = input_payload.get(
-        "prompt", input_payload.get("text", "Provide a concise response.")
-    )
-    return str(raw_prompt)
-
-
-def _extract_positive_int(
-    *,
-    input_payload: Mapping[str, object],
-    key: str,
-    default_value: int,
-) -> int:
-    """Extract a positive integer option from run input.
-
-    Invalid, missing, or boolean values resolve to the provided default.
-
-    Args:
-        input_payload: Normalized run input payload mapping.
-        key: Input payload key to extract.
-        default_value: Default value when extraction fails.
-
-    Returns:
-        Positive integer value for the option.
-    """
-    raw_value = input_payload.get(key)
-    if raw_value is None:
-        return default_value
-    if isinstance(raw_value, bool):
-        return default_value
-    if isinstance(raw_value, int) and raw_value >= 1:
-        return raw_value
-    return default_value
-
-
-def _extract_boolean(
-    *,
-    input_payload: Mapping[str, object],
-    key: str,
-    default_value: bool,
-) -> bool:
-    """Extract a boolean option from run input.
-
-    Non-boolean values resolve to the provided default.
-
-    Args:
-        input_payload: Normalized run input payload mapping.
-        key: Input payload key to extract.
-        default_value: Default value when extraction fails.
-
-    Returns:
-        Boolean value for the option.
-    """
-    raw_value = input_payload.get(key)
-    if isinstance(raw_value, bool):
-        return raw_value
-    return default_value
-
-
-def _build_continue_prompt(
-    *,
-    prompt: str,
-    memory: Sequence[Mapping[str, object]],
-    step_number: int,
-) -> str:
-    """Build continuation-decision prompt from task context and memory tail.
-
-    The memory payload is intentionally truncated to recent entries to keep
-    continuation prompts compact.
-
-    Args:
-        prompt: User prompt text.
-        memory: Current memory trace entries.
-        step_number: One-based step number.
-
-    Returns:
-        Rendered continuation prompt text.
-    """
-    memory_preview = json.dumps(list(memory)[-6:], sort_keys=True)
-    return render_prompt(
-        "multi_step_continue_user",
-        variables={
-            "step_number": step_number,
-            "task_prompt": prompt,
-            "memory_tail": memory_preview,
-        },
-    )
-
-
-def _extract_continuation_thought(parsed: Mapping[str, object]) -> str:
-    """Extract normalized continuation thought text from model JSON output.
-
-    Args:
-        parsed: Parsed JSON mapping from the model response.
-
-    Returns:
-        Normalized thought string.
-    """
-    thought = parsed.get("thought")
-    if thought is not None:
-        return str(thought)
-    return "model decision"
-
-
-def _build_step_prompt(
-    *,
-    prompt: str,
-    memory: Sequence[Mapping[str, object]],
-    step_number: int,
-) -> str:
-    """Build action prompt for the current step using recent memory context.
-
-    The prompt includes a compact memory tail to ground step decisions while
-    controlling token growth across longer runs.
-
-    Args:
-        prompt: User prompt text.
-        memory: Current memory trace entries.
-        step_number: One-based step number.
-
-    Returns:
-        Rendered action prompt text.
-    """
-    memory_preview = json.dumps(list(memory)[-8:], sort_keys=True)
-    return render_prompt(
-        "multi_step_step_user",
-        variables={
-            "task_prompt": prompt,
-            "step_number": step_number,
-            "memory_tail": memory_preview,
-        },
-    )
 
 
 def _build_step_tools_text(
@@ -681,106 +558,6 @@ def _build_step_tools_text(
     return "\n".join(tool_lines)
 
 
-def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Parse the first JSON object found in model text, if any.
-
-    This allows tolerant parsing when the model adds explanatory text around the
-    structured payload.
-
-    Args:
-        raw_text: Raw model response text.
-
-    Returns:
-        Parsed JSON mapping or ``None`` when parsing fails.
-    """
-    parsed_direct = _load_json_mapping(raw_text)
-    if parsed_direct is not None:
-        return parsed_direct
-
-    decoder = json.JSONDecoder()
-    for index, character in enumerate(raw_text):
-        if character != "{":
-            continue
-        try:
-            value, _ = decoder.raw_decode(raw_text[index:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(value, Mapping):
-            return dict(value)
-    return None
-
-
-def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Load text as a JSON mapping.
-
-    Returns ``None`` when the text is invalid JSON or not an object.
-
-    Args:
-        raw_text: Raw text to parse as JSON.
-
-    Returns:
-        Parsed JSON mapping or ``None`` when invalid.
-    """
-    try:
-        parsed = json.loads(raw_text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(parsed, Mapping):
-        return None
-    return dict(parsed)
-
-
-def _fallback_should_continue(
-    *,
-    memory: Sequence[Mapping[str, object]],
-    step_index: int,
-    max_steps: int,
-) -> bool:
-    """Fallback continuation policy used when model output is invalid JSON.
-
-    The policy guarantees one initial step and then stops unless additional
-    heuristics explicitly indicate continuation.
-
-    Args:
-        memory: Current memory trace entries.
-        step_index: Zero-based step index.
-        max_steps: Maximum number of steps allowed.
-
-    Returns:
-        ``True`` when execution should continue.
-    """
-    if step_index >= max_steps:
-        return False
-
-    # On parse failure, guarantee one first step, then stop by default.
-    if step_index == 0:
-        return True
-
-    # If the last observation failed, stop.
-    for entry in reversed(memory):
-        if entry.get("kind") != "observation":
-            continue
-        if entry.get("success") is False:
-            return False
-        break
-
-    return False
-
-
-def _has_observation(memory: Sequence[Mapping[str, object]]) -> bool:
-    """Return whether memory includes at least one observation entry.
-
-    Observation entries are used by continuation guardrails and heuristics.
-
-    Args:
-        memory: Current memory trace entries.
-
-    Returns:
-        ``True`` when an observation entry exists, otherwise ``False``.
-    """
-    return any(entry.get("kind") == "observation" for entry in memory)
-
-
 def _is_no_tool_call_step_failure(*, error: str) -> bool:
     """Return whether a step failed only because no tool call occurred.
 
@@ -803,30 +580,12 @@ def _failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
-    """Build a structured failure ``AgentResult`` with consistent metadata.
-
-    This helper keeps failure payload shape stable across all early-return paths.
-
-    Args:
-        error: Error message describing the failure.
-        model_response: Model response payload, if available.
-        tool_results: Tool results collected before failure.
-        request_id: Request identifier for tracing.
-        dependencies: Dependency payload mapping.
-        metadata: Additional metadata to include in the result.
-        output: Additional output payload fields.
-
-    Returns:
-        Agent result payload describing the failure.
-    """
-    return AgentResult(
-        output={"error": error, **dict(output)},
-        success=False,
-        tool_results=list(tool_results),
+    return build_failure_result(
+        error=error,
         model_response=model_response,
-        metadata={
-            "request_id": request_id,
-            "dependency_keys": sorted(dependencies.keys()),
-            **dict(metadata),
-        },
+        tool_results=tool_results,
+        request_id=request_id,
+        dependencies=dependencies,
+        metadata=metadata,
+        output=output,
     )

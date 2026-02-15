@@ -11,8 +11,8 @@ from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
 
 
-class AgentRoutingOrchestrator(Agent):
-    """Configured orchestrator chunk for runtime ``agent_routing`` mode."""
+class AgentRoutingWorkflow(Agent):
+    """Configured workflow chunk for runtime ``agent_routing`` mode."""
 
     def __init__(
         self,
@@ -62,16 +62,16 @@ class AgentRoutingOrchestrator(Agent):
         )
 
 
-def agent_routing_and_delegate(
+def agent_routing_workflow(
     *,
     llm_client: LLMClient,
     tool_runtime: ToolRuntime,
     alternatives: Mapping[str, Agent],
     alternative_descriptions: Mapping[str, str] | None = None,
     controls: RuntimeControls | None = None,
-) -> AgentRoutingOrchestrator:
-    """Return a configured agent-routing orchestrator chunk."""
-    return AgentRoutingOrchestrator(
+) -> AgentRoutingWorkflow:
+    """Return a configured agent-routing workflow chunk."""
+    return AgentRoutingWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives=alternatives,
@@ -81,6 +81,6 @@ def agent_routing_and_delegate(
 
 
 __all__ = [
-    "AgentRoutingOrchestrator",
-    "agent_routing_and_delegate",
+    "AgentRoutingWorkflow",
+    "agent_routing_workflow",
 ]

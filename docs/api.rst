@@ -53,11 +53,11 @@ Base implementations:
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.orchestrator.implementations.workflow_runtime
+.. automodule:: design_research_agents.workflow.implementations.workflow_runtime
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.contracts.orchestrator
+.. automodule:: design_research_agents.contracts.workflow
    :members:
    :undoc-members:
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 
+from design_research_agents.agent.internal.input_parsing import extract_prompt as _extract_prompt
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
     append_alternatives_block,
@@ -338,24 +339,6 @@ def _extract_messages(
         _inject_alternatives_into_messages(messages=messages, input_payload=input_payload),
         "prompt",
     )
-
-
-def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from run input.
-
-    Falls back to ``text`` and then a default string when missing.
-
-    Args:
-        input_payload: Normalized run input payload mapping.
-
-    Returns:
-        Prompt text for the run.
-    """
-    raw_prompt = input_payload.get(
-        "prompt",
-        input_payload.get("text", "Provide a concise response."),
-    )
-    return str(raw_prompt)
 
 
 def _extract_system_prompt(

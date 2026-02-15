@@ -22,6 +22,7 @@ from design_research_agents.agent.internal.prompt_alternatives import (
     build_user_prompt_alternatives_block,
     resolve_alternatives_prompt_target,
 )
+from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
@@ -1353,14 +1354,12 @@ def _failure_result(
     }
     if raw_generated_code is not None:
         output["raw_generated_code"] = raw_generated_code
-    return AgentResult(
-        output=output,
-        success=False,
-        tool_results=list(tool_results),
+    return build_failure_result(
+        error=error,
         model_response=model_response,
-        metadata={
-            "request_id": request_id,
-            "dependency_keys": sorted(dependencies.keys()),
-            **dict(metadata),
-        },
+        tool_results=tool_results,
+        request_id=request_id,
+        dependencies=dependencies,
+        metadata=metadata,
+        output=output,
     )

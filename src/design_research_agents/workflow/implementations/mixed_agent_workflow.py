@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.orchestrator import (
+from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
     ToolStep,
@@ -13,7 +14,6 @@ from design_research_agents.contracts.orchestrator import (
     WorkflowFailurePolicy,
     WorkflowResult,
 )
-from design_research_agents.contracts.tools import ToolRuntime
 
 from .workflow_runtime import WorkflowRuntime
 
@@ -46,8 +46,8 @@ def _normalize_steps(steps: Sequence[MixedWorkflowStep]) -> tuple[MixedWorkflowS
     return tuple(steps)
 
 
-class MixedAgentWorkflowOrchestrator:
-    """Configured mixed workflow orchestrator for user-supplied step graphs."""
+class MixedAgentWorkflow:
+    """Configured mixed workflow for user-supplied step graphs."""
 
     def __init__(
         self,
@@ -94,9 +94,9 @@ def mixed_agent_workflow(
     agents: Mapping[str, WorkflowDelegate],
     steps: Sequence[MixedWorkflowStep],
     base_context: Mapping[str, object] | None = None,
-) -> MixedAgentWorkflowOrchestrator:
+) -> MixedAgentWorkflow:
     """Return a configured mixed workflow orchestration chunk."""
-    return MixedAgentWorkflowOrchestrator(
+    return MixedAgentWorkflow(
         tool_runtime=tool_runtime,
         agents=agents,
         steps=steps,
@@ -105,7 +105,7 @@ def mixed_agent_workflow(
 
 
 __all__ = [
-    "MixedAgentWorkflowOrchestrator",
+    "MixedAgentWorkflow",
     "MixedWorkflowStep",
     "mixed_agent_workflow",
 ]

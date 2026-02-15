@@ -30,22 +30,6 @@ from .llm import (
     ToolCallDelta,
     Usage,
 )
-from .orchestrator import (
-    AgentStep,
-    AgentStepPromptBuilder,
-    LogicStep,
-    LogicStepHandler,
-    ToolStep,
-    ToolStepInputBuilder,
-    WorkflowExecutionMode,
-    WorkflowFailurePolicy,
-    WorkflowOrchestrator,
-    WorkflowResult,
-    WorkflowRunner,
-    WorkflowStep,
-    WorkflowStepResult,
-    WorkflowStepStatus,
-)
 from .tools import (
     ToolArtifact,
     ToolCostHints,
@@ -55,6 +39,22 @@ from .tools import (
     ToolRuntime,
     ToolSideEffects,
     ToolSpec,
+)
+from .workflow import (
+    AgentStep,
+    AgentStepPromptBuilder,
+    LogicStep,
+    LogicStepHandler,
+    ToolStep,
+    ToolStepInputBuilder,
+    WorkflowDelegateRunner,
+    WorkflowExecutionMode,
+    WorkflowFailurePolicy,
+    WorkflowResult,
+    WorkflowRunner,
+    WorkflowStep,
+    WorkflowStepResult,
+    WorkflowStepStatus,
 )
 
 __all__ = [
@@ -96,9 +96,9 @@ __all__ = [
     "ToolStep",
     "ToolStepInputBuilder",
     "Usage",
+    "WorkflowDelegateRunner",
     "WorkflowExecutionMode",
     "WorkflowFailurePolicy",
-    "WorkflowOrchestrator",
     "WorkflowResult",
     "WorkflowRunner",
     "WorkflowStep",

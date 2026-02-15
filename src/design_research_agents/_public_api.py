@@ -18,9 +18,9 @@ from .agent import (
 )
 from .contracts import agent as _contracts_agent_module
 from .contracts import llm as _contracts_llm_module
-from .contracts import orchestrator as _contracts_orchestrator_module
 from .contracts import tools as _contracts_tools_module
-from .contracts.orchestrator import AgentStep, LogicStep, ToolStep
+from .contracts import workflow as _contracts_workflow_module
+from .contracts.workflow import AgentStep, LogicStep, ToolStep
 from .llm import BaseLLMClient, LLMRouter, configure_router_from_yaml
 from .llm.backends.default import create_default_llm_client
 from .mcp_server import StdioMcpServer, serve_stdio
@@ -32,14 +32,6 @@ from .model_selection import (
     ModelSelectionIntent,
     ModelSelectionPolicy,
     ModelSelectionPolicyConfig,
-)
-from .orchestrator import (
-    AgentRoutingOrchestrator,
-    MixedAgentWorkflowOrchestrator,
-    PlanExecuteOrchestrator,
-    ProposeAndCritiqueOrchestrator,
-    PureToolWorkflowOrchestrator,
-    WorkflowRuntime,
 )
 from .schemas import (
     SCHEMA_NAMES,
@@ -57,6 +49,14 @@ from .tools import (
     load_tool_runtime_config,
 )
 from .tracing import TraceConfig, configure_tracing
+from .workflow import (
+    AgentRoutingWorkflow,
+    MixedAgentWorkflow,
+    PlanExecuteWorkflow,
+    ProposeAndCritiqueWorkflow,
+    PureToolWorkflow,
+    WorkflowRuntime,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,15 +86,11 @@ class WorkflowsNamespace:
     """User-facing namespace for workflow orchestration primitives."""
 
     WorkflowRuntime: type[WorkflowRuntime] = WorkflowRuntime
-    AgentRoutingOrchestrator: type[AgentRoutingOrchestrator] = AgentRoutingOrchestrator
-    PlanExecuteOrchestrator: type[PlanExecuteOrchestrator] = PlanExecuteOrchestrator
-    ProposeAndCritiqueOrchestrator: type[ProposeAndCritiqueOrchestrator] = (
-        ProposeAndCritiqueOrchestrator
-    )
-    PureToolWorkflowOrchestrator: type[PureToolWorkflowOrchestrator] = PureToolWorkflowOrchestrator
-    MixedAgentWorkflowOrchestrator: type[MixedAgentWorkflowOrchestrator] = (
-        MixedAgentWorkflowOrchestrator
-    )
+    AgentRoutingWorkflow: type[AgentRoutingWorkflow] = AgentRoutingWorkflow
+    PlanExecuteWorkflow: type[PlanExecuteWorkflow] = PlanExecuteWorkflow
+    ProposeAndCritiqueWorkflow: type[ProposeAndCritiqueWorkflow] = ProposeAndCritiqueWorkflow
+    PureToolWorkflow: type[PureToolWorkflow] = PureToolWorkflow
+    MixedAgentWorkflow: type[MixedAgentWorkflow] = MixedAgentWorkflow
     AgentStep: type[AgentStep] = AgentStep
     LogicStep: type[LogicStep] = LogicStep
     ToolStep: type[ToolStep] = ToolStep
@@ -151,7 +147,7 @@ class ContractsNamespace:
     agent: ModuleType = _contracts_agent_module
     llm: ModuleType = _contracts_llm_module
     tools: ModuleType = _contracts_tools_module
-    orchestrator: ModuleType = _contracts_orchestrator_module
+    workflow: ModuleType = _contracts_workflow_module
 
 
 @dataclass(frozen=True, slots=True)

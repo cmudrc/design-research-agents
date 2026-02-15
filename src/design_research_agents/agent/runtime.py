@@ -26,7 +26,14 @@ from design_research_agents.agent.implementations.single_step_router_agent impor
 from design_research_agents.agent.internal.agent_routing_runtime_adapter import (
     AgentRoutingToolRuntimeAdapter,
 )
+from design_research_agents.agent.internal.input_parsing import (
+    extract_prompt as _extract_prompt,
+)
+from design_research_agents.agent.internal.input_parsing import (
+    parse_json_mapping as _parse_json_mapping,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
@@ -882,41 +889,6 @@ class AgentRuntime(Agent):
         )
 
 
-def _extract_prompt(input_payload: Mapping[str, object]) -> str:
-    raw_prompt = input_payload.get(
-        "prompt", input_payload.get("text", "Provide a concise response.")
-    )
-    return str(raw_prompt)
-
-
-def _parse_json_mapping(raw_text: str) -> dict[str, object] | None:
-    parsed_direct = _load_json_mapping(raw_text)
-    if parsed_direct is not None:
-        return parsed_direct
-
-    decoder = json.JSONDecoder()
-    for index, character in enumerate(raw_text):
-        if character != "{":
-            continue
-        try:
-            parsed_object, _ = decoder.raw_decode(raw_text[index:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed_object, Mapping):
-            return dict(parsed_object)
-    return None
-
-
-def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    try:
-        parsed = json.loads(raw_text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(parsed, Mapping):
-        return None
-    return dict(parsed)
-
-
 def _failure_result(
     *,
     error: str,
@@ -926,16 +898,14 @@ def _failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
-    return AgentResult(
-        output={"error": error, **dict(output)},
-        success=False,
-        tool_results=[],
+    return build_failure_result(
+        error=error,
         model_response=model_response,
-        metadata={
-            "request_id": request_id,
-            "dependency_keys": sorted(dependencies.keys()),
-            **dict(metadata),
-        },
+        tool_results=[],
+        request_id=request_id,
+        dependencies=dependencies,
+        metadata=metadata,
+        output=output,
     )
 
 

@@ -8,17 +8,17 @@ from dataclasses import asdict
 from typing import TypeGuard, cast
 
 from design_research_agents.contracts.agent import Agent
-from design_research_agents.contracts.orchestrator import (
+from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
     ToolStep,
     WorkflowDelegate,
+    WorkflowDelegateRunner,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowOrchestrator,
     WorkflowStepResult,
 )
-from design_research_agents.contracts.tools import ToolRuntime
 
 from .step_context import build_invocation_dependencies, resolve_agent_prompt, resolve_tool_input
 
@@ -36,22 +36,16 @@ def run_tool_step(
 ) -> WorkflowStepResult:
     """Execute one tool step and return normalized workflow step result."""
     if tool_runtime is None:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error="Tool step requires a configured tool_runtime.",
             metadata={"stage": "tool_binding", "tool_name": step.tool_name},
         )
 
     available_tools = {tool_spec.name for tool_spec in tool_runtime.list_tools()}
     if step.tool_name not in available_tools:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=f"Unknown tool '{step.tool_name}'.",
             metadata={"stage": "tool_binding", "tool_name": step.tool_name},
         )
@@ -59,11 +53,8 @@ def run_tool_step(
     try:
         tool_input = resolve_tool_input(step=step, step_context=step_context)
     except Exception as exc:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=str(exc),
             metadata={"stage": "input_build", "tool_name": step.tool_name},
         )
@@ -85,11 +76,8 @@ def run_tool_step(
             dependencies=invocation_dependencies,
         )
     except Exception as exc:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=str(exc),
             metadata={"stage": "execution", "tool_name": step.tool_name},
         )
@@ -100,10 +88,8 @@ def run_tool_step(
             tool_error_message = tool_result.error.message
         else:
             tool_error_message = "Tool invocation failed."
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
             output=serialized_output,
             error=tool_error_message,
             metadata={"stage": "execution", "tool_name": step.tool_name},
@@ -132,11 +118,8 @@ def run_agent_step(
     """Execute one agent-like step and return normalized workflow step result."""
     selected_delegate = agents.get(step.agent_name)
     if selected_delegate is None:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=f"Unknown agent '{step.agent_name}'.",
             metadata={"stage": "agent_binding", "agent_name": step.agent_name},
         )
@@ -144,11 +127,8 @@ def run_agent_step(
     try:
         prompt = resolve_agent_prompt(step=step, step_context=step_context)
     except Exception as exc:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=str(exc),
             metadata={"stage": "input_build", "agent_name": step.agent_name},
         )
@@ -164,7 +144,7 @@ def run_agent_step(
 
     request_scope = f"{request_id}:workflow:{step_id}"
 
-    if _is_workflow_orchestrator_delegate(selected_delegate):
+    if _is_workflow_delegate_runner(selected_delegate):
         nested_context = dict(step_context)
         nested_context["prompt"] = prompt
         try:
@@ -176,31 +156,26 @@ def run_agent_step(
                 dependencies=invocation_dependencies,
             )
         except Exception as exc:
-            return WorkflowStepResult(
+            return _failed_step_result(
                 step_id=step_id,
-                status="failed",
-                success=False,
-                output={},
                 error=str(exc),
                 metadata={
                     "stage": "execution",
                     "agent_name": step.agent_name,
-                    "delegate_type": "orchestrator",
+                    "delegate_type": "workflow",
                 },
             )
 
         serialized_output = workflow_result.asdict()
         if not workflow_result.success:
-            return WorkflowStepResult(
+            return _failed_step_result(
                 step_id=step_id,
-                status="failed",
-                success=False,
                 output=serialized_output,
-                error="Nested orchestrator execution failed.",
+                error="Nested workflow execution failed.",
                 metadata={
                     "stage": "execution",
                     "agent_name": step.agent_name,
-                    "delegate_type": "orchestrator",
+                    "delegate_type": "workflow",
                 },
             )
 
@@ -212,7 +187,7 @@ def run_agent_step(
             metadata={
                 "stage": "execution",
                 "agent_name": step.agent_name,
-                "delegate_type": "orchestrator",
+                "delegate_type": "workflow",
             },
         )
 
@@ -224,11 +199,8 @@ def run_agent_step(
             dependencies=invocation_dependencies,
         )
     except Exception as exc:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=str(exc),
             metadata={
                 "stage": "execution",
@@ -239,10 +211,8 @@ def run_agent_step(
 
     serialized_output = agent_result.asdict()
     if not agent_result.success:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
             output=serialized_output,
             error=str(agent_result.output.get("error", "Agent execution failed.")),
             metadata={
@@ -265,10 +235,10 @@ def run_agent_step(
     )
 
 
-def _is_workflow_orchestrator_delegate(
+def _is_workflow_delegate_runner(
     delegate: WorkflowDelegate,
-) -> TypeGuard[WorkflowOrchestrator]:
-    """Return true when delegate ``run`` signature matches orchestrator style."""
+) -> TypeGuard[WorkflowDelegateRunner]:
+    """Return true when delegate ``run`` signature matches workflow style."""
     run_callable = getattr(delegate, "run", None)
     if run_callable is None:
         return False
@@ -302,11 +272,8 @@ def run_logic_step(
     try:
         step_output = dict(step.handler(step_context))
     except Exception as exc:
-        return WorkflowStepResult(
+        return _failed_step_result(
             step_id=step_id,
-            status="failed",
-            success=False,
-            output={},
             error=str(exc),
             metadata={"stage": "execution"},
         )
@@ -317,4 +284,21 @@ def run_logic_step(
         success=True,
         output=step_output,
         metadata={"stage": "execution"},
+    )
+
+
+def _failed_step_result(
+    *,
+    step_id: str,
+    error: str,
+    metadata: Mapping[str, object],
+    output: Mapping[str, object] | None = None,
+) -> WorkflowStepResult:
+    return WorkflowStepResult(
+        step_id=step_id,
+        status="failed",
+        success=False,
+        output=dict(output or {}),
+        error=error,
+        metadata=dict(metadata),
     )

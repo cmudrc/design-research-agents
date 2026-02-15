@@ -1,7 +1,7 @@
 ## Workflow Runtime Examples
 
 These entrypoints exercise orchestration-level flows, including reusable
-workflow chunks in `src/design_research_agents/orchestrator/implementations/`.
+workflow chunks in `src/design_research_agents/workflow/implementations/`.
 Most chunks follow agent-like reuse semantics:
 initialize once, then call `.run(...)` repeatedly with per-run input.
 
@@ -25,22 +25,22 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/orchestrator/workflow_runtime.py
-PYTHONPATH=src python3 examples/orchestrator/plan_execute.py
-PYTHONPATH=src python3 examples/orchestrator/propose_critic.py
-PYTHONPATH=src python3 examples/orchestrator/agent_routing.py
-PYTHONPATH=src python3 examples/orchestrator/pure_tool_workflow.py
-PYTHONPATH=src python3 examples/orchestrator/mixed_agent_workflow.py
+PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
+PYTHONPATH=src python3 examples/workflow/plan_execute.py
+PYTHONPATH=src python3 examples/workflow/propose_critic.py
+PYTHONPATH=src python3 examples/workflow/agent_routing.py
+PYTHONPATH=src python3 examples/workflow/pure_tool_workflow.py
+PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
 ```
 
 ## Implementation Mapping
 
-- `workflow_runtime.py` (`WorkflowRuntime`) -> `examples/orchestrator/workflow_runtime.py`
-- `plan_execute.py` (`plan_and_execute`) -> `examples/orchestrator/plan_execute.py`
-- `propose_critic.py` (`propose_and_critique`) -> `examples/orchestrator/propose_critic.py`
-- `agent_routing.py` (`agent_routing_and_delegate`) -> `examples/orchestrator/agent_routing.py`
-- `pure_tool_workflow.py` (`pure_tool_workflow`) -> `examples/orchestrator/pure_tool_workflow.py`
-- `mixed_agent_workflow.py` (`mixed_agent_workflow`) -> `examples/orchestrator/mixed_agent_workflow.py`
+- `workflow_runtime.py` (`WorkflowRuntime`) -> `examples/workflow/workflow_runtime.py`
+- `plan_execute.py` (`plan_execute_workflow`) -> `examples/workflow/plan_execute.py`
+- `propose_critic.py` (`propose_and_critique_workflow`) -> `examples/workflow/propose_critic.py`
+- `agent_routing.py` (`agent_routing_workflow`) -> `examples/workflow/agent_routing.py`
+- `pure_tool_workflow.py` (`pure_tool_workflow`) -> `examples/workflow/pure_tool_workflow.py`
+- `mixed_agent_workflow.py` (`mixed_agent_workflow`) -> `examples/workflow/mixed_agent_workflow.py`
 
 ## Expected Outputs
 

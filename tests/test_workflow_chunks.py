@@ -17,15 +17,15 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
-from design_research_agents.contracts.orchestrator import AgentStep, LogicStep, ToolStep
-from design_research_agents.orchestrator.implementations.mixed_agent_workflow import (
-    mixed_agent_workflow,
-)
-from design_research_agents.orchestrator.implementations.pure_tool_workflow import (
-    pure_tool_workflow,
-)
+from design_research_agents.contracts.workflow import AgentStep, LogicStep, ToolStep
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.workflow.implementations.mixed_agent_workflow import (
+    mixed_agent_workflow,
+)
+from design_research_agents.workflow.implementations.pure_tool_workflow import (
+    pure_tool_workflow,
+)
 
 
 class _NoopLLMClient:
@@ -264,13 +264,13 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
 
 def test_pure_tool_workflow_accepts_user_defined_steps_with_inputs() -> None:
     dataset_path = _write_dataset(filename="pure_arbitrary_dataset.csv")
-    orchestrator = pure_tool_workflow(
+    workflow = pure_tool_workflow(
         tool_runtime=UnifiedToolRuntime(),
         steps=_pure_dataset_steps(),
         input_schema=_pure_input_schema(),
     )
 
-    result = orchestrator.run(
+    result = workflow.run(
         inputs={
             "dataset_csv_path": dataset_path,
             "quality_report_path": "artifacts/tests/pure_arbitrary_report.json",
@@ -290,14 +290,14 @@ def test_pure_tool_workflow_accepts_user_defined_steps_with_inputs() -> None:
 
 def test_pure_tool_workflow_validates_inputs_with_schema_hook() -> None:
     dataset_path = _write_dataset(filename="pure_schema_dataset.csv")
-    orchestrator = pure_tool_workflow(
+    workflow = pure_tool_workflow(
         tool_runtime=UnifiedToolRuntime(),
         steps=_pure_dataset_steps(),
         input_schema=_pure_input_schema(),
     )
 
     with pytest.raises(SchemaValidationError):
-        orchestrator.run(
+        workflow.run(
             inputs={
                 "dataset_csv_path": dataset_path,
                 "quality_report_path": "artifacts/tests/pure_schema_report.json",
@@ -315,12 +315,12 @@ def test_pure_tool_workflow_without_schema_allows_arbitrary_inputs() -> None:
             handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
         )
     ]
-    orchestrator = pure_tool_workflow(
+    workflow = pure_tool_workflow(
         tool_runtime=UnifiedToolRuntime(),
         steps=steps,
     )
 
-    result = orchestrator.run(inputs={"free_form": {"a": 1, "b": 2}}, request_id="test-pure-free")
+    result = workflow.run(inputs={"free_form": {"a": 1, "b": 2}}, request_id="test-pure-free")
 
     assert result.success
     assert result.step_results["echo_inputs"].output["inputs_snapshot"]["free_form"]["a"] == 1
@@ -346,15 +346,15 @@ def test_mixed_workflow_executes_user_defined_branching_steps() -> None:
     writer_agent = _StaticJsonDraftAgent(
         payload={"title": "Agent title", "summary": "Agent summary"}
     )
-    orchestrator = mixed_agent_workflow(
+    workflow = mixed_agent_workflow(
         tool_runtime=UnifiedToolRuntime(),
         agents={"writer_agent": writer_agent},
         steps=_mixed_branching_steps(agent_name="writer_agent"),
         base_context={"audience": "research"},
     )
 
-    agent_result = orchestrator.run("Write a concise brief.", request_id="test-mixed-agent")
-    template_result = orchestrator.run(
+    agent_result = workflow.run("Write a concise brief.", request_id="test-mixed-agent")
+    template_result = workflow.run(
         "template: Use deterministic fallback.",
         request_id="test-mixed-template",
     )
@@ -386,14 +386,14 @@ def test_mixed_workflow_injects_prompt_and_preserves_base_context() -> None:
             },
         ),
     ]
-    orchestrator = mixed_agent_workflow(
+    workflow = mixed_agent_workflow(
         tool_runtime=UnifiedToolRuntime(),
         agents={"analyst_agent": writer_agent},
         steps=custom_steps,
         base_context={"base_tag": "custom"},
     )
 
-    result = orchestrator.run(
+    result = workflow.run(
         "Produce a short custom mixed-workflow brief.",
         request_id="test-mixed-context-injection",
     )

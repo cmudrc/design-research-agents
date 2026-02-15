@@ -18,7 +18,7 @@ def main() -> None:
         tool_runtime=tool_runtime,
     )
 
-    orchestrator = dra.workflows.AgentRoutingOrchestrator(
+    workflow = dra.workflows.AgentRoutingWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives={
@@ -32,9 +32,9 @@ def main() -> None:
     )
 
     # Internal routing is performed by SingleStepRouterAgent (tool-routing).
-    result = orchestrator.run(
+    result = workflow.run(
         prompt="Calculate this expression and return the numeric result: 12 * (4 + 1)",
-        request_id="example-agent-routing-orchestrator-001",
+        request_id="example-agent-routing-workflow-001",
     )
     print(result)
 

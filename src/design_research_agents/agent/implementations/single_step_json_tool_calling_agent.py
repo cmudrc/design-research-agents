@@ -12,6 +12,12 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
+from design_research_agents.agent.internal.input_parsing import (
+    load_json_mapping as _load_json_mapping,
+)
+from design_research_agents.agent.internal.input_parsing import (
+    parse_json_mapping as _parse_json_mapping,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
     append_alternatives_block,
@@ -387,42 +393,7 @@ def _parse_tool_call(raw_text: str) -> dict[str, object] | None:
     Returns:
         Parsed tool-call mapping or ``None`` when parsing fails.
     """
-    parsed = _load_json_mapping(raw_text)
-    if parsed is not None:
-        return parsed
-
-    # Allow extra surrounding text by scanning for the first JSON object.
-    decoder = json.JSONDecoder()
-    for index, character in enumerate(raw_text):
-        if character != "{":
-            continue
-        try:
-            value, _ = decoder.raw_decode(raw_text[index:])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(value, Mapping):
-            return dict(value)
-    return None
-
-
-def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Load text as a JSON mapping.
-
-    Returns ``None`` when the text is invalid JSON or not an object.
-
-    Args:
-        raw_text: Raw text to parse as JSON.
-
-    Returns:
-        Parsed JSON mapping or ``None`` when invalid.
-    """
-    try:
-        payload = json.loads(raw_text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, Mapping):
-        return None
-    return dict(payload)
+    return _parse_json_mapping(raw_text)
 
 
 def _select_tool_choice(

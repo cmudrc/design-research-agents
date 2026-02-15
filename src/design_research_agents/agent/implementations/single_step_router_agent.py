@@ -11,6 +11,9 @@ import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
+from design_research_agents.agent.internal.input_parsing import (
+    parse_json_mapping as _parse_json_mapping,
+)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
     append_alternatives_block,
@@ -527,20 +530,7 @@ def _parse_route_response(raw_text: str) -> _ParsedRoute | None:
     Returns:
         Parsed route payload or ``None`` when parsing fails.
     """
-    parsed = _load_json_mapping(raw_text)
-    if parsed is None:
-        # Allow extra surrounding text by scanning for the first JSON object.
-        decoder = json.JSONDecoder()
-        for index, character in enumerate(raw_text):
-            if character != "{":
-                continue
-            try:
-                value, _ = decoder.raw_decode(raw_text[index:])
-            except json.JSONDecodeError:
-                continue
-            if isinstance(value, Mapping):
-                parsed = dict(value)
-                break
+    parsed = _parse_json_mapping(raw_text)
 
     if parsed is None:
         return None
@@ -568,26 +558,6 @@ def _parse_route_response(raw_text: str) -> _ParsedRoute | None:
             str(parsed["reason"]) if "reason" in parsed and parsed["reason"] is not None else None
         ),
     )
-
-
-def _load_json_mapping(raw_text: str) -> dict[str, object] | None:
-    """Load text as a JSON mapping.
-
-    Returns ``None`` when the text is invalid JSON or not an object.
-
-    Args:
-        raw_text: Raw text to parse as JSON.
-
-    Returns:
-        Parsed JSON mapping or ``None`` when invalid.
-    """
-    try:
-        payload = json.loads(raw_text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, Mapping):
-        return None
-    return dict(payload)
 
 
 def _resolve_model_route(

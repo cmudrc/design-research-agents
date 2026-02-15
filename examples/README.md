@@ -8,9 +8,9 @@ surfaces: agents, orchestration workflows, model selection, and tool runtime.
 - `examples/agents`
   - Core agent patterns (single-step, multi-step, streaming).
   - See `examples/agents/README.md`.
-- `examples/orchestrator`
+- `examples/workflow`
   - Reusable orchestration entrypoints and workflow runtime integrations.
-  - See `examples/orchestrator/README.md`.
+  - See `examples/workflow/README.md`.
 - `examples/model_selection`
   - Local-vs-remote model selection policy behavior.
   - See `examples/model_selection/README.md`.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.orchestrator import (
+from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
     ToolStep,

@@ -34,18 +34,18 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
-   PYTHONPATH=src python3 examples/orchestrator/workflow_runtime.py
-   PYTHONPATH=src python3 examples/orchestrator/plan_execute.py
-   PYTHONPATH=src python3 examples/orchestrator/propose_critic.py
-   PYTHONPATH=src python3 examples/orchestrator/agent_routing.py
-   PYTHONPATH=src python3 examples/orchestrator/pure_tool_workflow.py
-   PYTHONPATH=src python3 examples/orchestrator/mixed_agent_workflow.py
+   PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
+   PYTHONPATH=src python3 examples/workflow/plan_execute.py
+   PYTHONPATH=src python3 examples/workflow/propose_critic.py
+   PYTHONPATH=src python3 examples/workflow/agent_routing.py
+   PYTHONPATH=src python3 examples/workflow/pure_tool_workflow.py
+   PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
    PYTHONPATH=src python3 examples/model_selection/local.py
    PYTHONPATH=src python3 examples/model_selection/remote.py
    PYTHONPATH=src python3 examples/tools/mcp_minimal.py
    PYTHONPATH=src python3 examples/tools/source_fusion_story.py
 
-Orchestrator run signatures in the two reusable workflow chunks:
+Workflow run signatures in the two reusable workflow chunks:
 
 - ``mixed_agent_workflow``: initialize once, then call ``run(prompt=...)``.
 - Supply ``agents`` and ``steps`` at init; no built-in mixed-step builder.
@@ -65,7 +65,7 @@ Run additional streaming examples:
    PYTHONPATH=src python3 examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py
    PYTHONPATH=src python3 examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py
 
-Agent/orchestrator examples default to a local llama-cpp server via
+Agent/workflow examples default to a local llama-cpp server via
 ``dra.llm.create_default_llm_client()``.
 
 Use router-first backend configuration:

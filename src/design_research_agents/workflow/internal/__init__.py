@@ -1,4 +1,4 @@
-"""Internal helpers for the workflow orchestrator runtime."""
+"""Internal helpers for the workflow runtime."""
 
 from .step_context import (
     build_step_context,

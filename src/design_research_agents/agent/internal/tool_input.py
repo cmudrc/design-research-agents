@@ -5,16 +5,10 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 
+from .input_parsing import extract_prompt
+
 CALCULATOR_TOOL_NAMES = frozenset({"calculator"})
 TEXT_WORD_COUNT_TOOL_NAMES = frozenset({"text.word_count"})
-
-
-def extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from run input with stable fallback behavior."""
-    raw_prompt = input_payload.get(
-        "prompt", input_payload.get("text", "Provide a concise response.")
-    )
-    return str(raw_prompt)
 
 
 def infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:

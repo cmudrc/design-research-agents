@@ -7,13 +7,13 @@ def main() -> None:
     """Run ``plan_execute`` orchestration with configurable runtime dependencies."""
     llm_client = dra.llm.create_default_llm_client()
     tool_runtime = dra.tools.UnifiedToolRuntime()
-    orchestrator = dra.workflows.PlanExecuteOrchestrator(
+    workflow = dra.workflows.PlanExecuteWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )
-    result = orchestrator.run(
+    result = workflow.run(
         prompt="Create and analyze a tiny runtime tools inventory.",
-        request_id="example-plan-execute-orchestrator-001",
+        request_id="example-plan-execute-workflow-001",
     )
     print(result)
 

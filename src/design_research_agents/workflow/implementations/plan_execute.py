@@ -1,4 +1,4 @@
-"""Reusable ``propose_critic`` orchestration chunk."""
+"""Reusable ``plan_execute`` orchestration chunk."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
 
 
-class ProposeAndCritiqueOrchestrator(Agent):
-    """Configured orchestrator chunk for ``propose_critic`` mode."""
+class PlanExecuteWorkflow(Agent):
+    """Configured workflow chunk for ``plan_execute`` mode."""
 
     def __init__(
         self,
@@ -25,7 +25,7 @@ class ProposeAndCritiqueOrchestrator(Agent):
         self._runtime = AgentRuntime(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            mode="propose_critic",
+            mode="plan_execute",
             controls=controls,
         )
 
@@ -36,7 +36,7 @@ class ProposeAndCritiqueOrchestrator(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one propose-and-critique orchestration run."""
+        """Execute one plan-execute orchestration run."""
         return self._runtime.run(
             prompt,
             request_id=request_id,
@@ -58,14 +58,14 @@ class ProposeAndCritiqueOrchestrator(Agent):
         )
 
 
-def propose_and_critique(
+def plan_execute_workflow(
     *,
     llm_client: LLMClient,
     tool_runtime: ToolRuntime,
     controls: RuntimeControls | None = None,
-) -> ProposeAndCritiqueOrchestrator:
-    """Return a configured ``propose_critic`` orchestrator chunk."""
-    return ProposeAndCritiqueOrchestrator(
+) -> PlanExecuteWorkflow:
+    """Return a configured ``plan_execute`` workflow chunk."""
+    return PlanExecuteWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         controls=controls,
@@ -73,6 +73,6 @@ def propose_and_critique(
 
 
 __all__ = [
-    "ProposeAndCritiqueOrchestrator",
-    "propose_and_critique",
+    "PlanExecuteWorkflow",
+    "plan_execute_workflow",
 ]

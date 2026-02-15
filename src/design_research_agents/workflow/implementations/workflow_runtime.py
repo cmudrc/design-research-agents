@@ -9,7 +9,8 @@ from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
-from design_research_agents.contracts.orchestrator import (
+from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
     WorkflowDelegate,
@@ -20,8 +21,8 @@ from design_research_agents.contracts.orchestrator import (
     WorkflowStep,
     WorkflowStepResult,
 )
-from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.orchestrator.internal import (
+from design_research_agents.tracing import finish_trace_run, start_trace_run
+from design_research_agents.workflow.internal import (
     PreparedWorkflow,
     activate_step_span,
     build_step_context,
@@ -37,7 +38,6 @@ from design_research_agents.orchestrator.internal import (
     start_step_span,
     validate_no_cycles,
 )
-from design_research_agents.tracing import finish_trace_run, start_trace_run
 
 
 class WorkflowRuntime(WorkflowRunner):
@@ -160,67 +160,19 @@ class WorkflowRuntime(WorkflowRunner):
                     f"{', '.join(sorted(unresolved_dependencies))}."
                 )
 
-            if step_id in deactivated_steps:
-                step_results[step_id] = WorkflowStepResult(
-                    step_id=step_id,
-                    status="skipped",
-                    success=False,
-                    output={},
-                    error="skipped_branch_not_selected",
-                )
-                execution_order.append(step_id)
-                continue
-
-            if failure_policy == "skip_dependents" and has_upstream_failure(
-                dependencies=step_dependencies,
-                step_results=step_results,
-            ):
-                step_results[step_id] = WorkflowStepResult(
-                    step_id=step_id,
-                    status="skipped",
-                    success=False,
-                    output={},
-                    error="skipped_upstream_failure",
-                )
-                execution_order.append(step_id)
-                continue
-
-            step_context = build_step_context(
-                base_context=base_context,
+            step_result = self._evaluate_step(
+                step=step,
                 step_id=step_id,
                 step_dependencies=step_dependencies,
                 step_results=step_results,
-                request_id=resolved_request_id,
-                execution_mode=execution_mode,
-                failure_policy=failure_policy,
-            )
-            step_result = self._execute_step(
-                step=step,
-                step_id=step_id,
-                step_context=step_context,
+                deactivated_steps=deactivated_steps,
+                prepared=prepared,
+                base_context=base_context,
                 request_id=resolved_request_id,
                 execution_mode=execution_mode,
                 failure_policy=failure_policy,
                 dependencies=resolved_dependencies,
             )
-
-            if step_result.success and isinstance(step, LogicStep):
-                deactivation_update, route_error = route_deactivations(
-                    step=step,
-                    step_output=step_result.output,
-                    dependents=prepared.dependents,
-                )
-                if route_error is not None:
-                    step_result = WorkflowStepResult(
-                        step_id=step_id,
-                        status="failed",
-                        success=False,
-                        output=dict(step_result.output),
-                        error=route_error,
-                        metadata={"stage": "routing"},
-                    )
-                else:
-                    deactivated_steps.update(deactivation_update)
 
             step_results[step_id] = step_result
             execution_order.append(step_id)
@@ -255,79 +207,19 @@ class WorkflowRuntime(WorkflowRunner):
             step = prepared.step_map[step_id]
             step_dependencies = prepared.dependencies[step_id]
 
-            if step_id in deactivated_steps:
-                step_results[step_id] = WorkflowStepResult(
-                    step_id=step_id,
-                    status="skipped",
-                    success=False,
-                    output={},
-                    error="skipped_branch_not_selected",
-                )
-                execution_order.append(step_id)
-                release_dependents(
-                    step_id=step_id,
-                    dependents=prepared.dependents,
-                    in_degree=in_degree,
-                    ready_steps=ready_steps,
-                )
-                continue
-
-            if failure_policy == "skip_dependents" and has_upstream_failure(
-                dependencies=step_dependencies,
-                step_results=step_results,
-            ):
-                step_results[step_id] = WorkflowStepResult(
-                    step_id=step_id,
-                    status="skipped",
-                    success=False,
-                    output={},
-                    error="skipped_upstream_failure",
-                )
-                execution_order.append(step_id)
-                release_dependents(
-                    step_id=step_id,
-                    dependents=prepared.dependents,
-                    in_degree=in_degree,
-                    ready_steps=ready_steps,
-                )
-                continue
-
-            step_context = build_step_context(
-                base_context=base_context,
+            step_result = self._evaluate_step(
+                step=step,
                 step_id=step_id,
                 step_dependencies=step_dependencies,
                 step_results=step_results,
-                request_id=resolved_request_id,
-                execution_mode=execution_mode,
-                failure_policy=failure_policy,
-            )
-            step_result = self._execute_step(
-                step=step,
-                step_id=step_id,
-                step_context=step_context,
+                deactivated_steps=deactivated_steps,
+                prepared=prepared,
+                base_context=base_context,
                 request_id=resolved_request_id,
                 execution_mode=execution_mode,
                 failure_policy=failure_policy,
                 dependencies=resolved_dependencies,
             )
-
-            if step_result.success and isinstance(step, LogicStep):
-                deactivation_update, route_error = route_deactivations(
-                    step=step,
-                    step_output=step_result.output,
-                    dependents=prepared.dependents,
-                )
-                if route_error is not None:
-                    step_result = WorkflowStepResult(
-                        step_id=step_id,
-                        status="failed",
-                        success=False,
-                        output=dict(step_result.output),
-                        error=route_error,
-                        metadata={"stage": "routing"},
-                    )
-                else:
-                    deactivated_steps.update(deactivation_update)
 
             step_results[step_id] = step_result
             execution_order.append(step_id)
@@ -391,3 +283,75 @@ class WorkflowRuntime(WorkflowRunner):
             error=result.error,
         )
         return result
+
+    def _evaluate_step(
+        self,
+        *,
+        step: WorkflowStep,
+        step_id: str,
+        step_dependencies: Sequence[str],
+        step_results: Mapping[str, WorkflowStepResult],
+        deactivated_steps: set[str],
+        prepared: PreparedWorkflow,
+        base_context: Mapping[str, object],
+        request_id: str,
+        execution_mode: WorkflowExecutionMode,
+        failure_policy: WorkflowFailurePolicy,
+        dependencies: Mapping[str, object],
+    ) -> WorkflowStepResult:
+        if step_id in deactivated_steps:
+            return self._skip_step_result(step_id=step_id, reason="skipped_branch_not_selected")
+
+        if failure_policy == "skip_dependents" and has_upstream_failure(
+            dependencies=step_dependencies,
+            step_results=step_results,
+        ):
+            return self._skip_step_result(step_id=step_id, reason="skipped_upstream_failure")
+
+        step_context = build_step_context(
+            base_context=base_context,
+            step_id=step_id,
+            step_dependencies=step_dependencies,
+            step_results=step_results,
+            request_id=request_id,
+            execution_mode=execution_mode,
+            failure_policy=failure_policy,
+        )
+        step_result = self._execute_step(
+            step=step,
+            step_id=step_id,
+            step_context=step_context,
+            request_id=request_id,
+            execution_mode=execution_mode,
+            failure_policy=failure_policy,
+            dependencies=dependencies,
+        )
+
+        if not step_result.success or not isinstance(step, LogicStep):
+            return step_result
+
+        deactivation_update, route_error = route_deactivations(
+            step=step,
+            step_output=step_result.output,
+            dependents=prepared.dependents,
+        )
+        if route_error is not None:
+            return WorkflowStepResult(
+                step_id=step_id,
+                status="failed",
+                success=False,
+                output=dict(step_result.output),
+                error=route_error,
+                metadata={"stage": "routing"},
+            )
+        deactivated_steps.update(deactivation_update)
+        return step_result
+
+    def _skip_step_result(self, *, step_id: str, reason: str) -> WorkflowStepResult:
+        return WorkflowStepResult(
+            step_id=step_id,
+            status="skipped",
+            success=False,
+            output={},
+            error=reason,
+        )

@@ -1,8 +1,11 @@
 # Python interpreter and pip command used by all targets.
-PYTHON ?= python3
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PIP ?= $(PYTHON) -m pip
+PYTEST ?= $(PYTHON) -m pytest
+RUFF ?= $(PYTHON) -m ruff
+MYPY ?= $(PYTHON) -m mypy
 
-.PHONY: install test coverage lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk
+.PHONY: install install-dev install-all check-python test coverage lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk pre-commit
 
 # Install a batteries-included development environment.
 install:
@@ -19,38 +22,46 @@ install-all:
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev,local]"
 
+# Validate Python runtime matches project requirement.
+check-python:
+	@$(PYTHON) -c "import sys; import pathlib; print(f'Using Python {sys.version.split()[0]} at {pathlib.Path(sys.executable)}'); raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" || (echo "Python >= 3.11 is required by pyproject.toml"; exit 1)
+
 # Run the unit test suite.
-test:
-	PYTHONPATH=src pytest
+test: check-python
+	PYTHONPATH=src $(PYTEST)
 
 # Estimate line coverage for the stable unit-suite baseline.
-coverage:
+coverage: check-python
 	mkdir -p artifacts/coverage
-	PYTHONPATH=src pytest --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
 
 # Run lint checks without modifying files.
-lint:
-	ruff check .
+lint: check-python
+	$(RUFF) check .
 
 # Apply auto-fixable lint changes.
-lint-fix:
-	ruff check . --fix
+lint-fix: check-python
+	$(RUFF) check . --fix
 
 # Format source code in place.
-format:
-	ruff format .
+format: check-python
+	$(RUFF) format .
 
 # Verify formatting without changing files.
-format-check:
-	ruff format --check .
+format-check: check-python
+	$(RUFF) format --check .
 
 # Run static type checks.
-typecheck:
-	mypy src
+typecheck: check-python
+	$(MYPY) src
+
+# Run a deterministic workflow example.
+run-example: check-python
+	PYTHONPATH=src $(PYTHON) examples/workflow/workflow_runtime.py
 
 # Build Sphinx HTML documentation.
-docs:
-	sphinx-build -b html docs docs/_build/html
+docs: check-python
+	$(PYTHON) -m sphinx -b html docs docs/_build/html
 
 # Remove traces/ dirs anywhere + Sphinx build output + egg-info.
 purge-ignored-junk:

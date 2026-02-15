@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.orchestrator import (
+from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
     ToolStep,
@@ -12,7 +13,6 @@ from design_research_agents.contracts.orchestrator import (
     WorkflowFailurePolicy,
     WorkflowResult,
 )
-from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.schemas import validate_payload_against_schema
 
 from .workflow_runtime import WorkflowRuntime
@@ -32,8 +32,8 @@ def _normalize_steps(steps: Sequence[PureWorkflowStep]) -> tuple[PureWorkflowSte
     return tuple(steps)
 
 
-class PureToolWorkflowOrchestrator:
-    """Configured pure-tool workflow orchestrator for user-supplied step graphs."""
+class PureToolWorkflow:
+    """Configured pure-tool workflow for user-supplied step graphs."""
 
     def __init__(
         self,
@@ -83,9 +83,9 @@ def pure_tool_workflow(
     steps: Sequence[PureWorkflowStep],
     input_schema: Mapping[str, object] | None = None,
     base_context: Mapping[str, object] | None = None,
-) -> PureToolWorkflowOrchestrator:
+) -> PureToolWorkflow:
     """Return a configured pure-tool workflow orchestration chunk."""
-    return PureToolWorkflowOrchestrator(
+    return PureToolWorkflow(
         tool_runtime=tool_runtime,
         steps=steps,
         input_schema=input_schema,
@@ -94,7 +94,7 @@ def pure_tool_workflow(
 
 
 __all__ = [
-    "PureToolWorkflowOrchestrator",
+    "PureToolWorkflow",
     "PureWorkflowStep",
     "pure_tool_workflow",
 ]
