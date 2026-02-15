@@ -55,37 +55,19 @@ Run additional streaming examples:
 These streaming examples use deterministic in-script LLM stubs and do not need
 an external model backend.
 
-Use the llama-cpp backend directly:
+Use router-first backend configuration:
 
 .. code-block:: python
 
    from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
-   from design_research_agents.llm import BaseLLMClient
+   from design_research_agents.llm import BaseLLMClient, configure_router_from_yaml
 
-   llm_client = BaseLLMClient.from_llama_cpp_server(
-       model="tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
-       hf_model_repo_id="TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
-       api_model="tinyllama-q4-example",
-   )
-   response = llm_client.chat(
-       messages=[LLMMessage(role="user", content="Hello")],
-       model=llm_client.default_model(),
-       params=LLMChatParams(),
-   )
-   text = response.text
+   # Example YAML defines one or more configured backends.
+   # See ``src/design_research_agents/llm/config.py`` for the schema.
+   router = configure_router_from_yaml("configs/llm.yaml", default_backend="llama-local")
 
-Use the Transformers backend directly (requires ``transformers`` and a torch runtime):
-
-.. code-block:: python
-
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
-   from design_research_agents.llm import BaseLLMClient
-
-   llm_client = BaseLLMClient.from_transformers(
-       model="gpt2",
-       device=-1,
-       generation_kwargs={"max_new_tokens": 64},
-   )
+   # Optional: ``backend=...`` pins calls to a specific named backend.
+   llm_client = BaseLLMClient(router=router, backend="llama-local")
    response = llm_client.chat(
        messages=[LLMMessage(role="user", content="Hello")],
        model=llm_client.default_model(),

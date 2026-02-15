@@ -307,21 +307,26 @@ class LlamaCppServerBackend:
         """
         # Lazy-start keeps setup cheap when this backend is configured but unused.
         self.start()
-        # Import lazily to reduce hard coupling between backend modules for type checkers.
-        from . import openai as openai_backend
+        try:
+            from openai import OpenAI
+        except ImportError as exc:
+            raise RuntimeError(
+                "The 'openai' package is required for llama-cpp server calls. "
+                "Install with: pip install -e ."
+            ) from exc
 
-        openai_complete = cast(
-            Callable[..., str],
-            openai_backend.complete,
-        )
-        # Delegate request shape/response handling to the shared OpenAI client path.
-        return openai_complete(
-            prompt,
+        client = OpenAI(api_key="not-needed", base_url=self.base_url)
+        response = client.chat.completions.create(
             model=self.api_model,
-            api_key="not-needed",
-            base_url=self.base_url,
-            require_api_key=False,
+            messages=[{"role": "user", "content": prompt}],
         )
+        choices = getattr(response, "choices", None)
+        if not choices:
+            raise RuntimeError("Received an empty response from llama-cpp server.")
+        content = getattr(getattr(choices[0], "message", None), "content", None)
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+        raise RuntimeError("Received an empty text payload from llama-cpp server.")
 
 
 def create_backend(
