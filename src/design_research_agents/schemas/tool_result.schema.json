@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://design-research-agents.dev/schemas/v2/tool_result.schema.json",
+  "$id": "https://design-research-agents.dev/schemas/tool_result.schema.json",
   "title": "ToolResult",
   "type": "object",
   "additionalProperties": false,

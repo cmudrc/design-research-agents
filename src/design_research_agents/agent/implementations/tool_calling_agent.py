@@ -12,17 +12,17 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
-from design_research_agents.agent._model_resolution import resolve_agent_model
-from design_research_agents.agent._prompt_alternatives import (
+from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.prompt_alternatives import (
     append_alternatives_block,
     build_user_prompt_alternatives_block,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.agent._response_schemas import (
+from design_research_agents.agent.internal.response_schemas import (
     build_tool_call_response_schema,
     clone_response_schema,
 )
-from design_research_agents.agent._run_options import (
+from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,

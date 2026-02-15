@@ -15,14 +15,14 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from types import CodeType
 
-from design_research_agents.agent._model_resolution import resolve_agent_model
-from design_research_agents.agent._prompt_alternatives import (
+from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     append_alternatives_block,
     build_user_prompt_alternatives_block,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.agent._run_options import (
+from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,

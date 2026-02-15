@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://design-research-agents.dev/schemas/v2/tool_spec.schema.json",
+  "$id": "https://design-research-agents.dev/schemas/tool_spec.schema.json",
   "title": "ToolSpec",
   "type": "object",
   "additionalProperties": false,

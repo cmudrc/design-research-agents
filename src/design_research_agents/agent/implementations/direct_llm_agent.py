@@ -9,18 +9,21 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import cast
 
-from design_research_agents.agent._model_resolution import resolve_agent_model
-from design_research_agents.agent._prompt_alternatives import (
+from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.prompt_alternatives import (
     append_alternatives_block,
     format_raw_alternatives,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.agent._run_options import (
+from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.agent._streaming import StreamAccumulator, finalize_stream_response
+from design_research_agents.agent.internal.streaming import (
+    StreamAccumulator,
+    finalize_stream_response,
+)
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import (
     LLMChatParams,

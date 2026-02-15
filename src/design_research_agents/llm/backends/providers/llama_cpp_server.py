@@ -1,7 +1,8 @@
 """Managed backend for running a local ``llama_cpp.server`` process.
 
-The backend handles server lifecycle, readiness polling, and compatibility
-delegation to the OpenAI-style client wrapper used by the rest of the package.
+The backend handles server lifecycle and readiness polling. Completion calls
+are handled by higher-level backends that target the exposed OpenAI-compatible
+HTTP endpoint.
 """
 
 from __future__ import annotations
@@ -22,12 +23,12 @@ from urllib.request import urlopen
 
 @dataclass(slots=True)
 class LlamaCppServerBackend:
-    """Manage a persistent llama-cpp server and call it via OpenAI-compatible API.
+    """Manage a persistent llama-cpp server process.
 
     Attributes:
         model: ``llama_cpp.server`` ``--model`` value (path or filename/pattern).
         hf_model_repo_id: Optional Hugging Face repo id for remote model loading.
-        api_model: OpenAI-compatible model identifier used for completion calls.
+        api_model: OpenAI-compatible model alias exposed by the local server.
         host: Server bind host.
         port: Server bind port.
         startup_timeout_seconds: Maximum wait time for server startup.
@@ -72,7 +73,8 @@ class LlamaCppServerBackend:
     def base_url(self) -> str:
         """Return OpenAI-compatible API base URL exposed by this server.
 
-        This URL is used for readiness checks and delegated completion calls.
+        This URL is used for readiness checks and by caller backends that send
+        completion requests.
 
         Returns:
             OpenAI-compatible base URL string.
@@ -293,41 +295,6 @@ class LlamaCppServerBackend:
 
         self._process = None
 
-    def complete(self, prompt: str) -> str:
-        """Generate text through the managed llama-cpp OpenAI-compatible server.
-
-        Args:
-            prompt: Prompt text sent to the delegated OpenAI-compatible caller.
-
-        Returns:
-            Generated text response.
-
-        Raises:
-            RuntimeError: If the server cannot be started or completion fails.
-        """
-        # Lazy-start keeps setup cheap when this backend is configured but unused.
-        self.start()
-        try:
-            from openai import OpenAI
-        except ImportError as exc:
-            raise RuntimeError(
-                "The 'openai' package is required for llama-cpp server calls. "
-                "Install with: pip install -e ."
-            ) from exc
-
-        client = OpenAI(api_key="not-needed", base_url=self.base_url)
-        response = client.chat.completions.create(
-            model=self.api_model,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        choices = getattr(response, "choices", None)
-        if not choices:
-            raise RuntimeError("Received an empty response from llama-cpp server.")
-        content = getattr(getattr(choices[0], "message", None), "content", None)
-        if isinstance(content, str) and content.strip():
-            return content.strip()
-        raise RuntimeError("Received an empty text payload from llama-cpp server.")
-
 
 def create_backend(
     model: str,
@@ -346,7 +313,7 @@ def create_backend(
     Args:
         model: ``llama_cpp.server`` ``--model`` value.
         hf_model_repo_id: Optional Hugging Face repository id.
-        api_model: OpenAI-compatible model identifier used for completion calls.
+        api_model: OpenAI-compatible model alias exposed by the local server.
         host: Server bind host.
         port: Server bind port.
         startup_timeout_seconds: Max startup wait time.

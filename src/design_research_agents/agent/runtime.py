@@ -11,22 +11,22 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Literal
 
-from design_research_agents.agent._model_resolution import resolve_agent_model
-from design_research_agents.agent._run_options import (
+from design_research_agents.agent.implementations.direct_llm_agent import DirectLLMAgent
+from design_research_agents.agent.implementations.multi_step_agent import MultiStepAgent
+from design_research_agents.agent.implementations.router_agent import RouterAgent
+from design_research_agents.agent.implementations.single_step_code_agent import SingleStepCodeAgent
+from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.agent._triage_runtime_adapter import TriageToolRuntimeAdapter
-from design_research_agents.agent.direct_llm_agent import DirectLLMAgent
-from design_research_agents.agent.multi_step_agent import MultiStepAgent
-from design_research_agents.agent.router_agent import RouterAgent
+from design_research_agents.agent.internal.triage_runtime_adapter import TriageToolRuntimeAdapter
 from design_research_agents.agent.runtime_controls import RuntimeControls
-from design_research_agents.agent.single_step_code_agent import SingleStepCodeAgent
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage, LLMResponse
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.schema import SchemaValidationError, validate_payload_against_schema
+from design_research_agents.schemas import SchemaValidationError, validate_payload_against_schema
 from design_research_agents.tracing import (
     finish_model_call,
     finish_trace_run,

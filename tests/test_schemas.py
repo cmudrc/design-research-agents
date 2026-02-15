@@ -13,16 +13,17 @@ from design_research_agents.contracts import (
     ToolResult,
     ToolSpec,
 )
-from design_research_agents.schemas import SCHEMA_NAMES, SCHEMA_VERSION, load_schema
+from design_research_agents.schemas import SCHEMA_NAMES, load_schema
 
 
 def test_all_schemas_load_from_packaged_resources() -> None:
-    # Verify every shipped schema is discoverable and versioned consistently.
+    # Verify every shipped schema is discoverable and consistently identified.
     for name in SCHEMA_NAMES:
         schema = load_schema(name)
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
         schema_id = str(schema["$id"])
-        assert f"/schemas/{SCHEMA_VERSION}/" in schema_id
+        assert "/schemas/" in schema_id
+        assert "/schemas/v" not in schema_id
         assert schema_id.endswith(f"{name}.schema.json")
 
 

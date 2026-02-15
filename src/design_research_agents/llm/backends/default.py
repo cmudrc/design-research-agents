@@ -10,8 +10,8 @@ import dataclasses
 from typing import TYPE_CHECKING
 
 from design_research_agents.llm.backends.factory import backend_config_hash
-from design_research_agents.llm.backends.llama_cpp import LlamaCppBackend
-from design_research_agents.llm.backends.llama_cpp_server import (
+from design_research_agents.llm.backends.providers.llama_cpp import LlamaCppBackend
+from design_research_agents.llm.backends.providers.llama_cpp_server import (
     create_backend as create_llama_cpp_server,
 )
 from design_research_agents.llm.config import LlamaCppConfig

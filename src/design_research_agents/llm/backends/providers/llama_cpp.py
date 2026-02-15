@@ -12,8 +12,18 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.llm.backends.base import BaseLLMBackend
-from design_research_agents.llm.backends.llama_cpp_server import LlamaCppServerBackend
-from design_research_agents.llm.backends.utils import messages_to_prompt
+from design_research_agents.llm.backends.providers.llama_cpp_server import LlamaCppServerBackend
+from design_research_agents.llm.backends.providers.openai_compatible_http import (
+    OpenAICompatibleHTTPBackend,
+)
+
+_LLAMA_CPP_CAPABILITIES = BackendCapabilities(
+    streaming=False,
+    tool_calling="best_effort",
+    json_mode="prompt+validate",
+    vision=False,
+    max_context_tokens=None,
+)
 
 
 class LlamaCppBackend(BaseLLMBackend):
@@ -39,23 +49,27 @@ class LlamaCppBackend(BaseLLMBackend):
             model_patterns=model_patterns,
         )
         self._backend = llama_backend
+        self._http_backend = OpenAICompatibleHTTPBackend(
+            name=name,
+            base_url=llama_backend.base_url,
+            default_model=default_model,
+            api_key_env="LLAMA_CPP_SERVER_API_KEY",
+            api_key=None,
+            capabilities=_LLAMA_CPP_CAPABILITIES,
+            config_hash=config_hash,
+            max_retries=max_retries,
+            model_patterns=model_patterns,
+        )
 
     def capabilities(self) -> BackendCapabilities:
-        return BackendCapabilities(
-            streaming=False,
-            tool_calling="best_effort",
-            json_mode="prompt+validate",
-            vision=False,
-            max_context_tokens=None,
-        )
+        return _LLAMA_CPP_CAPABILITIES
 
     def healthcheck(self) -> BackendStatus:
         return BackendStatus(ok=True, message="llama.cpp backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
-        prompt = messages_to_prompt(request.messages)
-        text = self._backend.complete(prompt)
-        return LLMResponse(text=text, model=request.model, provider=self.name)
+        self._backend.start()
+        return self._http_backend.generate(request)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         response = self._generate(request)

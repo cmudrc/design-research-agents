@@ -25,19 +25,19 @@ Base implementations:
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.router_agent
+.. automodule:: design_research_agents.agent.implementations.router_agent
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.tool_calling_agent
+.. automodule:: design_research_agents.agent.implementations.tool_calling_agent
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.single_step_code_agent
+.. automodule:: design_research_agents.agent.implementations.single_step_code_agent
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.multi_step_agent
+.. automodule:: design_research_agents.agent.implementations.multi_step_agent
    :members:
    :undoc-members:
 
@@ -45,7 +45,7 @@ Base implementations:
    :members:
    :undoc-members:
 
-.. automodule:: design_research_agents.agent.direct_llm_agent
+.. automodule:: design_research_agents.agent.implementations.direct_llm_agent
    :members:
    :undoc-members:
 

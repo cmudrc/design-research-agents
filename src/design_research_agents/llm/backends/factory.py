@@ -6,15 +6,19 @@ from typing import cast
 
 from design_research_agents.contracts.llm import BackendCapabilities
 from design_research_agents.llm.backends.base import BaseLLMBackend
-from design_research_agents.llm.backends.echo_test import EchoTestBackend
-from design_research_agents.llm.backends.llama_cpp import LlamaCppBackend
-from design_research_agents.llm.backends.llama_cpp_server import (
+from design_research_agents.llm.backends.providers.echo_test import EchoTestBackend
+from design_research_agents.llm.backends.providers.llama_cpp import LlamaCppBackend
+from design_research_agents.llm.backends.providers.llama_cpp_server import (
     create_backend as create_llama_cpp_server,
 )
-from design_research_agents.llm.backends.mlx_local import MlxLocalBackend
-from design_research_agents.llm.backends.openai_compatible_http import OpenAICompatibleHTTPBackend
-from design_research_agents.llm.backends.openai_service import OpenAIServiceBackend
-from design_research_agents.llm.backends.transformers_local import TransformersLocalBackend
+from design_research_agents.llm.backends.providers.mlx_local import MlxLocalBackend
+from design_research_agents.llm.backends.providers.openai_compatible_http import (
+    OpenAICompatibleHTTPBackend,
+)
+from design_research_agents.llm.backends.providers.openai_service import OpenAIServiceBackend
+from design_research_agents.llm.backends.providers.transformers_local import (
+    TransformersLocalBackend,
+)
 from design_research_agents.llm.config import (
     BackendConfig,
     EchoTestConfig,

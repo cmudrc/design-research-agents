@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.llm.backends.echo_test import EchoTestBackend
 from design_research_agents.llm.backends.factory import build_backend, build_backends
-from design_research_agents.llm.backends.llama_cpp import LlamaCppBackend
+from design_research_agents.llm.backends.providers.echo_test import EchoTestBackend
+from design_research_agents.llm.backends.providers.llama_cpp import LlamaCppBackend
 from design_research_agents.llm.config import (
     EchoTestConfig,
     LlamaCppConfig,
