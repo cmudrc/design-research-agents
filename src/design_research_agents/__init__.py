@@ -20,12 +20,10 @@ from .agent import (
     SingleStepCodeAgent,
     ToolCallingAgent,
 )
-from .llm import configure_llama_cpp_server
+from .llm import configure_llama_cpp_server, configure_openai
 from .llm.backends.default import create_default_llm_client
 from .tools import BaseToolRuntime
-
-# Backward/ergonomic alias requested for top-level llama-cpp default client creation.
-create_defult_llama_cpp_client = create_default_llm_client
+from .tracing import TraceConfig, configure_tracing
 
 # Keep a small, stable public surface for downstream users.
 __all__ = [
@@ -35,8 +33,11 @@ __all__ = [
     "RouterAgent",
     "SingleStepCodeAgent",
     "ToolCallingAgent",
+    "TraceConfig",
     "__version__",
     "configure_llama_cpp_server",
+    "configure_openai",
+    "configure_tracing",
     "create_default_llm_client",
 ]
 

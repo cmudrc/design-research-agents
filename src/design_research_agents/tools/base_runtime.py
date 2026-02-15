@@ -68,14 +68,28 @@ class BaseToolRuntime(ToolRuntime):
         The method never raises tool-handler exceptions directly; failures are
         surfaced through a structured `ToolResult` with `success=False`.
         """
+        from design_research_agents.tracing import (
+            fail_tool_call,
+            finish_tool_call,
+            start_tool_call,
+        )
+
+        tool_span_id = start_tool_call(
+            tool_name=tool_name,
+            tool_input=input_dict,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
         handler = self._handlers.get(tool_name)
         if handler is None:
             # Return structured failure instead of raising to keep agent flows deterministic.
+            error_message = f"Tool '{tool_name}' is not registered."
+            fail_tool_call(tool_span_id, tool_name=tool_name, error=error_message)
             return ToolResult(
                 tool_name=tool_name,
                 output={},
                 success=False,
-                error=f"Tool '{tool_name}' is not registered.",
+                error=error_message,
             )
 
         try:
@@ -83,6 +97,7 @@ class BaseToolRuntime(ToolRuntime):
             tool_output = dict(handler(input_dict, request_id, dependencies))
         except Exception as exc:
             # Tool exceptions are surfaced as tool errors to avoid aborting the full run.
+            fail_tool_call(tool_span_id, tool_name=tool_name, error=str(exc))
             return ToolResult(
                 tool_name=tool_name,
                 output={},
@@ -90,7 +105,7 @@ class BaseToolRuntime(ToolRuntime):
                 error=str(exc),
             )
 
-        return ToolResult(
+        result = ToolResult(
             tool_name=tool_name,
             output=tool_output,
             success=True,
@@ -99,6 +114,8 @@ class BaseToolRuntime(ToolRuntime):
                 "dependency_keys": sorted(dependencies.keys()),
             },
         )
+        finish_tool_call(tool_span_id, tool_name=tool_name, result=result)
+        return result
 
 
 def create_calculator_tool_spec() -> ToolSpec:
@@ -258,3 +275,6 @@ def _eval_node(node: ast.AST) -> int | float:
         return node.value
 
     raise ValueError("Expression contains unsupported syntax.")
+
+
+__all__ = ["BaseToolRuntime"]

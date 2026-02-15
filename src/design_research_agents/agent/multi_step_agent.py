@@ -35,6 +35,14 @@ from design_research_agents.contracts.llm import (
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
+from design_research_agents.tracing import (
+    emit_continuation_decision,
+    emit_guardrail_decision,
+    finish_model_call,
+    finish_trace_run,
+    start_model_call,
+    start_trace_run,
+)
 
 
 class MultiStepAgent(Agent):
@@ -118,6 +126,12 @@ class MultiStepAgent(Agent):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
+        trace_scope = start_trace_run(
+            agent_name="MultiStepAgent",
+            request_id=resolved_request_id,
+            input_payload=normalized_input,
+            dependencies=resolved_dependencies,
+        )
         prompt = _extract_prompt(normalized_input)
         max_steps = _extract_positive_int(
             input_payload=normalized_input,
@@ -178,17 +192,21 @@ class MultiStepAgent(Agent):
         terminated_reason = "max_steps_reached"
 
         for step_index in range(max_steps):
-            should_continue, continue_reason, continue_source, continue_response = (
-                self._llm_should_continue(
-                    prompt=prompt,
-                    memory=memory,
-                    step_index=step_index,
-                    max_steps=max_steps,
-                    model=resolved_model,
-                    alternatives_prompt_target=alternatives_prompt_target,
-                    alternatives_text=step_tools_text,
+            try:
+                should_continue, continue_reason, continue_source, continue_response = (
+                    self._llm_should_continue(
+                        prompt=prompt,
+                        memory=memory,
+                        step_index=step_index,
+                        max_steps=max_steps,
+                        model=resolved_model,
+                        alternatives_prompt_target=alternatives_prompt_target,
+                        alternatives_text=step_tools_text,
+                    )
                 )
-            )
+            except Exception as exc:
+                finish_trace_run(trace_scope, error=str(exc))
+                raise
             if continue_response is not None:
                 last_model_response = continue_response
             continuation_trace.append(
@@ -282,7 +300,7 @@ class MultiStepAgent(Agent):
 
             terminated_reason = "step_failure"
             if stop_on_step_failure:
-                return _failure_result(
+                result = _failure_result(
                     error=step_error,
                     model_response=last_model_response,
                     tool_results=tool_results,
@@ -301,6 +319,8 @@ class MultiStepAgent(Agent):
                         "terminated_reason": terminated_reason,
                     },
                 )
+                finish_trace_run(trace_scope, result=result)
+                return result
 
         success = all(step_output["success"] is True for step_output in step_outputs)
         output: dict[str, object] = {
@@ -310,7 +330,7 @@ class MultiStepAgent(Agent):
             "memory": memory,
             "terminated_reason": terminated_reason,
         }
-        return AgentResult(
+        result = AgentResult(
             output=output,
             success=success,
             tool_results=tool_results,
@@ -334,6 +354,8 @@ class MultiStepAgent(Agent):
                 },
             },
         )
+        finish_trace_run(trace_scope, result=result)
+        return result
 
     def run_stream(
         self,
@@ -395,19 +417,54 @@ class MultiStepAgent(Agent):
             response_schema=clone_response_schema(self._continuation_response_schema),
             provider_options={"agent": "MultiStepAgent", "phase": "continuation"},
         )
-        response = self._llm_client.chat(messages, model=model, params=llm_params)
+        model_span_id = start_model_call(
+            model=model,
+            messages=messages,
+            params=llm_params,
+            metadata={"agent": "MultiStepAgent", "phase": "continuation"},
+        )
+        try:
+            response = self._llm_client.chat(messages, model=model, params=llm_params)
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=model)
+            raise
+        finish_model_call(model_span_id, response=response)
         parsed = _parse_json_mapping(response.text)
         if parsed is not None and isinstance(parsed.get("continue"), bool):
             # Ensure at least one action-observation cycle runs before stopping.
             if step_index == 0 and not bool(parsed["continue"]) and not _has_observation(memory):
+                emit_guardrail_decision(
+                    guardrail="continuation_first_step",
+                    decision="override_continue",
+                    reason="first-step guardrail",
+                    details={"step": step_index + 1},
+                )
+                emit_continuation_decision(
+                    step=step_index + 1,
+                    should_continue=True,
+                    reason="first-step guardrail",
+                    source="guardrail",
+                )
                 return True, "first-step guardrail", "guardrail", response
             thought = _extract_continuation_thought(parsed)
+            emit_continuation_decision(
+                step=step_index + 1,
+                should_continue=bool(parsed["continue"]),
+                reason=thought,
+                source="model",
+            )
             return bool(parsed["continue"]), thought, "model", response
 
         fallback_decision = _fallback_should_continue(
             memory=memory,
             step_index=step_index,
             max_steps=max_steps,
+        )
+        emit_continuation_decision(
+            step=step_index + 1,
+            should_continue=fallback_decision,
+            reason="fallback heuristic",
+            source="fallback",
         )
         return fallback_decision, "fallback heuristic", "fallback", response
 

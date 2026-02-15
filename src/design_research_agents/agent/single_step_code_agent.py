@@ -36,6 +36,13 @@ from design_research_agents.contracts.llm import (
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
+from design_research_agents.tracing import (
+    emit_guardrail_decision,
+    finish_model_call,
+    finish_trace_run,
+    start_model_call,
+    start_trace_run,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -148,11 +155,22 @@ class SingleStepCodeAgent(Agent):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
+        trace_scope = start_trace_run(
+            agent_name="SingleStepCodeAgent",
+            request_id=resolved_request_id,
+            input_payload=normalized_input,
+            dependencies=resolved_dependencies,
+        )
         allowed_tools, allowed_tools_source = _extract_allowed_tools(
             default_allowed_tools=self._compiled_default_allowed_tools,
         )
         if not allowed_tools:
-            return _failure_result(
+            emit_guardrail_decision(
+                guardrail="allowed_tools",
+                decision="deny",
+                reason="no allowed tools resolved",
+            )
+            result = _failure_result(
                 error=(
                     "No allowed tools were resolved from init-time defaults or runtime "
                     "tool registration."
@@ -164,6 +182,8 @@ class SingleStepCodeAgent(Agent):
                 metadata={"stage": "input_validation"},
                 generated_code="",
             )
+            finish_trace_run(trace_scope, result=result)
+            return result
 
         max_tool_calls = _extract_positive_int(
             input_payload=normalized_input,
@@ -191,12 +211,16 @@ class SingleStepCodeAgent(Agent):
             input_payload=normalized_input
         )
 
-        llm_response = self._generate_code(
-            prompt=prompt,
-            allowed_tools=allowed_tools,
-            model=resolved_model,
-            alternatives_prompt_target=alternatives_prompt_target,
-        )
+        try:
+            llm_response = self._generate_code(
+                prompt=prompt,
+                allowed_tools=allowed_tools,
+                model=resolved_model,
+                alternatives_prompt_target=alternatives_prompt_target,
+            )
+        except Exception as exc:
+            finish_trace_run(trace_scope, error=str(exc))
+            raise
         raw_code_text = _extract_python_code(llm_response.text)
         if normalize_generated_code:
             code_normalization = _canonicalize_generated_code(
@@ -219,7 +243,13 @@ class SingleStepCodeAgent(Agent):
         try:
             compiled_code = _compile_sandboxed_code(code_text)
         except Exception as exc:
-            return _failure_result(
+            emit_guardrail_decision(
+                guardrail="code_validation",
+                decision="reject",
+                reason=str(exc),
+                details={"stage": "code_validation"},
+            )
+            result = _failure_result(
                 error=f"Generated code failed sandbox validation: {exc}",
                 model_response=llm_response,
                 tool_results=[],
@@ -232,6 +262,8 @@ class SingleStepCodeAgent(Agent):
                 generated_code=code_text,
                 raw_generated_code=raw_generated_code,
             )
+            finish_trace_run(trace_scope, result=result)
+            return result
 
         tool_results: list[ToolResult] = []
         try:
@@ -249,7 +281,7 @@ class SingleStepCodeAgent(Agent):
                 tool_results=tool_results,
             )
         except Exception as exc:
-            return _failure_result(
+            result = _failure_result(
                 error=f"Sandboxed code execution failed: {exc}",
                 model_response=llm_response,
                 tool_results=tool_results,
@@ -264,6 +296,8 @@ class SingleStepCodeAgent(Agent):
                 generated_code=code_text,
                 raw_generated_code=raw_generated_code,
             )
+            finish_trace_run(trace_scope, result=result)
+            return result
 
         output: dict[str, object] = {
             "model_text": llm_response.text,
@@ -274,7 +308,7 @@ class SingleStepCodeAgent(Agent):
         }
         if raw_generated_code is not None:
             output["raw_generated_code"] = raw_generated_code
-        return AgentResult(
+        result = AgentResult(
             output=output,
             success=all(tool_result.success for tool_result in tool_results),
             tool_results=tool_results,
@@ -294,6 +328,8 @@ class SingleStepCodeAgent(Agent):
                 "code_normalization": code_normalization.metadata(),
             },
         )
+        finish_trace_run(trace_scope, result=result)
+        return result
 
     def run_stream(
         self,
@@ -363,7 +399,19 @@ class SingleStepCodeAgent(Agent):
             ),
             LLMMessage(role="user", content=user_prompt),
         ]
-        return self._llm_client.chat(messages, model=model, params=llm_params)
+        model_span_id = start_model_call(
+            model=model,
+            messages=messages,
+            params=llm_params,
+            metadata={"agent": "SingleStepCodeAgent"},
+        )
+        try:
+            response = self._llm_client.chat(messages, model=model, params=llm_params)
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=model)
+            raise
+        finish_model_call(model_span_id, response=response)
+        return response
 
 
 def _extract_allowed_tools(
@@ -868,24 +916,56 @@ def _execute_compiled_code(
         """
         nonlocal tool_call_count
         if not isinstance(tool_name, str):
+            emit_guardrail_decision(
+                guardrail="tool_call_name",
+                decision="reject",
+                reason="call_tool tool_name must be a string.",
+                details={"tool_name": tool_name},
+            )
             raise ValueError("call_tool tool_name must be a string.")
         normalized_tool_name = tool_name.strip()
         if normalized_tool_name not in allowed_tools_map:
+            emit_guardrail_decision(
+                guardrail="tool_call_allowed",
+                decision="reject",
+                reason="tool not in allowed tool list",
+                details={"tool_name": normalized_tool_name},
+            )
             raise ValueError(f"Tool '{normalized_tool_name}' is not in the allowed tool list.")
         if tool_call_count >= max_tool_calls:
+            emit_guardrail_decision(
+                guardrail="tool_call_limit",
+                decision="reject",
+                reason="tool call limit exceeded",
+                details={"max_tool_calls": max_tool_calls},
+            )
             raise RuntimeError(f"Tool call limit exceeded ({max_tool_calls}).")
 
         if not isinstance(tool_input, Mapping):
+            emit_guardrail_decision(
+                guardrail="tool_call_input_type",
+                decision="reject",
+                reason="call_tool tool_input must be a mapping/object.",
+            )
             raise ValueError("call_tool tool_input must be a mapping/object.")
         allowed_tool = allowed_tools_map[normalized_tool_name]
         normalized_tool_input = dict(tool_input)
         if not normalized_tool_input and allowed_tool.default_tool_input is not None:
             normalized_tool_input = dict(allowed_tool.default_tool_input)
         if validate_tool_input_schema:
-            _validate_input_against_schema(
-                input_payload=normalized_tool_input,
-                input_schema=allowed_tool.input_schema,
-            )
+            try:
+                _validate_input_against_schema(
+                    input_payload=normalized_tool_input,
+                    input_schema=allowed_tool.input_schema,
+                )
+            except Exception as exc:
+                emit_guardrail_decision(
+                    guardrail="tool_input_schema",
+                    decision="reject",
+                    reason=str(exc),
+                    details={"tool_name": normalized_tool_name},
+                )
+                raise
 
         tool_call_count += 1
         tool_result = tool_runtime.invoke(
@@ -936,6 +1016,11 @@ def _execute_compiled_code(
         exec(compiled_code, sandbox_globals, sandbox_locals)
 
     if not tool_results:
+        emit_guardrail_decision(
+            guardrail="tool_call_required",
+            decision="reject",
+            reason="generated code must call at least one tool",
+        )
         raise ValueError("Generated code must call at least one tool.")
 
     raw_final_output = sandbox_locals.get("final_output")
@@ -949,11 +1034,21 @@ def _execute_compiled_code(
         # Fall back to the last successful tool output to keep execution usable.
         final_output = dict(tool_results[-1].output)
     if not isinstance(final_output, Mapping):
+        emit_guardrail_decision(
+            guardrail="final_output_type",
+            decision="reject",
+            reason="final_output must be a dict/object",
+        )
         raise ValueError("Generated code must assign `final_output` to a dict/object.")
 
     # Force JSON-serializable dict-like result.
     serialized = json.loads(json.dumps(dict(final_output)))
     if not isinstance(serialized, dict):
+        emit_guardrail_decision(
+            guardrail="final_output_json",
+            decision="reject",
+            reason="final_output must serialize to a JSON object",
+        )
         raise ValueError("final_output must serialize to a JSON object.")
     return serialized
 

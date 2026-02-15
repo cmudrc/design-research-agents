@@ -195,6 +195,9 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Trace output
+traces/
+
 # PyPI configuration file
 .pypirc
 

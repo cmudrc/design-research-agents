@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from importlib.resources import files
-from typing import Final, cast
+from typing import Final
 
 SCHEMA_VERSION: Final[str] = "v1"
 SCHEMA_NAMES: Final[tuple[str, ...]] = ("tool_spec", "tool_result", "agent_result")
@@ -41,11 +41,10 @@ def load_schema(name: str, *, version: str = SCHEMA_VERSION) -> dict[str, object
     if not isinstance(loaded_schema, dict):
         raise ValueError(f"Schema '{name}' must deserialize into an object.")
 
-    return cast(dict[str, object], loaded_schema)
+    return loaded_schema
 
 
 __all__ = [
     "SCHEMA_NAMES",
     "SCHEMA_VERSION",
-    "load_schema",
 ]

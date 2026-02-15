@@ -26,6 +26,13 @@ from design_research_agents.contracts.llm import (
     LLMMessage,
     LLMResponse,
 )
+from design_research_agents.tracing import (
+    emit_model_token,
+    finish_model_call,
+    finish_trace_run,
+    start_model_call,
+    start_trace_run,
+)
 
 
 class DirectLLMAgent(Agent):
@@ -77,8 +84,27 @@ class DirectLLMAgent(Agent):
         resolved_model, messages, message_source, llm_params = self._prepare_request(
             normalized_input
         )
-        llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
-        return _build_success_result(
+        trace_scope = start_trace_run(
+            agent_name="DirectLLMAgent",
+            request_id=resolved_request_id,
+            input_payload=normalized_input,
+            dependencies=resolved_dependencies,
+        )
+        model_span_id = start_model_call(
+            model=resolved_model,
+            messages=messages,
+            params=llm_params,
+            metadata={"agent": "DirectLLMAgent", "message_source": message_source},
+        )
+        try:
+            llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=resolved_model)
+            finish_trace_run(trace_scope, error=str(exc))
+            raise
+
+        finish_model_call(model_span_id, response=llm_response)
+        result = _build_success_result(
             llm_response=llm_response,
             request_id=resolved_request_id,
             dependencies=resolved_dependencies,
@@ -86,6 +112,8 @@ class DirectLLMAgent(Agent):
             message_count=len(messages),
             llm_params=llm_params,
         )
+        finish_trace_run(trace_scope, result=result)
+        return result
 
     def run_stream(
         self,
@@ -101,19 +129,42 @@ class DirectLLMAgent(Agent):
         resolved_model, messages, message_source, llm_params = self._prepare_request(
             normalized_input
         )
-        stream = self._llm_client.stream_chat(messages, model=resolved_model, params=llm_params)
+        trace_scope = start_trace_run(
+            agent_name="DirectLLMAgent",
+            request_id=resolved_request_id,
+            input_payload=normalized_input,
+            dependencies=resolved_dependencies,
+        )
+        model_span_id = start_model_call(
+            model=resolved_model,
+            messages=messages,
+            params=llm_params,
+            metadata={"agent": "DirectLLMAgent", "message_source": message_source},
+        )
+        try:
+            stream = self._llm_client.stream_chat(messages, model=resolved_model, params=llm_params)
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=resolved_model)
+            finish_trace_run(trace_scope, error=str(exc))
+            raise
 
         delta_parts: list[str] = []
         completed_response: LLMResponse | None = None
-        for stream_event in stream:
-            if stream_event.kind == "delta":
-                delta_text = stream_event.delta_text or ""
-                if delta_text:
-                    delta_parts.append(delta_text)
-                yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-                continue
-            if stream_event.kind == "completed":
-                completed_response = stream_event.response
+        try:
+            for stream_event in stream:
+                if stream_event.kind == "delta":
+                    delta_text = stream_event.delta_text or ""
+                    if delta_text:
+                        delta_parts.append(delta_text)
+                        emit_model_token(model_span_id, delta_text=delta_text)
+                    yield AgentStreamEvent(kind="delta", delta_text=delta_text)
+                    continue
+                if stream_event.kind == "completed":
+                    completed_response = stream_event.response
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=resolved_model)
+            finish_trace_run(trace_scope, error=str(exc))
+            raise
 
         if completed_response is None:
             completed_response = LLMResponse(
@@ -133,6 +184,7 @@ class DirectLLMAgent(Agent):
             )
 
         if completed_response is not None:
+            finish_model_call(model_span_id, response=completed_response)
             result = _build_success_result(
                 llm_response=completed_response,
                 request_id=resolved_request_id,
@@ -141,8 +193,15 @@ class DirectLLMAgent(Agent):
                 message_count=len(messages),
                 llm_params=llm_params,
             )
+            finish_trace_run(trace_scope, result=result)
             yield AgentStreamEvent(kind="completed", result=result)
         else:
+            finish_model_call(
+                model_span_id,
+                error="streaming response missing completion event",
+                model=resolved_model,
+            )
+            finish_trace_run(trace_scope, error="streaming response missing completion event")
             yield AgentStreamEvent(kind="failed", result=None)
 
     def _prepare_request(

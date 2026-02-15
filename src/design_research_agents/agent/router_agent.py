@@ -36,6 +36,14 @@ from design_research_agents.contracts.llm import (
 )
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
+from design_research_agents.tracing import (
+    emit_guardrail_decision,
+    emit_router_decision,
+    finish_model_call,
+    finish_trace_run,
+    start_model_call,
+    start_trace_run,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -122,6 +130,12 @@ class RouterAgent(Agent):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
+        trace_scope = start_trace_run(
+            agent_name="RouterAgent",
+            request_id=resolved_request_id,
+            input_payload=normalized_input,
+            dependencies=resolved_dependencies,
+        )
         prompt = _extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
@@ -163,7 +177,19 @@ class RouterAgent(Agent):
                 content=user_prompt,
             ),
         ]
-        llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
+        model_span_id = start_model_call(
+            model=resolved_model,
+            messages=messages,
+            params=llm_params,
+            metadata={"agent": "RouterAgent", "phase": "route_select"},
+        )
+        try:
+            llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=resolved_model)
+            finish_trace_run(trace_scope, error=str(exc))
+            raise
+        finish_model_call(model_span_id, response=llm_response)
         parsed_route = _parse_route_response(llm_response.text)
 
         route_resolution = _resolve_model_route(
@@ -171,7 +197,28 @@ class RouterAgent(Agent):
             alternatives=alternatives,
         )
         if route_resolution is None:
-            return _routing_failure_result(
+            emit_guardrail_decision(
+                guardrail="route_validation",
+                decision="reject",
+                reason="invalid model route output",
+                details={"stage": "routing"},
+            )
+            emit_router_decision(
+                source="model_invalid",
+                alternatives=[candidate.tool_name for candidate in alternatives],
+                selected_tool_name=None,
+                selected_index=None,
+                reason="invalid model route output",
+                parsed_route=(
+                    {
+                        "selection": parsed_route.selection,
+                        "reason": parsed_route.reason,
+                    }
+                    if parsed_route is not None
+                    else None
+                ),
+            )
+            result = _routing_failure_result(
                 error=(
                     "Router model output was invalid. "
                     "Expected JSON with one valid discrete route `selection`."
@@ -182,7 +229,24 @@ class RouterAgent(Agent):
                 alternatives=alternatives,
                 parsed_route=parsed_route,
             )
+            finish_trace_run(trace_scope, result=result)
+            return result
         selected_alternative, selected_index, selected_reason = route_resolution
+        emit_router_decision(
+            source="model",
+            alternatives=[candidate.tool_name for candidate in alternatives],
+            selected_tool_name=selected_alternative.tool_name,
+            selected_index=selected_index,
+            reason=selected_reason,
+            parsed_route=(
+                {
+                    "selection": parsed_route.selection,
+                    "reason": parsed_route.reason,
+                }
+                if parsed_route is not None
+                else None
+            ),
+        )
 
         model_text = llm_response.text
         tool_input = _resolve_tool_input(
@@ -207,7 +271,7 @@ class RouterAgent(Agent):
             "tool_input": tool_input,
             "tool_output": tool_result.output,
         }
-        return AgentResult(
+        result = AgentResult(
             output=output,
             success=tool_result.success,
             tool_results=[tool_result],
@@ -232,6 +296,8 @@ class RouterAgent(Agent):
                 },
             },
         )
+        finish_trace_run(trace_scope, result=result)
+        return result
 
     def run_stream(
         self,

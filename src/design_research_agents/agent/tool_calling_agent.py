@@ -30,6 +30,13 @@ from design_research_agents.contracts.agent import Agent, AgentResult, AgentStre
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
+from design_research_agents.tracing import (
+    emit_tool_selection_decision,
+    finish_model_call,
+    finish_trace_run,
+    start_model_call,
+    start_trace_run,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -98,6 +105,12 @@ class ToolCallingAgent(Agent):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(input)
+        trace_scope = start_trace_run(
+            agent_name="ToolCallingAgent",
+            request_id=resolved_request_id,
+            input_payload=normalized_input,
+            dependencies=resolved_dependencies,
+        )
         prompt = _extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
@@ -137,17 +150,35 @@ class ToolCallingAgent(Agent):
             response_schema=clone_response_schema(self._default_tool_call_response_schema),
             provider_options={"agent": "ToolCallingAgent"},
         )
-        llm_response = self._llm_client.chat(
-            model_messages,
+        model_span_id = start_model_call(
             model=resolved_model,
+            messages=model_messages,
             params=llm_params,
+            metadata={"agent": "ToolCallingAgent"},
         )
+        try:
+            llm_response = self._llm_client.chat(
+                model_messages,
+                model=resolved_model,
+                params=llm_params,
+            )
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=resolved_model)
+            finish_trace_run(trace_scope, error=str(exc))
+            raise
+        finish_model_call(model_span_id, response=llm_response)
 
         parsed_tool_call = _parse_tool_call(llm_response.text)
         selected_choice, tool_call_source, tool_call_reason = _select_tool_choice(
             parsed_tool_call=parsed_tool_call,
             prompt=prompt,
             choices=choices,
+        )
+        emit_tool_selection_decision(
+            source=tool_call_source,
+            tool_name=selected_choice.tool_name,
+            reason=tool_call_reason,
+            parsed_tool_call=parsed_tool_call,
         )
         tool_input = _resolve_tool_input(
             selected_choice=selected_choice,
@@ -168,7 +199,7 @@ class ToolCallingAgent(Agent):
             "tool_input": tool_input,
             "tool_output": tool_result.output,
         }
-        return AgentResult(
+        result = AgentResult(
             output=output,
             success=tool_result.success,
             tool_results=[tool_result],
@@ -184,6 +215,8 @@ class ToolCallingAgent(Agent):
                 },
             },
         )
+        finish_trace_run(trace_scope, result=result)
+        return result
 
     def run_stream(
         self,
