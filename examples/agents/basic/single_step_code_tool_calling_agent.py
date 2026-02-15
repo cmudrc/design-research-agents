@@ -4,7 +4,7 @@ The script generates one action program, executes it in the sandbox, and prints
 the resulting structured output.
 """
 
-from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, Toolbox
 from design_research_agents.agent import SingleStepCodeToolCallingAgent
 
 
@@ -14,7 +14,7 @@ def main() -> None:
     Demonstrates generated-code execution with default sandbox constraints.
     """
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     agent = SingleStepCodeToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
@@ -24,7 +24,7 @@ def main() -> None:
     result = agent.run(
         prompt=(
             "Create a tiny tool inventory CSV in artifacts, describe it, and search "
-            "the tools package for UnifiedToolRuntime."
+            "the tools package for Toolbox."
         ),
         request_id="example-single-step-code-agent-001",
     )

@@ -1,14 +1,23 @@
 ## Model Selection Examples
 
-These examples show how model-selection policy chooses local or remote models
-based on constraints and intent.
+These examples show how ``ModelSelector`` chooses local or remote models
+from flat selection inputs.
 
 ## What Each Example Demonstrates
 
 - `local.py`
-  - Tight-cost / local-preference selection that stays on local capability.
+  - Tight-cost selection that tends to stay on local capability.
 - `remote.py`
   - Constraints that allow or prefer remote capability when appropriate.
+
+## Programmatic Outputs
+
+``ModelSelector.select(...)`` supports:
+
+- ``output="decision"`` for a structured selection decision.
+- ``output="client_config"`` for a plain config mapping
+  (``provider``, ``model_id``, ``client_class``, ``kwargs``, ...).
+- ``output="client"`` (default) for an instantiated LLM client.
 
 ## Quick Start
 

@@ -83,5 +83,12 @@ Use constructor-first provider clients:
    )
    text = response.text
 
-For contribution workflow and PR expectations, see ``CONTRIBUTING.md`` in the
-repository root.
+Continue with focused guides:
+
+- :doc:`llm_clients/index`
+- :doc:`agents/index`
+- :doc:`tools/index`
+- :doc:`workflows/index`
+
+For contribution workflow and PR expectations, see
+`CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_.

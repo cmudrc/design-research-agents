@@ -1,0 +1,27 @@
+Tools
+=====
+
+``Toolbox`` is the canonical tools entrypoint. It fuses core tools,
+MCP tools, and script tools into one runtime surface.
+
+Naming and routing
+------------------
+
+- Core tools use plain names (for example ``calculator`` or ``fs.read_text``).
+- Script tools are namespaced as ``script::<tool_name>``.
+- MCP tools are namespaced as ``<server_id>::<tool_name>``.
+
+Pages
+-----
+
+- :doc:`runtime_basics`
+- :doc:`mcp`
+- :doc:`lazy_tools`
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+
+   runtime_basics
+   mcp
+   lazy_tools

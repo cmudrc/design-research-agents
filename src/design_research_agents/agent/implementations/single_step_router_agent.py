@@ -43,6 +43,7 @@ from design_research_agents.contracts.llm import (
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
+    Tracer,
     emit_guardrail_decision,
     emit_router_decision,
     finish_model_call,
@@ -93,15 +94,18 @@ class SingleStepRouterAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a router agent with injected runtime dependencies.
 
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
+            tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
+        self._tracer = tracer
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_runtime_alternatives = _compile_runtime_alternatives(
             tool_specs=self._runtime_specs
@@ -142,6 +146,7 @@ class SingleStepRouterAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(

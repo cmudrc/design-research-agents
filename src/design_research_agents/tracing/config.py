@@ -1,8 +1,7 @@
-"""Trace configuration helpers and sink construction."""
+"""Trace tracer configuration and sink construction."""
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -16,8 +15,8 @@ UTC = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
 
 
 @dataclass(slots=True, frozen=True)
-class TraceConfig:
-    """Configuration for tracing output and sink behavior."""
+class Tracer:
+    """Explicitly configured tracer dependency injected into runtimes."""
 
     enabled: bool = True
     trace_dir: Path = Path("traces")
@@ -25,56 +24,22 @@ class TraceConfig:
     enable_console: bool = True
     console_stream: TextIO = sys.stderr
 
+    def build_trace_path(self, *, run_id: str) -> Path | None:
+        """Build a trace JSONL path for one run when JSONL sink is enabled."""
+        if not self.enable_jsonl:
+            return None
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        safe_run_id = _sanitize_filename(run_id)
+        return self.trace_dir / f"run_{timestamp}_{safe_run_id}.jsonl"
 
-_TRACE_CONFIG: TraceConfig | None = None
-
-
-def configure_tracing(*, config: TraceConfig) -> None:
-    """Set a global trace configuration overriding environment defaults.
-
-    Args:
-        config: Trace configuration to apply process-wide.
-    """
-    global _TRACE_CONFIG
-    _TRACE_CONFIG = config
-
-
-def _resolve_trace_config() -> TraceConfig:
-    if _TRACE_CONFIG is not None:
-        return _TRACE_CONFIG
-    return TraceConfig(
-        enabled=_parse_bool_env("DRA_TRACE_ENABLED", True),
-        trace_dir=Path(os.environ.get("DRA_TRACE_DIR", "traces")).expanduser(),
-        enable_jsonl=_parse_bool_env("DRA_TRACE_JSONL", True),
-        enable_console=_parse_bool_env("DRA_TRACE_CONSOLE", True),
-        console_stream=sys.stderr,
-    )
+    def build_sinks(self, *, trace_path: Path | None) -> list[TraceSink]:
+        """Build concrete sinks for this tracer configuration."""
+        sinks: list[TraceSink] = []
+        if self.enable_jsonl and trace_path is not None:
+            sinks.append(JSONLTraceSink(trace_path))
+        if self.enable_console:
+            sinks.append(ConsoleTraceSink(self.console_stream))
+        return sinks
 
 
-def _build_trace_path(config: TraceConfig, *, run_id: str) -> Path | None:
-    if not config.enable_jsonl:
-        return None
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    safe_run_id = _sanitize_filename(run_id)
-    return config.trace_dir / f"run_{timestamp}_{safe_run_id}.jsonl"
-
-
-def _build_sinks(config: TraceConfig, *, trace_path: Path | None) -> list[TraceSink]:
-    sinks: list[TraceSink] = []
-    if config.enable_jsonl and trace_path is not None:
-        sinks.append(JSONLTraceSink(trace_path))
-    if config.enable_console:
-        sinks.append(ConsoleTraceSink(config.console_stream))
-    return sinks
-
-
-def _parse_bool_env(name: str, default: bool) -> bool:
-    raw_value = os.environ.get(name)
-    if raw_value is None:
-        return default
-    normalized = raw_value.strip().lower()
-    if normalized in {"1", "true", "yes", "on"}:
-        return True
-    if normalized in {"0", "false", "no", "off"}:
-        return False
-    return default
+__all__ = ["Tracer"]

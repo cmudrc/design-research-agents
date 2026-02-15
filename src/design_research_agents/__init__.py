@@ -1,4 +1,4 @@
-"""Curated public package interface with lazy top-level exports."""
+"""Curated public package interface with lazy-loaded top-level exports."""
 
 from __future__ import annotations
 
@@ -13,7 +13,10 @@ _EXPORTS: Final[dict[str, str]] = {
     "SingleStepCodeToolCallingAgent": "design_research_agents.agent:SingleStepCodeToolCallingAgent",
     "MultiStepJsonToolCallingAgent": "design_research_agents.agent:MultiStepJsonToolCallingAgent",
     "MultiStepCodeToolCallingAgent": "design_research_agents.agent:MultiStepCodeToolCallingAgent",
-    "UnifiedToolRuntime": "design_research_agents.tools:UnifiedToolRuntime",
+    "Toolbox": "design_research_agents.tools:Toolbox",
+    "CallableTool": "design_research_agents.tools:CallableTool",
+    "ScriptTool": "design_research_agents.tools:ScriptTool",
+    "McpServer": "design_research_agents.tools:McpServer",
     "PlanExecuteWorkflow": "design_research_agents.workflow:PlanExecuteWorkflow",
     "ProposeAndCritiqueWorkflow": "design_research_agents.workflow:ProposeAndCritiqueWorkflow",
     "AgentRoutingWorkflow": "design_research_agents.workflow:AgentRoutingWorkflow",
@@ -24,14 +27,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
     "TransformersLocalLLMClient": "design_research_agents.llm:TransformersLocalLLMClient",
     "MlxLocalLLMClient": "design_research_agents.llm:MlxLocalLLMClient",
-    "TraceConfig": "design_research_agents.tracing:TraceConfig",
-    "configure_tracing": "design_research_agents.tracing:configure_tracing",
-    "StdioMcpServer": "design_research_agents.mcp_server:StdioMcpServer",
-    "serve_stdio": "design_research_agents.mcp_server:serve_stdio",
-    "HardwareProfile": "design_research_agents.model_selection:HardwareProfile",
-    "ModelSelectionPolicy": "design_research_agents.model_selection:ModelSelectionPolicy",
-    "ModelSelectionIntent": "design_research_agents.model_selection:ModelSelectionIntent",
-    "ModelSelectionConstraints": "design_research_agents.model_selection:ModelSelectionConstraints",
+    "ModelSelector": "design_research_agents.model_selection:ModelSelector",
 }
 
 __all__ = ["__version__", *_EXPORTS.keys()]
@@ -69,15 +65,11 @@ if TYPE_CHECKING:
     from .llm import OpenAICompatibleHTTPLLMClient as OpenAICompatibleHTTPLLMClient
     from .llm import OpenAIServiceLLMClient as OpenAIServiceLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
-    from .mcp_server import StdioMcpServer as StdioMcpServer
-    from .mcp_server import serve_stdio as serve_stdio
-    from .model_selection import HardwareProfile as HardwareProfile
-    from .model_selection import ModelSelectionConstraints as ModelSelectionConstraints
-    from .model_selection import ModelSelectionIntent as ModelSelectionIntent
-    from .model_selection import ModelSelectionPolicy as ModelSelectionPolicy
-    from .tools import UnifiedToolRuntime as UnifiedToolRuntime
-    from .tracing import TraceConfig as TraceConfig
-    from .tracing import configure_tracing as configure_tracing
+    from .model_selection import ModelSelector as ModelSelector
+    from .tools import CallableTool as CallableTool
+    from .tools import McpServer as McpServer
+    from .tools import ScriptTool as ScriptTool
+    from .tools import Toolbox as Toolbox
     from .workflow import AgentRoutingWorkflow as AgentRoutingWorkflow
     from .workflow import MixedAgentWorkflow as MixedAgentWorkflow
     from .workflow import PlanExecuteWorkflow as PlanExecuteWorkflow

@@ -3,12 +3,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from design_research_agents.tools import UnifiedToolRuntime
-from design_research_agents.tools.config import McpServerConfig
+from design_research_agents.tools import Toolbox
+from design_research_agents.tools.config import CallableTool, McpServer, ScriptTool
 
 
-def _local_mcp_server(server_id: str = "local_core") -> McpServerConfig:
-    return McpServerConfig(
+def _local_mcp_server(server_id: str = "local_core") -> McpServer:
+    return McpServer(
         id=server_id,
         command=(sys.executable, "-m", "design_research_agents.mcp_server"),
         env={"PYTHONPATH": "src"},
@@ -16,31 +16,50 @@ def _local_mcp_server(server_id: str = "local_core") -> McpServerConfig:
     )
 
 
+def _rubric_script_tool() -> ScriptTool:
+    return ScriptTool(
+        name="rubric_score",
+        path="examples/lazy_tools/python/rubric_score.py",
+        description="Score text against a simple rubric.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string"},
+                "max_score": {"type": "integer"},
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+        output_schema={"type": "object"},
+        filesystem_write=True,
+    )
+
+
 def test_default_constructor_lists_core_tools() -> None:
-    runtime = UnifiedToolRuntime()
+    runtime = Toolbox()
 
     names = {spec.name for spec in runtime.list_tools()}
     assert runtime.config.core_tools.enabled is True
-    assert runtime.config.lazy_tools.enabled is False
+    assert runtime.config.script_tools.enabled is False
     assert runtime.config.mcp.enabled is False
     assert "calculator" in names
 
 
-def test_constructor_enables_lazy_tools_from_search_paths() -> None:
-    runtime = UnifiedToolRuntime(
+def test_constructor_enables_script_tools() -> None:
+    runtime = Toolbox(
         workspace_root=".",
         enable_core_tools=False,
-        lazy_search_paths=("examples/lazy_tools",),
+        script_tools=(_rubric_script_tool(),),
     )
 
     names = {spec.name for spec in runtime.list_tools()}
     assert runtime.config.core_tools.enabled is False
-    assert runtime.config.lazy_tools.enabled is True
-    assert "lazy::rubric_score" in names
+    assert runtime.config.script_tools.enabled is True
+    assert "script::rubric_score" in names
 
 
 def test_constructor_enables_mcp_from_servers() -> None:
-    runtime = UnifiedToolRuntime(mcp_servers=(_local_mcp_server(),))
+    runtime = Toolbox(mcp_servers=(_local_mcp_server(),))
     try:
         assert runtime.config.mcp.enabled is True
         assert tuple(server.id for server in runtime.config.mcp.servers) == ("local_core",)
@@ -48,18 +67,29 @@ def test_constructor_enables_mcp_from_servers() -> None:
         runtime.close()
 
 
-def test_lazy_and_mcp_classmethods_disable_core_tools_by_default() -> None:
-    lazy_runtime = UnifiedToolRuntime.lazy(search_paths=("examples/lazy_tools",))
-    mcp_runtime = UnifiedToolRuntime.mcp(servers=(_local_mcp_server(),))
-    try:
-        assert lazy_runtime.config.core_tools.enabled is False
-        assert mcp_runtime.config.core_tools.enabled is False
-    finally:
-        mcp_runtime.close()
+def test_constructor_registers_callable_tools() -> None:
+    runtime = Toolbox(
+        enable_core_tools=False,
+        callable_tools=(
+            CallableTool(
+                name="echo.callable",
+                description="Echo the payload",
+                handler=lambda payload: {"payload": dict(payload)},
+            ),
+        ),
+    )
+    result = runtime.invoke(
+        "echo.callable",
+        {"x": 1},
+        request_id="init-api",
+        dependencies={},
+    )
+    assert result.ok is True
+    assert result.result == {"payload": {"x": 1}}
 
 
 def test_pathlike_workspace_root_is_normalized_and_runtime_still_invokes() -> None:
-    runtime = UnifiedToolRuntime(workspace_root=Path("."))
+    runtime = Toolbox(workspace_root=Path("."))
 
     assert isinstance(runtime.config.core_tools.workspace_root, str)
     result = runtime.invoke(

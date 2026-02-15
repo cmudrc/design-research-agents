@@ -6,12 +6,12 @@ import json
 import sys
 from collections.abc import Mapping
 
-from design_research_agents import UnifiedToolRuntime
-from design_research_agents.tools.config import McpServerConfig
+from design_research_agents import Toolbox
+from design_research_agents.tools.config import McpServer
 
 
 def _invoke_dict(
-    runtime: UnifiedToolRuntime,
+    runtime: Toolbox,
     tool_name: str,
     payload: Mapping[str, object],
 ) -> dict[str, object]:
@@ -26,9 +26,9 @@ def _invoke_dict(
 
 def main() -> None:
     """Run a minimal MCP-only runtime and print one compact report."""
-    runtime = UnifiedToolRuntime.mcp(
-        servers=(
-            McpServerConfig(
+    runtime = Toolbox(
+        mcp_servers=(
+            McpServer(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents.mcp_server"),
                 env={"PYTHONPATH": "src"},

@@ -15,7 +15,7 @@ from design_research_agents.contracts.tools import (
     ToolSideEffects,
     ToolSpec,
 )
-from design_research_agents.tools.config import McpConfig, McpServerConfig
+from design_research_agents.tools.config import McpConfig, McpServer
 from design_research_agents.tools.policy import ToolPolicy
 
 
@@ -26,7 +26,7 @@ class McpProtocolError(RuntimeError):
 class _StdioMcpClient:
     """Tiny stdio JSON-RPC client used for MCP tools/list and tools/call."""
 
-    def __init__(self, *, server: McpServerConfig, policy: ToolPolicy) -> None:
+    def __init__(self, *, server: McpServer, policy: ToolPolicy) -> None:
         self._server = server
         self._policy = policy
         self._process: subprocess.Popen[str] | None = None

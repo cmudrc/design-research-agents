@@ -1,4 +1,4 @@
-"""Command-line interface for tool runtime, MCP, and lazy tools."""
+"""Command-line interface for toolbox, MCP, and script tools."""
 
 from __future__ import annotations
 
@@ -7,10 +7,9 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from design_research_agents.mcp_server import serve_stdio
-from design_research_agents.tools import UnifiedToolRuntime
-from design_research_agents.tools.config import McpServerConfig
-from design_research_agents.tools.lazy.discovery import discover_lazy_tools
+from design_research_agents.mcp_server.server import _serve_stdio
+from design_research_agents.tools import Toolbox
+from design_research_agents.tools.config import McpServer, load_tool_runtime_config
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,22 +26,22 @@ def main(argv: list[str] | None = None) -> int:
     ping_parser.add_argument("--server", required=True, help="Configured MCP server id")
     ping_parser.add_argument("--config", help="Tool runtime YAML config path")
 
-    call_parser = mcp_subparsers.add_parser("call", help="Call one tool through unified runtime")
+    call_parser = mcp_subparsers.add_parser("call", help="Call one tool through toolbox")
     call_parser.add_argument("tool", help="Tool name to invoke")
     call_parser.add_argument("--json", required=True, help="JSON object with tool input")
     call_parser.add_argument("--config", help="Tool runtime YAML config path")
 
-    lazy_parser = subparsers.add_parser("lazy", help="Lazy tool commands")
-    lazy_subparsers = lazy_parser.add_subparsers(dest="lazy_command")
+    script_parser = subparsers.add_parser("script", help="Script tool commands")
+    script_subparsers = script_parser.add_subparsers(dest="script_command")
 
-    lint_parser = lazy_subparsers.add_parser("lint", help="Lint lazy tool headers")
+    lint_parser = script_subparsers.add_parser("lint", help="Lint script-tool files")
     lint_parser.add_argument("target", help="Directory or file to lint")
 
-    list_parser = lazy_subparsers.add_parser("list", help="List discovered lazy tools")
+    list_parser = script_subparsers.add_parser("list", help="List configured script tools")
     list_parser.add_argument("--config", help="Tool runtime YAML config path")
 
-    run_parser = lazy_subparsers.add_parser("run", help="Run one lazy tool")
-    run_parser.add_argument("tool_name", help="Lazy tool canonical or short name")
+    run_parser = script_subparsers.add_parser("run", help="Run one script tool")
+    run_parser.add_argument("tool_name", help="Script tool canonical or short name")
     run_parser.add_argument("--json", required=True, help="JSON object tool input")
     run_parser.add_argument("--config", help="Tool runtime YAML config path")
 
@@ -50,8 +49,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if parsed_args.command == "mcp":
         return _handle_mcp(parsed_args)
-    if parsed_args.command == "lazy":
-        return _handle_lazy(parsed_args)
+    if parsed_args.command == "script":
+        return _handle_script(parsed_args)
 
     parser.print_help()
     return 1
@@ -59,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _handle_mcp(cli_args: argparse.Namespace) -> int:
     if cli_args.mcp_command == "serve":
-        serve_stdio()
+        _serve_stdio()
         return 0
 
     if cli_args.mcp_command == "ping":
@@ -107,11 +106,9 @@ def _handle_mcp(cli_args: argparse.Namespace) -> int:
     return 1
 
 
-def _handle_lazy(cli_args: argparse.Namespace) -> int:
-    if cli_args.lazy_command == "lint":
-        target_path = Path(str(cli_args.target)).expanduser()
-        search_paths = (str(target_path),)
-        _, diagnostics = discover_lazy_tools(search_paths)
+def _handle_script(cli_args: argparse.Namespace) -> int:
+    if cli_args.script_command == "lint":
+        diagnostics = _lint_script_target(Path(str(cli_args.target)).expanduser())
         if not diagnostics:
             print(json.dumps({"ok": True, "diagnostics": []}, ensure_ascii=True, indent=2))
             return 0
@@ -119,7 +116,7 @@ def _handle_lazy(cli_args: argparse.Namespace) -> int:
             json.dumps(
                 {
                     "ok": False,
-                    "diagnostics": [asdict(diagnostic) for diagnostic in diagnostics],
+                    "diagnostics": diagnostics,
                 },
                 ensure_ascii=True,
                 indent=2,
@@ -127,18 +124,18 @@ def _handle_lazy(cli_args: argparse.Namespace) -> int:
         )
         return 2
 
-    if cli_args.lazy_command == "list":
+    if cli_args.script_command == "list":
         tool_runtime = _build_runtime(cli_args.config)
         try:
-            lazy_tools = [
-                spec.name for spec in tool_runtime.list_tools() if spec.metadata.source == "lazy"
+            script_tools = [
+                spec.name for spec in tool_runtime.list_tools() if spec.metadata.source == "script"
             ]
-            print(json.dumps({"tools": lazy_tools}, ensure_ascii=True, indent=2))
+            print(json.dumps({"tools": script_tools}, ensure_ascii=True, indent=2))
             return 0
         finally:
             tool_runtime.close()
 
-    if cli_args.lazy_command == "run":
+    if cli_args.script_command == "run":
         tool_runtime = _build_runtime(cli_args.config)
         try:
             tool_input_payload = _parse_json_object(cli_args.json)
@@ -148,8 +145,8 @@ def _handle_lazy(cli_args: argparse.Namespace) -> int:
 
             requested_name = str(cli_args.tool_name).strip()
             resolved_name = requested_name
-            if not requested_name.startswith("lazy::"):
-                resolved_name = f"lazy::{requested_name}"
+            if not requested_name.startswith("script::"):
+                resolved_name = f"script::{requested_name}"
 
             tool_result = tool_runtime.invoke(
                 resolved_name,
@@ -162,14 +159,25 @@ def _handle_lazy(cli_args: argparse.Namespace) -> int:
         finally:
             tool_runtime.close()
 
-    print("Unknown lazy command.")
+    print("Unknown script command.")
     return 1
 
 
-def _build_runtime(path: str | None) -> UnifiedToolRuntime:
-    if path:
-        return UnifiedToolRuntime.from_yaml(path)
-    return UnifiedToolRuntime()
+def _build_runtime(path: str | None) -> Toolbox:
+    if not path:
+        return Toolbox()
+
+    runtime_config = load_tool_runtime_config(path)
+    mcp_servers = runtime_config.mcp.servers if runtime_config.mcp.enabled else None
+    script_tools = (
+        runtime_config.script_tools.tools if runtime_config.script_tools.enabled else None
+    )
+    return Toolbox(
+        workspace_root=runtime_config.core_tools.workspace_root,
+        enable_core_tools=runtime_config.core_tools.enabled,
+        script_tools=script_tools,
+        mcp_servers=mcp_servers,
+    )
 
 
 def _parse_json_object(raw_json_text: str) -> dict[str, object] | None:
@@ -182,8 +190,35 @@ def _parse_json_object(raw_json_text: str) -> dict[str, object] | None:
     return {str(key): value for key, value in parsed_payload.items()}
 
 
-def _server_exists(servers: tuple[McpServerConfig, ...], server_id: str) -> bool:
+def _server_exists(servers: tuple[McpServer, ...], server_id: str) -> bool:
     return any(server.id == server_id for server in servers)
+
+
+def _lint_script_target(target_path: Path) -> list[dict[str, str]]:
+    diagnostics: list[dict[str, str]] = []
+    if not target_path.exists():
+        return [{"path": str(target_path), "error": "Target path does not exist."}]
+
+    candidates: list[Path] = []
+    if target_path.is_file():
+        candidates.append(target_path)
+    else:
+        candidates.extend(target_path.rglob("*.py"))
+        candidates.extend(target_path.rglob("*.sh"))
+
+    if not candidates:
+        return [{"path": str(target_path), "error": "No .py or .sh scripts found."}]
+
+    for candidate in sorted(candidates):
+        if candidate.suffix not in {".py", ".sh"}:
+            continue
+        if not candidate.is_file():
+            diagnostics.append({"path": str(candidate), "error": "Not a regular file."})
+            continue
+        if not candidate.exists():
+            diagnostics.append({"path": str(candidate), "error": "Script file is missing."})
+
+    return diagnostics
 
 
 if __name__ == "__main__":  # pragma: no cover

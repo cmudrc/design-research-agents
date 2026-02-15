@@ -4,14 +4,14 @@ The script demonstrates iterative continuation/step execution over a short
 multi-step task and prints the final structured result payload.
 """
 
-from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, Toolbox
 from design_research_agents.agent import MultiStepJsonToolCallingAgent
 
 
 def main() -> None:
     """Execute one multi-step JSON run and print the resulting ``AgentResult``."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     agent = MultiStepJsonToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,

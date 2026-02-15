@@ -3,7 +3,7 @@
 import dataclasses
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, UnifiedToolRuntime
+from design_research_agents import LlamaCppServerLLMClient, Toolbox
 from design_research_agents.agent import SingleStepCodeToolCallingAgent
 from design_research_agents.contracts.agent import AgentStreamEvent
 
@@ -22,7 +22,7 @@ def _print_stream_event(event: AgentStreamEvent) -> None:
 def main() -> None:
     """Execute one single-step code-agent streaming run and print events."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
     agent = SingleStepCodeToolCallingAgent(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
@@ -30,7 +30,7 @@ def main() -> None:
     )
 
     for event in agent.run_stream(
-        prompt="Summarize top-level repo size and number of UnifiedToolRuntime references in src.",
+        prompt="Summarize top-level repo size and number of Toolbox references in src.",
         request_id="example-single-step-code-agent-stream-001",
     ):
         _print_stream_event(event)

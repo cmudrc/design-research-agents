@@ -14,6 +14,7 @@ from design_research_agents.contracts.workflow import (
     WorkflowFailurePolicy,
     WorkflowResult,
 )
+from design_research_agents.tracing import Tracer
 
 from .workflow_runtime import WorkflowRuntime
 
@@ -56,11 +57,13 @@ class MixedAgentWorkflow:
         agents: Mapping[str, WorkflowDelegate],
         steps: Sequence[MixedWorkflowStep],
         base_context: Mapping[str, object] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Store runtime dependencies, delegate bindings, and step topology."""
         self._runtime = WorkflowRuntime(
             tool_runtime=tool_runtime,
             agents=_normalize_agents(agents),
+            tracer=tracer,
         )
         self._steps = _normalize_steps(steps)
         self._base_context = dict(base_context or {})
@@ -94,6 +97,7 @@ def mixed_agent_workflow(
     agents: Mapping[str, WorkflowDelegate],
     steps: Sequence[MixedWorkflowStep],
     base_context: Mapping[str, object] | None = None,
+    tracer: Tracer | None = None,
 ) -> MixedAgentWorkflow:
     """Return a configured mixed workflow orchestration chunk."""
     return MixedAgentWorkflow(
@@ -101,6 +105,7 @@ def mixed_agent_workflow(
         agents=agents,
         steps=steps,
         base_context=base_context,
+        tracer=tracer,
     )
 
 

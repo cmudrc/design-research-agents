@@ -30,9 +30,13 @@ Get started
 -----------
 
 - :doc:`quickstart` for a fast, end-to-end example.
-- :doc:`agent_types` to understand the tradeoffs.
+- :doc:`llm_clients/index` to choose local or remote client backends.
+- :doc:`tools/index` for unified runtime + MCP + script tools.
+- :doc:`agents/index` to understand agent execution tradeoffs.
+- :doc:`workflows/index` for orchestration patterns and composition.
 - :doc:`api` for reference details.
-- :doc:`contributing` if you want to extend the project.
+- `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
+  for contribution workflow and PR expectations.
 
 .. toctree::
    :maxdepth: 2
@@ -41,11 +45,10 @@ Get started
 
    quickstart
    philosophy
-   agent_types
-   tools_runtime
-   mcp
-   lazy_tools
-   contributing
+   llm_clients/index
+   tools/index
+   agents/index
+   workflows/index
 
 .. toctree::
    :maxdepth: 2

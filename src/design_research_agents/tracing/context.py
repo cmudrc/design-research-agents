@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 
-from .config import _build_sinks, _build_trace_path, _resolve_trace_config
+from .config import Tracer
 from .session import TraceSession, _SpanInfo
 from .utils import _normalize_value
 
@@ -52,6 +52,7 @@ def start_trace_run(
     request_id: str,
     input_payload: Mapping[str, object],
     dependencies: Mapping[str, object],
+    tracer: Tracer | None = None,
 ) -> TraceScope | None:
     """Start a trace run scope or nested agent span.
 
@@ -60,18 +61,18 @@ def start_trace_run(
         request_id: Request identifier for the run.
         input_payload: Normalized input payload mapping.
         dependencies: Dependency payload mapping.
+        tracer: Explicit tracer dependency. When ``None`` tracing is disabled.
 
     Returns:
         Trace scope when tracing is enabled, otherwise ``None``.
     """
-    config = _resolve_trace_config()
-    if not config.enabled:
+    if tracer is None or not tracer.enabled:
         return None
 
     active_session = _CURRENT_TRACE.get()
     if active_session is None:
-        trace_path = _build_trace_path(config, run_id=request_id)
-        sinks = _build_sinks(config, trace_path=trace_path)
+        trace_path = tracer.build_trace_path(run_id=request_id)
+        sinks = tracer.build_sinks(trace_path=trace_path)
         session = TraceSession(run_id=request_id, sinks=sinks)
         session._open_spans[session.root_span_id] = _SpanInfo(
             start_time=time.perf_counter(),

@@ -15,10 +15,10 @@ surfaces: agents, orchestration workflows, model selection, and tool runtime.
   - Local-vs-remote model selection policy behavior.
   - See `examples/model_selection/README.md`.
 - `examples/tools`
-  - Unified tool runtime examples (core + lazy + MCP).
+  - Unified tool runtime examples (core + script + MCP).
   - See `examples/tools/README.md`.
 - `examples/lazy_tools`
-  - Lazy tool scripts and one-step agent wrappers for each lazy tool.
+  - Script-tool scripts and one-step agent wrappers for each script tool.
   - See `examples/lazy_tools/README.md`.
 
 ## Quick Start
@@ -34,7 +34,7 @@ PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
 - Most examples print JSON-like result payloads (`AgentResult`, workflow result,
   or tool runtime report).
 - Streaming examples print incremental events (`delta`) followed by completion.
-- Tool and lazy-tool examples also write artifacts under `artifacts/`.
+- Tool and script-tool examples also write artifacts under `artifacts/`.
 
 ## Troubleshooting
 

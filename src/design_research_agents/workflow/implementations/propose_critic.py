@@ -9,6 +9,7 @@ from design_research_agents.agent.runtime_controls import RuntimeControls
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.tracing import Tracer
 
 
 class ProposeAndCritiqueWorkflow(Agent):
@@ -20,6 +21,7 @@ class ProposeAndCritiqueWorkflow(Agent):
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
         controls: RuntimeControls | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize the underlying runtime."""
         self._runtime = AgentRuntime(
@@ -27,6 +29,7 @@ class ProposeAndCritiqueWorkflow(Agent):
             tool_runtime=tool_runtime,
             mode="propose_critic",
             controls=controls,
+            tracer=tracer,
         )
 
     def run(
@@ -63,12 +66,14 @@ def propose_and_critique_workflow(
     llm_client: LLMClient,
     tool_runtime: ToolRuntime,
     controls: RuntimeControls | None = None,
+    tracer: Tracer | None = None,
 ) -> ProposeAndCritiqueWorkflow:
     """Return a configured ``propose_critic`` workflow chunk."""
     return ProposeAndCritiqueWorkflow(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         controls=controls,
+        tracer=tracer,
     )
 
 

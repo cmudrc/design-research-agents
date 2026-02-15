@@ -7,7 +7,7 @@ intent/agent-routing entrypoint and terminology.
 from design_research_agents import (
     AgentRoutingWorkflow,
     LlamaCppServerLLMClient,
-    UnifiedToolRuntime,
+    Toolbox,
 )
 from design_research_agents.agent import SingleStepDirectLLMAgent, SingleStepJsonToolCallingAgent
 
@@ -15,7 +15,7 @@ from design_research_agents.agent import SingleStepDirectLLMAgent, SingleStepJso
 def main() -> None:
     """Route one prompt to the best delegate agent and print the final result."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = UnifiedToolRuntime()
+    tool_runtime = Toolbox()
 
     direct_llm_agent = SingleStepDirectLLMAgent(llm_client=llm_client)
     json_tool_agent = SingleStepJsonToolCallingAgent(

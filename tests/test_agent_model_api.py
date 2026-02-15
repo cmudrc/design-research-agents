@@ -15,7 +15,7 @@ from design_research_agents.agent import (
     SingleStepRouterAgent,
 )
 from design_research_agents.contracts.llm import LLMChatParams, LLMDelta, LLMMessage, LLMRequest
-from design_research_agents.tools import UnifiedToolRuntime
+from design_research_agents.tools import Toolbox
 
 
 class _EmptyDefaultModelClient:
@@ -75,6 +75,6 @@ def test_agent_runtime_fails_when_llm_default_model_is_empty() -> None:
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
         AgentRuntime(
             llm_client=_EmptyDefaultModelClient(),
-            tool_runtime=UnifiedToolRuntime(),
+            tool_runtime=Toolbox(),
             mode="plan_execute",
         ).run("Compute 1 + 1")

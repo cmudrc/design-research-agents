@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from design_research_agents import PureToolWorkflow, UnifiedToolRuntime
+from design_research_agents import PureToolWorkflow, Toolbox
 from design_research_agents.contracts.workflow import LogicStep, ToolStep
 
 INPUT_SCHEMA: dict[str, object] = {
@@ -105,7 +105,7 @@ def main() -> None:
     ]
 
     workflow = PureToolWorkflow(
-        tool_runtime=UnifiedToolRuntime(),
+        tool_runtime=Toolbox(),
         steps=workflow_steps,
         input_schema=INPUT_SCHEMA,
     )

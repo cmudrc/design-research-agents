@@ -2,79 +2,59 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from design_research_agents.tools import UnifiedToolRuntime
-from design_research_agents.tools.lazy.discovery import discover_lazy_tools
-from design_research_agents.tools.lazy.parser import LazyHeaderError, parse_lazy_tool_header
+from design_research_agents.tools import Toolbox
+from design_research_agents.tools.config import ScriptTool
 
 
-def test_lazy_parser_python_and_bash_headers_parse() -> None:
-    py_header = parse_lazy_tool_header("examples/lazy_tools/python/rubric_score.py")
-    sh_header = parse_lazy_tool_header("examples/lazy_tools/bash/repo_quickscan.sh")
-
-    assert py_header.tool_name == "rubric_score"
-    assert py_header.outputs_stdout_json is True
-    assert sh_header.tool_name == "repo_quickscan"
-
-
-def test_lazy_parser_reports_directive_errors_with_line_numbers(tmp_path: Path) -> None:
-    script = tmp_path / "broken_tool.py"
-    script.write_text(
-        "\n".join(
-            [
-                '"""',
-                "@description: missing tool name",
-                "@inputs:",
-                "  bad_line",
-                '"""',
-                "print('x')",
-            ]
-        ),
-        encoding="utf-8",
+def _rubric_script() -> ScriptTool:
+    return ScriptTool(
+        name="rubric_score",
+        path="examples/lazy_tools/python/rubric_score.py",
+        description="Score text against a simple rubric.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string"},
+                "max_score": {"type": "integer"},
+            },
+            "required": ["text"],
+            "additionalProperties": False,
+        },
+        output_schema={"type": "object"},
+        filesystem_write=True,
     )
 
-    try:
-        parse_lazy_tool_header(script)
-    except LazyHeaderError as exc:
-        message = str(exc)
-        assert "Missing @tool_name" in message or "line" in message
-    else:
-        raise AssertionError("Expected LazyHeaderError for malformed header.")
 
-
-def test_lazy_discovery_ignores_non_lazy_scripts(tmp_path: Path) -> None:
-    helper = tmp_path / "helper.py"
-    helper.write_text(
-        "\n".join(
-            [
-                '"""Regular helper script, not a lazy tool."""',
-                "print('hello')",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
+def _quickscan_script() -> ScriptTool:
+    return ScriptTool(
+        name="repo_quickscan",
+        path="examples/lazy_tools/bash/repo_quickscan.sh",
+        description="Produce a quick repository inventory snapshot.",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "include_hidden": {"type": "boolean"},
+            },
+            "additionalProperties": False,
+        },
+        output_schema={"type": "object"},
+        filesystem_read=True,
+        filesystem_write=True,
     )
 
-    tools, diagnostics = discover_lazy_tools((str(tmp_path),))
-    assert not tools
-    assert not diagnostics
 
-
-def test_lazy_discovery_and_run_examples() -> None:
-    tools, diagnostics = discover_lazy_tools(("examples/lazy_tools",))
-    names = {tool.header.tool_name for tool in tools}
-
-    assert "rubric_score" in names
-    assert "repo_quickscan" in names
-    assert not diagnostics
-
-    runtime = UnifiedToolRuntime(
+def test_script_tools_are_listed_and_runnable() -> None:
+    runtime = Toolbox(
         workspace_root=".",
         enable_core_tools=False,
-        lazy_search_paths=("examples/lazy_tools",),
+        script_tools=(_rubric_script(), _quickscan_script()),
     )
 
+    names = {spec.name for spec in runtime.list_tools()}
+    assert names == {"script::repo_quickscan", "script::rubric_score"}
+
     result = runtime.invoke(
-        "lazy::rubric_score",
+        "script::rubric_score",
         {"text": "one two three four five six seven eight nine ten"},
         request_id="unit-test",
         dependencies={},
@@ -83,3 +63,12 @@ def test_lazy_discovery_and_run_examples() -> None:
     assert isinstance(result.result, dict)
     assert "score" in result.result
     assert result.artifacts
+
+
+def test_script_lint_target_can_be_used_with_example_path(tmp_path: Path) -> None:
+    helper = tmp_path / "helper.py"
+    helper.write_text("print('hello')\n", encoding="utf-8")
+
+    runtime = Toolbox(enable_core_tools=False, script_tools=(_rubric_script(),))
+    names = {spec.name for spec in runtime.list_tools()}
+    assert "script::rubric_score" in names

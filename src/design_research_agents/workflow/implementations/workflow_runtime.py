@@ -21,7 +21,7 @@ from design_research_agents.contracts.workflow import (
     WorkflowStep,
     WorkflowStepResult,
 )
-from design_research_agents.tracing import finish_trace_run, start_trace_run
+from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow.internal import (
     PreparedWorkflow,
     activate_step_span,
@@ -48,9 +48,11 @@ class WorkflowRuntime(WorkflowRunner):
         *,
         tool_runtime: ToolRuntime | None = None,
         agents: Mapping[str, WorkflowDelegate] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize workflow runtime dependencies for tool and delegate steps."""
         self._tool_runtime = tool_runtime
+        self._tracer = tracer
         self._agents = {
             name.strip(): agent
             for name, agent in (agents or {}).items()
@@ -80,6 +82,7 @@ class WorkflowRuntime(WorkflowRunner):
                 "failure_policy": failure_policy,
             },
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
 
         try:

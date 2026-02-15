@@ -15,7 +15,7 @@ class ToolPolicyError(RuntimeError):
 
 @dataclass(slots=True, frozen=True)
 class ToolPolicyConfig:
-    """Runtime guardrail settings used by core, MCP, and lazy tools."""
+    """Runtime guardrail settings used by core, MCP, and script tools."""
 
     workspace_root: str = "."
     artifacts_dir: str = "artifacts"

@@ -1,19 +1,20 @@
-"""Unified runtime that merges tools from core, MCP, lazy, and custom sources."""
+"""Toolbox runtime that merges core, MCP, script, and in-process tools."""
 
 from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.contracts.tools import ToolMetadata, ToolResult, ToolRuntime, ToolSpec
 
 from .config import (
+    CallableTool,
     CoreToolsConfig,
-    LazyToolsConfig,
     McpConfig,
-    McpServerConfig,
+    McpServer,
+    ScriptTool,
+    ScriptToolsConfig,
     ToolRuntimeConfig,
-    load_tool_runtime_config,
 )
 from .core import CoreToolSource
 from .policy import ToolPolicy, ToolPolicyConfig
@@ -21,7 +22,7 @@ from .registry import ToolRegistry
 from .sources.inprocess_source import InProcessToolSource, ToolHandler
 
 
-class UnifiedToolRuntime(ToolRuntime):
+class Toolbox(ToolRuntime):
     """Tool runtime that routes calls across enabled tool sources."""
 
     def __init__(
@@ -29,76 +30,31 @@ class UnifiedToolRuntime(ToolRuntime):
         *,
         workspace_root: str | os.PathLike[str] = ".",
         enable_core_tools: bool = True,
-        lazy_search_paths: tuple[str | os.PathLike[str], ...] | None = None,
-        mcp_servers: tuple[McpServerConfig, ...] | None = None,
+        script_tools: tuple[ScriptTool, ...] | None = None,
+        callable_tools: tuple[CallableTool, ...] | None = None,
+        mcp_servers: tuple[McpServer, ...] | None = None,
     ) -> None:
-        """Initialize runtime sources from ergonomic constructor arguments."""
+        """Initialize toolbox sources from ergonomic constructor arguments."""
         normalized_workspace_root = os.fspath(workspace_root)
-        normalized_lazy_paths = (
-            tuple(os.fspath(search_path) for search_path in lazy_search_paths)
-            if lazy_search_paths is not None
-            else None
-        )
 
-        lazy_tools_config = (
-            LazyToolsConfig(
-                enabled=bool(normalized_lazy_paths),
-                search_paths=normalized_lazy_paths,
-            )
-            if normalized_lazy_paths is not None
-            else LazyToolsConfig(enabled=False)
-        )
-        mcp_config = McpConfig(
-            enabled=bool(mcp_servers),
-            servers=tuple(mcp_servers or ()),
-        )
         runtime_config = ToolRuntimeConfig(
             core_tools=CoreToolsConfig(
                 enabled=enable_core_tools,
                 workspace_root=normalized_workspace_root,
             ),
-            mcp=mcp_config,
-            lazy_tools=lazy_tools_config,
+            mcp=McpConfig(
+                enabled=bool(mcp_servers),
+                servers=tuple(mcp_servers or ()),
+            ),
+            script_tools=ScriptToolsConfig(
+                enabled=bool(script_tools),
+                tools=tuple(script_tools or ()),
+            ),
         )
         self._initialize_from_config(runtime_config)
 
-    @classmethod
-    def lazy(
-        cls,
-        *,
-        search_paths: tuple[str | os.PathLike[str], ...],
-        workspace_root: str | os.PathLike[str] = ".",
-        enable_core_tools: bool = False,
-    ) -> UnifiedToolRuntime:
-        """Create a runtime focused on lazy tools."""
-        return cls(
-            workspace_root=workspace_root,
-            enable_core_tools=enable_core_tools,
-            lazy_search_paths=search_paths,
-        )
-
-    @classmethod
-    def mcp(
-        cls,
-        *,
-        servers: tuple[McpServerConfig, ...],
-        workspace_root: str | os.PathLike[str] = ".",
-        enable_core_tools: bool = False,
-    ) -> UnifiedToolRuntime:
-        """Create a runtime focused on MCP tools."""
-        return cls(
-            workspace_root=workspace_root,
-            enable_core_tools=enable_core_tools,
-            mcp_servers=servers,
-        )
-
-    @classmethod
-    def from_yaml(cls, path: str) -> UnifiedToolRuntime:
-        """Create a runtime from a YAML configuration file."""
-        runtime_config = load_tool_runtime_config(path)
-        instance = cls.__new__(cls)
-        instance._initialize_from_config(runtime_config)
-        return instance
+        for callable_tool in tuple(callable_tools or ()):  # register after custom source exists.
+            self.register_callable_tool(callable_tool)
 
     def _initialize_from_config(self, runtime_config: ToolRuntimeConfig) -> None:
         """Initialize runtime sources from a fully-resolved config object."""
@@ -134,27 +90,25 @@ class UnifiedToolRuntime(ToolRuntime):
             )
             self._registry.add_source(self._mcp_source)
 
-        self._lazy_source = None
-        if self._config.lazy_tools.enabled:
-            from .sources.lazy_source import LazyToolSource
+        self._script_source = None
+        if self._config.script_tools.enabled and self._config.script_tools.tools:
+            from .sources.script_source import ScriptToolSource
 
-            lazy_policy = ToolPolicy(
+            script_policy = ToolPolicy(
                 ToolPolicyConfig(
                     workspace_root=self._config.core_tools.workspace_root,
                     artifacts_dir=self._config.core_tools.artifacts_dir,
-                    allow_writes_outside_artifacts=(
-                        self._config.lazy_tools.allow_writes_outside_artifacts
-                    ),
-                    allow_network=self._config.lazy_tools.allow_network,
-                    allowed_commands=self._config.lazy_tools.allowed_commands,
-                    default_timeout_s=self._config.lazy_tools.timeout_s_default,
+                    allow_writes_outside_artifacts=self._config.core_tools.allow_writes_outside_artifacts,
+                    allow_network=self._config.core_tools.allow_network,
+                    allowed_commands=self._config.core_tools.allowed_commands,
+                    default_timeout_s=30,
                 )
             )
-            self._lazy_source = LazyToolSource(
-                lazy_config=self._config.lazy_tools,
-                policy=lazy_policy,
+            self._script_source = ScriptToolSource(
+                script_tools=self._config.script_tools.tools,
+                policy=script_policy,
             )
-            self._registry.add_source(self._lazy_source)
+            self._registry.add_source(self._script_source)
 
     @property
     def registry(self) -> ToolRegistry:
@@ -190,6 +144,31 @@ class UnifiedToolRuntime(ToolRuntime):
         """Register a custom in-process tool."""
         self._custom_source.register_tool(spec=spec, handler=handler)
 
+    def register_callable_tool(self, callable_tool: CallableTool) -> None:
+        """Register one callable tool wrapper."""
+        normalized_name = callable_tool.name.strip()
+        if not normalized_name:
+            raise ValueError("CallableTool.name must be non-empty.")
+
+        spec = ToolSpec(
+            name=normalized_name,
+            description=callable_tool.description,
+            input_schema=dict(callable_tool.input_schema),
+            output_schema=dict(callable_tool.output_schema),
+            permissions=callable_tool.permissions,
+            metadata=ToolMetadata(source="custom", risky=callable_tool.risky),
+        )
+
+        def _handler(
+            input_dict: Mapping[str, object],
+            _request_id: str,
+            _dependencies: Mapping[str, object],
+        ) -> object:
+            del _request_id, _dependencies
+            return callable_tool.handler(input_dict)
+
+        self._custom_source.register_tool(spec=spec, handler=_handler)
+
     def close(self) -> None:
         """Release external source resources."""
         if self._mcp_source is not None and hasattr(self._mcp_source, "close"):
@@ -200,4 +179,4 @@ class UnifiedToolRuntime(ToolRuntime):
         self.close()
 
 
-__all__ = ["UnifiedToolRuntime"]
+__all__ = ["Toolbox"]

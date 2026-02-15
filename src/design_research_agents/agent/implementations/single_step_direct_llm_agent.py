@@ -33,6 +33,7 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.tracing import (
+    Tracer,
     emit_model_token,
     finish_model_call,
     finish_trace_run,
@@ -52,6 +53,7 @@ class SingleStepDirectLLMAgent(Agent):
         temperature: float | None = None,
         max_tokens: int | None = None,
         provider_options: Mapping[str, object] | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         """Initialize a direct-LLM agent with optional default generation args.
 
@@ -61,6 +63,7 @@ class SingleStepDirectLLMAgent(Agent):
             temperature: Optional default sampling temperature.
             max_tokens: Optional default output-token cap.
             provider_options: Optional default backend-specific options.
+            tracer: Optional explicit tracer dependency.
         """
         if max_tokens is not None and max_tokens < 1:
             raise ValueError("max_tokens must be >= 1 when provided.")
@@ -69,6 +72,7 @@ class SingleStepDirectLLMAgent(Agent):
         self._default_system_prompt = default_system_prompt
         self._temperature = temperature
         self._max_tokens = max_tokens
+        self._tracer = tracer
         self._provider_options = (
             _coerce_provider_options(provider_options) if provider_options is not None else {}
         )
@@ -102,6 +106,7 @@ class SingleStepDirectLLMAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         model_span_id = start_model_call(
             model=resolved_model,
@@ -157,6 +162,7 @@ class SingleStepDirectLLMAgent(Agent):
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
+            tracer=self._tracer,
         )
         model_span_id = start_model_call(
             model=resolved_model,
