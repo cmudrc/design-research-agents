@@ -27,8 +27,8 @@ def _make_model(
         provider=provider,
         family="test-family",
         size_b=size_b,
-        format="gguf" if provider == "llama-cpp-server" else "api",
-        quantization="q4_k_m" if provider == "llama-cpp-server" else None,
+        format="gguf" if provider == "llama_cpp" else "api",
+        quantization="q4_k_m" if provider == "llama_cpp" else None,
         memory_hint=(
             ModelMemoryHint(min_ram_gb=min_ram_gb, min_vram_gb=None, note="test")
             if min_ram_gb is not None
@@ -69,7 +69,7 @@ def test_model_catalog_default_contains_qwen3_and_remote() -> None:
 def test_model_selection_policy_prefers_local_when_fit() -> None:
     local_small = _make_model(
         model_id="local-small",
-        provider="llama-cpp-server",
+        provider="llama_cpp",
         size_b=1.0,
         min_ram_gb=2.0,
         quality_tier=1,
@@ -77,7 +77,7 @@ def test_model_selection_policy_prefers_local_when_fit() -> None:
     )
     local_large = _make_model(
         model_id="local-large",
-        provider="llama-cpp-server",
+        provider="llama_cpp",
         size_b=4.0,
         min_ram_gb=6.0,
         quality_tier=3,
@@ -113,7 +113,7 @@ def test_model_selection_policy_prefers_local_when_fit() -> None:
 def test_model_selection_policy_falls_back_to_remote_when_no_local_fit() -> None:
     local_model = _make_model(
         model_id="local-too-big",
-        provider="llama-cpp-server",
+        provider="llama_cpp",
         size_b=7.0,
         min_ram_gb=8.0,
         quality_tier=4,

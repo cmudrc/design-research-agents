@@ -6,7 +6,6 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any
 
 from design_research_agents.contracts.llm import (
     BackendCapabilities,
@@ -125,7 +124,7 @@ class BaseLLMBackend(ABC):
             raise LLMInvalidRequestError(f"Backend '{self.name}' does not support model '{model}'.")
         if request.model == model:
             return request
-        return _replace_request(request, model=model)
+        return _replace_request_model(request, model=model)
 
     def _generate_prompt_validated_json(self, request: LLMRequest) -> LLMResponse:
         result = generate_json(
@@ -178,21 +177,19 @@ class BaseLLMBackend(ABC):
         )
 
 
-def _replace_request(request: LLMRequest, **updates: Any) -> LLMRequest:
-    payload = {
-        "messages": request.messages,
-        "model": request.model,
-        "temperature": request.temperature,
-        "max_tokens": request.max_tokens,
-        "tools": request.tools,
-        "response_schema": request.response_schema,
-        "response_format": request.response_format,
-        "metadata": dict(request.metadata),
-        "provider_options": dict(request.provider_options),
-        "task_profile": request.task_profile,
-    }
-    payload.update(updates)
-    return LLMRequest(**payload)
+def _replace_request_model(request: LLMRequest, *, model: str) -> LLMRequest:
+    return LLMRequest(
+        messages=request.messages,
+        model=model,
+        temperature=request.temperature,
+        max_tokens=request.max_tokens,
+        tools=request.tools,
+        response_schema=request.response_schema,
+        response_format=request.response_format,
+        metadata=dict(request.metadata),
+        provider_options=dict(request.provider_options),
+        task_profile=request.task_profile,
+    )
 
 
 def _merge_response(

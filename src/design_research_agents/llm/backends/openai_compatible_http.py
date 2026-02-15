@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator
-from typing import Any
+from collections.abc import Iterable, Iterator, Sequence
+from http.client import HTTPResponse
+from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -150,14 +151,17 @@ def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) ->
     try:
         with urlopen(request, timeout=60.0) as response:
             body = response.read().decode("utf-8")
-            return json.loads(body)
+            parsed = json.loads(body)
+            if not isinstance(parsed, dict):
+                raise LLMInvalidRequestError("OpenAI-compatible response must be a JSON object.")
+            return parsed
     except HTTPError as exc:
         raise map_backend_exception(_http_error(exc)) from exc
     except URLError as exc:
         raise map_backend_exception(exc) from exc
 
 
-def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]):
+def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> HTTPResponse:
     request = Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -165,14 +169,14 @@ def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]):
         method="POST",
     )
     try:
-        return urlopen(request, timeout=60.0)
+        return cast(HTTPResponse, urlopen(request, timeout=60.0))
     except HTTPError as exc:
         raise map_backend_exception(_http_error(exc)) from exc
     except URLError as exc:
         raise map_backend_exception(exc) from exc
 
 
-def _iter_sse_events(response) -> Iterator[str]:
+def _iter_sse_events(response: Iterable[bytes]) -> Iterator[str]:
     buffer: list[str] = []
     for raw_line in response:
         line = raw_line.decode("utf-8").strip()
@@ -213,7 +217,7 @@ def _parse_completion_response(
     )
 
 
-def _format_messages(messages: list[object]) -> list[dict[str, Any]]:
+def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
     payloads: list[dict[str, Any]] = []
     for message in messages:
         role = getattr(message, "role", None)

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 from design_research_agents.agent._model_resolution import resolve_agent_model
 from design_research_agents.agent._prompt_alternatives import (
@@ -398,7 +399,8 @@ def _request_tool_call_response(
 ) -> LLMResponse:
     generate_fn = getattr(llm_client, "generate", None)
     if callable(generate_fn):
-        return generate_fn(llm_request)
+        typed_generate = cast(Callable[[LLMRequest], LLMResponse], generate_fn)
+        return typed_generate(llm_request)
 
     chat_fn = getattr(llm_client, "chat", None)
     if not callable(chat_fn):
@@ -409,7 +411,8 @@ def _request_tool_call_response(
         response_schema=clone_response_schema(dict(response_schema)),
         provider_options=dict(llm_request.provider_options),
     )
-    return chat_fn(
+    typed_chat = cast(Callable[..., LLMResponse], chat_fn)
+    return typed_chat(
         llm_request.messages,
         model=resolved_model,
         params=llm_params,

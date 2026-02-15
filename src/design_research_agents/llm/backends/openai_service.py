@@ -17,6 +17,7 @@ from design_research_agents.contracts.llm import (
     LLMRateLimitError,
     LLMRequest,
     LLMResponse,
+    ToolCall,
     ToolCallDelta,
 )
 from design_research_agents.contracts.tools import ToolSpec
@@ -76,7 +77,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
     def _generate(self, request: LLMRequest) -> LLMResponse:
         payload = self._build_payload(request, include_response_format=True)
         try:
-            response = self._call_with_retry(payload, stream=False)
+            response = self._call_with_retry(payload)
             return _parse_completion_response(response, request, provider=self.name)
         except Exception as exc:
             mapped = map_backend_exception(exc)
@@ -91,7 +92,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         payload["stream"] = True
         payload["stream_options"] = {"include_usage": True}
         try:
-            stream = self._call_with_retry(payload, stream=True)
+            stream = self._call_with_retry(payload)
         except Exception as exc:
             raise map_backend_exception(exc) from exc
 
@@ -136,7 +137,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
 
     def _generate_without_response_format(self, request: LLMRequest) -> LLMResponse:
         payload = self._build_payload(request, include_response_format=False)
-        response = self._call_with_retry(payload, stream=False)
+        response = self._call_with_retry(payload)
         return _parse_completion_response(response, request, provider=self.name)
 
     def _build_payload(
@@ -162,7 +163,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         payload.update(request.provider_options)
         return payload
 
-    def _call_with_retry(self, payload: dict[str, Any], *, stream: bool) -> Any:
+    def _call_with_retry(self, payload: dict[str, Any]) -> Any:
         client = self._client or self._create_client()
         backoff = 0.5
         for attempt in range(self.max_retries + 1):
@@ -250,7 +251,7 @@ def _parse_completion_response(response: Any, request: LLMRequest, *, provider: 
     message = getattr(choices[0], "message", None)
     content = getattr(message, "content", None) if message else None
     text = str(content or "").strip()
-    tool_calls = ()
+    tool_calls: tuple[ToolCall, ...] = ()
     if message is not None:
         tool_calls = parse_tool_calls(_tool_calls_to_list(getattr(message, "tool_calls", None)))
         if not tool_calls:
@@ -269,7 +270,10 @@ def _parse_completion_response(response: Any, request: LLMRequest, *, provider: 
 
 def _response_to_dict(response: Any) -> dict[str, Any]:
     try:
-        return response.model_dump()
+        payload = response.model_dump()
+        if isinstance(payload, dict):
+            return payload
+        return {"raw": str(payload)}
     except Exception:
         return {"raw": str(response)}
 
@@ -290,7 +294,13 @@ def _usage_to_dict(raw: Any) -> dict[str, Any] | None:
         return None
     if isinstance(raw, dict):
         return raw
-    return getattr(raw, "model_dump", lambda: None)()
+    dump_fn = getattr(raw, "model_dump", None)
+    if not callable(dump_fn):
+        return None
+    dumped = dump_fn()
+    if isinstance(dumped, dict):
+        return dumped
+    return None
 
 
 def _is_response_format_error(error: Exception) -> bool:

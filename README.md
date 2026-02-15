@@ -2,7 +2,18 @@
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
-A flexible, modular framework for researching AI agents that design
+A modular framework for researching AI agents with shared runtime contracts,
+workflow orchestration, and pluggable LLM backends.
+
+## Overview
+
+This project focuses on composable agent systems you can run, inspect, and test:
+
+- Agent implementations: `DirectLLMAgent`, `ToolCallingAgent`, `SingleStepCodeAgent`, `MultiStepAgent`
+- Unified runtime: `AgentRuntime` modes for `react`, `plan_execute`, `propose_critic`, and `triage`
+- Workflow orchestration: sequential and DAG runners with schema-validated node contracts
+- Backend architecture: capability-based routing across local and remote LLM backends
+- Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads
 
 ## Quickstart
 
@@ -15,39 +26,25 @@ make test
 make run-example
 ```
 
-Run additional basic examples:
+Example run:
 
 ```bash
-PYTHONPATH=src python3 examples/agents/basic/router_agent.py
-PYTHONPATH=src python3 examples/agents/basic/direct_llm_agent.py
-PYTHONPATH=src python3 examples/agents/basic/tool_calling_agent.py
-PYTHONPATH=src python3 examples/agents/basic/single_step_code_agent.py
-PYTHONPATH=src python3 examples/agents/basic/multi_step_agent.py
 PYTHONPATH=src python3 examples/runtime/plan_execute.py
-PYTHONPATH=src python3 examples/runtime/propose_critic.py
-PYTHONPATH=src python3 examples/runtime/triage.py
-PYTHONPATH=src python3 examples/orchestrator/sequential.py
-PYTHONPATH=src python3 examples/orchestrator/dag.py
-PYTHONPATH=src python3 examples/orchestrator/research_pipeline_dag.py
-PYTHONPATH=src python3 examples/model_selection/local.py
-PYTHONPATH=src python3 examples/model_selection/remote.py
 ```
 
-Run additional streaming examples:
+## Examples
 
-```bash
-PYTHONPATH=src python3 examples/agents/streaming/direct_llm_agent_stream.py
-PYTHONPATH=src python3 examples/agents/streaming/router_agent_stream.py
-PYTHONPATH=src python3 examples/agents/streaming/tool_calling_agent_stream.py
-PYTHONPATH=src python3 examples/agents/streaming/single_step_code_agent_stream.py
-PYTHONPATH=src python3 examples/agents/streaming/multi_step_agent_stream.py
-```
+See the examples index and sub-guides:
 
-These streaming examples use deterministic in-script LLM stubs and do not
-require a running model backend.
+- Top-level examples index: [`examples/README.md`](examples/README.md)
+- Agents: [`examples/agents/README.md`](examples/agents/README.md)
+- Runtime modes: [`examples/runtime/README.md`](examples/runtime/README.md)
+- Orchestrators: [`examples/orchestrator/README.md`](examples/orchestrator/README.md)
+- Model selection: [`examples/model_selection/README.md`](examples/model_selection/README.md)
 
-Default backend is `llama-cpp-server`; examples use hardcoded local llama-cpp settings.
-Optional local backend: `transformers` (install `transformers` + a torch runtime).
+Most examples run with deterministic in-repo stubs. Backends like
+`llama_cpp`, `transformers_local`, and `mlx_local` are available when optional
+dependencies are installed.
 
 ## Docs
 

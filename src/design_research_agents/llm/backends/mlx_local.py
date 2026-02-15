@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 from design_research_agents.contracts.llm import (
     BackendCapabilities,
@@ -109,11 +109,12 @@ def _format_prompt(request: LLMRequest, tokenizer: Any | None) -> str:
     messages = [{"role": message.role, "content": message.content} for message in request.messages]
     if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
         try:
-            return tokenizer.apply_chat_template(
+            formatted = tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,
             )
+            return str(formatted)
         except Exception:
             return messages_to_prompt(request.messages)
     return messages_to_prompt(request.messages)
@@ -127,7 +128,7 @@ def _mlx_generate(
     max_tokens: int,
     temperature: float | None,
     stream: bool | None = None,
-):
+) -> str | Iterator[str]:
     from mlx_lm import generate
 
     kwargs: dict[str, Any] = {
@@ -136,7 +137,7 @@ def _mlx_generate(
     }
     if stream is not None and "stream" in inspect.signature(generate).parameters:
         kwargs["stream"] = stream
-    return generate(model, tokenizer, prompt, **kwargs)
+    return cast(str | Iterator[str], generate(model, tokenizer, prompt, **kwargs))
 
 
 def _mlx_supports_streaming() -> bool:

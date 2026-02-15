@@ -6,7 +6,8 @@ and returns the response as a standard ``AgentResult``.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import cast
 
 from design_research_agents.agent._model_resolution import resolve_agent_model
 from design_research_agents.agent._prompt_alternatives import (
@@ -253,14 +254,16 @@ class DirectLLMAgent(Agent):
 def _generate_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResponse:
     generate_fn = getattr(llm_client, "generate", None)
     if callable(generate_fn):
-        return generate_fn(llm_request)
+        typed_generate = cast(Callable[[LLMRequest], LLMResponse], generate_fn)
+        return typed_generate(llm_request)
 
     chat_fn = getattr(llm_client, "chat", None)
     if not callable(chat_fn):
         raise AttributeError("LLM client does not expose generate() or chat().")
 
     resolved_model = _resolve_request_model(llm_client, llm_request)
-    return chat_fn(
+    typed_chat = cast(Callable[..., LLMResponse], chat_fn)
+    return typed_chat(
         llm_request.messages,
         model=resolved_model,
         params=_request_to_chat_params(llm_request),
@@ -270,14 +273,16 @@ def _generate_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> L
 def _stream_with_fallback(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[LLMDelta]:
     stream_fn = getattr(llm_client, "stream", None)
     if callable(stream_fn):
-        return stream_fn(llm_request)
+        typed_stream = cast(Callable[[LLMRequest], Iterator[LLMDelta]], stream_fn)
+        return typed_stream(llm_request)
 
     stream_chat_fn = getattr(llm_client, "stream_chat", None)
     if not callable(stream_chat_fn):
         raise AttributeError("LLM client does not expose stream() or stream_chat().")
 
     resolved_model = _resolve_request_model(llm_client, llm_request)
-    chat_stream = stream_chat_fn(
+    typed_stream_chat = cast(Callable[..., Iterator[LLMStreamEvent]], stream_chat_fn)
+    chat_stream = typed_stream_chat(
         llm_request.messages,
         model=resolved_model,
         params=_request_to_chat_params(llm_request),

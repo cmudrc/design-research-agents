@@ -33,6 +33,14 @@ class BaseLLMClient(LLMClient):
             )
         self._router = resolved_router
         self._backend_override = _normalize_backend_override(backend)
+        if (
+            self._backend_override is not None
+            and self._router.backend(self._backend_override) is None
+        ):
+            raise ValueError(
+                f"Unknown backend '{self._backend_override}'. "
+                f"Configured backends: {', '.join(self._router.backend_names()) or '<none>'}."
+            )
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         routed_request = _with_backend_override(request, self._backend_override)
@@ -106,12 +114,7 @@ class BaseLLMClient(LLMClient):
 
     def default_model(self) -> str:
         if self._backend_override:
-            backend_map = getattr(self._router, "_backend_map", {})
-            backend = backend_map.get(self._backend_override)
-            model = getattr(backend, "default_model", None) if backend is not None else None
-            if isinstance(model, str) and model:
-                return model
-            raise ValueError(f"Backend '{self._backend_override}' has no default model.")
+            return self._router.default_model_for_backend(self._backend_override)
         return self._router.default_model()
 
 

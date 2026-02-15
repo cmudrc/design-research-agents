@@ -44,12 +44,16 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
         call_id = str(entry.get("id") or "")
         name = ""
         arguments_json = ""
+        function_call: dict[str, Any] | None = None
         function = entry.get("function")
         if isinstance(function, dict):
             name = str(function.get("name") or "")
             arguments_json = str(function.get("arguments") or "")
-        elif isinstance(entry.get("function_call"), dict):
-            function_call = entry.get("function_call")
+        else:
+            raw_function_call = entry.get("function_call")
+            if isinstance(raw_function_call, dict):
+                function_call = raw_function_call
+        if function_call is not None:
             name = str(function_call.get("name") or "")
             arguments_json = str(function_call.get("arguments") or "")
         if name:

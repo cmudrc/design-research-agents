@@ -48,15 +48,7 @@ def resolve_default_model(*, backend: str | None = None) -> str:
     normalized_backend = backend.strip()
     if not normalized_backend:
         raise ValueError("backend must not be empty when provided.")
-
-    backend_map = getattr(router, "_backend_map", {})
-    selected_backend = backend_map.get(normalized_backend)
-    if selected_backend is None:
-        raise ValueError(f"Unknown backend '{backend}'. Configure it on the default router.")
-    default_model = getattr(selected_backend, "default_model", None)
-    if isinstance(default_model, str) and default_model:
-        return default_model
-    raise ValueError(f"Backend '{backend}' does not define a default model.")
+    return router.default_model_for_backend(normalized_backend)
 
 
 def _require_default_router() -> LLMRouter:

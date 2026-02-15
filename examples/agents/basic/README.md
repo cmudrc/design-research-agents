@@ -11,5 +11,6 @@ PYTHONPATH=src python3 examples/agents/basic/multi_step_agent.py
 ```
 
 Notes:
-- These examples use package defaults (including the default local llama-cpp client in many cases).
+- These examples use deterministic in-process LLM stubs (no external backend required).
+- Router/tool-calling/multi-step scripts assert that fallback selection paths are not used.
 - They print `AgentResult` payloads directly for quick inspection.

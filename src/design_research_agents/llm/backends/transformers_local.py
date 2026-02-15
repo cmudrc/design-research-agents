@@ -148,11 +148,12 @@ def _format_prompt(request: LLMRequest, tokenizer: Any) -> str:
     messages = [{"role": message.role, "content": message.content} for message in request.messages]
     if hasattr(tokenizer, "apply_chat_template"):
         try:
-            return tokenizer.apply_chat_template(
+            formatted = tokenizer.apply_chat_template(
                 messages,
                 tokenize=False,
                 add_generation_prompt=True,
             )
+            return str(formatted)
         except Exception:
             return messages_to_prompt(request.messages)
     return messages_to_prompt(request.messages)

@@ -93,6 +93,22 @@ def test_base_llm_client_requires_router_or_default() -> None:
         BaseLLMClient()
 
 
+def test_base_llm_client_rejects_unknown_backend_override() -> None:
+    caps = BackendCapabilities(
+        streaming=True,
+        tool_calling="none",
+        json_mode="none",
+        vision=False,
+        max_context_tokens=None,
+    )
+    router = LLMRouter(
+        [_StubBackend(name="primary", kind="openai_service", default_model="m1", capabilities=caps)]
+    )
+
+    with pytest.raises(ValueError, match="Unknown backend"):
+        BaseLLMClient(router=router, backend="missing")
+
+
 def test_base_llm_client_generate_uses_backend_override() -> None:
     caps = BackendCapabilities(
         streaming=True,
@@ -208,6 +224,69 @@ def test_resolve_default_model_uses_configured_router() -> None:
 
     assert resolve_default_model() == "echo-model"
     assert resolve_default_model(backend="echo") == "echo-model"
+
+
+def test_router_rejects_unknown_default_backend() -> None:
+    caps = BackendCapabilities(
+        streaming=True,
+        tool_calling="none",
+        json_mode="none",
+        vision=False,
+        max_context_tokens=None,
+    )
+    backend = _StubBackend(
+        name="echo",
+        kind="echo_test",
+        default_model="echo-model",
+        capabilities=caps,
+    )
+
+    with pytest.raises(ValueError, match="Default backend 'missing'"):
+        LLMRouter([backend], default_backend="missing")
+
+
+def test_router_rejects_duplicate_backend_names() -> None:
+    caps = BackendCapabilities(
+        streaming=True,
+        tool_calling="none",
+        json_mode="none",
+        vision=False,
+        max_context_tokens=None,
+    )
+    first = _StubBackend(name="dup", kind="echo_test", default_model="m1", capabilities=caps)
+    second = _StubBackend(name="dup", kind="openai_service", default_model="m2", capabilities=caps)
+
+    with pytest.raises(ValueError, match="Duplicate backend name 'dup'"):
+        LLMRouter([first, second])
+
+
+def test_router_rejects_unknown_backend_hint() -> None:
+    caps = BackendCapabilities(
+        streaming=True,
+        tool_calling="none",
+        json_mode="none",
+        vision=False,
+        max_context_tokens=None,
+    )
+    router = LLMRouter(
+        [_StubBackend(name="echo", kind="echo_test", default_model="echo-model", capabilities=caps)]
+    )
+    request = _chat_request(model="echo-model")
+    request = LLMRequest(
+        messages=request.messages,
+        model=request.model,
+        temperature=request.temperature,
+        max_tokens=request.max_tokens,
+        tools=request.tools,
+        response_schema=request.response_schema,
+        response_format=request.response_format,
+        metadata={"backend": "missing"},
+        provider_options=request.provider_options,
+        task_profile=request.task_profile,
+    )
+
+    with pytest.raises(LLMCapabilityError, match="Unknown backend 'missing'"):
+        router.generate(request)
 
 
 def test_configure_router_from_yaml_registers_default_router(tmp_path: Path) -> None:

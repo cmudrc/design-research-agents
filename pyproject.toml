@@ -96,15 +96,17 @@ strict_equality = true
 
 # Third-party stubs may be missing locally; keep checks stable.
 [[tool.mypy.overrides]]
-module = ["openai", "openai.*", "transformers", "transformers.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = [
-    "design_research_agents.llm",
-    "design_research_agents.llm.*",
-    "design_research_agents.agent.direct_llm_agent",
-    "design_research_agents.agent.tool_calling_agent",
-    "design_research_agents.agent.runtime",
+    "jsonschema",
+    "jsonschema.*",
+    "mlx_lm",
+    "mlx_lm.*",
+    "openai",
+    "openai.*",
+    "torch",
+    "torch.*",
+    "transformers",
+    "transformers.*",
+    "yaml",
 ]
-ignore_errors = true
+ignore_missing_imports = true

@@ -97,7 +97,7 @@ def _build_default_models() -> list[ModelSpec]:
             models.append(
                 ModelSpec(
                     model_id=f"{base_name}-gguf-{quant_name}",
-                    provider="llama-cpp-server",
+                    provider="llama_cpp",
                     family="qwen3",
                     size_b=size_b,
                     format="gguf",

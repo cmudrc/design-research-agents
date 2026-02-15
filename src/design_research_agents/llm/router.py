@@ -12,10 +12,13 @@ from typing import Any
 
 from design_research_agents.contracts.llm import (
     LLMCapabilityError,
+    LLMChatParams,
     LLMClient,
     LLMDelta,
+    LLMMessage,
     LLMRequest,
     LLMResponse,
+    LLMStreamEvent,
     Provenance,
     TaskProfile,
     ToolCall,
@@ -99,9 +102,33 @@ class LLMRouter(LLMClient):
     ) -> None:
         if not backends:
             raise ValueError("At least one backend must be configured.")
+        seen_names: set[str] = set()
+        for backend in backends:
+            if backend.name in seen_names:
+                raise ValueError(f"Duplicate backend name '{backend.name}'.")
+            seen_names.add(backend.name)
         self._backends = list(backends)
         self._backend_map = {backend.name: backend for backend in backends}
         self._default_backend = default_backend
+        if self._default_backend and self._default_backend not in self._backend_map:
+            raise ValueError(f"Default backend '{self._default_backend}' is not configured.")
+
+    def backend_names(self) -> tuple[str, ...]:
+        """Return configured backend names in deterministic order."""
+        return tuple(backend.name for backend in self._backends)
+
+    def backend(self, name: str) -> BaseLLMBackend | None:
+        """Return a backend by name, or ``None`` when missing."""
+        return self._backend_map.get(name)
+
+    def default_model_for_backend(self, name: str) -> str:
+        """Return the default model for a specific named backend."""
+        backend = self.backend(name)
+        if backend is None:
+            raise ValueError(f"Unknown backend '{name}'.")
+        if backend.default_model:
+            return backend.default_model
+        raise ValueError(f"Backend '{name}' does not define a default model.")
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         backend = self._select_backend(request, require_streaming=False)
@@ -126,6 +153,27 @@ class LLMRouter(LLMClient):
             retries=_extract_retries(response_with_meta),
         )
         return response_with_meta
+
+    def chat(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str,
+        params: LLMChatParams,
+    ) -> LLMResponse:
+        request = LLMRequest(
+            messages=messages,
+            model=model,
+            temperature=params.temperature,
+            max_tokens=params.max_tokens,
+            tools=(),
+            response_schema=params.response_schema,
+            response_format=None,
+            metadata={},
+            provider_options=dict(params.provider_options),
+            task_profile=None,
+        )
+        return self.generate(request)
 
     def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         backend = self._select_backend(request, require_streaming=True)
@@ -169,6 +217,47 @@ class LLMRouter(LLMClient):
         stream = LLMStream(_iterator(), accumulator)
         return stream
 
+    def stream_chat(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str,
+        params: LLMChatParams,
+    ) -> Iterator[LLMStreamEvent]:
+        request = LLMRequest(
+            messages=messages,
+            model=model,
+            temperature=params.temperature,
+            max_tokens=params.max_tokens,
+            tools=(),
+            response_schema=params.response_schema,
+            response_format=None,
+            metadata={},
+            provider_options=dict(params.provider_options),
+            task_profile=None,
+        )
+        stream = self.stream(request)
+        full_text = ""
+        for delta in stream:
+            if delta.text_delta:
+                full_text += delta.text_delta
+                yield LLMStreamEvent(kind="delta", delta_text=delta.text_delta)
+        completed = getattr(stream, "response", None)
+        if not isinstance(completed, LLMResponse):
+            completed = LLMResponse(
+                text=full_text,
+                model=model,
+                provider=None,
+                finish_reason=None,
+                usage=None,
+                latency_ms=None,
+                raw_output=None,
+                tool_calls=(),
+                raw=None,
+                provenance=None,
+            )
+        yield LLMStreamEvent(kind="completed", response=completed)
+
     def default_model(self) -> str:
         backend = self._resolve_default_backend()
         if backend.default_model:
@@ -184,8 +273,10 @@ class LLMRouter(LLMClient):
 
     def _select_backend(self, request: LLMRequest, *, require_streaming: bool) -> BaseLLMBackend:
         backend_hint = request.metadata.get("backend") if request.metadata else None
-        if isinstance(backend_hint, str) and backend_hint in self._backend_map:
-            backend = self._backend_map[backend_hint]
+        if isinstance(backend_hint, str):
+            backend = self.backend(backend_hint)
+            if backend is None:
+                raise LLMCapabilityError(f"Unknown backend '{backend_hint}'.")
             _ensure_backend_supports(backend, request, require_streaming=require_streaming)
             return backend
 
@@ -370,11 +461,27 @@ def _log_request(
         _LOGGER.info("LLM request completed: %s", payload)
 
 
-def _usage_dict(usage: Usage | None) -> dict[str, int] | None:
+def _usage_dict(usage: Usage | dict[str, int] | None) -> dict[str, int] | None:
     if usage is None:
         return None
+    if isinstance(usage, dict):
+        return {
+            "prompt_tokens": _coerce_usage_value(usage.get("prompt_tokens")),
+            "completion_tokens": _coerce_usage_value(usage.get("completion_tokens")),
+            "total_tokens": _coerce_usage_value(usage.get("total_tokens")),
+        }
     return {
         "prompt_tokens": usage.prompt_tokens or 0,
         "completion_tokens": usage.completion_tokens or 0,
         "total_tokens": usage.total_tokens or 0,
     }
+
+
+def _coerce_usage_value(value: object) -> int:
+    if isinstance(value, bool):
+        return 0
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    return 0

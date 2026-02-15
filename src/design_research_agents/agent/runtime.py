@@ -851,14 +851,14 @@ class AgentRuntime(Agent):
         extra_metadata: Mapping[str, object] | None,
     ) -> AgentResult:
         metadata = dict(result.metadata)
-        runtime_metadata = {
+        runtime_metadata: dict[str, object] = {
             "requested_mode": requested_mode,
             "resolved_mode": resolved_mode,
             "controls": self._controls.asdict(),
             "soft_budget": dict(budget_metadata),
         }
         if extra_metadata is not None:
-            runtime_metadata.update(dict(extra_metadata))
+            runtime_metadata.update(extra_metadata)
         metadata["runtime"] = runtime_metadata
         return AgentResult(
             output=dict(result.output),
