@@ -5,7 +5,7 @@ PYTEST ?= $(PYTHON) -m pytest
 RUFF ?= $(PYTHON) -m ruff
 MYPY ?= $(PYTHON) -m mypy
 
-.PHONY: install install-dev install-all check-python test coverage examples-deterministic examples-metrics lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk pre-commit
+.PHONY: install install-dev install-all check-python test coverage structure-check examples-deterministic examples-metrics lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk pre-commit
 
 # Install a batteries-included development environment.
 install:
@@ -34,6 +34,11 @@ test: check-python
 coverage: check-python
 	mkdir -p artifacts/coverage
 	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --ignore=tests/test_examples_script_shell.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json
+
+# Enforce structural module size thresholds.
+structure-check: check-python
+	$(PYTHON) scripts/check_structural_thresholds.py
 
 # Run deterministic example tests and emit junit XML for metrics/badge generation.
 examples-deterministic: check-python
@@ -83,10 +88,10 @@ purge-ignored-junk:
 	@find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
 
 # Aggregate checks used by CI.
-ci: lint format-check typecheck test
+ci: lint format-check typecheck structure-check test coverage
 
 # Make me squeaky clean
 clean: purge-ignored-junk lint-fix format
 
 # Check for pre-commit
-pre-commit: lint format-check typecheck test
+pre-commit: lint format-check typecheck structure-check test

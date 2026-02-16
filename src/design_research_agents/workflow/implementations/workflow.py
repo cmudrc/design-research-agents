@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from typing import Literal
-from uuid import uuid4
 
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
@@ -16,6 +15,11 @@ from design_research_agents.contracts.workflow import (
 )
 from design_research_agents.schemas import validate_payload_against_schema
 from design_research_agents.tracing import Tracer
+from design_research_agents.workflow.internal import (
+    merge_dependencies,
+    normalize_request_id_prefix,
+    resolve_request_id_with_prefix,
+)
 
 from .workflow_runtime import WorkflowRuntime
 
@@ -26,34 +30,6 @@ def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
     if not steps:
         raise ValueError("'steps' must contain at least one workflow step.")
     return tuple(steps)
-
-
-def _normalize_request_id_prefix(default_request_id_prefix: str | None) -> str | None:
-    if default_request_id_prefix is None:
-        return None
-    normalized_prefix = default_request_id_prefix.strip()
-    if not normalized_prefix:
-        raise ValueError("default_request_id_prefix must be a non-empty string when provided.")
-    return normalized_prefix
-
-
-def _resolve_request_id(*, request_id: str | None, default_prefix: str | None) -> str | None:
-    if request_id is not None and request_id.strip():
-        return request_id
-    if default_prefix is None:
-        return request_id
-    return f"{default_prefix}:{uuid4().hex}"
-
-
-def _merge_dependencies(
-    *,
-    default_dependencies: Mapping[str, object],
-    run_dependencies: Mapping[str, object] | None,
-) -> dict[str, object]:
-    merged = dict(default_dependencies)
-    if run_dependencies is not None:
-        merged.update(run_dependencies)
-    return merged
 
 
 def _normalize_prompt(input_data: object) -> str:
@@ -112,7 +88,7 @@ class Workflow:
         self._base_context = dict(base_context or {})
         self._default_execution_mode = default_execution_mode
         self._default_failure_policy = default_failure_policy
-        self._default_request_id_prefix = _normalize_request_id_prefix(default_request_id_prefix)
+        self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
 
     def run(
@@ -125,7 +101,7 @@ class Workflow:
         dependencies: Mapping[str, object] | None = None,
     ) -> WorkflowResult:
         """Execute one workflow run with input interpreted by ``input_mode``."""
-        resolved_request_id = _resolve_request_id(
+        resolved_request_id = resolve_request_id_with_prefix(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
         )
@@ -148,7 +124,7 @@ class Workflow:
             execution_mode=execution_mode or self._default_execution_mode,
             failure_policy=failure_policy or self._default_failure_policy,
             request_id=resolved_request_id,
-            dependencies=_merge_dependencies(
+            dependencies=merge_dependencies(
                 default_dependencies=self._default_dependencies,
                 run_dependencies=dependencies,
             ),

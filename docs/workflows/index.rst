@@ -22,6 +22,7 @@ Pages
 - :doc:`runtime_and_steps`
 - :doc:`patterns`
 - :doc:`composition_guide`
+- :doc:`architecture_boundaries`
 
 .. toctree::
    :maxdepth: 2
@@ -30,3 +31,4 @@ Pages
    runtime_and_steps
    patterns
    composition_guide
+   architecture_boundaries

@@ -6,17 +6,28 @@ structured response, and executes one tool call with deterministic fallbacks.
 
 from __future__ import annotations
 
-import json
-import re
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
-from typing import cast
+from collections.abc import Iterator, Mapping, Sequence
 
-from design_research_agents.agent.internal.input_parsing import (
-    load_json_mapping as _load_json_mapping,
-)
-from design_research_agents.agent.internal.input_parsing import (
-    parse_json_mapping as _parse_json_mapping,
+from design_research_agents.agent.internal.json_tool_agent_helpers import (
+    ToolChoice,
+    build_tool_call_prompt,
+    build_tool_choices_text,
+    clone_tool_choice,
+    coerce_tool_input,
+    extract_tool_choices,
+    fallback_select_tool_choice,
+    looks_like_arithmetic_request,
+    looks_like_arithmetic_tool,
+    looks_like_text_analysis_request,
+    looks_like_text_tool,
+    parse_tool_call,
+    parse_tool_call_from_response,
+    request_tool_call_response,
+    resolve_allowed_tool_names,
+    resolve_tool_input,
+    select_tool_choice,
+    tokenize,
+    tool_call_response_schema,
 )
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
@@ -26,29 +37,17 @@ from design_research_agents.agent.internal.prompt_alternatives import (
     normalize_alternatives_prompt_target,
 )
 from design_research_agents.agent.internal.prompt_overrides import (
-    render_template_text,
     resolve_prompt_text,
-)
-from design_research_agents.agent.internal.response_schemas import (
-    build_tool_call_response_schema,
 )
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.agent.internal.tool_input import (
-    extract_prompt,
-    resolve_known_tool_input,
-)
+from design_research_agents.agent.internal.tool_input import extract_prompt
 from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
-from design_research_agents.contracts.llm import (
-    LLMClient,
-    LLMMessage,
-    LLMRequest,
-    LLMResponse,
-)
-from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
+from design_research_agents.contracts.llm import LLMClient, LLMMessage, LLMRequest
+from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.tracing import (
     Tracer,
     emit_tool_selection_decision,
@@ -57,21 +56,6 @@ from design_research_agents.tracing import (
     start_model_call,
     start_trace_run,
 )
-
-
-@dataclass(slots=True, frozen=True)
-class _ToolChoice:
-    """Normalized tool option used by planning, validation, and fallback logic.
-
-    Attributes:
-        tool_name: Runtime tool identifier.
-        description: Human-readable tool description shown to the model.
-        input_schema: JSON-schema-like payload shape expected by the tool.
-    """
-
-    tool_name: str
-    description: str
-    input_schema: dict[str, object]
 
 
 class SingleStepJsonToolCallingAgent(Agent):
@@ -120,15 +104,15 @@ class SingleStepJsonToolCallingAgent(Agent):
             alternatives_prompt_target
         )
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
-        self._allowed_tool_names = _resolve_allowed_tool_names(
+        self._allowed_tool_names = resolve_allowed_tool_names(
             runtime_specs=self._runtime_specs,
             allowed_tools=allowed_tools,
         )
-        self._compiled_tool_choices = _extract_tool_choices(
+        self._compiled_tool_choices = extract_tool_choices(
             tool_specs=self._runtime_specs,
             allowed_tool_names=self._allowed_tool_names,
         )
-        self._default_tool_call_response_schema = _tool_call_response_schema(
+        self._default_tool_call_response_schema = tool_call_response_schema(
             [choice.tool_name for choice in self._compiled_tool_choices]
         )
 
@@ -166,15 +150,15 @@ class SingleStepJsonToolCallingAgent(Agent):
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
         )
-        choices = [_clone_tool_choice(choice) for choice in self._compiled_tool_choices]
+        choices = [clone_tool_choice(choice) for choice in self._compiled_tool_choices]
         alternatives_prompt_target = self._alternatives_prompt_target
-        choices_text = _build_tool_choices_text(choices=choices)
+        choices_text = build_tool_choices_text(choices=choices)
         choices_block = build_user_prompt_alternatives_block(
             section_label="Available tools",
             alternatives_text=choices_text,
             target=alternatives_prompt_target,
         )
-        user_prompt = _build_tool_call_prompt(
+        user_prompt = build_tool_call_prompt(
             prompt=prompt,
             choices_block=choices_block,
             prompt_template=self._user_prompt_template,
@@ -214,7 +198,7 @@ class SingleStepJsonToolCallingAgent(Agent):
             metadata={"agent": "SingleStepJsonToolCallingAgent"},
         )
         try:
-            llm_response = _request_tool_call_response(
+            llm_response = request_tool_call_response(
                 llm_client=self._llm_client,
                 llm_request=llm_request,
             )
@@ -224,10 +208,10 @@ class SingleStepJsonToolCallingAgent(Agent):
             raise
         finish_model_call(model_span_id, response=llm_response)
 
-        parsed_tool_call = _parse_tool_call_from_response(llm_response)
+        parsed_tool_call = parse_tool_call_from_response(llm_response)
         if parsed_tool_call is None:
-            parsed_tool_call = _parse_tool_call(llm_response.text)
-        selected_choice, tool_call_source, tool_call_reason = _select_tool_choice(
+            parsed_tool_call = parse_tool_call(llm_response.text)
+        selected_choice, tool_call_source, tool_call_reason = select_tool_choice(
             parsed_tool_call=parsed_tool_call,
             prompt=prompt,
             choices=choices,
@@ -238,7 +222,7 @@ class SingleStepJsonToolCallingAgent(Agent):
             reason=tool_call_reason,
             parsed_tool_call=parsed_tool_call,
         )
-        tool_input = _resolve_tool_input(
+        tool_input = resolve_tool_input(
             selected_choice=selected_choice,
             parsed_tool_call=parsed_tool_call,
             input_payload=normalized_input,
@@ -302,425 +286,22 @@ class SingleStepJsonToolCallingAgent(Agent):
         yield AgentStreamEvent(kind="completed", result=result)
 
 
-def _extract_tool_choices(
-    *,
-    tool_specs: Mapping[str, ToolSpec],
-    allowed_tool_names: Sequence[str] | None = None,
-) -> list[_ToolChoice]:
-    """Extract normalized tool choices from runtime specs.
-
-    Args:
-        tool_specs: Mapping of tool specifications from the runtime.
-        allowed_tool_names: Optional allowlist of tool names to keep.
-
-    Returns:
-        List of normalized tool choices.
-    """
-    allowed_name_set = set(allowed_tool_names or [])
-    filtered_specs = [
-        spec
-        for spec in tool_specs.values()
-        if not allowed_name_set or spec.name in allowed_name_set
-    ]
-    if filtered_specs:
-        return [
-            _ToolChoice(
-                tool_name=spec.name,
-                description=spec.description,
-                input_schema=dict(spec.input_schema),
-            )
-            for spec in filtered_specs
-        ]
-
-    raise ValueError(
-        "SingleStepJsonToolCallingAgent requires at least one tool in ToolRuntime.list_tools()."
-    )
-
-
-def _build_tool_call_prompt(*, prompt: str, choices_block: str, prompt_template: str) -> str:
-    """Build prompt asking model to select tool and structured arguments.
-
-    The prompt receives pre-rendered choices text so callers can route
-    alternatives either through the user prompt or the system prompt.
-
-    Args:
-        prompt: User prompt text.
-        choices_block: Pre-rendered choices block text.
-        prompt_template: User prompt template text.
-
-    Returns:
-        Rendered tool-call prompt text.
-    """
-    return render_template_text(
-        template_text=prompt_template,
-        variables={
-            "choices_block": choices_block,
-            "user_prompt": prompt,
-        },
-        field_name="user_prompt_template",
-    )
-
-
-def _resolve_allowed_tool_names(
-    *,
-    runtime_specs: Mapping[str, ToolSpec],
-    allowed_tools: Sequence[str] | None,
-) -> tuple[str, ...] | None:
-    """Resolve tool allowlist against runtime specs."""
-    if allowed_tools is None:
-        return None
-
-    resolved_names = [
-        tool_name.strip()
-        for tool_name in allowed_tools
-        if isinstance(tool_name, str) and tool_name.strip() in runtime_specs
-    ]
-    deduped_names = tuple(dict.fromkeys(resolved_names))
-    if not deduped_names:
-        raise ValueError("allowed_tools did not match any runtime tools.")
-    return deduped_names
-
-
-def _build_tool_choices_text(*, choices: Sequence[_ToolChoice]) -> str:
-    """Build formatted runtime tool choices text.
-
-    Args:
-        choices: Sequence of tool choices to render.
-
-    Returns:
-        Formatted tool choices block text.
-    """
-    choice_lines: list[str] = []
-    for choice in choices:
-        choice_lines.append(
-            "\n".join(
-                [
-                    f"- tool_name: {choice.tool_name}",
-                    f"  description: {choice.description or '(none)'}",
-                    f"  input_schema: {json.dumps(choice.input_schema, sort_keys=True)}",
-                ]
-            )
-        )
-    return "\n".join(choice_lines)
-
-
-def _clone_tool_choice(choice: _ToolChoice) -> _ToolChoice:
-    """Clone one tool choice so run-local payloads remain isolated.
-
-    Args:
-        choice: Tool choice to clone.
-
-    Returns:
-        Cloned tool choice instance.
-    """
-    return _ToolChoice(
-        tool_name=choice.tool_name,
-        description=choice.description,
-        input_schema=dict(choice.input_schema),
-    )
-
-
-def _request_tool_call_response(
-    *,
-    llm_client: LLMClient,
-    llm_request: LLMRequest,
-) -> LLMResponse:
-    return cast(Callable[[LLMRequest], LLMResponse], llm_client.generate)(llm_request)
-
-
-def _tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, object]:
-    return build_tool_call_response_schema(
-        tool_names=available_tool_names,
-    )
-
-
-def _parse_tool_call_from_response(llm_response: LLMResponse) -> dict[str, object] | None:
-    if not llm_response.tool_calls:
-        return None
-    call = llm_response.tool_calls[0]
-    try:
-        tool_input = json.loads(call.arguments_json)
-    except json.JSONDecodeError:
-        tool_input = call.arguments_json
-    return {
-        "tool_name": call.name,
-        "tool_input": tool_input,
-        "call_id": call.call_id,
-    }
-
-
-def _parse_tool_call(raw_text: str) -> dict[str, object] | None:
-    """Parse tool-call JSON payload from model text output.
-
-    Supports strict JSON responses and JSON objects embedded in surrounding text.
-
-    Args:
-        raw_text: Raw model response text.
-
-    Returns:
-        Parsed tool-call mapping or ``None`` when parsing fails.
-    """
-    return _parse_json_mapping(raw_text)
-
-
-def _select_tool_choice(
-    *,
-    parsed_tool_call: Mapping[str, object] | None,
-    prompt: str,
-    choices: Sequence[_ToolChoice],
-) -> tuple[_ToolChoice, str, str]:
-    """Select validated tool choice from model output or fallback routing.
-
-    Model-provided choices are preferred when valid; otherwise deterministic
-    lexical fallback scoring selects a tool.
-
-    Args:
-        parsed_tool_call: Parsed tool-call payload, if available.
-        prompt: User prompt text.
-        choices: Available tool choices.
-
-    Returns:
-        Tuple of selected choice, source label, and reason string.
-    """
-    allowed_names = {choice.tool_name for choice in choices}
-    if parsed_tool_call is not None:
-        raw_tool_name = parsed_tool_call.get("tool_name", parsed_tool_call.get("name"))
-        if isinstance(raw_tool_name, str):
-            selected_name = raw_tool_name.strip()
-            if selected_name in allowed_names:
-                selected_choice = next(
-                    choice for choice in choices if choice.tool_name == selected_name
-                )
-                return selected_choice, "model", "validated model tool_name"
-
-    fallback_choice, fallback_reason = _fallback_select_tool_choice(prompt=prompt, choices=choices)
-    return fallback_choice, "fallback", fallback_reason
-
-
-def _resolve_tool_input(
-    *,
-    selected_choice: _ToolChoice,
-    parsed_tool_call: Mapping[str, object] | None,
-    input_payload: Mapping[str, object],
-    llm_response_text: str,
-) -> dict[str, object]:
-    """Resolve final tool input from model payload, run input, or heuristics.
-
-    Args:
-        selected_choice: Selected tool choice.
-        parsed_tool_call: Parsed tool-call payload, if available.
-        input_payload: Normalized run input payload mapping.
-        llm_response_text: Raw model response text.
-
-    Returns:
-        Resolved tool input mapping.
-    """
-    if parsed_tool_call is not None:
-        raw_tool_input = parsed_tool_call.get(
-            "tool_input",
-            parsed_tool_call.get("arguments", parsed_tool_call.get("args")),
-        )
-        normalized_from_model = _coerce_tool_input(raw_tool_input)
-        if normalized_from_model:
-            return normalized_from_model
-
-    raw_tool_input = input_payload.get("tool_input")
-    normalized_from_input = _coerce_tool_input(raw_tool_input)
-    if normalized_from_input:
-        return normalized_from_input
-
-    known_tool_input = resolve_known_tool_input(
-        tool_name=selected_choice.tool_name,
-        input_payload=input_payload,
-        text_fallback=llm_response_text,
-    )
-    if known_tool_input is not None:
-        return known_tool_input
-
-    return {}
-
-
-def _coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
-    """Convert raw tool-input payload into a JSON-like dictionary when possible.
-
-    Supports direct mappings and JSON-encoded string payloads.
-
-    Args:
-        raw_tool_input: Raw tool input payload.
-
-    Returns:
-        Normalized tool input mapping, or ``None`` when invalid.
-    """
-    if isinstance(raw_tool_input, Mapping):
-        return dict(raw_tool_input)
-    if isinstance(raw_tool_input, str):
-        parsed = _load_json_mapping(raw_tool_input)
-        if parsed is not None:
-            return parsed
-    return None
-
-
-def _fallback_select_tool_choice(
-    *,
-    prompt: str,
-    choices: Sequence[_ToolChoice],
-) -> tuple[_ToolChoice, str]:
-    """Select fallback tool choice using deterministic lexical-signal scoring.
-
-    Scoring combines token overlap and arithmetic/text intent signals.
-
-    Args:
-        prompt: User prompt text.
-        choices: Available tool choices.
-
-    Returns:
-        Tuple of selected tool choice and fallback reason string.
-    """
-    prompt_text = prompt.lower()
-    prompt_tokens = _tokenize(prompt_text)
-    prompt_looks_math = _looks_like_arithmetic_request(prompt_text)
-    prompt_looks_text = _looks_like_text_analysis_request(prompt_text)
-
-    selected_choice = choices[0]
-    selected_score = -1
-    selected_reason = "fallback-first-choice"
-    for choice in choices:
-        searchable = " ".join([choice.tool_name, choice.description]).lower()
-        route_tokens = _tokenize(searchable)
-        score = len(prompt_tokens.intersection(route_tokens))
-        reason_parts: list[str] = []
-        if score > 0:
-            reason_parts.append(f"token-overlap:{score}")
-        if prompt_looks_math and _looks_like_arithmetic_tool(searchable):
-            score += 5
-            reason_parts.append("math-signal")
-        if prompt_looks_text and _looks_like_text_tool(searchable):
-            score += 5
-            reason_parts.append("text-signal")
-
-        if score > selected_score:
-            selected_choice = choice
-            selected_score = score
-            selected_reason = ", ".join(reason_parts) if reason_parts else "fallback-first-choice"
-
-    return selected_choice, selected_reason
-
-
-def _tokenize(text: str) -> set[str]:
-    """Tokenize text into normalized alphanumeric words for lexical matching.
-
-    Tokenization is intentionally simple and deterministic.
-
-    Args:
-        text: Text to tokenize.
-
-    Returns:
-        Set of normalized tokens.
-    """
-    return {token for token in re.findall(r"[a-z0-9_]+", text) if token}
-
-
-def _looks_like_arithmetic_request(text: str) -> bool:
-    """Return whether prompt text appears to request arithmetic computation.
-
-    Uses regex patterns and keyword heuristics.
-
-    Args:
-        text: Prompt text to inspect.
-
-    Returns:
-        ``True`` when the text suggests arithmetic computation.
-    """
-    if re.search(r"\d+\s*[\+\-\*\/%]\s*\d+", text):
-        return True
-    math_keywords = {
-        "calculate",
-        "calculator",
-        "arithmetic",
-        "equation",
-        "expression",
-        "math",
-        "solve",
-        "sum",
-        "multiply",
-        "divide",
-        "compute",
-    }
-    return any(keyword in text for keyword in math_keywords)
-
-
-def _looks_like_text_analysis_request(text: str) -> bool:
-    """Return whether prompt text appears to request text analysis.
-
-    Uses lightweight keyword heuristics.
-
-    Args:
-        text: Prompt text to inspect.
-
-    Returns:
-        ``True`` when the text suggests text analysis.
-    """
-    text_keywords = {
-        "text",
-        "word",
-        "words",
-        "line",
-        "lines",
-        "character",
-        "characters",
-        "count",
-        "stats",
-        "statistics",
-        "summary",
-        "summarize",
-    }
-    return any(keyword in text for keyword in text_keywords)
-
-
-def _looks_like_arithmetic_tool(text: str) -> bool:
-    """Return whether tool description text appears arithmetic-focused.
-
-    Uses tool-name/description keyword matching.
-
-    Args:
-        text: Tool name/description text to inspect.
-
-    Returns:
-        ``True`` when the text suggests an arithmetic tool.
-    """
-    arithmetic_tool_keywords = {
-        "calc",
-        "calculator",
-        "math",
-        "arithmetic",
-        "expression",
-        "equation",
-        "compute",
-    }
-    return any(keyword in text for keyword in arithmetic_tool_keywords)
-
-
-def _looks_like_text_tool(text: str) -> bool:
-    """Return whether tool description text appears text-analysis-focused.
-
-    Uses tool-name/description keyword matching.
-
-    Args:
-        text: Tool name/description text to inspect.
-
-    Returns:
-        ``True`` when the text suggests a text analysis tool.
-    """
-    text_tool_keywords = {
-        "text",
-        "word",
-        "line",
-        "character",
-        "stats",
-        "statistics",
-        "summary",
-        "summarize",
-        "analy",
-        "count",
-    }
-    return any(keyword in text for keyword in text_tool_keywords)
+# Backward-compatible helper aliases used by internal tests.
+_build_tool_choices_text = build_tool_choices_text
+_coerce_tool_input = coerce_tool_input
+_fallback_select_tool_choice = fallback_select_tool_choice
+_looks_like_arithmetic_request = looks_like_arithmetic_request
+_looks_like_arithmetic_tool = looks_like_arithmetic_tool
+_looks_like_text_analysis_request = looks_like_text_analysis_request
+_looks_like_text_tool = looks_like_text_tool
+_parse_tool_call = parse_tool_call
+_parse_tool_call_from_response = parse_tool_call_from_response
+_resolve_tool_input = resolve_tool_input
+_select_tool_choice = select_tool_choice
+_tokenize = tokenize
+_ToolChoice = ToolChoice
+
+
+__all__ = [
+    "SingleStepJsonToolCallingAgent",
+]

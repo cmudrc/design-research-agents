@@ -12,7 +12,8 @@ The validator intentionally supports only the subset used by this package:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from typing import TypeGuard
 
 
 class SchemaValidationError(ValueError):
@@ -41,50 +42,14 @@ def validate_payload_against_schema(
 
 
 def _validate(*, payload: object, schema: Mapping[str, object], location: str) -> None:
-    any_of = schema.get("anyOf")
-    if isinstance(any_of, Sequence) and not isinstance(any_of, (str, bytes)):
-        errors: list[str] = []
-        for candidate in any_of:
-            if not isinstance(candidate, Mapping):
-                continue
-            try:
-                _validate(payload=payload, schema=candidate, location=location)
-            except SchemaValidationError as exc:
-                errors.append(str(exc))
-                continue
-            return
-        if errors:
-            raise SchemaValidationError(
-                f"{location}: payload did not satisfy anyOf constraints ({'; '.join(errors[:3])})"
-            )
-
-    enum_values = schema.get("enum")
-    if (
-        isinstance(enum_values, Sequence)
-        and not isinstance(enum_values, (str, bytes))
-        and payload not in enum_values
-    ):
-        raise SchemaValidationError(
-            f"{location}: value {payload!r} is not in enum {list(enum_values)!r}"
-        )
+    _validate_any_of(payload=payload, schema=schema, location=location)
+    _validate_enum(payload=payload, schema=schema, location=location)
 
     expected_type = schema.get("type")
     if isinstance(expected_type, str):
         _validate_type(payload=payload, expected_type=expected_type, location=location)
-    elif isinstance(expected_type, Sequence) and not isinstance(expected_type, (str, bytes)):
-        type_errors: list[str] = []
-        for candidate_type in expected_type:
-            if not isinstance(candidate_type, str):
-                continue
-            try:
-                _validate_type(payload=payload, expected_type=candidate_type, location=location)
-            except SchemaValidationError as exc:
-                type_errors.append(str(exc))
-                continue
-            break
-        else:
-            joined = "; ".join(type_errors[:3])
-            raise SchemaValidationError(f"{location}: type mismatch ({joined})")
+    elif _is_sequence(expected_type):
+        _validate_union_types(payload=payload, expected_types=expected_type, location=location)
 
     if isinstance(expected_type, str) and expected_type == "object":
         _validate_object(payload=payload, schema=schema, location=location)
@@ -93,32 +58,76 @@ def _validate(*, payload: object, schema: Mapping[str, object], location: str) -
 
 
 def _validate_type(*, payload: object, expected_type: str, location: str) -> None:
-    if expected_type == "object":
-        if not isinstance(payload, Mapping):
-            raise SchemaValidationError(f"{location}: expected object")
+    validators: dict[str, Callable[[object], bool]] = {
+        "object": lambda value: isinstance(value, Mapping),
+        "array": lambda value: isinstance(value, list),
+        "string": lambda value: isinstance(value, str),
+        "number": lambda value: not isinstance(value, bool) and isinstance(value, (int, float)),
+        "integer": lambda value: not isinstance(value, bool) and isinstance(value, int),
+        "boolean": lambda value: isinstance(value, bool),
+        "null": lambda value: value is None,
+    }
+    validator = validators.get(expected_type)
+    if validator is None:
         return
-    if expected_type == "array":
-        if not isinstance(payload, list):
-            raise SchemaValidationError(f"{location}: expected array")
+    if validator(payload):
         return
-    if expected_type == "string":
-        if not isinstance(payload, str):
-            raise SchemaValidationError(f"{location}: expected string")
+    raise SchemaValidationError(f"{location}: expected {expected_type}")
+
+
+def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    return isinstance(value, Sequence) and not isinstance(value, (str, bytes))
+
+
+def _validate_any_of(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    any_of = schema.get("anyOf")
+    if not _is_sequence(any_of):
         return
-    if expected_type == "number":
-        if isinstance(payload, bool) or not isinstance(payload, (int, float)):
-            raise SchemaValidationError(f"{location}: expected number")
+    errors: list[str] = []
+    for candidate in any_of:
+        if not isinstance(candidate, Mapping):
+            continue
+        try:
+            _validate(payload=payload, schema=candidate, location=location)
+        except SchemaValidationError as exc:
+            errors.append(str(exc))
+            continue
         return
-    if expected_type == "integer":
-        if isinstance(payload, bool) or not isinstance(payload, int):
-            raise SchemaValidationError(f"{location}: expected integer")
+    if errors:
+        raise SchemaValidationError(
+            f"{location}: payload did not satisfy anyOf constraints ({'; '.join(errors[:3])})"
+        )
+
+
+def _validate_enum(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    enum_values = schema.get("enum")
+    if not _is_sequence(enum_values):
         return
-    if expected_type == "boolean":
-        if not isinstance(payload, bool):
-            raise SchemaValidationError(f"{location}: expected boolean")
+    if payload in enum_values:
         return
-    if expected_type == "null" and payload is not None:
-        raise SchemaValidationError(f"{location}: expected null")
+    raise SchemaValidationError(
+        f"{location}: value {payload!r} is not in enum {list(enum_values)!r}"
+    )
+
+
+def _validate_union_types(
+    *,
+    payload: object,
+    expected_types: Sequence[object],
+    location: str,
+) -> None:
+    type_errors: list[str] = []
+    for candidate_type in expected_types:
+        if not isinstance(candidate_type, str):
+            continue
+        try:
+            _validate_type(payload=payload, expected_type=candidate_type, location=location)
+        except SchemaValidationError as exc:
+            type_errors.append(str(exc))
+            continue
+        return
+    joined = "; ".join(type_errors[:3])
+    raise SchemaValidationError(f"{location}: type mismatch ({joined})")
 
 
 def _validate_object(*, payload: object, schema: Mapping[str, object], location: str) -> None:

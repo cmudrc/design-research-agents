@@ -38,6 +38,7 @@ def test_non_streaming_example_runs(
     monkeypatch.setenv("DRA_EXAMPLE_LLM_MODE", "deterministic")
     example_path = REPO_ROOT / example_relpath
     env = dict(os.environ)
+    env["DRA_EXAMPLE_ID"] = example_relpath.replace("\\", "/")
     existing_pythonpath = env.get("PYTHONPATH")
     test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"
     env["PYTHONPATH"] = (

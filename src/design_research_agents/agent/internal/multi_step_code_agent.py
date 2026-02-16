@@ -1,4 +1,4 @@
-"""Multi-step ReAct-style agent built as a loop over ``SingleStepJsonToolCallingAgent``.
+"""Multi-step ReAct-style agent built as a loop over ``SingleStepCodeToolCallingAgent``.
 
 The agent alternates continuation checks with step execution, recording a
 structured thought-action-observation memory trace and aggregating tool
@@ -7,10 +7,11 @@ results across steps.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Mapping, Sequence
 
-from design_research_agents.agent.implementations.single_step_json_tool_calling_agent import (
-    SingleStepJsonToolCallingAgent,
+from design_research_agents.agent.implementations.single_step_code_tool_calling_agent import (
+    SingleStepCodeToolCallingAgent,
 )
 from design_research_agents.agent.internal.input_parsing import (
     extract_boolean as _extract_boolean,
@@ -32,12 +33,6 @@ from design_research_agents.agent.internal.multi_step_common import (
     fallback_should_continue,
     has_observation,
 )
-from design_research_agents.agent.internal.multi_step_json_helpers import (
-    build_step_tools_text,
-    failure_result,
-    normalize_step_final_output,
-    resolve_step_error,
-)
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     inject_alternatives_into_prompt_pair,
@@ -48,6 +43,7 @@ from design_research_agents.agent.internal.response_schemas import (
     build_continuation_response_schema,
     clone_response_schema,
 )
+from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
@@ -60,7 +56,7 @@ from design_research_agents.contracts.llm import (
     LLMMessage,
     LLMResponse,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.tracing import (
     Tracer,
     emit_continuation_decision,
@@ -72,12 +68,12 @@ from design_research_agents.tracing import (
 )
 
 
-class MultiStepJsonToolCallingAgent(Agent):
+class MultiStepCodeToolCallingAgent(Agent):
     """Agent that iterates action-observation steps until continuation stops.
 
     Each iteration asks the model whether to continue, then delegates one action
-    step to ``SingleStepJsonToolCallingAgent``. The loop keeps explicit
-    ReAct-style thought-action-observation entries in memory.
+    step to ``SingleStepCodeToolCallingAgent`` with inherited runtime constraints. The
+    loop keeps explicit ReAct-style thought-action-observation entries in memory.
     """
 
     def __init__(
@@ -86,7 +82,12 @@ class MultiStepJsonToolCallingAgent(Agent):
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
         max_steps: int = 5,
+        max_tool_calls_per_step: int = 5,
+        execution_timeout_seconds_per_step: int = 5,
+        validate_tool_input_schema: bool = False,
+        normalize_generated_code_per_step: bool = False,
         stop_on_step_failure: bool = True,
+        default_tools_per_step: Sequence[Mapping[str, object]] | None = None,
         continuation_system_prompt: str | None = None,
         continuation_user_prompt_template: str | None = None,
         step_user_prompt_template: str | None = None,
@@ -95,13 +96,21 @@ class MultiStepJsonToolCallingAgent(Agent):
         step_memory_tail_items: int = 8,
         tracer: Tracer | None = None,
     ) -> None:
-        """Initialize a multi-step JSON tool-calling agent.
+        """Initialize a multi-step agent.
 
         Args:
-            llm_client: LLM client used for continuation and step generation.
+            llm_client: LLM client used for continuation and action generation.
             tool_runtime: Tool runtime shared across all steps.
             max_steps: Maximum number of action-observation iterations.
+            max_tool_calls_per_step: Tool-call limit applied to each action step.
+            execution_timeout_seconds_per_step: Code execution timeout for each action step.
+            validate_tool_input_schema: Whether to validate tool input schemas on each step.
+            normalize_generated_code_per_step: Whether to apply conservative
+                pre-validation code normalization in each step agent run.
             stop_on_step_failure: Whether to stop immediately when one step fails.
+            default_tools_per_step: Optional allowed-tool config forwarded to each
+                ``SingleStepCodeToolCallingAgent`` step. When omitted, all runtime tools are
+                available per step.
             continuation_system_prompt: Optional continuation system prompt override.
             continuation_user_prompt_template: Optional continuation user prompt template.
             step_user_prompt_template: Optional step user prompt template.
@@ -112,6 +121,10 @@ class MultiStepJsonToolCallingAgent(Agent):
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
+        if max_tool_calls_per_step < 1:
+            raise ValueError("max_tool_calls_per_step must be >= 1.")
+        if execution_timeout_seconds_per_step < 1:
+            raise ValueError("execution_timeout_seconds_per_step must be >= 1.")
         if continuation_memory_tail_items < 1:
             raise ValueError("continuation_memory_tail_items must be >= 1.")
         if step_memory_tail_items < 1:
@@ -121,6 +134,10 @@ class MultiStepJsonToolCallingAgent(Agent):
         self._tool_runtime = tool_runtime
         self._tracer = tracer
         self._max_steps = max_steps
+        self._max_tool_calls_per_step = max_tool_calls_per_step
+        self._execution_timeout_seconds_per_step = execution_timeout_seconds_per_step
+        self._validate_tool_input_schema = validate_tool_input_schema
+        self._normalize_generated_code_per_step = normalize_generated_code_per_step
         self._stop_on_step_failure = stop_on_step_failure
         self._continuation_system_prompt = resolve_prompt_text(
             override=continuation_system_prompt,
@@ -134,7 +151,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         )
         self._step_user_prompt_template = resolve_prompt_text(
             override=step_user_prompt_template,
-            default_prompt_name="multi_step_json_step_user",
+            default_prompt_name="multi_step_step_user",
             field_name="step_user_prompt_template",
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(
@@ -142,6 +159,15 @@ class MultiStepJsonToolCallingAgent(Agent):
         )
         self._continuation_memory_tail_items = continuation_memory_tail_items
         self._step_memory_tail_items = step_memory_tail_items
+        self._default_tools_per_step = (
+            tuple(
+                dict(default_tool)
+                for default_tool in default_tools_per_step
+                if isinstance(default_tool, Mapping)
+            )
+            if default_tools_per_step is not None
+            else None
+        )
         self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
@@ -168,7 +194,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
-            agent_name="MultiStepJsonToolCallingAgent",
+            agent_name="MultiStepCodeToolCallingAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -180,6 +206,22 @@ class MultiStepJsonToolCallingAgent(Agent):
             key="max_steps",
             default_value=self._max_steps,
         )
+        max_tool_calls_per_step = _extract_positive_int(
+            input_payload=normalized_input,
+            key="max_tool_calls_per_step",
+            default_value=self._max_tool_calls_per_step,
+        )
+        execution_timeout_seconds_per_step = _extract_positive_int(
+            input_payload=normalized_input,
+            key="execution_timeout_seconds_per_step",
+            default_value=self._execution_timeout_seconds_per_step,
+        )
+        validate_tool_input_schema = _extract_boolean(
+            input_payload=normalized_input,
+            key="validate_tool_input_schema",
+            default_value=self._validate_tool_input_schema,
+        )
+        normalize_generated_code_per_step = self._normalize_generated_code_per_step
         stop_on_step_failure = _extract_boolean(
             input_payload=normalized_input,
             key="stop_on_step_failure",
@@ -189,13 +231,19 @@ class MultiStepJsonToolCallingAgent(Agent):
             llm_client=self._llm_client,
         )
         alternatives_prompt_target = self._alternatives_prompt_target
-        step_tools_text = build_step_tools_text(
+        step_tools_text = _build_step_tools_text(
             tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
+            default_tools_per_step=self._default_tools_per_step,
         )
 
-        step_agent = SingleStepJsonToolCallingAgent(
+        step_agent = SingleStepCodeToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
+            max_tool_calls=max_tool_calls_per_step,
+            execution_timeout_seconds=execution_timeout_seconds_per_step,
+            validate_tool_input_schema=validate_tool_input_schema,
+            normalize_generated_code=normalize_generated_code_per_step,
+            default_tools=self._default_tools_per_step,
             alternatives_prompt_target=alternatives_prompt_target,
             tracer=self._tracer,
         )
@@ -255,10 +303,17 @@ class MultiStepJsonToolCallingAgent(Agent):
                 prompt_template=self._step_user_prompt_template,
                 memory_tail_items=self._step_memory_tail_items,
             )
+            step_input = dict(normalized_input)
+            step_input["prompt"] = step_prompt
+            step_input["max_tool_calls"] = max_tool_calls_per_step
+            step_input["execution_timeout_seconds"] = execution_timeout_seconds_per_step
+            step_input["validate_tool_input_schema"] = validate_tool_input_schema
+            step_input["alternatives_prompt_target"] = alternatives_prompt_target
+
             step_request_id = f"{resolved_request_id}:step-{step_index + 1}"
 
             step_result = step_agent.run(
-                step_prompt,
+                json.dumps(step_input, indent=2, sort_keys=True, default=str),
                 request_id=step_request_id,
                 dependencies=resolved_dependencies,
             )
@@ -266,16 +321,11 @@ class MultiStepJsonToolCallingAgent(Agent):
                 last_model_response = step_result.model_response
 
             tool_results.extend(step_result.tool_results)
-            raw_tool_output = step_result.output.get("tool_output")
-            step_final_output = normalize_step_final_output(raw_tool_output)
-            step_error = resolve_step_error(step_result)
             step_output = {
                 "step": step_index + 1,
                 "success": step_result.success,
-                "final_output": step_final_output,
-                "tool_name": step_result.output.get("tool_name"),
-                "tool_input": step_result.output.get("tool_input", {}),
-                "error": step_error,
+                "final_output": step_result.output.get("final_output", {}),
+                "error": step_result.output.get("error"),
                 "tool_results_count": len(step_result.tool_results),
             }
             step_outputs.append(step_output)
@@ -284,26 +334,40 @@ class MultiStepJsonToolCallingAgent(Agent):
                     {
                         "kind": "action",
                         "step": step_index + 1,
-                        "tool_name": step_result.output.get("tool_name"),
-                        "tool_input": step_result.output.get("tool_input", {}),
+                        "generated_code": step_result.output.get("generated_code", ""),
                     },
                     {
                         "kind": "observation",
                         "step": step_index + 1,
                         "success": step_result.success,
-                        "final_output": step_final_output,
-                        "error": step_error,
+                        "final_output": step_result.output.get("final_output", {}),
+                        "error": step_result.output.get("error"),
                     },
                 ]
             )
 
             if step_result.success:
-                final_output = step_final_output
+                raw_final_output = step_result.output.get("final_output")
+                if isinstance(raw_final_output, Mapping):
+                    final_output = dict(raw_final_output)
                 continue
+
+            step_error = str(step_result.output.get("error", "Step execution failed."))
+            if (
+                _is_no_tool_call_step_failure(error=step_error)
+                and not step_result.tool_results
+                and bool(final_output)
+            ):
+                # No-op model step after successful prior observations: stop cleanly.
+                step_outputs.pop()
+                memory.pop()
+                memory.pop()
+                terminated_reason = "continuation_stopped:empty_step"
+                break
 
             terminated_reason = "step_failure"
             if stop_on_step_failure:
-                result = failure_result(
+                result = _failure_result(
                     error=step_error,
                     model_response=last_model_response,
                     tool_results=tool_results,
@@ -344,10 +408,19 @@ class MultiStepJsonToolCallingAgent(Agent):
                 "continuation": continuation_trace,
                 "config": {
                     "max_steps": max_steps,
+                    "max_tool_calls_per_step": max_tool_calls_per_step,
+                    "execution_timeout_seconds_per_step": execution_timeout_seconds_per_step,
+                    "validate_tool_input_schema": validate_tool_input_schema,
+                    "normalize_generated_code_per_step": normalize_generated_code_per_step,
                     "stop_on_step_failure": stop_on_step_failure,
                     "alternatives_prompt_target": alternatives_prompt_target,
                     "continuation_memory_tail_items": self._continuation_memory_tail_items,
                     "step_memory_tail_items": self._step_memory_tail_items,
+                    "default_tools_per_step": (
+                        [dict(default_tool) for default_tool in self._default_tools_per_step]
+                        if self._default_tools_per_step is not None
+                        else None
+                    ),
                 },
             },
         )
@@ -418,7 +491,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            section_label="Available tools for action steps",
+            section_label="Allowed tools for action steps",
             alternatives_text=alternatives_text,
             target=alternatives_prompt_target,
         )
@@ -434,13 +507,13 @@ class MultiStepJsonToolCallingAgent(Agent):
         ]
         llm_params = LLMChatParams(
             response_schema=clone_response_schema(self._continuation_response_schema),
-            provider_options={"agent": "MultiStepJsonToolCallingAgent", "phase": "continuation"},
+            provider_options={"agent": "MultiStepCodeToolCallingAgent", "phase": "continuation"},
         )
         model_span_id = start_model_call(
             model=model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "MultiStepJsonToolCallingAgent", "phase": "continuation"},
+            metadata={"agent": "MultiStepCodeToolCallingAgent", "phase": "continuation"},
         )
         try:
             response = self._llm_client.chat(messages, model=model, params=llm_params)
@@ -488,6 +561,78 @@ class MultiStepJsonToolCallingAgent(Agent):
         return fallback_decision, "fallback heuristic", "fallback", response
 
 
-__all__ = [
-    "MultiStepJsonToolCallingAgent",
-]
+def _build_step_tools_text(
+    *,
+    tool_specs: Mapping[str, ToolSpec],
+    default_tools_per_step: Sequence[Mapping[str, object]] | None,
+) -> str:
+    """Build formatted allowed-tools text for multi-step prompt injection.
+
+    Args:
+        tool_specs: Tool specs available in the runtime.
+        default_tools_per_step: Optional default tools configuration.
+
+    Returns:
+        Rendered allowed-tools block text.
+    """
+    selected_specs: list[ToolSpec] = []
+    if default_tools_per_step is None:
+        selected_specs = list(tool_specs.values())
+    else:
+        for default_tool in default_tools_per_step:
+            raw_name = default_tool.get("tool_name", default_tool.get("name"))
+            if not isinstance(raw_name, str):
+                continue
+            normalized_name = raw_name.strip()
+            if not normalized_name:
+                continue
+            runtime_spec = tool_specs.get(normalized_name)
+            if runtime_spec is None:
+                continue
+            selected_specs.append(runtime_spec)
+
+    tool_lines: list[str] = []
+    for spec in selected_specs:
+        tool_lines.append(
+            "\n".join(
+                [
+                    f"- tool_name: {spec.name}",
+                    f"  description: {spec.description or '(none)'}",
+                    f"  input_schema: {json.dumps(spec.input_schema, sort_keys=True)}",
+                ]
+            )
+        )
+    return "\n".join(tool_lines)
+
+
+def _is_no_tool_call_step_failure(*, error: str) -> bool:
+    """Return whether a step failed only because no tool call occurred.
+
+    Args:
+        error: Error message string to inspect.
+
+    Returns:
+        ``True`` when the error is a no-tool-call failure.
+    """
+    return "Generated code must call at least one tool." in error
+
+
+def _failure_result(
+    *,
+    error: str,
+    model_response: LLMResponse | None,
+    tool_results: Sequence[ToolResult],
+    request_id: str,
+    dependencies: Mapping[str, object],
+    metadata: Mapping[str, object],
+    output: Mapping[str, object],
+) -> AgentResult:
+    return build_failure_result(
+        error=error,
+        model_response=model_response,
+        tool_results=tool_results,
+        request_id=request_id,
+        dependencies=dependencies,
+        metadata=metadata,
+        output=output,
+    )

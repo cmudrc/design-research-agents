@@ -91,35 +91,58 @@ def _collect_public_api_symbols_used_in_examples(
 
     for path in example_files:
         module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        package_aliases: set[str] = set()
-
-        for node in ast.walk(module):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name == "design_research_agents":
-                        package_aliases.add(alias.asname or "design_research_agents")
-            elif isinstance(node, ast.ImportFrom):
-                module_name = node.module or ""
-                if module_name == "design_research_agents" or module_name.startswith(
-                    "design_research_agents."
-                ):
-                    for alias in node.names:
-                        imported_name = alias.name
-                        if imported_name == "*":
-                            covered.update(export_set)
-                            continue
-                        if imported_name in export_set:
-                            covered.add(imported_name)
-
-        for node in ast.walk(module):
-            if not isinstance(node, ast.Attribute):
-                continue
-            if not isinstance(node.value, ast.Name):
-                continue
-            if node.value.id in package_aliases and node.attr in export_set:
-                covered.add(node.attr)
+        package_aliases = _collect_package_aliases(module)
+        covered.update(_collect_explicit_imported_exports(module, export_set))
+        covered.update(_collect_attribute_access_exports(module, export_set, package_aliases))
 
     return tuple(sorted(covered))
+
+
+def _collect_package_aliases(module: ast.Module) -> set[str]:
+    aliases: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Import):
+            continue
+        for alias in node.names:
+            if alias.name == "design_research_agents":
+                aliases.add(alias.asname or "design_research_agents")
+    return aliases
+
+
+def _collect_explicit_imported_exports(module: ast.Module, export_set: set[str]) -> set[str]:
+    covered: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module_name = node.module or ""
+        if module_name != "design_research_agents" and not module_name.startswith(
+            "design_research_agents."
+        ):
+            continue
+        for alias in node.names:
+            imported_name = alias.name
+            if imported_name == "*":
+                covered.update(export_set)
+                continue
+            if imported_name in export_set:
+                covered.add(imported_name)
+    return covered
+
+
+def _collect_attribute_access_exports(
+    module: ast.Module,
+    export_set: set[str],
+    package_aliases: set[str],
+) -> set[str]:
+    covered: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Attribute):
+            continue
+        if not isinstance(node.value, ast.Name):
+            continue
+        if node.value.id in package_aliases and node.attr in export_set:
+            covered.add(node.attr)
+    return covered
 
 
 def _percent(part: int, whole: int) -> float:

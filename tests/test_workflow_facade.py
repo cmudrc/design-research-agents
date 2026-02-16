@@ -1,223 +1,17 @@
-"""Focused tests for generic workflow and reusable pattern facades."""
+"""Focused tests for the generic ``Workflow`` facade."""
 
 from __future__ import annotations
 
-import inspect
 import json
-from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
 import pytest
 
-from design_research_agents.agent import RuntimeControls
-from design_research_agents.contracts.agent import Agent, AgentResult
-from design_research_agents.contracts.llm import (
-    LLMChatParams,
-    LLMDelta,
-    LLMMessage,
-    LLMRequest,
-    LLMResponse,
-    LLMStreamEvent,
-)
 from design_research_agents.contracts.workflow import AgentStep, LogicStep, LoopStep, ToolStep
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow.implementations.agent_routing import RouterPattern
-from design_research_agents.workflow.implementations.plan_execute import PlannerExecutorPattern
-from design_research_agents.workflow.implementations.propose_critic import (
-    ReflexionPattern,
-)
 from design_research_agents.workflow.implementations.workflow import Workflow
-
-
-class _NoopLLMClient:
-    """LLM stub used when tests inject concrete agents directly."""
-
-    def chat(
-        self,
-        messages: Sequence[LLMMessage],
-        *,
-        model: str,
-        params: LLMChatParams,
-    ) -> LLMResponse:
-        del messages, params
-        return LLMResponse(model=model, text="{}", provider="noop")
-
-    def stream_chat(
-        self,
-        messages: Sequence[LLMMessage],
-        *,
-        model: str,
-        params: LLMChatParams,
-    ) -> Iterator[LLMStreamEvent]:
-        response = self.chat(messages, model=model, params=params)
-        yield LLMStreamEvent(kind="delta", delta_text=response.text)
-        yield LLMStreamEvent(kind="completed", response=response)
-
-    def generate(self, request: LLMRequest) -> LLMResponse:
-        return self.chat(
-            request.messages,
-            model=request.model or self.default_model(),
-            params=LLMChatParams(),
-        )
-
-    def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        response = self.generate(request)
-        yield LLMDelta(text_delta=response.text)
-
-    def default_model(self) -> str:
-        return "noop-model"
-
-
-class _SequenceLLMClient:
-    """LLM stub that returns pre-seeded text responses in order."""
-
-    def __init__(self, *, response_texts: list[str]) -> None:
-        self._responses = list(response_texts)
-
-    def chat(
-        self,
-        messages: Sequence[LLMMessage],
-        *,
-        model: str,
-        params: LLMChatParams,
-    ) -> LLMResponse:
-        del messages, params
-        if not self._responses:
-            raise AssertionError("No more stubbed responses available.")
-        return LLMResponse(
-            model=model,
-            text=self._responses.pop(0),
-            provider="test-sequence",
-            latency_ms=2,
-        )
-
-    def stream_chat(
-        self,
-        messages: Sequence[LLMMessage],
-        *,
-        model: str,
-        params: LLMChatParams,
-    ) -> Iterator[LLMStreamEvent]:
-        response = self.chat(messages, model=model, params=params)
-        yield LLMStreamEvent(kind="delta", delta_text=response.text)
-        yield LLMStreamEvent(kind="completed", response=response)
-
-    def generate(self, request: LLMRequest) -> LLMResponse:
-        return self.chat(
-            request.messages,
-            model=request.model or self.default_model(),
-            params=LLMChatParams(),
-        )
-
-    def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        response = self.generate(request)
-        yield LLMDelta(text_delta=response.text)
-
-    def default_model(self) -> str:
-        return "sequence-model"
-
-
-class _StaticJsonDraftAgent(Agent):
-    """Agent stub that always returns one JSON object in ``output.model_text``."""
-
-    def __init__(self, *, payload: Mapping[str, object]) -> None:
-        self._payload = dict(payload)
-        self.run_count = 0
-
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        del prompt, request_id, dependencies
-        self.run_count += 1
-        return AgentResult(
-            output={"model_text": json.dumps(self._payload, ensure_ascii=True)},
-            success=True,
-            tool_results=[],
-            model_response=None,
-            metadata={"agent": "static-json-draft"},
-        )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
-
-
-class _CaptureDependenciesAgent(Agent):
-    """Agent stub that captures invocation dependencies for assertions."""
-
-    def __init__(self) -> None:
-        self.last_dependencies: Mapping[str, object] | None = None
-
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        del prompt, request_id
-        self.last_dependencies = dict(dependencies or {})
-        return AgentResult(
-            output={"model_text": "{}"},
-            success=True,
-            tool_results=[],
-            model_response=None,
-            metadata={"agent": "capture-deps"},
-        )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
-
-
-class _StaticMarkerAgent(Agent):
-    """Deterministic agent used by routing workflow tests."""
-
-    def __init__(self, *, marker: str) -> None:
-        self._marker = marker
-
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        del prompt, request_id, dependencies
-        return AgentResult(
-            output={"agent_marker": self._marker},
-            success=True,
-            tool_results=[],
-            model_response=None,
-            metadata={"agent": self._marker},
-        )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
+from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 
 def _write_dataset(*, filename: str) -> str:
@@ -429,15 +223,14 @@ def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
 
 
 def test_workflow_schema_mode_without_schema_allows_arbitrary_inputs() -> None:
-    steps = [
-        LogicStep(
-            step_id="echo_inputs",
-            handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
-        )
-    ]
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        steps=steps,
+        steps=[
+            LogicStep(
+                step_id="echo_inputs",
+                handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
+            )
+        ],
         input_mode="schema",
     )
 
@@ -456,7 +249,7 @@ def test_workflow_requires_non_empty_steps() -> None:
 
 
 def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
-    writer_agent = _StaticJsonDraftAgent(
+    writer_agent = StaticJsonDraftAgent(
         payload={"title": "Agent title", "summary": "Agent summary"}
     )
     workflow = Workflow(
@@ -481,7 +274,7 @@ def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
 
 
 def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> None:
-    writer_agent = _StaticJsonDraftAgent(payload={"title": "ignored"})
+    writer_agent = StaticJsonDraftAgent(payload={"title": "ignored"})
     custom_steps = [
         AgentStep(
             step_id="delegate",
@@ -521,7 +314,7 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
 
 
 def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
-    writer_agent = _StaticJsonDraftAgent(payload={"title": "loop title"})
+    writer_agent = StaticJsonDraftAgent(payload={"title": "loop title"})
     workflow = Workflow(
         tool_runtime=Toolbox(),
         agents={"writer_agent": writer_agent},
@@ -548,155 +341,8 @@ def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
     assert writer_agent.run_count == 1
 
 
-def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> None:
-    success_workflow = PlannerExecutorPattern(
-        llm_client=_SequenceLLMClient(
-            response_texts=[
-                json.dumps(
-                    {
-                        "steps": [
-                            {
-                                "step_id": "compute",
-                                "instruction": "Compute 6 * 7.",
-                                "success_criteria": "Return numeric result.",
-                            }
-                        ]
-                    }
-                ),
-                "\n".join(
-                    [
-                        'calc = call_tool("calculator", {"expression": "6 * 7"})',
-                        'final_output = {"result": calc["result"]}',
-                    ]
-                ),
-            ]
-        ),
-        tool_runtime=Toolbox(),
-        controls=RuntimeControls(max_iterations=2),
-    )
-    success_result = success_workflow.run("Compute 6 * 7.")
-    assert success_result.success
-    assert success_result.output["steps_executed"] == 1
-    assert success_result.output["final_output"]["result"] == 42.0
-    assert success_result.output["terminated_reason"] == "completed"
-    assert success_result.metadata["runtime"]["resolved_mode"] == "plan_execute"
-
-    failure_workflow = PlannerExecutorPattern(
-        llm_client=_SequenceLLMClient(response_texts=["invalid plan payload"]),
-        tool_runtime=Toolbox(),
-    )
-    failure_result = failure_workflow.run("Compute 6 * 7.")
-    assert not failure_result.success
-    assert failure_result.output["terminated_reason"] == "planner_invalid_json"
-    assert failure_result.output["steps_executed"] == 0
-    assert failure_result.output["step_results"] == []
-
-
-def test_propose_and_critique_workflow_output_contract_success_and_failure_paths() -> None:
-    success_workflow = ReflexionPattern(
-        llm_client=_SequenceLLMClient(
-            response_texts=[
-                "Draft v1",
-                json.dumps(
-                    {
-                        "approved": True,
-                        "feedback": "Looks good.",
-                        "revision_goals": [],
-                    }
-                ),
-            ]
-        ),
-        tool_runtime=Toolbox(),
-        controls=RuntimeControls(max_iterations=2),
-    )
-    success_result = success_workflow.run("Write a short design summary.")
-    assert success_result.success
-    assert success_result.output["approved"] is True
-    assert success_result.output["terminated_reason"] == "approved"
-    assert len(success_result.output["critique_iterations"]) == 1
-
-    failure_workflow = ReflexionPattern(
-        llm_client=_SequenceLLMClient(
-            response_texts=[
-                "Draft v1",
-                "invalid critique payload",
-            ]
-        ),
-        tool_runtime=Toolbox(),
-    )
-    failure_result = failure_workflow.run("Write a short design summary.")
-    assert not failure_result.success
-    assert failure_result.output["terminated_reason"] == "critic_invalid_json"
-    assert isinstance(failure_result.output["critique_iterations"], list)
-
-
-def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> None:
-    success_workflow = RouterPattern(
-        llm_client=_SequenceLLMClient(
-            response_texts=['{"selection":"alt_two","reason":"best fit"}']
-        ),
-        tool_runtime=Toolbox(),
-        alternatives={
-            "alt_one": _StaticMarkerAgent(marker="one"),
-            "alt_two": _StaticMarkerAgent(marker="two"),
-        },
-    )
-    success_result = success_workflow.run("Route this request.")
-    assert success_result.success
-    assert success_result.output["agent_marker"] == "two"
-    assert success_result.output["agent_routing_selected_alternative"] == "alt_two"
-    assert success_result.metadata["agent_routing"]["selected_alternative"] == "alt_two"
-
-    failure_workflow = RouterPattern(
-        llm_client=_SequenceLLMClient(
-            response_texts=['{"selection":"unknown_alt","reason":"best fit"}']
-        ),
-        tool_runtime=Toolbox(),
-        alternatives={"alt_one": _StaticMarkerAgent(marker="one")},
-    )
-    failure_result = failure_workflow.run("Route this request.")
-    assert not failure_result.success
-    assert failure_result.output["terminated_reason"] == "routing_failure"
-    assert failure_result.output["delegated_output"] == {}
-
-
-def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
-    plan_params = inspect.signature(PlannerExecutorPattern.__init__).parameters
-    assert "default_request_id_prefix" in plan_params
-    assert "plan_execute_planner_system_prompt" in plan_params
-
-    propose_params = inspect.signature(ReflexionPattern.__init__).parameters
-    assert "propose_critic_proposer_user_prompt_template" in propose_params
-    assert "default_dependencies" in propose_params
-
-    routing_params = inspect.signature(RouterPattern.__init__).parameters
-    assert "agent_routing_router_system_prompt" in routing_params
-    assert "default_request_id_prefix" in routing_params
-
-    workflow_params = inspect.signature(Workflow.__init__).parameters
-    assert "input_mode" in workflow_params
-    assert "input_schema" in workflow_params
-    assert "prompt_context_key" in workflow_params
-    assert "default_execution_mode" in workflow_params
-    assert "default_dependencies" in workflow_params
-
-
-def test_workflow_factory_functions_are_removed() -> None:
-    from design_research_agents.workflow import implementations as workflow_impl
-
-    removed_symbols = (
-        "plan_execute_workflow",
-        "propose_and_critique_workflow",
-        "agent_routing_workflow",
-        "mixed_agent_workflow",
-        "pure_tool_workflow",
-    )
-    for symbol in removed_symbols:
-        assert symbol not in workflow_impl.__all__
-
-
 def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied() -> None:
-    capture_agent = _CaptureDependenciesAgent()
+    capture_agent = CaptureDependenciesAgent()
     workflow = Workflow(
         tool_runtime=Toolbox(),
         agents={"capture": capture_agent},
