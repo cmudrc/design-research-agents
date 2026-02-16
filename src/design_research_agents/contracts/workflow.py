@@ -15,6 +15,16 @@ WorkflowStepStatus = Literal["completed", "failed", "skipped"]
 ToolStepInputBuilder: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
 AgentStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
 LogicStepHandler: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
+LoopStepContinuePredicate: TypeAlias = Callable[[int, Mapping[str, object]], bool]
+LoopStepStateReducer: TypeAlias = Callable[
+    [Mapping[str, object], "WorkflowResult", int],
+    Mapping[str, object],
+]
+LoopStepTerminationReason = Literal[
+    "condition_stopped",
+    "max_iterations_reached",
+    "iteration_failed",
+]
 
 
 @dataclass(slots=True, frozen=True)
@@ -49,7 +59,22 @@ class LogicStep:
     route_map: Mapping[str, tuple[str, ...]] | None = None
 
 
-WorkflowStep: TypeAlias = ToolStep | AgentStep | LogicStep
+@dataclass(slots=True, frozen=True)
+class LoopStep:
+    """Workflow step that executes an iterative nested workflow body."""
+
+    step_id: str
+    steps: tuple[WorkflowStep, ...]
+    dependencies: tuple[str, ...] = ()
+    max_iterations: int = 1
+    initial_state: Mapping[str, object] | None = None
+    continue_predicate: LoopStepContinuePredicate | None = None
+    state_reducer: LoopStepStateReducer | None = None
+    execution_mode: WorkflowExecutionMode = "sequential"
+    failure_policy: WorkflowFailurePolicy = "skip_dependents"
+
+
+WorkflowStep: TypeAlias = ToolStep | AgentStep | LogicStep | LoopStep
 
 
 @dataclass(slots=True, frozen=True)

@@ -17,11 +17,14 @@ _EXPORTS: Final[dict[str, str]] = {
     "CallableTool": "design_research_agents.tools:CallableTool",
     "ScriptTool": "design_research_agents.tools:ScriptTool",
     "McpServer": "design_research_agents.tools:McpServer",
-    "PlanExecuteWorkflow": "design_research_agents.workflow:PlanExecuteWorkflow",
-    "ProposeAndCritiqueWorkflow": "design_research_agents.workflow:ProposeAndCritiqueWorkflow",
-    "AgentRoutingWorkflow": "design_research_agents.workflow:AgentRoutingWorkflow",
-    "PureToolWorkflow": "design_research_agents.workflow:PureToolWorkflow",
-    "MixedAgentWorkflow": "design_research_agents.workflow:MixedAgentWorkflow",
+    "LogicStep": "design_research_agents.contracts:LogicStep",
+    "ToolStep": "design_research_agents.contracts:ToolStep",
+    "AgentStep": "design_research_agents.contracts:AgentStep",
+    "LoopStep": "design_research_agents.contracts:LoopStep",
+    "Workflow": "design_research_agents.workflow:Workflow",
+    "PlannerExecutorPattern": "design_research_agents.workflow:PlannerExecutorPattern",
+    "ReflexionPattern": "design_research_agents.workflow:ReflexionPattern",
+    "RouterPattern": "design_research_agents.workflow:RouterPattern",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
@@ -60,6 +63,10 @@ if TYPE_CHECKING:
     from .agent import SingleStepDirectLLMAgent as SingleStepDirectLLMAgent
     from .agent import SingleStepJsonToolCallingAgent as SingleStepJsonToolCallingAgent
     from .agent import SingleStepRouterAgent as SingleStepRouterAgent
+    from .contracts import AgentStep as AgentStep
+    from .contracts import LogicStep as LogicStep
+    from .contracts import LoopStep as LoopStep
+    from .contracts import ToolStep as ToolStep
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MlxLocalLLMClient as MlxLocalLLMClient
     from .llm import OpenAICompatibleHTTPLLMClient as OpenAICompatibleHTTPLLMClient
@@ -70,8 +77,7 @@ if TYPE_CHECKING:
     from .tools import McpServer as McpServer
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
-    from .workflow import AgentRoutingWorkflow as AgentRoutingWorkflow
-    from .workflow import MixedAgentWorkflow as MixedAgentWorkflow
-    from .workflow import PlanExecuteWorkflow as PlanExecuteWorkflow
-    from .workflow import ProposeAndCritiqueWorkflow as ProposeAndCritiqueWorkflow
-    from .workflow import PureToolWorkflow as PureToolWorkflow
+    from .workflow import PlannerExecutorPattern as PlannerExecutorPattern
+    from .workflow import ReflexionPattern as ReflexionPattern
+    from .workflow import RouterPattern as RouterPattern
+    from .workflow import Workflow as Workflow

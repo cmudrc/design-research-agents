@@ -7,6 +7,7 @@ from contextlib import contextmanager
 
 from design_research_agents.contracts.workflow import (
     AgentStep,
+    LoopStep,
     ToolStep,
     WorkflowStep,
 )
@@ -22,6 +23,8 @@ def step_kind(step: WorkflowStep) -> str:
         return "tool"
     if isinstance(step, AgentStep):
         return "agent"
+    if isinstance(step, LoopStep):
+        return "loop"
     return "logic"
 
 

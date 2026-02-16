@@ -1,9 +1,6 @@
 API
 ===
 
-Public API Contract
--------------------
-
 The supported top-level API is the curated export list from
 ``design_research_agents.__all__``:
 
@@ -26,12 +23,16 @@ The supported top-level API is the curated export list from
     - ``SingleStepCodeToolCallingAgent``
     - ``MultiStepJsonToolCallingAgent``
     - ``MultiStepCodeToolCallingAgent``
+- Patterns
+    - ``PlannerExecutorPattern``
+    - ``ReflexionPattern``
+    - ``RouterPattern``
 - Workflows
-    - ``PlanExecuteWorkflow``
-    - ``ProposeAndCritiqueWorkflow``
-    - ``AgentRoutingWorkflow``
-    - ``PureToolWorkflow``
-    - ``MixedAgentWorkflow``
+    - ``LogicStep``
+    - ``ToolStep``
+    - ``AgentStep``
+    - ``LoopStep``
+    - ``Workflow``
 
 The API is constructor-first: agents and workflows expose customization through
 ``__init__`` kwargs (prompt overrides, routing/tool allowlists, and workflow

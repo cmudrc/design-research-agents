@@ -1,0 +1,149 @@
+"""Shared helpers for workflow-native orchestration patterns."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from string import Template
+
+from design_research_agents.agent.internal.prompt_overrides import validate_prompt_text
+from design_research_agents.agent.internal.result_builders import build_failure_result
+from design_research_agents.agent.runtime_controls import RuntimeControls
+from design_research_agents.contracts.agent import AgentResult
+from design_research_agents.contracts.llm import LLMResponse
+from design_research_agents.contracts.tools import ToolResult, ToolSpec
+
+
+@dataclass(slots=True)
+class WorkflowBudgetTracker:
+    """Soft-budget accumulator for workflow-native orchestration patterns."""
+
+    observed_latency_ms: int = 0
+    observed_model_calls: int = 0
+    observed_tool_calls: int = 0
+    observed_estimated_usd: float = 0.0
+
+    def add_model_response(self, model_response: LLMResponse | None) -> None:
+        """Accumulate model-call metrics from one optional response."""
+        if model_response is None:
+            return
+        self.observed_model_calls += 1
+        if isinstance(model_response.latency_ms, int) and model_response.latency_ms >= 0:
+            self.observed_latency_ms += model_response.latency_ms
+
+    def add_tool_results(
+        self,
+        *,
+        tool_results: list[ToolResult],
+        tool_specs: Mapping[str, ToolSpec],
+    ) -> None:
+        """Accumulate tool-call counts and estimated tool spend."""
+        for tool_result in tool_results:
+            self.observed_tool_calls += 1
+            runtime_spec = tool_specs.get(tool_result.tool_name)
+            if runtime_spec is None:
+                continue
+            estimated_cost = runtime_spec.cost_hints.usd_cost_estimate
+            if isinstance(estimated_cost, (int, float)):
+                self.observed_estimated_usd += float(estimated_cost)
+
+    def as_metadata(self, *, controls: RuntimeControls) -> dict[str, object]:
+        """Return normalized soft-budget metadata payload."""
+        latency_exceeded = (
+            controls.soft_max_latency_ms is not None
+            and self.observed_latency_ms > controls.soft_max_latency_ms
+        )
+        usd_exceeded = (
+            controls.soft_max_usd is not None
+            and self.observed_estimated_usd > controls.soft_max_usd
+        )
+        return {
+            "observed_latency_ms": self.observed_latency_ms,
+            "observed_model_calls": self.observed_model_calls,
+            "observed_tool_calls": self.observed_tool_calls,
+            "observed_estimated_usd": round(self.observed_estimated_usd, 6),
+            "soft_max_latency_ms": controls.soft_max_latency_ms,
+            "soft_max_usd": controls.soft_max_usd,
+            "latency_exceeded": latency_exceeded,
+            "usd_exceeded": usd_exceeded,
+        }
+
+
+def resolve_prompt_override(
+    *,
+    override: str | None,
+    default_value: str,
+    field_name: str,
+) -> str:
+    """Resolve one prompt/template text using override-or-default semantics."""
+    if override is None:
+        return validate_prompt_text(value=default_value, field_name=field_name)
+    return validate_prompt_text(value=override, field_name=field_name)
+
+
+def render_prompt_template(
+    *,
+    template_text: str,
+    variables: Mapping[str, object],
+    field_name: str,
+) -> str:
+    """Render template text with strict missing-variable validation."""
+    normalized_template = validate_prompt_text(value=template_text, field_name=field_name)
+    rendered_variables = {key: str(value) for key, value in variables.items()}
+    template = Template(normalized_template)
+    try:
+        return template.substitute(rendered_variables)
+    except KeyError as exc:
+        missing_key = exc.args[0] if exc.args else "unknown"
+        raise ValueError(f"{field_name} is missing required variable '{missing_key}'.") from exc
+
+
+def attach_runtime_metadata(
+    *,
+    agent_result: AgentResult,
+    requested_mode: str,
+    resolved_mode: str,
+    controls: RuntimeControls,
+    budget_metadata: Mapping[str, object],
+    extra_metadata: Mapping[str, object] | None,
+) -> AgentResult:
+    """Attach standardized runtime metadata to an agent-style result payload."""
+    metadata = dict(agent_result.metadata)
+    runtime_metadata: dict[str, object] = {
+        "requested_mode": requested_mode,
+        "resolved_mode": resolved_mode,
+        "controls": controls.asdict(),
+        "soft_budget": dict(budget_metadata),
+    }
+    if extra_metadata is not None:
+        runtime_metadata.update(extra_metadata)
+    metadata["runtime"] = runtime_metadata
+    return AgentResult(
+        output=dict(agent_result.output),
+        success=agent_result.success,
+        tool_results=list(agent_result.tool_results),
+        model_response=agent_result.model_response,
+        metadata=metadata,
+    )
+
+
+def build_pattern_failure_result(
+    *,
+    error: str,
+    model_response: LLMResponse | None,
+    request_id: str,
+    dependencies: Mapping[str, object],
+    metadata: Mapping[str, object],
+    output: Mapping[str, object],
+    tool_results: list[ToolResult] | None = None,
+) -> AgentResult:
+    """Build one normalized orchestration failure result."""
+    return build_failure_result(
+        error=error,
+        model_response=model_response,
+        tool_results=tool_results or [],
+        request_id=request_id,
+        dependencies=dependencies,
+        metadata=metadata,
+        output=output,
+    )

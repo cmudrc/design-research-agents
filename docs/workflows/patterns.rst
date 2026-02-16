@@ -3,16 +3,20 @@ Workflow Patterns
 
 Available reusable workflow patterns:
 
-- ``PlanExecuteWorkflow``
+- ``PlannerExecutorPattern``
   - Planner + executor decomposition for complex tasks
-- ``ProposeAndCritiqueWorkflow``
+- ``ReflexionPattern``
   - Iterative proposal/revision loops
-- ``AgentRoutingWorkflow``
+- ``RouterPattern``
   - Intent-based delegation to selected agents
-- ``PureToolWorkflow``
-  - Reusable pure tool/logic graph with ``run(inputs=...)``
-- ``MixedAgentWorkflow``
-  - Reusable mixed graph with ``run(prompt=...)``
+- ``Workflow``
+  - Reusable user-defined graph with ``input_mode='schema'`` or
+    ``input_mode='prompt'``
+
+These workflow patterns are reference implementations built on first-class
+workflow primitives: ``LogicStep``, ``ToolStep``, ``AgentStep``, and
+``LoopStep``. You can reproduce and customize these
+patterns directly with ``WorkflowRuntime`` rather than relying on hidden modes.
 
 All workflow customization is constructor-first. Helper factory functions were
 removed from ``design_research_agents.workflow.implementations``.

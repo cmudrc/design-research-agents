@@ -7,12 +7,14 @@ agents.
 Quick chooser
 -------------
 
-- Need generic typed step orchestration: start with ``WorkflowRuntime``.
-- Need planner + executor: use ``PlanExecuteWorkflow``.
-- Need proposal and critique loop: use ``ProposeAndCritiqueWorkflow``.
-- Need intent-based delegate routing: use ``AgentRoutingWorkflow``.
-- Need user-defined tool/logic graph: use ``PureToolWorkflow``.
-- Need mixed logic/agent/tool graph: use ``MixedAgentWorkflow``.
+- Need reusable constructor-first step orchestration: start with ``Workflow``.
+- Need low-level runtime execution control: use ``WorkflowRuntime`` directly.
+- Need iterative orchestration loops: use ``LoopStep`` within ``WorkflowRuntime.run(...)``.
+- Need planner + executor: use ``PlannerExecutorPattern``.
+- Need proposal and critique loop: use ``ReflexionPattern``.
+- Need intent-based delegate routing: use ``RouterPattern``.
+- Need user-defined step graph: use ``Workflow`` with ``input_mode='schema'`` or
+  ``input_mode='prompt'``.
 
 Pages
 -----

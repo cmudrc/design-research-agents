@@ -2,7 +2,7 @@
 
 from design_research_agents import (
     LlamaCppServerLLMClient,
-    ProposeAndCritiqueWorkflow,
+    ReflexionPattern,
     Toolbox,
 )
 
@@ -11,7 +11,7 @@ def main() -> None:
     """Run ``propose_critic`` orchestration with configurable dependencies."""
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
-    workflow = ProposeAndCritiqueWorkflow(
+    workflow = ReflexionPattern(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
     )

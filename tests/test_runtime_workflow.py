@@ -26,12 +26,18 @@ from design_research_agents.contracts.tools import ToolResult, ToolRuntime, Tool
 from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
+    LoopStep,
     ToolStep,
     WorkflowResult,
     WorkflowStepResult,
 )
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import WorkflowRuntime
+from design_research_agents.workflow import (
+    PlannerExecutorPattern,
+    ReflexionPattern,
+    RouterPattern,
+    WorkflowRuntime,
+)
 
 
 class _SequenceLLMClient:
@@ -303,7 +309,16 @@ def test_multi_step_json_tool_calling_agent_stops_on_step_failure() -> None:
     assert result.output["terminated_reason"] == "step_failure"
 
 
-def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
+def test_agent_runtime_rejects_non_react_mode_with_migration_message() -> None:
+    with pytest.raises(ValueError, match="mode='react' only"):
+        AgentRuntime(
+            llm_client=_SequenceLLMClient(response_texts=[]),
+            tool_runtime=Toolbox(),
+            mode="plan_execute",
+        )
+
+
+def test_plan_execute_workflow_runs_planner_then_executor() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
             json.dumps(
@@ -325,14 +340,13 @@ def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
             ),
         ]
     )
-    runtime = AgentRuntime(
+    workflow = PlannerExecutorPattern(
         llm_client=llm_client,
         tool_runtime=Toolbox(),
-        mode="plan_execute",
         controls=RuntimeControls(max_iterations=2),
     )
 
-    result = runtime.run("Compute 6 * 7.")
+    result = workflow.run("Compute 6 * 7.")
 
     assert result.success
     assert result.output["steps_executed"] == 1
@@ -340,7 +354,7 @@ def test_agent_runtime_plan_execute_mode_runs_planner_then_executor() -> None:
     assert result.metadata["runtime"]["resolved_mode"] == "plan_execute"
 
 
-def test_agent_runtime_propose_critic_stops_on_approval() -> None:
+def test_propose_and_critique_workflow_stops_on_approval() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
             "Draft v1",
@@ -361,14 +375,13 @@ def test_agent_runtime_propose_critic_stops_on_approval() -> None:
             ),
         ]
     )
-    runtime = AgentRuntime(
+    workflow = ReflexionPattern(
         llm_client=llm_client,
         tool_runtime=Toolbox(),
-        mode="propose_critic",
         controls=RuntimeControls(max_iterations=3),
     )
 
-    result = runtime.run("Write a short design summary.")
+    result = workflow.run("Write a short design summary.")
 
     assert result.success
     assert result.output["approved"] is True
@@ -376,23 +389,22 @@ def test_agent_runtime_propose_critic_stops_on_approval() -> None:
     assert len(result.output["critique_iterations"]) == 2
 
 
-def test_agent_runtime_agent_routing_selects_and_executes_named_alternative() -> None:
+def test_agent_routing_workflow_selects_and_executes_named_alternative() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
             '{"selection": "alt_two", "reason": "best fit"}',
         ]
     )
-    runtime = AgentRuntime(
+    workflow = RouterPattern(
         llm_client=llm_client,
         tool_runtime=Toolbox(),
-        mode="agent_routing",
-        agent_routing_alternatives={
+        alternatives={
             "alt_one": _StaticAgent(marker="one"),
             "alt_two": _StaticAgent(marker="two"),
         },
     )
 
-    result = runtime.run("Handle this request.")
+    result = workflow.run("Handle this request.")
 
     assert result.success
     assert result.output["agent_marker"] == "two"
@@ -400,7 +412,7 @@ def test_agent_runtime_agent_routing_selects_and_executes_named_alternative() ->
     assert result.metadata["agent_routing"]["selected_alternative"] == "alt_two"
 
 
-def test_agent_runtime_stream_emits_delta_then_completed() -> None:
+def test_plan_execute_workflow_stream_emits_delta_then_completed() -> None:
     llm_client = _SequenceLLMClient(
         response_texts=[
             json.dumps(
@@ -422,13 +434,12 @@ def test_agent_runtime_stream_emits_delta_then_completed() -> None:
             ),
         ]
     )
-    runtime = AgentRuntime(
+    workflow = PlannerExecutorPattern(
         llm_client=llm_client,
         tool_runtime=Toolbox(),
-        mode="plan_execute",
     )
 
-    events = list(runtime.run_stream("Compute 6 * 7."))
+    events = list(workflow.run_stream("Compute 6 * 7."))
 
     assert [event.kind for event in events] == ["delta", "completed"]
     assert events[1].result is not None
@@ -453,6 +464,173 @@ def test_workflow_runtime_sequential_runs_dependency_order() -> None:
     assert result.success
     assert result.execution_order == ["a", "b"]
     assert result.step_results["b"].output["value"] == 2
+
+
+def test_workflow_runtime_loop_step_stops_when_continue_predicate_returns_false() -> None:
+    workflow = WorkflowRuntime()
+    result = workflow.run(
+        [
+            LoopStep(
+                step_id="counter_loop",
+                steps=(
+                    LogicStep(
+                        step_id="tick",
+                        handler=lambda context: {
+                            "counter": int(
+                                (
+                                    context.get("loop_state")
+                                    if isinstance(context.get("loop_state"), Mapping)
+                                    else {}
+                                ).get("counter", 0)
+                            )
+                            + 1
+                        },
+                    ),
+                ),
+                max_iterations=5,
+                initial_state={"counter": 0},
+                continue_predicate=lambda iteration, state: int(state.get("counter", 0)) < 2,
+                state_reducer=lambda state, iteration_result, iteration: {
+                    "counter": int(iteration_result.step_results["tick"].output["counter"])
+                },
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+            )
+        ],
+        execution_mode="sequential",
+    )
+    loop_output = result.step_results["counter_loop"].output
+
+    assert result.success
+    assert loop_output["success"] is True
+    assert loop_output["terminated_reason"] == "condition_stopped"
+    assert loop_output["iterations"] == 5
+    assert loop_output["iterations_executed"] == 2
+    assert loop_output["final_state"]["counter"] == 2
+
+
+def test_workflow_runtime_loop_step_terminates_at_max_iterations() -> None:
+    workflow = WorkflowRuntime()
+    result = workflow.run(
+        [
+            LoopStep(
+                step_id="counter_loop",
+                steps=(
+                    LogicStep(
+                        step_id="tick",
+                        handler=lambda context: {
+                            "counter": int(
+                                (
+                                    context.get("loop_state")
+                                    if isinstance(context.get("loop_state"), Mapping)
+                                    else {}
+                                ).get("counter", 0)
+                            )
+                            + 1
+                        },
+                    ),
+                ),
+                max_iterations=3,
+                initial_state={"counter": 0},
+                state_reducer=lambda state, iteration_result, iteration: {
+                    "counter": int(iteration_result.step_results["tick"].output["counter"])
+                },
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+            )
+        ],
+        execution_mode="sequential",
+    )
+    loop_output = result.step_results["counter_loop"].output
+
+    assert result.success
+    assert loop_output["success"] is True
+    assert loop_output["terminated_reason"] == "max_iterations_reached"
+    assert loop_output["iterations_executed"] == 3
+    assert loop_output["final_state"]["counter"] == 3
+
+
+def test_workflow_runtime_loop_step_propagates_iteration_failures() -> None:
+    workflow = WorkflowRuntime()
+    result = workflow.run(
+        [
+            LoopStep(
+                step_id="counter_loop",
+                steps=(
+                    LogicStep(
+                        step_id="tick",
+                        handler=lambda context: (
+                            (_ for _ in ()).throw(RuntimeError("boom"))
+                            if int(
+                                (
+                                    context.get("_loop")
+                                    if isinstance(context.get("_loop"), Mapping)
+                                    else {}
+                                ).get("iteration", 0)
+                            )
+                            == 2
+                            else {"counter": 1}
+                        ),
+                    ),
+                ),
+                max_iterations=3,
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+            )
+        ],
+        execution_mode="sequential",
+    )
+    loop_step = result.step_results["counter_loop"]
+    loop_output = loop_step.output
+    iteration_results = loop_output["iteration_results"]
+
+    assert not result.success
+    assert loop_step.status == "failed"
+    assert loop_step.error == "Loop iteration failed."
+    assert loop_output["success"] is False
+    assert loop_output["terminated_reason"] == "iteration_failed"
+    assert loop_output["iterations_executed"] == 2
+    assert isinstance(iteration_results, list)
+    assert iteration_results[1]["success"] is False
+
+
+def test_workflow_runtime_loop_step_carries_state_across_iterations() -> None:
+    workflow = WorkflowRuntime()
+    result = workflow.run(
+        [
+            LoopStep(
+                step_id="value_loop",
+                steps=(
+                    LogicStep(
+                        step_id="double",
+                        handler=lambda context: {
+                            "value": int(
+                                (
+                                    context.get("loop_state")
+                                    if isinstance(context.get("loop_state"), Mapping)
+                                    else {}
+                                ).get("value", 0)
+                            )
+                            * 2
+                        },
+                    ),
+                ),
+                max_iterations=4,
+                initial_state={"value": 1},
+                state_reducer=lambda state, iteration_result, iteration: {
+                    "value": int(iteration_result.step_results["double"].output["value"])
+                },
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+            )
+        ],
+        execution_mode="sequential",
+    )
+    loop_output = result.step_results["value_loop"].output
+
+    assert result.success
+    assert loop_output["terminated_reason"] == "max_iterations_reached"
+    assert loop_output["final_state"]["value"] == 16
 
 
 def test_workflow_runtime_sequential_raises_for_unresolved_dependencies() -> None:

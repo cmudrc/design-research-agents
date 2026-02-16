@@ -9,6 +9,8 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
 
 - `workflow_runtime.py`
   - Direct `WorkflowRuntime` orchestration with composed steps.
+- `workflow_runtime_loop_step.py`
+  - Direct `WorkflowRuntime` orchestration with a composable top-level `LoopStep`.
 - `plan_execute.py`
   - Planner + executor pattern using runtime tools.
 - `propose_critic.py`
@@ -16,9 +18,9 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
 - `agent_routing.py`
   - Intent/agent routing with delegate execution.
 - `pure_tool_workflow.py`
-  - User-defined pure tool/logic step graph with `run(inputs=...)`.
+  - User-defined `Workflow` with `input_mode="schema"` for structured input payloads.
 - `mixed_agent_workflow.py`
-  - User-defined mixed (logic + agent + tool) step graph with `run(prompt=...)`.
+  - User-defined `Workflow` with `input_mode="prompt"` for string prompt payloads.
 
 ## Quick Start
 
@@ -26,6 +28,7 @@ Run from repository root:
 
 ```bash
 PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
+PYTHONPATH=src python3 examples/workflow/workflow_runtime_loop_step.py
 PYTHONPATH=src python3 examples/workflow/plan_execute.py
 PYTHONPATH=src python3 examples/workflow/propose_critic.py
 PYTHONPATH=src python3 examples/workflow/agent_routing.py
@@ -36,11 +39,12 @@ PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
 ## Implementation Mapping
 
 - `workflow_runtime.py` (`WorkflowRuntime`) -> `examples/workflow/workflow_runtime.py`
-- `plan_execute.py` (`PlanExecuteWorkflow`) -> `examples/workflow/plan_execute.py`
-- `propose_critic.py` (`ProposeAndCritiqueWorkflow`) -> `examples/workflow/propose_critic.py`
-- `agent_routing.py` (`AgentRoutingWorkflow`) -> `examples/workflow/agent_routing.py`
-- `pure_tool_workflow.py` (`PureToolWorkflow`) -> `examples/workflow/pure_tool_workflow.py`
-- `mixed_agent_workflow.py` (`MixedAgentWorkflow`) -> `examples/workflow/mixed_agent_workflow.py`
+- `workflow_runtime_loop_step.py` (`LoopStep`) -> `examples/workflow/workflow_runtime_loop_step.py`
+- `plan_execute.py` (`PlannerExecutorPattern`) -> `examples/workflow/plan_execute.py`
+- `propose_critic.py` (`ReflexionPattern`) -> `examples/workflow/propose_critic.py`
+- `agent_routing.py` (`RouterPattern`) -> `examples/workflow/agent_routing.py`
+- `pure_tool_workflow.py` (`Workflow` in `schema` mode) -> `examples/workflow/pure_tool_workflow.py`
+- `mixed_agent_workflow.py` (`Workflow` in `prompt` mode) -> `examples/workflow/mixed_agent_workflow.py`
 
 ## Expected Outputs
 

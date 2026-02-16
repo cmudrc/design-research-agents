@@ -1,12 +1,11 @@
 """Runnable example for intent routing across concrete DRA agent delegates.
 
-This flow uses ``agent_routing`` runtime mode under the hood, but presents a clearer
-intent/agent-routing entrypoint and terminology.
+The pattern is workflow-native and built on ``WorkflowRuntime`` primitives.
 """
 
 from design_research_agents import (
-    AgentRoutingWorkflow,
     LlamaCppServerLLMClient,
+    RouterPattern,
     Toolbox,
 )
 from design_research_agents.agent import SingleStepDirectLLMAgent, SingleStepJsonToolCallingAgent
@@ -23,7 +22,7 @@ def main() -> None:
         tool_runtime=tool_runtime,
     )
 
-    workflow = AgentRoutingWorkflow(
+    workflow = RouterPattern(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives={

@@ -1,8 +1,8 @@
-"""Runnable example for the reusable mixed workflow orchestration chunk."""
+"""Runnable example for ``Workflow`` in prompt-input mode."""
 
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, MixedAgentWorkflow, Toolbox
+from design_research_agents import LlamaCppServerLLMClient, Toolbox, Workflow
 from design_research_agents.agent import SingleStepDirectLLMAgent
 from design_research_agents.contracts.workflow import AgentStep, LogicStep, ToolStep
 
@@ -79,10 +79,11 @@ def main() -> None:
         ),
     ]
 
-    workflow = MixedAgentWorkflow(
+    workflow = Workflow(
         tool_runtime=tool_runtime,
         agents={"writer_agent": writer_agent},
         steps=workflow_steps,
+        input_mode="prompt",
     )
 
     agent_result = workflow.run(

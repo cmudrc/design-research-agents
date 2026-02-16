@@ -1,17 +1,15 @@
 """Workflow orchestration implementation exports."""
 
-from .implementations.agent_routing import AgentRoutingWorkflow
-from .implementations.mixed_agent_workflow import MixedAgentWorkflow
-from .implementations.plan_execute import PlanExecuteWorkflow
-from .implementations.propose_critic import ProposeAndCritiqueWorkflow
-from .implementations.pure_tool_workflow import PureToolWorkflow
+from .implementations.agent_routing import RouterPattern
+from .implementations.plan_execute import PlannerExecutorPattern
+from .implementations.propose_critic import ReflexionPattern
+from .implementations.workflow import Workflow
 from .implementations.workflow_runtime import WorkflowRuntime
 
 __all__ = [
-    "AgentRoutingWorkflow",
-    "MixedAgentWorkflow",
-    "PlanExecuteWorkflow",
-    "ProposeAndCritiqueWorkflow",
-    "PureToolWorkflow",
+    "PlannerExecutorPattern",
+    "ReflexionPattern",
+    "RouterPattern",
+    "Workflow",
     "WorkflowRuntime",
 ]

@@ -90,9 +90,12 @@ def test_agent_constructor_signatures_expose_new_prompt_kwargs() -> None:
     assert "continuation_memory_tail_items" in multi_code_params
 
     runtime_params = inspect.signature(AgentRuntime.__init__).parameters
-    assert "plan_execute_planner_system_prompt" in runtime_params
-    assert "propose_critic_critic_user_prompt_template" in runtime_params
-    assert "agent_routing_router_user_prompt_template" in runtime_params
+    assert "mode" in runtime_params
+    assert "controls" in runtime_params
+    assert "tracer" in runtime_params
+    assert "plan_execute_planner_system_prompt" not in runtime_params
+    assert "propose_critic_critic_user_prompt_template" not in runtime_params
+    assert "agent_routing_router_user_prompt_template" not in runtime_params
 
 
 def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:
@@ -105,5 +108,14 @@ def test_agent_runtime_fails_when_llm_default_model_is_empty() -> None:
         AgentRuntime(
             llm_client=_EmptyDefaultModelClient(),
             tool_runtime=Toolbox(),
-            mode="plan_execute",
+            mode="react",
         ).run("Compute 1 + 1")
+
+
+def test_agent_runtime_rejects_non_react_mode() -> None:
+    with pytest.raises(ValueError, match="mode='react' only"):
+        AgentRuntime(
+            llm_client=_EmptyDefaultModelClient(),
+            tool_runtime=Toolbox(),
+            mode="plan_execute",
+        )
