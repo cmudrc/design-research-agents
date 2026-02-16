@@ -41,9 +41,23 @@ class McpServer:
     """External MCP server definition."""
 
     id: str
+    """Unique identifier for the server. This is used to reference the server in 
+    tool definitions and logs."""
+
     type: Literal["stdio"] = "stdio"
+    """Communication protocol to use with the server. Currently, only 'stdio' 
+    is supported, which means the server will be launched as a subprocess and 
+    communicated with via its standard input and output streams."""
+
     command: tuple[str, ...] = ()
+    """Command to launch the server, specified as a tuple of strings. The first 
+    element should be the executable, and the subsequent elements are its arguments."""
+
     timeout_s: int = 20
+    """Timeout in seconds for server responses. If the server does not respond within 
+    this time frame, it will be  considered unresponsive, and appropriate error handling
+     will be triggered."""
+
     env_allowlist: tuple[str, ...] = (
         "PATH",
         "HOME",
@@ -53,7 +67,14 @@ class McpServer:
         "PYTHONPATH",
         "VIRTUAL_ENV",
     )
+    """Allowlist of environment variable names that will be passed to the server process. 
+    Only variables in this list will be included in the server's environment, which 
+    helps to limit exposure of sensitive  information and reduce the attack surface."""
+
     env: dict[str, str] = field(default_factory=dict)
+    """Explicit environment variables to set for the server process. This is a mapping of variable 
+    names to their desired values. These variables will be included in the server's environment in 
+    addition to any variables from the allowlist that are present in the parent process."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -69,8 +90,18 @@ class ScriptTool:
     """One explicit script-backed tool definition."""
 
     name: str
+    """Unique name of the tool. This is used to reference the tool in prompts and logs."""
+
     path: str
+    """Filesystem path to the script that implements the tool's behavior. This should be an 
+    absolute path or a path relative to the configured workspace root. The script will be
+    executed as a subprocess when the tool is invoked, and communicated with via its 
+    standard input and output streams."""
+
     description: str
+    """Short description of the tool's behavior. This should be a concise summary of what 
+    the tool does, suitable for inclusion in prompts and documentation."""
+
     input_schema: dict[str, object] = field(
         default_factory=lambda: {
             "type": "object",
@@ -79,18 +110,61 @@ class ScriptTool:
             "required": [],
         }
     )
+    """JSON Schema describing the expected input structure for the tool. This is used for
+    validation and documentation purposes. The tool will receive its input as a JSON-encoded
+    string on its standard input, and it should produce its output as a JSON-encoded string on
+    its standard output. The input schema should describe the structure of the JSON object that
+    the tool expects to receive, including any required properties and their types."""
+
     output_schema: dict[str, object] = field(
         default_factory=lambda: {
             "type": "object",
         }
     )
+    """JSON Schema describing the structure of the tool's output. This is used for validation and
+    documentation purposes. The tool's output should be a JSON-encoded string written to its
+    standard output, and the output schema should describe the structure of the JSON object that
+    the tool produces, including any properties and their types."""
+
     filesystem_read: bool = False
+    """Flag indicating whether the tool needs read access to the filesystem. If True, the tool will
+    be granted read access to the workspace root and artifacts directory. If False, the tool will
+    not be granted any filesystem access. This is used to enforce security constraints and limit 
+    the tool's capabilities."""
+
     filesystem_write: bool = False
+    """Flag indicating whether the tool needs write access to the filesystem. If True, 
+    the tool will be granted write access to the workspace root and artifacts directory. 
+    If False, the tool will not be granted any filesystem access. This is used to enforce 
+    security constraints and limit the tool's capabilities."""
+
     network: bool = False
+    """Flag indicating whether the tool needs access to the network. If True, the tool 
+    will be granted access to the network. If False, the tool will not be granted any 
+    network access. This is used to enforce security constraints and limit the 
+    tool's capabilities."""
+
     commands: tuple[str, ...] = ()
+    """Optional tuple of allowed shell commands that the tool is permitted to execute. If 
+    non-empty,  the tool will only be allowed to execute commands in this list, and 
+    attempts to execute any  other commands will be blocked. This is used to enforce 
+    security constraints and limit the tool's capabilities."""
+
     timeout_s: int = 30
+    """Timeout in seconds for the tool's execution. If the tool does not produce output within 
+    this time frame, it will be considered unresponsive, and appropriate error handling will 
+    be triggered."""
+
     permissions: tuple[str, ...] = ()
+    """Optional tuple of permission strings that the tool requires. This can be used to 
+    enforce security constraints or to inform users about the tool's capabilities. The 
+    specific permission strings and their meanings are not defined by this configuration
+    and should be interpreted by the tool runtime or the user interface accordingly."""
+
     risky: bool | None = None
+    """Optional boolean flag indicating whether the tool performs potentially risky operations, 
+    such as executing shell commands, accessing the filesystem, or making network requests. 
+    This can be used to inform users about the tool's capabilities and potential risks."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -106,8 +180,15 @@ class CallableTool:
     """Simple in-process callable tool wrapper descriptor."""
 
     name: str
+    """Unique name of the tool."""
+
     description: str
+    """Short description of the tool's behavior."""
+
     handler: CallableToolHandler
+    """Python callable that implements the tool's behavior. It should accept a single argument of 
+    type Mapping[str, object] and return an arbitrary JSON-serializable object."""
+
     input_schema: dict[str, object] = field(
         default_factory=lambda: {
             "type": "object",
@@ -116,13 +197,25 @@ class CallableTool:
             "required": [],
         }
     )
+    """JSON Schema describing the expected input structure for the tool. This is used for 
+    validation and documentation purposes."""
+
     output_schema: dict[str, object] = field(
         default_factory=lambda: {
             "type": "object",
         }
     )
+    """JSON Schema describing the structure of the tool's output. This is used for validation and 
+    documentation purposes."""
+
     permissions: tuple[str, ...] = ()
+    """Optional tuple of permission strings that the tool requires. This can be used to enforce 
+    security constraints or to inform users about the tool's capabilities."""
+
     risky: bool | None = None
+    """risky: Optional boolean flag indicating whether the tool performs potentially risky 
+    operations, such as executing shell commands, accessing the filesystem, or making 
+    network requests."""
 
 
 @dataclass(slots=True, frozen=True)

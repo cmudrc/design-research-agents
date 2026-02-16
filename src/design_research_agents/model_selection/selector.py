@@ -52,7 +52,25 @@ class ModelSelector:
         default_max_latency_ms: int | None = None,
         local_client_resolver: LocalClientResolver | None = None,
     ) -> None:
-        """Initialize model selector policy controls and optional resolver hook."""
+        """Initialize model selector policy controls and optional resolver hook.
+
+        Args:
+            catalog: Optional model catalog to use for selection.
+            prefer_local: Whether to prefer local models over remote ones when all else is equal.
+            ram_reserve_gb: Amount of RAM (in GB) to reserve when evaluating local candidates.
+            vram_reserve_gb: Amount of GPU VRAM (in GB) to reserve when evaluating local
+                candidates.
+            max_load_ratio: Maximum system load ratio to consider a local candidate viable
+                (0.0 to 1.0).
+            remote_cost_floor_usd: Minimum cost threshold (in USD) for remote models to be
+                considered viable.
+            default_max_latency_ms: Default maximum latency (in milliseconds) to consider when
+                evaluating candidates, if not specified in selection constraints.
+            local_client_resolver: Optional callable that takes a ModelSelectionDecision and
+                returns a dict with 'client_class' and 'kwargs' for constructing a local client
+                when the provider is not recognized by the built-in resolver. This allows for
+                custom local providers to be integrated without modifying the ModelSelector code.
+        """
         self._policy = ModelSelectionPolicy(
             catalog=catalog or ModelCatalog.default(),
             config=ModelSelectionPolicyConfig(
@@ -79,7 +97,39 @@ class ModelSelector:
         hardware_profile: Mapping[str, object] | HardwareProfile | None = None,
         output: SelectionOutput = "client",
     ) -> LLMClient | ModelSelectionDecision | dict[str, object]:
-        """Select a model and return a decision, config mapping, or live client."""
+        """Select a model and return a decision, config mapping, or live client.
+
+        Args:
+            task: Description of the task or use case for which a model is being selected.
+            priority: Selection priority, which may influence the trade-off between quality,
+                latency, and cost in the decision process.
+            require_local: If True, only consider local models as viable candidates.
+            preferred_provider: Optional provider name to prioritize in the selection process.
+            max_cost_usd: Optional maximum cost threshold (in USD) for candidate models.
+            max_latency_ms: Optional maximum latency threshold (in milliseconds) for
+                candidate models.
+            hardware_profile: Optional mapping or HardwareProfile instance describing the
+                current hardware state, which may be used to evaluate local candidates.
+            output: Determines the format of the selection result. "client" returns an
+                instantiated LLMClient ready for use, "decision" returns the
+                raw ModelSelectionDecision object with details of the selection
+                rationale, and "client_config" returns a dict containing the
+                information needed to construct an LLMClient (including 'client_class'
+                and 'kwargs') without actually instantiating it.
+
+        Returns:
+            Depending on the 'output' parameter:
+            - If output is "client": An instantiated LLMClient configured according to the
+              selection decision, ready for use in making requests.
+            - If output is "decision": A ModelSelectionDecision object containing details
+              about the selected model, provider, rationale, and policy information.
+            - If output is "client_config": A dict containing the resolved client configuration,
+              including 'client_class', 'kwargs', and metadata from the selection decision,
+              which can be used to instantiate an LLMClient at a later time or in a different
+              context.
+
+
+        """
         if output not in {"client", "decision", "client_config"}:
             raise ValueError("output must be one of: 'client', 'decision', 'client_config'.")
 

@@ -31,7 +31,19 @@ class MlxLocalBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
-        """Configure MLX backend parameters and deferred model loading."""
+        """Configure MLX backend parameters and deferred model loading.
+
+        Args:
+            name: Unique name for this backend configuration.
+            model_id: Identifier for the MLX model to load (e.g. "gemma-2b-it").
+            default_model: Default model name for prompts that don't specify one.
+            quantization: Quantization level to use when loading the model (e.g. "4-bit", "8-bit",
+                "fp16").
+            config_hash: Unique hash of the configuration for caching and invalidation purposes.
+            max_retries: Maximum number of retries for generation attempts.
+            model_patterns: Optional tuple of glob patterns to match against
+                model names for routing purposes.
+        """
         super().__init__(
             name=name,
             kind="mlx_local",
