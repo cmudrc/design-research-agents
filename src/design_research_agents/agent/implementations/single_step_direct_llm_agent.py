@@ -49,7 +49,7 @@ class SingleStepDirectLLMAgent(Agent):
         self,
         *,
         llm_client: LLMClient,
-        default_system_prompt: str | None = None,
+        system_prompt: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
         provider_options: Mapping[str, object] | None = None,
@@ -59,7 +59,7 @@ class SingleStepDirectLLMAgent(Agent):
 
         Args:
             llm_client: LLM client used for prompt execution.
-            default_system_prompt: Optional default system prompt.
+            system_prompt: Optional default system prompt.
             temperature: Optional default sampling temperature.
             max_tokens: Optional default output-token cap.
             provider_options: Optional default backend-specific options.
@@ -69,7 +69,7 @@ class SingleStepDirectLLMAgent(Agent):
             raise ValueError("max_tokens must be >= 1 when provided.")
 
         self._llm_client = llm_client
-        self._default_system_prompt = default_system_prompt
+        self._default_system_prompt = system_prompt
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._tracer = tracer

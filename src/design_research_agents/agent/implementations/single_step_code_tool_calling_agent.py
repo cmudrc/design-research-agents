@@ -20,7 +20,11 @@ from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     append_alternatives_block,
     build_user_prompt_alternatives_block,
-    resolve_alternatives_prompt_target,
+    normalize_alternatives_prompt_target,
+)
+from design_research_agents.agent.internal.prompt_overrides import (
+    render_template_text,
+    resolve_prompt_text,
 )
 from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
@@ -36,7 +40,6 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
     Tracer,
     emit_guardrail_decision,
@@ -108,6 +111,9 @@ class SingleStepCodeToolCallingAgent(Agent):
         validate_tool_input_schema: bool = False,
         normalize_generated_code: bool = False,
         default_tools: Sequence[Mapping[str, object]] | None = None,
+        system_prompt: str | None = None,
+        user_prompt_template: str | None = None,
+        alternatives_prompt_target: AlternativesPromptTarget = "user",
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a single-step code agent.
@@ -122,6 +128,9 @@ class SingleStepCodeToolCallingAgent(Agent):
                 rewrites for common non-canonical tool-call patterns.
             default_tools: Optional default allowed-tool list compiled at init time.
                 When omitted, all runtime-registered tools are allowed by default.
+            system_prompt: Optional system prompt override.
+            user_prompt_template: Optional user prompt template override.
+            alternatives_prompt_target: Prompt target for allowed tools block.
             tracer: Optional explicit tracer dependency.
         """
         if max_tool_calls < 1:
@@ -136,6 +145,19 @@ class SingleStepCodeToolCallingAgent(Agent):
         self._tracer = tracer
         self._validate_tool_input_schema = validate_tool_input_schema
         self._normalize_generated_code = normalize_generated_code
+        self._system_prompt = resolve_prompt_text(
+            override=system_prompt,
+            default_prompt_name="single_step_code_system",
+            field_name="system_prompt",
+        )
+        self._user_prompt_template = resolve_prompt_text(
+            override=user_prompt_template,
+            default_prompt_name="single_step_code_user_plan",
+            field_name="user_prompt_template",
+        )
+        self._alternatives_prompt_target = normalize_alternatives_prompt_target(
+            alternatives_prompt_target
+        )
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         self._compiled_default_allowed_tools = _compile_default_allowed_tools(
             runtime_specs=self._runtime_specs,
@@ -216,9 +238,7 @@ class SingleStepCodeToolCallingAgent(Agent):
             llm_client=self._llm_client,
         )
         prompt = _extract_prompt(normalized_input)
-        alternatives_prompt_target = resolve_alternatives_prompt_target(
-            input_payload=normalized_input
-        )
+        alternatives_prompt_target = self._alternatives_prompt_target
 
         try:
             llm_response = self._generate_code(
@@ -404,11 +424,12 @@ class SingleStepCodeToolCallingAgent(Agent):
             alternatives_text=tools_text,
             target=alternatives_prompt_target,
         )
-        user_prompt = render_prompt(
-            "single_step_code_user_plan",
+        user_prompt = render_template_text(
+            template_text=self._user_prompt_template,
             variables={"tools_block": tools_block, "user_prompt": prompt},
+            field_name="user_prompt_template",
         )
-        system_prompt = load_prompt("single_step_code_system")
+        system_prompt = self._system_prompt
         if alternatives_prompt_target == "system":
             system_prompt = append_alternatives_block(
                 prompt_text=system_prompt,

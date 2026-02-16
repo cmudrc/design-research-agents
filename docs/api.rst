@@ -33,6 +33,11 @@ The supported top-level API is the curated export list from
     - ``PureToolWorkflow``
     - ``MixedAgentWorkflow``
 
+The API is constructor-first: agents and workflows expose customization through
+``__init__`` kwargs (prompt overrides, routing/tool allowlists, and workflow
+run defaults). Workflow helper factory functions are intentionally not part of
+the exported contract.
+
 
 .. automodule:: design_research_agents
    :members:

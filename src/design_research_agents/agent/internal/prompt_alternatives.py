@@ -13,6 +13,15 @@ from typing import Literal, cast
 AlternativesPromptTarget = Literal["user", "system"]
 
 
+def normalize_alternatives_prompt_target(raw_target: object) -> AlternativesPromptTarget:
+    """Normalize and validate one alternatives prompt target value."""
+    if isinstance(raw_target, str):
+        normalized_target = raw_target.strip().lower()
+        if normalized_target in {"user", "system"}:
+            return cast(AlternativesPromptTarget, normalized_target)
+    raise ValueError("alternatives_prompt_target must be either 'user' or 'system'.")
+
+
 def resolve_alternatives_prompt_target(
     *,
     input_payload: Mapping[str, object],
@@ -31,10 +40,11 @@ def resolve_alternatives_prompt_target(
         Prompt target identifier for alternatives injection.
     """
     raw_target = input_payload.get("alternatives_prompt_target")
-    if isinstance(raw_target, str):
-        normalized_target = raw_target.strip().lower()
-        if normalized_target in {"user", "system"}:
-            return cast(AlternativesPromptTarget, normalized_target)
+    if raw_target is not None:
+        try:
+            return normalize_alternatives_prompt_target(raw_target)
+        except ValueError:
+            return default_target
     return default_target
 
 

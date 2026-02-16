@@ -36,11 +36,11 @@ PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
 ## Implementation Mapping
 
 - `workflow_runtime.py` (`WorkflowRuntime`) -> `examples/workflow/workflow_runtime.py`
-- `plan_execute.py` (`plan_execute_workflow`) -> `examples/workflow/plan_execute.py`
-- `propose_critic.py` (`propose_and_critique_workflow`) -> `examples/workflow/propose_critic.py`
-- `agent_routing.py` (`agent_routing_workflow`) -> `examples/workflow/agent_routing.py`
-- `pure_tool_workflow.py` (`pure_tool_workflow`) -> `examples/workflow/pure_tool_workflow.py`
-- `mixed_agent_workflow.py` (`mixed_agent_workflow`) -> `examples/workflow/mixed_agent_workflow.py`
+- `plan_execute.py` (`PlanExecuteWorkflow`) -> `examples/workflow/plan_execute.py`
+- `propose_critic.py` (`ProposeAndCritiqueWorkflow`) -> `examples/workflow/propose_critic.py`
+- `agent_routing.py` (`AgentRoutingWorkflow`) -> `examples/workflow/agent_routing.py`
+- `pure_tool_workflow.py` (`PureToolWorkflow`) -> `examples/workflow/pure_tool_workflow.py`
+- `mixed_agent_workflow.py` (`MixedAgentWorkflow`) -> `examples/workflow/mixed_agent_workflow.py`
 
 ## Expected Outputs
 

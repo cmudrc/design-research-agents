@@ -12,12 +12,16 @@ Patterns
 
 - ReAct-style loop over JSON tool-call actions.
 - Strong fit for structured iterative decomposition.
+- Constructor kwargs expose continuation/step prompt overrides plus
+  ``continuation_memory_tail_items`` and ``step_memory_tail_items`` controls.
 
 ``MultiStepCodeToolCallingAgent``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - ReAct-style loop over generated code actions.
 - Strong fit for iterative tool chains that need richer control flow.
+- Constructor kwargs expose continuation/step prompt overrides, alternatives
+  placement, and per-step memory-tail controls.
 
 Continuation and limits
 -----------------------

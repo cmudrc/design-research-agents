@@ -20,9 +20,14 @@ from design_research_agents.agent.internal.input_parsing import (
 )
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
+    AlternativesPromptTarget,
     append_alternatives_block,
     build_user_prompt_alternatives_block,
-    resolve_alternatives_prompt_target,
+    normalize_alternatives_prompt_target,
+)
+from design_research_agents.agent.internal.prompt_overrides import (
+    render_template_text,
+    resolve_prompt_text,
 )
 from design_research_agents.agent.internal.response_schemas import (
     build_tool_call_response_schema,
@@ -44,7 +49,6 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
-from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
     Tracer,
     emit_tool_selection_decision,
@@ -82,6 +86,10 @@ class SingleStepJsonToolCallingAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        system_prompt: str | None = None,
+        user_prompt_template: str | None = None,
+        alternatives_prompt_target: AlternativesPromptTarget = "user",
+        allowed_tools: Sequence[str] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a tool-calling agent with injected runtime dependencies.
@@ -89,14 +97,36 @@ class SingleStepJsonToolCallingAgent(Agent):
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
+            system_prompt: Optional system prompt override.
+            user_prompt_template: Optional user prompt template override.
+            alternatives_prompt_target: Prompt target for tools block.
+            allowed_tools: Optional tool allowlist.
             tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._tracer = tracer
+        self._system_prompt = resolve_prompt_text(
+            override=system_prompt,
+            default_prompt_name="tool_calling_system",
+            field_name="system_prompt",
+        )
+        self._user_prompt_template = resolve_prompt_text(
+            override=user_prompt_template,
+            default_prompt_name="tool_calling_user_select_tool",
+            field_name="user_prompt_template",
+        )
+        self._alternatives_prompt_target = normalize_alternatives_prompt_target(
+            alternatives_prompt_target
+        )
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
+        self._allowed_tool_names = _resolve_allowed_tool_names(
+            runtime_specs=self._runtime_specs,
+            allowed_tools=allowed_tools,
+        )
         self._compiled_tool_choices = _extract_tool_choices(
             tool_specs=self._runtime_specs,
+            allowed_tool_names=self._allowed_tool_names,
         )
         self._default_tool_call_response_schema = _tool_call_response_schema(
             [choice.tool_name for choice in self._compiled_tool_choices]
@@ -137,17 +167,19 @@ class SingleStepJsonToolCallingAgent(Agent):
             llm_client=self._llm_client,
         )
         choices = [_clone_tool_choice(choice) for choice in self._compiled_tool_choices]
-        alternatives_prompt_target = resolve_alternatives_prompt_target(
-            input_payload=normalized_input
-        )
+        alternatives_prompt_target = self._alternatives_prompt_target
         choices_text = _build_tool_choices_text(choices=choices)
         choices_block = build_user_prompt_alternatives_block(
             section_label="Available tools",
             alternatives_text=choices_text,
             target=alternatives_prompt_target,
         )
-        user_prompt = _build_tool_call_prompt(prompt=prompt, choices_block=choices_block)
-        system_prompt = load_prompt("tool_calling_system")
+        user_prompt = _build_tool_call_prompt(
+            prompt=prompt,
+            choices_block=choices_block,
+            prompt_template=self._user_prompt_template,
+        )
+        system_prompt = self._system_prompt
         if alternatives_prompt_target == "system":
             system_prompt = append_alternatives_block(
                 prompt_text=system_prompt,
@@ -273,23 +305,31 @@ class SingleStepJsonToolCallingAgent(Agent):
 def _extract_tool_choices(
     *,
     tool_specs: Mapping[str, ToolSpec],
+    allowed_tool_names: Sequence[str] | None = None,
 ) -> list[_ToolChoice]:
     """Extract normalized tool choices from runtime specs.
 
     Args:
         tool_specs: Mapping of tool specifications from the runtime.
+        allowed_tool_names: Optional allowlist of tool names to keep.
 
     Returns:
         List of normalized tool choices.
     """
-    if tool_specs:
+    allowed_name_set = set(allowed_tool_names or [])
+    filtered_specs = [
+        spec
+        for spec in tool_specs.values()
+        if not allowed_name_set or spec.name in allowed_name_set
+    ]
+    if filtered_specs:
         return [
             _ToolChoice(
                 tool_name=spec.name,
                 description=spec.description,
                 input_schema=dict(spec.input_schema),
             )
-            for spec in tool_specs.values()
+            for spec in filtered_specs
         ]
 
     raise ValueError(
@@ -297,7 +337,7 @@ def _extract_tool_choices(
     )
 
 
-def _build_tool_call_prompt(*, prompt: str, choices_block: str) -> str:
+def _build_tool_call_prompt(*, prompt: str, choices_block: str, prompt_template: str) -> str:
     """Build prompt asking model to select tool and structured arguments.
 
     The prompt receives pre-rendered choices text so callers can route
@@ -306,17 +346,39 @@ def _build_tool_call_prompt(*, prompt: str, choices_block: str) -> str:
     Args:
         prompt: User prompt text.
         choices_block: Pre-rendered choices block text.
+        prompt_template: User prompt template text.
 
     Returns:
         Rendered tool-call prompt text.
     """
-    return render_prompt(
-        "tool_calling_user_select_tool",
+    return render_template_text(
+        template_text=prompt_template,
         variables={
             "choices_block": choices_block,
             "user_prompt": prompt,
         },
+        field_name="user_prompt_template",
     )
+
+
+def _resolve_allowed_tool_names(
+    *,
+    runtime_specs: Mapping[str, ToolSpec],
+    allowed_tools: Sequence[str] | None,
+) -> tuple[str, ...] | None:
+    """Resolve tool allowlist against runtime specs."""
+    if allowed_tools is None:
+        return None
+
+    resolved_names = [
+        tool_name.strip()
+        for tool_name in allowed_tools
+        if isinstance(tool_name, str) and tool_name.strip() in runtime_specs
+    ]
+    deduped_names = tuple(dict.fromkeys(resolved_names))
+    if not deduped_names:
+        raise ValueError("allowed_tools did not match any runtime tools.")
+    return deduped_names
 
 
 def _build_tool_choices_text(*, choices: Sequence[_ToolChoice]) -> str:

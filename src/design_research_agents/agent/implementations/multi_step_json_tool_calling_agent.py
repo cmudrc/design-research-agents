@@ -36,8 +36,9 @@ from design_research_agents.agent.internal.multi_step_common import (
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     inject_alternatives_into_prompt_pair,
-    resolve_alternatives_prompt_target,
+    normalize_alternatives_prompt_target,
 )
+from design_research_agents.agent.internal.prompt_overrides import resolve_prompt_text
 from design_research_agents.agent.internal.response_schemas import (
     build_continuation_response_schema,
     clone_response_schema,
@@ -56,7 +57,6 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.prompts import load_prompt
 from design_research_agents.tracing import (
     Tracer,
     emit_continuation_decision,
@@ -83,6 +83,12 @@ class MultiStepJsonToolCallingAgent(Agent):
         tool_runtime: ToolRuntime,
         max_steps: int = 5,
         stop_on_step_failure: bool = True,
+        continuation_system_prompt: str | None = None,
+        continuation_user_prompt_template: str | None = None,
+        step_user_prompt_template: str | None = None,
+        alternatives_prompt_target: AlternativesPromptTarget = "user",
+        continuation_memory_tail_items: int = 6,
+        step_memory_tail_items: int = 8,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step JSON tool-calling agent.
@@ -92,16 +98,46 @@ class MultiStepJsonToolCallingAgent(Agent):
             tool_runtime: Tool runtime shared across all steps.
             max_steps: Maximum number of action-observation iterations.
             stop_on_step_failure: Whether to stop immediately when one step fails.
+            continuation_system_prompt: Optional continuation system prompt override.
+            continuation_user_prompt_template: Optional continuation user prompt template.
+            step_user_prompt_template: Optional step user prompt template.
+            alternatives_prompt_target: Prompt target for alternatives blocks.
+            continuation_memory_tail_items: Memory tail size for continuation prompts.
+            step_memory_tail_items: Memory tail size for step prompts.
             tracer: Optional explicit tracer dependency.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
+        if continuation_memory_tail_items < 1:
+            raise ValueError("continuation_memory_tail_items must be >= 1.")
+        if step_memory_tail_items < 1:
+            raise ValueError("step_memory_tail_items must be >= 1.")
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._tracer = tracer
         self._max_steps = max_steps
         self._stop_on_step_failure = stop_on_step_failure
+        self._continuation_system_prompt = resolve_prompt_text(
+            override=continuation_system_prompt,
+            default_prompt_name="multi_step_continue_system",
+            field_name="continuation_system_prompt",
+        )
+        self._continuation_user_prompt_template = resolve_prompt_text(
+            override=continuation_user_prompt_template,
+            default_prompt_name="multi_step_continue_user",
+            field_name="continuation_user_prompt_template",
+        )
+        self._step_user_prompt_template = resolve_prompt_text(
+            override=step_user_prompt_template,
+            default_prompt_name="multi_step_json_step_user",
+            field_name="step_user_prompt_template",
+        )
+        self._alternatives_prompt_target = normalize_alternatives_prompt_target(
+            alternatives_prompt_target
+        )
+        self._continuation_memory_tail_items = continuation_memory_tail_items
+        self._step_memory_tail_items = step_memory_tail_items
         self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
@@ -148,9 +184,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
         )
-        alternatives_prompt_target = resolve_alternatives_prompt_target(
-            input_payload=normalized_input
-        )
+        alternatives_prompt_target = self._alternatives_prompt_target
         step_tools_text = _build_step_tools_text(
             tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
         )
@@ -158,6 +192,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         step_agent = SingleStepJsonToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
+            alternatives_prompt_target=alternatives_prompt_target,
             tracer=self._tracer,
         )
 
@@ -213,7 +248,8 @@ class MultiStepJsonToolCallingAgent(Agent):
                 prompt=prompt,
                 memory=memory,
                 step_number=step_index + 1,
-                prompt_template="multi_step_json_step_user",
+                prompt_template=self._step_user_prompt_template,
+                memory_tail_items=self._step_memory_tail_items,
             )
             step_request_id = f"{resolved_request_id}:step-{step_index + 1}"
 
@@ -305,6 +341,9 @@ class MultiStepJsonToolCallingAgent(Agent):
                 "config": {
                     "max_steps": max_steps,
                     "stop_on_step_failure": stop_on_step_failure,
+                    "alternatives_prompt_target": alternatives_prompt_target,
+                    "continuation_memory_tail_items": self._continuation_memory_tail_items,
+                    "step_memory_tail_items": self._step_memory_tail_items,
                 },
             },
         )
@@ -364,11 +403,13 @@ class MultiStepJsonToolCallingAgent(Agent):
         Returns:
             Tuple of continuation decision, reason, source, and model response.
         """
-        system_prompt = load_prompt("multi_step_continue_system")
+        system_prompt = self._continuation_system_prompt
         user_prompt = build_continue_prompt(
             prompt=prompt,
             memory=memory,
             step_number=step_index + 1,
+            prompt_template=self._continuation_user_prompt_template,
+            memory_tail_items=self._continuation_memory_tail_items,
         )
         system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
             system_prompt=system_prompt,

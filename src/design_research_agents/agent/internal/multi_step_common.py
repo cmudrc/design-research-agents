@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.prompts import render_prompt
+from design_research_agents.agent.internal.prompt_overrides import render_template_text
 
 
 def build_continue_prompt(
@@ -13,16 +13,19 @@ def build_continue_prompt(
     prompt: str,
     memory: Sequence[Mapping[str, object]],
     step_number: int,
+    prompt_template: str,
+    memory_tail_items: int = 6,
 ) -> str:
     """Build the continuation-decision prompt from task context and memory."""
-    memory_preview = json.dumps(list(memory)[-6:], sort_keys=True)
-    return render_prompt(
-        "multi_step_continue_user",
+    memory_preview = json.dumps(list(memory)[-memory_tail_items:], sort_keys=True)
+    return render_template_text(
+        template_text=prompt_template,
         variables={
             "step_number": step_number,
             "task_prompt": prompt,
             "memory_tail": memory_preview,
         },
+        field_name="continuation_user_prompt_template",
     )
 
 
@@ -32,16 +35,18 @@ def build_step_prompt(
     memory: Sequence[Mapping[str, object]],
     step_number: int,
     prompt_template: str,
+    memory_tail_items: int = 8,
 ) -> str:
     """Build one action-step prompt from task context and memory."""
-    memory_preview = json.dumps(list(memory)[-8:], sort_keys=True)
-    return render_prompt(
-        prompt_template,
+    memory_preview = json.dumps(list(memory)[-memory_tail_items:], sort_keys=True)
+    return render_template_text(
+        template_text=prompt_template,
         variables={
             "task_prompt": prompt,
             "step_number": step_number,
             "memory_tail": memory_preview,
         },
+        field_name="step_user_prompt_template",
     )
 
 

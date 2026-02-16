@@ -16,9 +16,14 @@ from design_research_agents.agent.internal.input_parsing import (
 )
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
+    AlternativesPromptTarget,
     append_alternatives_block,
     build_user_prompt_alternatives_block,
-    resolve_alternatives_prompt_target,
+    normalize_alternatives_prompt_target,
+)
+from design_research_agents.agent.internal.prompt_overrides import (
+    render_template_text,
+    resolve_prompt_text,
 )
 from design_research_agents.agent.internal.response_schemas import (
     build_router_selection_response_schema,
@@ -41,7 +46,6 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
-from design_research_agents.prompts import load_prompt, render_prompt
 from design_research_agents.tracing import (
     Tracer,
     emit_guardrail_decision,
@@ -94,6 +98,10 @@ class SingleStepRouterAgent(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        system_prompt: str | None = None,
+        user_prompt_template: str | None = None,
+        alternatives_prompt_target: AlternativesPromptTarget = "user",
+        allowed_routes: Sequence[str] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a router agent with injected runtime dependencies.
@@ -101,14 +109,36 @@ class SingleStepRouterAgent(Agent):
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
+            system_prompt: Optional system prompt override.
+            user_prompt_template: Optional user prompt template override.
+            alternatives_prompt_target: Prompt target for routes block.
+            allowed_routes: Optional route/tool allowlist.
             tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._tracer = tracer
+        self._system_prompt = resolve_prompt_text(
+            override=system_prompt,
+            default_prompt_name="router_system",
+            field_name="system_prompt",
+        )
+        self._user_prompt_template = resolve_prompt_text(
+            override=user_prompt_template,
+            default_prompt_name="router_user_route",
+            field_name="user_prompt_template",
+        )
+        self._alternatives_prompt_target = normalize_alternatives_prompt_target(
+            alternatives_prompt_target
+        )
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
+        self._allowed_route_names = _resolve_allowed_route_names(
+            runtime_specs=self._runtime_specs,
+            allowed_routes=allowed_routes,
+        )
         self._compiled_runtime_alternatives = _compile_runtime_alternatives(
-            tool_specs=self._runtime_specs
+            tool_specs=self._runtime_specs,
+            allowed_route_names=self._allowed_route_names,
         )
         self._default_alternatives = _extract_alternatives(
             runtime_specs=self._runtime_specs,
@@ -155,17 +185,19 @@ class SingleStepRouterAgent(Agent):
         alternatives = [
             _clone_alternative(alternative) for alternative in self._default_alternatives
         ]
-        alternatives_prompt_target = resolve_alternatives_prompt_target(
-            input_payload=normalized_input
-        )
+        alternatives_prompt_target = self._alternatives_prompt_target
         routes_text = _build_routes_text(alternatives=alternatives)
         routes_block = build_user_prompt_alternatives_block(
             section_label="Available routes",
             alternatives_text=routes_text,
             target=alternatives_prompt_target,
         )
-        user_prompt = _build_route_prompt(prompt=prompt, routes_block=routes_block)
-        system_prompt = load_prompt("router_system")
+        user_prompt = _build_route_prompt(
+            prompt=prompt,
+            routes_block=routes_block,
+            prompt_template=self._user_prompt_template,
+        )
+        system_prompt = self._system_prompt
         if alternatives_prompt_target == "system":
             system_prompt = append_alternatives_block(
                 prompt_text=system_prompt,
@@ -435,6 +467,7 @@ def _clone_alternative(alternative: _ToolAlternative) -> _ToolAlternative:
 def _compile_runtime_alternatives(
     *,
     tool_specs: Mapping[str, ToolSpec],
+    allowed_route_names: Sequence[str] | None = None,
 ) -> tuple[_ToolAlternative, ...]:
     """Compile default routing alternatives directly from runtime tool specs.
 
@@ -442,10 +475,12 @@ def _compile_runtime_alternatives(
 
     Args:
         tool_specs: Tool specs available in the runtime.
+        allowed_route_names: Optional allowlist of route names to keep.
 
     Returns:
         Tuple of compiled tool alternatives.
     """
+    allowed_name_set = set(allowed_route_names or [])
     return tuple(
         _ToolAlternative(
             tool_name=spec.name,
@@ -453,29 +488,53 @@ def _compile_runtime_alternatives(
             input_schema=dict(spec.input_schema),
         )
         for spec in tool_specs.values()
+        if not allowed_name_set or spec.name in allowed_name_set
     )
+
+
+def _resolve_allowed_route_names(
+    *,
+    runtime_specs: Mapping[str, ToolSpec],
+    allowed_routes: Sequence[str] | None,
+) -> tuple[str, ...] | None:
+    """Resolve route allowlist against runtime specs."""
+    if allowed_routes is None:
+        return None
+
+    resolved_names = [
+        route_name.strip()
+        for route_name in allowed_routes
+        if isinstance(route_name, str) and route_name.strip() in runtime_specs
+    ]
+    deduped_names = tuple(dict.fromkeys(resolved_names))
+    if not deduped_names:
+        raise ValueError("allowed_routes did not match any runtime routes.")
+    return deduped_names
 
 
 def _build_route_prompt(
     *,
     prompt: str,
     routes_block: str,
+    prompt_template: str,
 ) -> str:
     """Build the route-selection user prompt consumed by the model.
 
     Args:
         prompt: User prompt text.
         routes_block: Pre-rendered routes block text.
+        prompt_template: User prompt template text.
 
     Returns:
         Rendered route-selection prompt text.
     """
-    return render_prompt(
-        "router_user_route",
+    return render_template_text(
+        template_text=prompt_template,
         variables={
             "routes_block": routes_block,
             "user_prompt": prompt,
         },
+        field_name="user_prompt_template",
     )
 
 

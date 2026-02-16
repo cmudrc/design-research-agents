@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from string import Template
 from typing import Literal
 
 from design_research_agents.agent.implementations.multi_step_code_tool_calling_agent import (
@@ -33,6 +34,7 @@ from design_research_agents.agent.internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
+from design_research_agents.agent.internal.prompt_overrides import validate_prompt_text
 from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
@@ -96,6 +98,51 @@ _CRITIC_SCHEMA: dict[str, object] = {
         },
     },
 }
+
+_DEFAULT_PLAN_EXECUTE_PLANNER_SYSTEM_PROMPT = (
+    "You are a planner for a plan-execute runtime. Return strict JSON only with steps[]."
+)
+_DEFAULT_PLAN_EXECUTE_PLANNER_USER_PROMPT_TEMPLATE = (
+    "Create an execution plan for this task. "
+    "Each step must have step_id, instruction, and success_criteria.\n\n"
+    "Task:\n$task_prompt"
+)
+_DEFAULT_PLAN_EXECUTE_EXECUTOR_STEP_PROMPT_TEMPLATE = "\n".join(
+    [
+        "Task: $task_prompt",
+        "Plan step id: $step_id",
+        "Instruction: $instruction",
+        "Success criteria: $success_criteria",
+        "Prior step outputs:",
+        "$prior_step_outputs_json",
+    ]
+)
+_DEFAULT_PROPOSE_CRITIC_PROPOSER_SYSTEM_PROMPT = (
+    "You are a proposer. Produce a concrete draft response for the task."
+)
+_DEFAULT_PROPOSE_CRITIC_PROPOSER_USER_PROMPT_TEMPLATE = "\n".join(
+    [
+        "Task: $task_prompt",
+        "Iteration: $iteration",
+        "Prior feedback: $prior_feedback",
+        "Revision goals: $revision_goals_json",
+        "Return only the revised proposal text.",
+    ]
+)
+_DEFAULT_PROPOSE_CRITIC_CRITIC_SYSTEM_PROMPT = (
+    "You are a strict critic. Return JSON only with approved, feedback, revision_goals."
+)
+_DEFAULT_PROPOSE_CRITIC_CRITIC_USER_PROMPT_TEMPLATE = "\n".join(
+    [
+        "Task:",
+        "$task_prompt",
+        "",
+        "Proposal:",
+        "$proposal",
+        "",
+        "Critique and return structured JSON.",
+    ]
+)
 
 
 @dataclass(slots=True)
@@ -165,6 +212,15 @@ class AgentRuntime(Agent):
         controls: RuntimeControls | None = None,
         agent_routing_alternatives: Mapping[str, Agent] | None = None,
         agent_routing_descriptions: Mapping[str, str] | None = None,
+        plan_execute_planner_system_prompt: str | None = None,
+        plan_execute_planner_user_prompt_template: str | None = None,
+        plan_execute_executor_step_prompt_template: str | None = None,
+        propose_critic_proposer_system_prompt: str | None = None,
+        propose_critic_proposer_user_prompt_template: str | None = None,
+        propose_critic_critic_system_prompt: str | None = None,
+        propose_critic_critic_user_prompt_template: str | None = None,
+        agent_routing_router_system_prompt: str | None = None,
+        agent_routing_router_user_prompt_template: str | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-mode runtime.
@@ -176,6 +232,15 @@ class AgentRuntime(Agent):
             controls: Shared runtime controls.
             agent_routing_alternatives: Constructor-provided agent-routing alternatives.
             agent_routing_descriptions: Optional alternative descriptions for agent routing.
+            plan_execute_planner_system_prompt: Optional planner system prompt override.
+            plan_execute_planner_user_prompt_template: Optional planner user prompt template.
+            plan_execute_executor_step_prompt_template: Optional executor step prompt template.
+            propose_critic_proposer_system_prompt: Optional proposer system prompt override.
+            propose_critic_proposer_user_prompt_template: Optional proposer user prompt template.
+            propose_critic_critic_system_prompt: Optional critic system prompt override.
+            propose_critic_critic_user_prompt_template: Optional critic user prompt template.
+            agent_routing_router_system_prompt: Optional router system prompt override.
+            agent_routing_router_user_prompt_template: Optional router user prompt template.
             tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
@@ -196,6 +261,57 @@ class AgentRuntime(Agent):
             and isinstance(description, str)
             and description.strip()
         }
+        self._plan_execute_planner_system_prompt = _resolve_prompt_override(
+            override=plan_execute_planner_system_prompt,
+            default_value=_DEFAULT_PLAN_EXECUTE_PLANNER_SYSTEM_PROMPT,
+            field_name="plan_execute_planner_system_prompt",
+        )
+        self._plan_execute_planner_user_prompt_template = _resolve_prompt_override(
+            override=plan_execute_planner_user_prompt_template,
+            default_value=_DEFAULT_PLAN_EXECUTE_PLANNER_USER_PROMPT_TEMPLATE,
+            field_name="plan_execute_planner_user_prompt_template",
+        )
+        self._plan_execute_executor_step_prompt_template = _resolve_prompt_override(
+            override=plan_execute_executor_step_prompt_template,
+            default_value=_DEFAULT_PLAN_EXECUTE_EXECUTOR_STEP_PROMPT_TEMPLATE,
+            field_name="plan_execute_executor_step_prompt_template",
+        )
+        self._propose_critic_proposer_system_prompt = _resolve_prompt_override(
+            override=propose_critic_proposer_system_prompt,
+            default_value=_DEFAULT_PROPOSE_CRITIC_PROPOSER_SYSTEM_PROMPT,
+            field_name="propose_critic_proposer_system_prompt",
+        )
+        self._propose_critic_proposer_user_prompt_template = _resolve_prompt_override(
+            override=propose_critic_proposer_user_prompt_template,
+            default_value=_DEFAULT_PROPOSE_CRITIC_PROPOSER_USER_PROMPT_TEMPLATE,
+            field_name="propose_critic_proposer_user_prompt_template",
+        )
+        self._propose_critic_critic_system_prompt = _resolve_prompt_override(
+            override=propose_critic_critic_system_prompt,
+            default_value=_DEFAULT_PROPOSE_CRITIC_CRITIC_SYSTEM_PROMPT,
+            field_name="propose_critic_critic_system_prompt",
+        )
+        self._propose_critic_critic_user_prompt_template = _resolve_prompt_override(
+            override=propose_critic_critic_user_prompt_template,
+            default_value=_DEFAULT_PROPOSE_CRITIC_CRITIC_USER_PROMPT_TEMPLATE,
+            field_name="propose_critic_critic_user_prompt_template",
+        )
+        self._agent_routing_router_system_prompt = (
+            validate_prompt_text(
+                value=agent_routing_router_system_prompt,
+                field_name="agent_routing_router_system_prompt",
+            )
+            if agent_routing_router_system_prompt is not None
+            else None
+        )
+        self._agent_routing_router_user_prompt_template = (
+            validate_prompt_text(
+                value=agent_routing_router_user_prompt_template,
+                field_name="agent_routing_router_user_prompt_template",
+            )
+            if agent_routing_router_user_prompt_template is not None
+            else None
+        )
 
         if self._mode == "agent_routing" and not self._agent_routing_alternatives:
             raise ValueError("agent_routing_alternatives must be given for mode='agent_routing'.")
@@ -343,17 +459,14 @@ class AgentRuntime(Agent):
         planner_messages = [
             LLMMessage(
                 role="system",
-                content=(
-                    "You are a planner for a plan-execute runtime. "
-                    "Return strict JSON only with steps[]."
-                ),
+                content=self._plan_execute_planner_system_prompt,
             ),
             LLMMessage(
                 role="user",
-                content=(
-                    "Create an execution plan for this task. "
-                    "Each step must have step_id, instruction, and success_criteria.\n\n"
-                    f"Task:\n{prompt}"
+                content=_render_prompt_template(
+                    template_text=self._plan_execute_planner_user_prompt_template,
+                    variables={"task_prompt": prompt},
+                    field_name="plan_execute_planner_user_prompt_template",
                 ),
             ),
         ]
@@ -465,15 +578,16 @@ class AgentRuntime(Agent):
             step_id = str(raw_step.get("step_id", f"step_{index + 1}"))
             step_instruction = str(raw_step.get("instruction", ""))
             success_criteria = str(raw_step.get("success_criteria", ""))
-            step_prompt = "\n".join(
-                [
-                    f"Task: {prompt}",
-                    f"Plan step id: {step_id}",
-                    f"Instruction: {step_instruction}",
-                    f"Success criteria: {success_criteria}",
-                    "Prior step outputs:",
-                    json.dumps(step_results[-3:], sort_keys=True),
-                ]
+            step_prompt = _render_prompt_template(
+                template_text=self._plan_execute_executor_step_prompt_template,
+                variables={
+                    "task_prompt": prompt,
+                    "step_id": step_id,
+                    "instruction": step_instruction,
+                    "success_criteria": success_criteria,
+                    "prior_step_outputs_json": json.dumps(step_results[-3:], sort_keys=True),
+                },
+                field_name="plan_execute_executor_step_prompt_template",
             )
 
             step_result = executor_agent.run(
@@ -560,9 +674,7 @@ class AgentRuntime(Agent):
         )
         proposer = SingleStepDirectLLMAgent(
             llm_client=self._llm_client,
-            default_system_prompt=(
-                "You are a proposer. Produce a concrete draft response for the task."
-            ),
+            system_prompt=self._propose_critic_proposer_system_prompt,
             tracer=self._tracer,
         )
 
@@ -575,14 +687,15 @@ class AgentRuntime(Agent):
         approved = False
 
         for iteration in range(self._controls.max_iterations):
-            propose_prompt = "\n".join(
-                [
-                    f"Task: {prompt}",
-                    f"Iteration: {iteration + 1}",
-                    f"Prior feedback: {current_feedback or '(none)'}",
-                    f"Revision goals: {json.dumps(current_goals, sort_keys=True)}",
-                    "Return only the revised proposal text.",
-                ]
+            propose_prompt = _render_prompt_template(
+                template_text=self._propose_critic_proposer_user_prompt_template,
+                variables={
+                    "task_prompt": prompt,
+                    "iteration": iteration + 1,
+                    "prior_feedback": current_feedback or "(none)",
+                    "revision_goals_json": json.dumps(current_goals, sort_keys=True),
+                },
+                field_name="propose_critic_proposer_user_prompt_template",
             )
             propose_result = proposer.run(
                 propose_prompt,
@@ -597,17 +710,17 @@ class AgentRuntime(Agent):
             critic_messages = [
                 LLMMessage(
                     role="system",
-                    content=(
-                        "You are a strict critic. Return JSON only with approved, feedback, "
-                        "revision_goals."
-                    ),
+                    content=self._propose_critic_critic_system_prompt,
                 ),
                 LLMMessage(
                     role="user",
-                    content=(
-                        f"Task:\n{prompt}\n\n"
-                        f"Proposal:\n{current_proposal}\n\n"
-                        "Critique and return structured JSON."
+                    content=_render_prompt_template(
+                        template_text=self._propose_critic_critic_user_prompt_template,
+                        variables={
+                            "task_prompt": prompt,
+                            "proposal": current_proposal,
+                        },
+                        field_name="propose_critic_critic_user_prompt_template",
                     ),
                 ),
             ]
@@ -758,6 +871,8 @@ class AgentRuntime(Agent):
         single_step_router_agent = SingleStepRouterAgent(
             llm_client=self._llm_client,
             tool_runtime=agent_routing_tool_runtime,
+            system_prompt=self._agent_routing_router_system_prompt,
+            user_prompt_template=self._agent_routing_router_user_prompt_template,
             tracer=self._tracer,
         )
         router_result = single_step_router_agent.run(
@@ -916,6 +1031,33 @@ def _failure_result(
         metadata=metadata,
         output=output,
     )
+
+
+def _resolve_prompt_override(
+    *,
+    override: str | None,
+    default_value: str,
+    field_name: str,
+) -> str:
+    if override is None:
+        return validate_prompt_text(value=default_value, field_name=field_name)
+    return validate_prompt_text(value=override, field_name=field_name)
+
+
+def _render_prompt_template(
+    *,
+    template_text: str,
+    variables: Mapping[str, object],
+    field_name: str,
+) -> str:
+    normalized_template = validate_prompt_text(value=template_text, field_name=field_name)
+    rendered_variables = {key: str(value) for key, value in variables.items()}
+    template = Template(normalized_template)
+    try:
+        return template.substitute(rendered_variables)
+    except KeyError as exc:
+        missing_key = exc.args[0] if exc.args else "unknown"
+        raise ValueError(f"{field_name} is missing required variable '{missing_key}'.") from exc
 
 
 def _budget_for_result(

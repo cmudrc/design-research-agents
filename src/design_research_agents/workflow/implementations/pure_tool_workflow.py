@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from uuid import uuid4
 
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
@@ -33,6 +34,34 @@ def _normalize_steps(steps: Sequence[PureWorkflowStep]) -> tuple[PureWorkflowSte
     return tuple(steps)
 
 
+def _normalize_request_id_prefix(default_request_id_prefix: str | None) -> str | None:
+    if default_request_id_prefix is None:
+        return None
+    normalized_prefix = default_request_id_prefix.strip()
+    if not normalized_prefix:
+        raise ValueError("default_request_id_prefix must be a non-empty string when provided.")
+    return normalized_prefix
+
+
+def _resolve_request_id(*, request_id: str | None, default_prefix: str | None) -> str | None:
+    if request_id is not None and request_id.strip():
+        return request_id
+    if default_prefix is None:
+        return request_id
+    return f"{default_prefix}:{uuid4().hex}"
+
+
+def _merge_dependencies(
+    *,
+    default_dependencies: Mapping[str, object],
+    run_dependencies: Mapping[str, object] | None,
+) -> dict[str, object]:
+    merged = dict(default_dependencies)
+    if run_dependencies is not None:
+        merged.update(run_dependencies)
+    return merged
+
+
 class PureToolWorkflow:
     """Configured pure-tool workflow for user-supplied step graphs."""
 
@@ -43,6 +72,10 @@ class PureToolWorkflow:
         steps: Sequence[PureWorkflowStep],
         input_schema: Mapping[str, object] | None = None,
         base_context: Mapping[str, object] | None = None,
+        default_execution_mode: WorkflowExecutionMode = "sequential",
+        default_failure_policy: WorkflowFailurePolicy = "skip_dependents",
+        default_request_id_prefix: str | None = None,
+        default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store runtime dependencies, step graph, and optional input schema."""
@@ -50,13 +83,17 @@ class PureToolWorkflow:
         self._steps = _normalize_steps(steps)
         self._input_schema = input_schema
         self._base_context = dict(base_context or {})
+        self._default_execution_mode = default_execution_mode
+        self._default_failure_policy = default_failure_policy
+        self._default_request_id_prefix = _normalize_request_id_prefix(default_request_id_prefix)
+        self._default_dependencies = dict(default_dependencies or {})
 
     def run(
         self,
         *,
         inputs: Mapping[str, object] | None = None,
-        execution_mode: WorkflowExecutionMode = "sequential",
-        failure_policy: WorkflowFailurePolicy = "skip_dependents",
+        execution_mode: WorkflowExecutionMode | None = None,
+        failure_policy: WorkflowFailurePolicy | None = None,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> WorkflowResult:
@@ -67,38 +104,26 @@ class PureToolWorkflow:
             schema=self._input_schema,
             location="inputs",
         )
+        resolved_request_id = _resolve_request_id(
+            request_id=request_id,
+            default_prefix=self._default_request_id_prefix,
+        )
         context = dict(self._base_context)
         context["inputs"] = resolved_inputs
         return self._runtime.run(
             self._steps,
             context=context,
-            execution_mode=execution_mode,
-            failure_policy=failure_policy,
-            request_id=request_id,
-            dependencies=dependencies,
+            execution_mode=execution_mode or self._default_execution_mode,
+            failure_policy=failure_policy or self._default_failure_policy,
+            request_id=resolved_request_id,
+            dependencies=_merge_dependencies(
+                default_dependencies=self._default_dependencies,
+                run_dependencies=dependencies,
+            ),
         )
-
-
-def pure_tool_workflow(
-    *,
-    tool_runtime: ToolRuntime,
-    steps: Sequence[PureWorkflowStep],
-    input_schema: Mapping[str, object] | None = None,
-    base_context: Mapping[str, object] | None = None,
-    tracer: Tracer | None = None,
-) -> PureToolWorkflow:
-    """Return a configured pure-tool workflow orchestration chunk."""
-    return PureToolWorkflow(
-        tool_runtime=tool_runtime,
-        steps=steps,
-        input_schema=input_schema,
-        base_context=base_context,
-        tracer=tracer,
-    )
 
 
 __all__ = [
     "PureToolWorkflow",
     "PureWorkflowStep",
-    "pure_tool_workflow",
 ]

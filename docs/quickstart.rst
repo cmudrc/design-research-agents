@@ -58,11 +58,11 @@ Run client configuration examples:
    PYTHONPATH=src python3 examples/clients/transformers_local_client.py
    PYTHONPATH=src python3 examples/clients/mlx_local_client.py
 
-Workflow run signatures in the two reusable workflow chunks:
+Workflow run signatures in the two reusable workflow classes:
 
-- ``mixed_agent_workflow``: initialize once, then call ``run(prompt=...)``.
+- ``MixedAgentWorkflow``: initialize once, then call ``run(prompt=...)``.
 - Supply ``agents`` and ``steps`` at init; no built-in mixed-step builder.
-- ``pure_tool_workflow``: initialize once, then call ``run(inputs=...)`` with
+- ``PureToolWorkflow``: initialize once, then call ``run(inputs=...)`` with
   user-defined tool/logic ``steps`` supplied at init.
 - Optional ``input_schema`` can validate run inputs; step topology and any
   scenario-specific behavior are caller-owned.

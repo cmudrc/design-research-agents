@@ -66,6 +66,35 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
         assert "model" not in inspect.signature(cls.__init__).parameters
 
 
+def test_agent_constructor_signatures_expose_new_prompt_kwargs() -> None:
+    direct_params = inspect.signature(SingleStepDirectLLMAgent.__init__).parameters
+    assert "system_prompt" in direct_params
+    assert "default_system_prompt" not in direct_params
+
+    router_params = inspect.signature(SingleStepRouterAgent.__init__).parameters
+    assert "user_prompt_template" in router_params
+    assert "allowed_routes" in router_params
+
+    json_params = inspect.signature(SingleStepJsonToolCallingAgent.__init__).parameters
+    assert "allowed_tools" in json_params
+
+    code_params = inspect.signature(SingleStepCodeToolCallingAgent.__init__).parameters
+    assert "alternatives_prompt_target" in code_params
+
+    multi_json_params = inspect.signature(MultiStepJsonToolCallingAgent.__init__).parameters
+    assert "continuation_user_prompt_template" in multi_json_params
+    assert "step_memory_tail_items" in multi_json_params
+
+    multi_code_params = inspect.signature(MultiStepCodeToolCallingAgent.__init__).parameters
+    assert "continuation_system_prompt" in multi_code_params
+    assert "continuation_memory_tail_items" in multi_code_params
+
+    runtime_params = inspect.signature(AgentRuntime.__init__).parameters
+    assert "plan_execute_planner_system_prompt" in runtime_params
+    assert "propose_critic_critic_user_prompt_template" in runtime_params
+    assert "agent_routing_router_user_prompt_template" in runtime_params
+
+
 def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
         SingleStepDirectLLMAgent(llm_client=_EmptyDefaultModelClient()).run("Hello")

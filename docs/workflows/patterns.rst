@@ -14,6 +14,12 @@ Available reusable workflow patterns:
 - ``MixedAgentWorkflow``
   - Reusable mixed graph with ``run(prompt=...)``
 
+All workflow customization is constructor-first. Helper factory functions were
+removed from ``design_research_agents.workflow.implementations``.
+
+Workflows also support constructor-level run defaults (for request-id prefix,
+base dependencies, and execution/failure policies where applicable).
+
 Examples
 --------
 
