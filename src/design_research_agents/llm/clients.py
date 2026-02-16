@@ -41,6 +41,12 @@ class _SingleBackendLLMClient(LLMClient):
     """LLM client wrapper that delegates to one concrete backend."""
 
     def __init__(self, *, backend: BaseLLMBackend) -> None:
+        """Initialize the client with a configured backend instance.
+
+        Args:
+            backend: The LLM backend instance to delegate calls to. This should be fully configured
+                and ready to use, as the client will not perform any additional setup.
+        """
         self._backend = backend
 
     def generate(self, request: LLMRequest) -> LLMResponse:
@@ -143,7 +149,28 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] | None = None,
     ) -> None:
-        """Initialize a local llama-cpp client with sensible defaults."""
+        """Initialize a local llama-cpp client with sensible defaults.
+
+        Args:
+            name: Logical name for this client instance, used in logging and provenance.
+            model: Local model identifier or path for llama_cpp.server to load.
+            hf_model_repo_id: Optional Hugging Face repo ID to auto-download the model from if not
+                found locally.
+            api_model: The model name to report in API responses, which can differ from the local
+                model name.
+            host: Host interface for the local server to bind to.
+            port: Port for the local server to listen on.
+            context_window: Context window size (n_ctx) to configure the llama_cpp.server with.
+            startup_timeout_seconds: Max time to wait for the server process to start and become
+                healthy.
+            poll_interval_seconds: Time interval between health check polls during startup.
+            python_executable: Python executable to use for running the server process.
+            extra_server_args: Additional command-line arguments to pass when starting the server
+                process.
+            max_retries: Number of times to retry a request in case of failure before giving up.
+            model_patterns: Optional tuple of model name patterns supported by this client, used for
+                routing decisions. If None, defaults to (api_model,).
+        """
         combined_server_args = ("--n_ctx", str(context_window), *extra_server_args)
         self._llama_server = create_llama_cpp_server(
             model=model,
@@ -206,7 +233,21 @@ class OpenAIServiceLLMClient(_SingleBackendLLMClient):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] | None = None,
     ) -> None:
-        """Initialize an OpenAI service client with sensible defaults."""
+        """Initialize an OpenAI service client with sensible defaults.
+
+        Args:
+            name: Logical name for this client instance, used in logging and provenance.
+            default_model: Default model name to use for requests that don't specify one.
+            api_key_env: Environment variable name to read the API key from if not provided
+                directly.
+            api_key: Optional API key string. If not provided, the client will attempt to read
+                the key from the environment variable specified by `api_key_env`.
+            base_url: Optional base URL for the OpenAI API endpoint, useful for testing or if
+                using a proxy. If None, defaults to the official OpenAI API URL.
+            max_retries: Number of times to retry a request in case of failure before giving up
+            model_patterns: Optional tuple of model name patterns supported by this client,
+                used for routing decisions. If None, defaults to (default_model,).
+        """
         config_hash = _config_hash(
             {
                 "kind": "openai_service",
@@ -245,7 +286,20 @@ class OpenAICompatibleHTTPLLMClient(_SingleBackendLLMClient):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] | None = None,
     ) -> None:
-        """Initialize an OpenAI-compatible HTTP client with sensible defaults."""
+        """Initialize an OpenAI-compatible HTTP client with sensible defaults.
+
+        Args:
+            name: Logical name for this client instance, used in logging and provenance.
+            base_url: Base URL for the OpenAI-compatible API endpoint.
+            default_model: Default model name to use for requests that don't specify one.
+            api_key_env: Environment variable name to read the API key from if not provided
+                directly.
+            api_key: Optional API key string. If not provided, the client will attempt to
+                read the key from the environment variable specified by `api_key_env`.
+            max_retries: Number of times to retry a request in case of failure before giving up.
+            model_patterns: Optional tuple of model name patterns supported by this client, used for
+                routing decisions. If None, defaults to (default_model,).
+        """
         config_hash = _config_hash(
             {
                 "kind": "openai_compatible_http",
@@ -288,7 +342,29 @@ class TransformersLocalLLMClient(_SingleBackendLLMClient):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] | None = None,
     ) -> None:
-        """Initialize a local Transformers client with sensible defaults."""
+        """Initialize a local Transformers client with sensible defaults.
+
+        Args:
+            name: Logical name for this client instance, used in logging and provenance.
+            model_id: Identifier for the model to load (e.g. "distilgpt2
+                or a Hugging Face repo ID like "gpt2").
+            default_model: Default model name for prompts that don't specify one.
+            device: Device to load the model on (e.g. "cpu", "cuda",
+                "mps", or "auto" to automatically select based on availability).
+            dtype: Data type to use for model weights (e.g. "float16", "bfloat16",
+                "int8", or "auto" to automatically select based on device).
+            quantization: Quantization level to use when loading the model (e.g. "4
+                bit", "8-bit", "fp16", or "none" for no quantization).
+            trust_remote_code: Whether to allow execution of custom code from remote repositories
+                when loading models, which may be required for some models but can be a security
+                risk.
+            revision: Optional model revision to load (e.g. a git branch, tag, or
+                commit hash), if the model is being loaded from a Hugging Face repository that
+                has multiple revisions.
+            max_retries: Number of times to retry a request in case of failure before giving up
+            model_patterns: Optional tuple of model name patterns supported by this client, used
+                for routing decisions. If None, defaults to (default_model,).
+        """
         config_hash = _config_hash(
             {
                 "kind": "transformers_local",
@@ -332,7 +408,19 @@ class MlxLocalLLMClient(_SingleBackendLLMClient):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] | None = None,
     ) -> None:
-        """Initialize an MLX local client with sensible defaults."""
+        """Initialize an MLX local client with sensible defaults.
+
+        Args:
+            name: Logical name for this client instance, used in logging and provenance.
+            model_id: Identifier for the MLX model to load (e.g. "mlx-community
+                /Qwen2.5-1.5B-Instruct-4bit").
+            default_model: Default model name for prompts that don't specify one.
+            quantization: Quantization level to use when loading the model (e.g. "4
+                -bit", "8-bit", "fp16").
+            max_retries: Number of times to retry a request in case of failure before giving up
+            model_patterns: Optional tuple of model name patterns supported by this client, used for
+                routing decisions. If None, defaults to (default_model,).
+        """
         config_hash = _config_hash(
             {
                 "kind": "mlx_local",

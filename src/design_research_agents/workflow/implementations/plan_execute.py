@@ -29,7 +29,25 @@ class PlanExecuteWorkflow(Agent):
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and initialize the underlying runtime."""
+        """Store dependencies and initialize the underlying runtime.
+
+        Args:
+            llm_client: LLM client to use for this workflow.
+            tool_runtime: Tool runtime to use for this workflow.
+            controls: Optional default runtime controls for all runs of this workflow.
+            plan_execute_planner_system_prompt: Optional system prompt to use for the planner.
+            plan_execute_planner_user_prompt_template: Optional user prompt template to use
+                for the planner.
+            plan_execute_executor_step_prompt_template: Optional prompt template to use for
+                each step in the executor.
+            default_request_id_prefix: Optional prefix to use when generating request IDs
+                for runs of this workflow that don't provide their own request ID. Must
+                be non-empty when provided.
+            default_dependencies: Optional mapping of default dependencies to provide for
+                all runs of this workflow, which can be overridden by dependencies provided
+                at run time.
+            tracer: Optional tracer for emitting events during execution.
+        """
         self._default_request_id_prefix = _normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._runtime = AgentRuntime(
@@ -50,7 +68,14 @@ class PlanExecuteWorkflow(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one plan-execute orchestration run."""
+        """Execute one plan-execute orchestration run.
+
+        Args:
+            prompt: The initial prompt to run through the workflow.
+            request_id: Optional unique identifier for this run, used for tracing and logging.
+            dependencies: Optional mapping of dependencies to provide for this run, which will
+                override any default dependencies configured for this workflow.
+        """
         resolved_request_id = _resolve_request_id(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
@@ -71,7 +96,14 @@ class PlanExecuteWorkflow(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Execute one run and emit streaming events."""
+        """Execute one run and emit streaming events.
+
+        Args:
+            prompt: The initial prompt to run through the workflow.
+            request_id: Optional unique identifier for this run, used for tracing and logging.
+            dependencies: Optional mapping of dependencies to provide for this run, which will
+                override any default dependencies configured for this workflow.
+        """
         resolved_request_id = _resolve_request_id(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,

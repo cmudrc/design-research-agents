@@ -34,7 +34,18 @@ class Toolbox(ToolRuntime):
         callable_tools: tuple[CallableTool, ...] | None = None,
         mcp_servers: tuple[McpServer, ...] | None = None,
     ) -> None:
-        """Initialize toolbox sources from ergonomic constructor arguments."""
+        """Initialize toolbox sources from ergonomic constructor arguments.
+
+        Args:
+            workspace_root: Root directory for tools that interact with the filesystem.
+            enable_core_tools: Whether to enable the built-in core tools.
+            script_tools: Optional tuple of ScriptTool definitions to expose through a script tool
+                source.
+            callable_tools: Optional tuple of CallableTool definitions to register as in-process
+                tools.
+            mcp_servers: Optional tuple of MCP server definitions to connect to and expose tools
+                from.
+        """
         normalized_workspace_root = os.fspath(workspace_root)
 
         runtime_config = ToolRuntimeConfig(
@@ -57,7 +68,14 @@ class Toolbox(ToolRuntime):
             self.register_callable_tool(callable_tool)
 
     def _initialize_from_config(self, runtime_config: ToolRuntimeConfig) -> None:
-        """Initialize runtime sources from a fully-resolved config object."""
+        """Initialize runtime sources from a fully-resolved config object.
+
+        Args:
+            runtime_config: Fully-resolved runtime configuration object.
+
+        Returns:
+            None
+        """
         self._config = runtime_config
         self._registry = ToolRegistry()
 
@@ -121,7 +139,12 @@ class Toolbox(ToolRuntime):
         return self._config
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """List all tools currently exposed by enabled runtime sources."""
+        """List all tools currently exposed by enabled runtime sources.
+
+        Returns:
+            Sequence of ToolSpec objects representing all tools currently exposed by enabled runtime
+            sources, in no particular order.
+        """
         return self._registry.list_tools()
 
     def invoke(
@@ -132,7 +155,24 @@ class Toolbox(ToolRuntime):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one tool through the registry routing layer."""
+        """Invoke one tool through the registry routing layer.
+
+        Args:
+            tool_name: Name of the tool to invoke. This will be normalized by stripping leading and
+                trailing whitespace before lookup.
+            input_dict: Mapping of input values to provide for this tool invocation. This will be
+                validated against the tool's input schema before invocation.
+            request_id: Request ID to associate with this tool invocation, which will be passed
+                through to the underlying tool handler and can be used for logging, tracing, and
+                other purposes.
+            dependencies: Mapping of dependencies to provide for this tool invocation, which will
+                be passed through to the underlying tool handler and can be used to provide
+                additional context or resources needed for the tool execution.
+
+        Returns:
+            The result of the tool invocation, as returned by the underlying tool handler. This will
+            be validated against the tool's output schema before being returned to the caller.
+        """
         return self._registry.invoke(
             tool_name,
             input_dict,
@@ -141,11 +181,33 @@ class Toolbox(ToolRuntime):
         )
 
     def register_tool(self, *, spec: ToolSpec, handler: ToolHandler) -> None:
-        """Register a custom in-process tool."""
+        """Register a custom in-process tool.
+
+        Args:
+            spec: ToolSpec defining the tool to register. The name field will be normalized by
+                stripping leading and trailing whitespace, and must be non-empty after
+                normalization.
+            handler: ToolHandler function to execute when this tool is invoked. The handler will be
+                wrapped to match the expected signature for in-process tools, which includes
+                additional parameters for request ID and dependencies that will be ignored by the
+                provided handler.
+
+        Returns:
+            None
+        """
         self._custom_source.register_tool(spec=spec, handler=handler)
 
     def register_callable_tool(self, callable_tool: CallableTool) -> None:
-        """Register one callable tool wrapper."""
+        """Register one callable tool wrapper.
+
+        Args:
+            callable_tool: CallableTool definition to register. The name field will be normalized by
+                stripping leading and trailing whitespace, and must be non-empty after
+                normalization.
+
+        Returns:
+            None
+        """
         normalized_name = callable_tool.name.strip()
         if not normalized_name:
             raise ValueError("CallableTool.name must be non-empty.")

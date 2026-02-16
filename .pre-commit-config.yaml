@@ -1,13 +1,8 @@
 # Pre-commit configuration
-# - Runs formatting/linting/type-checking automatically on `git commit` (after `pre-commit install`).
-# - Runs tests on `git push` (after `pre-commit install --hook-type pre-push`).
-# - Run everything manually: `pre-commit run --all-files`
-# - Update pinned hook versions: `pre-commit autoupdate`
 
 default_stages: [pre-commit]
 
 repos:
-  # Delegate quality checks to Make targets so local hooks and CI stay aligned.
   - repo: local
     hooks:
       - id: make-pre-commit

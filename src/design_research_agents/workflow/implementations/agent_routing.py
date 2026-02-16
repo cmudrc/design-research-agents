@@ -30,7 +30,27 @@ class AgentRoutingWorkflow(Agent):
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and initialize the underlying runtime."""
+        """Store dependencies and initialize the underlying runtime.
+
+        Args:
+            llm_client: LLM client to use for this workflow.
+            tool_runtime: Tool runtime to use for this workflow.
+            alternatives: Mapping of alternative agent IDs to Agent instances for routing.
+            alternative_descriptions: Optional mapping of alternative agent IDs to human-readable
+                descriptions to include in the router's decision-making context.
+            controls: Optional default runtime controls for all runs of this workflow.
+            agent_routing_router_system_prompt: Optional system prompt to use for the router.
+            agent_routing_router_user_prompt_template: Optional user prompt template to use for
+                the router, which will be provided with the original user prompt and descriptions
+                of the alternative agents.
+            default_request_id_prefix: Optional prefix to use when generating request IDs for
+                runs of this workflow that don't provide their own request ID. Must be non-empty
+                when provided.
+            default_dependencies: Optional mapping of default dependencies to provide for all
+                runs of this workflow, which can be overridden by dependencies provided at
+                run time.
+            tracer: Optional tracer for emitting events during execution.
+        """
         self._default_request_id_prefix = _normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._runtime = AgentRuntime(
@@ -52,7 +72,23 @@ class AgentRoutingWorkflow(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one intent-routing orchestration run."""
+        """Execute one intent-routing orchestration run.
+
+        Args:
+            prompt: The user prompt to run.
+            request_id: Optional request ID to associate with this run, which will be passed through
+                to the underlying agent and can be used for logging, tracing, and other purposes.
+                If not provided, a request ID will be generated using the default_request_id_prefix
+                if it is configured, or left as None if no default prefix is configured.
+            dependencies: Optional mapping of dependencies to provide for this run, which will be
+                passed through to the underlying agent and can be used to provide additional context
+                or resources needed for the agent execution. This will override any default
+                dependencies configured for this workflow.
+
+        Returns:
+            The result of the agent execution, as returned by the underlying agent.
+
+        """
         resolved_request_id = _resolve_request_id(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
@@ -73,7 +109,24 @@ class AgentRoutingWorkflow(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Execute one run and emit streaming events."""
+        """Execute one run and emit streaming events.
+
+        Args:
+            prompt: The user prompt to run.
+            request_id: Optional request ID to associate with this run, which will be passed through
+                to the underlying agent and can be used for logging, tracing, and other purposes.
+                If not provided, a request ID will be generated using the default_request_id_prefix
+                if it is configured, or left as None if no default prefix is configured.
+            dependencies: Optional mapping of dependencies to provide for this run, which will be
+                passed through to the underlying agent and can be used to provide additional context
+                or resources needed for the agent execution. This will override any default
+                dependencies configured for this workflow.
+
+        Returns:
+            An iterator of AgentStreamEvent objects emitted during the execution of this run, as
+            returned by the underlying agent.
+
+        """
         resolved_request_id = _resolve_request_id(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,

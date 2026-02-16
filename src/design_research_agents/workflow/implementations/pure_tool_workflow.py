@@ -78,7 +78,37 @@ class PureToolWorkflow:
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store runtime dependencies, step graph, and optional input schema."""
+        """Store runtime dependencies, step graph, and optional input schema.
+
+        Args:
+            tool_runtime: The ToolRuntime instance to use for executing tool steps in this
+                workflow.
+            steps: The sequence of LogicStep and ToolStep instances that define the step
+                graph for this workflow. Must contain at least one step and cannot contain
+                AgentStep entries.
+            input_schema: Optional JSON Schema to validate run inputs against at runtime.
+                If provided, the workflow will validate the inputs passed to each run against
+                this schema and raise a ValueError if validation fails.
+            base_context: Optional mapping of context values to include in the execution
+                context for every run of this workflow. This can be used to provide static
+                context values that are needed by the steps in the workflow.
+            default_execution_mode: The default WorkflowExecutionMode to use for runs of
+                this workflow when  not explicitly specified at run time. Defaults to
+                "sequential".
+            default_failure_policy: The default WorkflowFailurePolicy to use for runs
+                of this workflow when not explicitly specified at run time. Defaults to
+                "skip_dependents".
+            default_request_id_prefix: Optional default prefix to use when generating
+                request IDs for runs of this workflow that don't provide their own request
+                ID. If provided, must be a non-empty string. This prefix can be used to
+                make it easier to identify and group runs of this workflow `in logs and traces.
+            default_dependencies: Optional mapping of default dependencies to provide for all
+                runs of this workflow, which can be overridden by dependencies provided at
+                run time. This can  be used to provide static dependencies that are needed
+                by the steps in the workflow.
+            tracer: Optional Tracer instance to use for emitting events during execution of this
+                workflow.
+        """
         self._runtime = WorkflowRuntime(tool_runtime=tool_runtime, tracer=tracer)
         self._steps = _normalize_steps(steps)
         self._input_schema = input_schema
@@ -97,7 +127,24 @@ class PureToolWorkflow:
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> WorkflowResult:
-        """Execute one pure-tool workflow run with optional run-scoped inputs."""
+        """Execute one pure-tool workflow run with optional run-scoped inputs.
+
+        Args:
+            inputs: Optional mapping of input values to provide for this run. If the workflow
+                was configured with an input_schema, these inputs will be validated against
+                that schema before execution.
+            execution_mode: Optional WorkflowExecutionMode to use for this run. If not provided,
+                the default execution mode configured for this workflow will be used.
+            failure_policy: Optional WorkflowFailurePolicy to use for this run. If not provided,
+                the default failure policy configured for this workflow will be used.
+            request_id: Optional request ID to use for this run. If not provided, a request
+                ID will be generated using the default prefix configured for this workflow (if
+                any).
+            dependencies: Optional mapping of dependencies to provide for this run,
+                which will override any default dependencies configured for this workflow.
+                This can be used to provide run-specific dependencies that are needed by the
+                steps in the workflow.
+        """
         resolved_inputs = dict(inputs or {})
         validate_payload_against_schema(
             payload=resolved_inputs,

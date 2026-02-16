@@ -44,7 +44,22 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
-        """Initialize HTTP endpoint routing and authentication settings."""
+        """Initialize HTTP endpoint routing and authentication settings.
+
+        Args:
+            name: Unique name for this backend configuration.
+            base_url: Base URL for the OpenAI-compatible API (e.g. "https://api.example.com/v1").
+            default_model: Default model name for prompts that don't specify one.
+            api_key_env: Name of the environment variable to read the API key from.
+            api_key: Optional API key value to use directly (takes precedence over environment
+                variable).
+            capabilities: Declared capabilities for this backend (e.g. tool calling and JSON mode
+                support levels).
+            config_hash: Unique hash of the configuration for caching and invalidation purposes.
+            max_retries: Maximum number of retries for generation attempts.
+            model_patterns: Optional tuple of glob patterns to match against
+                model names for routing purposes.
+        """
         super().__init__(
             name=name,
             kind="openai_compatible_http",
