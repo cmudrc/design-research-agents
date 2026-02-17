@@ -1,4 +1,4 @@
-"""Router agent implementation that selects one tool alternative per request.
+"""Tool-router agent implementation that selects one runtime tool per request.
 
 The router asks the model to choose a route from runtime-backed alternatives,
 requires a structured route payload, executes the selected tool, and returns
@@ -55,7 +55,7 @@ from design_research_agents.tracing import (
 )
 
 
-class SingleStepRouterAgent(Agent):
+class SingleStepToolRouterAgent(Agent):
     """Agent that routes one request to one selected tool alternative.
 
     The agent compiles alternatives from tool runtime specs, prompts the model
@@ -145,7 +145,7 @@ class SingleStepRouterAgent(Agent):
         resolved_dependencies = normalize_dependencies(dependencies)
         normalized_input = normalize_input_payload(prompt)
         trace_scope = start_trace_run(
-            agent_name="SingleStepRouterAgent",
+            agent_name="SingleStepToolRouterAgent",
             request_id=resolved_request_id,
             input_payload=normalized_input,
             dependencies=resolved_dependencies,
@@ -190,13 +190,13 @@ class SingleStepRouterAgent(Agent):
         ]
         llm_params = LLMChatParams(
             response_schema=clone_response_schema(self._default_route_response_schema),
-            provider_options={"agent": "SingleStepRouterAgent", "phase": "route_select"},
+            provider_options={"agent": "SingleStepToolRouterAgent", "phase": "route_select"},
         )
         model_span_id = start_model_call(
             model=resolved_model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "SingleStepRouterAgent", "phase": "route_select"},
+            metadata={"agent": "SingleStepToolRouterAgent", "phase": "route_select"},
         )
         try:
             llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
@@ -226,6 +226,7 @@ class SingleStepRouterAgent(Agent):
                 reason="invalid model route output",
                 parsed_route=(
                     {
+                        "tool_names": list(parsed_route.tool_names),
                         "selection": parsed_route.selection,
                         "reason": parsed_route.reason,
                     }
@@ -236,7 +237,8 @@ class SingleStepRouterAgent(Agent):
             result = routing_failure_result(
                 error=(
                     "Router model output was invalid. "
-                    "Expected JSON with one valid discrete route `selection`."
+                    "Expected JSON with `tool_names` (non-empty list) or one valid "
+                    "legacy `selection`."
                 ),
                 llm_response=llm_response,
                 request_id=resolved_request_id,
@@ -246,7 +248,12 @@ class SingleStepRouterAgent(Agent):
             )
             finish_trace_run(trace_scope, result=result)
             return result
-        selected_alternative, selected_index, selected_reason = route_resolution
+        (
+            selected_alternative,
+            selected_index,
+            selected_reason,
+            selected_tool_names,
+        ) = route_resolution
         emit_router_decision(
             source="model",
             alternatives=[candidate.tool_name for candidate in alternatives],
@@ -255,6 +262,7 @@ class SingleStepRouterAgent(Agent):
             reason=selected_reason,
             parsed_route=(
                 {
+                    "tool_names": list(parsed_route.tool_names),
                     "selection": parsed_route.selection,
                     "reason": parsed_route.reason,
                 }
@@ -278,10 +286,12 @@ class SingleStepRouterAgent(Agent):
         output: dict[str, object] = {
             "model_text": model_text,
             "model_response": {
+                "tool_names": list(parsed_route.tool_names) if parsed_route is not None else [],
                 "selection": (parsed_route.selection if parsed_route is not None else None),
                 "reason": parsed_route.reason if parsed_route is not None else None,
             },
             "tool_name": selected_alternative.tool_name,
+            "tool_names": selected_tool_names,
             "selected_alternative_index": selected_index,
             "tool_input": tool_input,
             "tool_output": tool_result.result,
@@ -298,10 +308,12 @@ class SingleStepRouterAgent(Agent):
                     "source": "model",
                     "alternatives": [candidate.tool_name for candidate in alternatives],
                     "selected_tool_name": selected_alternative.tool_name,
+                    "selected_tool_names": selected_tool_names,
                     "selected_alternative_index": selected_index,
                     "selected_reason": selected_reason,
                     "parsed_route": (
                         {
+                            "tool_names": list(parsed_route.tool_names),
                             "selection": parsed_route.selection,
                             "reason": parsed_route.reason,
                         }
@@ -340,6 +352,15 @@ class SingleStepRouterAgent(Agent):
         yield AgentStreamEvent(kind="completed", result=result)
 
 
+class SingleStepRouterAgent(SingleStepToolRouterAgent):
+    """Backward-compatible alias for ``SingleStepToolRouterAgent``."""
+
+
+ToolRouterAgent = SingleStepToolRouterAgent
+
+
 __all__ = [
     "SingleStepRouterAgent",
+    "SingleStepToolRouterAgent",
+    "ToolRouterAgent",
 ]

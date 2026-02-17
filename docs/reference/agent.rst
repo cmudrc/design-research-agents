@@ -8,7 +8,17 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
+.. automodule:: design_research_agents.agent.implementations.multi_step_direct_llm_agent
+   :members:
+   :undoc-members:
+   :no-index:
+
 .. automodule:: design_research_agents.agent.implementations.multi_step_json_tool_calling_agent
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.agent.implementations.multi_step_tool_router_agent
    :members:
    :undoc-members:
    :no-index:

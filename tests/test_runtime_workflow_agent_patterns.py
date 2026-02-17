@@ -9,8 +9,11 @@ import pytest
 from design_research_agents.agent import (
     AgentRuntime,
     MultiStepCodeToolCallingAgent,
+    MultiStepDirectLLMAgent,
     MultiStepJsonToolCallingAgent,
+    MultiStepToolRouterAgent,
     RuntimeControls,
+    SingleStepToolRouterAgent,
 )
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import PlannerExecutorPattern, ReflexionPattern, RouterPattern
@@ -122,6 +125,73 @@ def test_multi_step_json_tool_calling_agent_stops_on_step_failure() -> None:
     assert result.output["terminated_reason"] == "step_failure"
 
 
+def test_single_step_tool_router_agent_returns_tool_names_list() -> None:
+    llm_client = SequenceLLMClient(
+        response_texts=[
+            '{"tool_names": ["calculator"], "reason": "arithmetic"}',
+        ]
+    )
+    agent = SingleStepToolRouterAgent(
+        llm_client=llm_client,
+        tool_runtime=Toolbox(),
+    )
+
+    result = agent.run("Compute 6 * 7.")
+
+    assert result.success
+    assert result.output["tool_name"] == "calculator"
+    assert result.output["tool_names"] == ["calculator"]
+    assert result.output["tool_output"]["result"] == 42.0
+
+
+def test_multi_step_direct_llm_agent_runs_continue_then_stop() -> None:
+    llm_client = SequenceLLMClient(
+        response_texts=[
+            (
+                '{"decision":"CONTINUE","content":"Draft: multiply 6 by 7.",'
+                '"reason":"need finalization"}'
+            ),
+            '{"decision":"STOP","content":"Answer ready.","final_output":"42","reason":"done"}',
+        ]
+    )
+    agent = MultiStepDirectLLMAgent(
+        llm_client=llm_client,
+        max_steps=3,
+    )
+
+    result = agent.run("Compute 6 * 7.")
+
+    assert result.success
+    assert result.output["steps_executed"] == 2
+    assert result.output["terminated_reason"] == "stop:model"
+    assert result.output["final_output"] == "42"
+
+
+def test_multi_step_tool_router_agent_runs_tool_call_then_stop() -> None:
+    llm_client = SequenceLLMClient(
+        response_texts=[
+            (
+                '{"action":"TOOL_CALL","tool_names":["calculator"],'
+                '"tool_input":{"expression":"6 * 7"},"reason":"compute value"}'
+            ),
+            '{"action":"STOP","final_output":{"result":42},"reason":"done"}',
+        ]
+    )
+    agent = MultiStepToolRouterAgent(
+        llm_client=llm_client,
+        tool_runtime=Toolbox(),
+        max_steps=3,
+    )
+
+    result = agent.run("Compute 6 * 7.")
+
+    assert result.success
+    assert result.output["steps_executed"] == 2
+    assert result.output["step_outputs"][0]["action"] == "TOOL_CALL"
+    assert result.output["step_outputs"][1]["action"] == "STOP"
+    assert result.output["final_output"]["result"] == 42
+
+
 def test_agent_runtime_rejects_non_react_mode_with_migration_message() -> None:
     with pytest.raises(ValueError, match="mode='react' only"):
         AgentRuntime(
@@ -205,7 +275,7 @@ def test_propose_and_critique_workflow_stops_on_approval() -> None:
 def test_agent_routing_workflow_selects_and_executes_named_alternative() -> None:
     llm_client = SequenceLLMClient(
         response_texts=[
-            '{"selection": "alt_two", "reason": "best fit"}',
+            '{"tool_names": ["alt_two"], "reason": "best fit"}',
         ]
     )
     workflow = RouterPattern(

@@ -11,11 +11,14 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_MONKEYPATCH_ROOT = REPO_ROOT / "tests" / "example_monkeypatch"
 STREAMING_EXAMPLES = (
     "single_step_direct_llm_agent_stream.py",
+    "single_step_tool_router_agent_stream.py",
     "single_step_router_agent_stream.py",
     "single_step_json_tool_calling_agent_stream.py",
     "single_step_code_tool_calling_agent_stream.py",
     "multi_step_code_tool_calling_agent_stream.py",
     "multi_step_json_tool_calling_agent_stream.py",
+    "multi_step_tool_router_agent_stream.py",
+    "multi_step_direct_llm_agent_stream.py",
 )
 
 

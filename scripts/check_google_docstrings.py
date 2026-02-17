@@ -604,6 +604,28 @@ def _collect_violations(repo_root: Path) -> list[Violation]:
     return sorted(violations, key=lambda item: (item.path, item.line, item.code, item.message))
 
 
+def _load_baseline_entries(baseline_path: Path | None) -> set[str]:
+    """Load baseline violation lines from one optional file.
+
+    Args:
+        baseline_path: Optional path to a newline-delimited violation baseline.
+
+    Returns:
+        Set of formatted violation lines to suppress.
+    """
+    if baseline_path is None:
+        return set()
+    if not baseline_path.exists():
+        return set()
+    entries: set[str] = set()
+    for raw_line in baseline_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        entries.add(line)
+    return entries
+
+
 def main() -> int:
     """Run docstring checks and return process status.
 
@@ -616,14 +638,24 @@ def main() -> int:
         default=".",
         help="Repository root directory (default: current working directory).",
     )
+    parser.add_argument(
+        "--baseline",
+        default=None,
+        help="Optional newline-delimited baseline file of known violations to suppress.",
+    )
     args = parser.parse_args()
     repo_root = Path(args.repo_root).resolve()
+    baseline_path = Path(args.baseline).resolve() if args.baseline is not None else None
     violations = _collect_violations(repo_root)
-    if not violations:
+    baseline_entries = _load_baseline_entries(baseline_path)
+    unexpected = [
+        violation for violation in violations if violation.format() not in baseline_entries
+    ]
+    if not unexpected:
         print("Google-style docstring checks passed.")
         return 0
 
-    for violation in violations:
+    for violation in unexpected:
         print(violation.format())
     return 1
 

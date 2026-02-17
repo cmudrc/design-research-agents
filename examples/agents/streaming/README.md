@@ -7,8 +7,10 @@ incremental events and then a completed result.
 
 - `single_step_direct_llm_agent_stream.py`
   - Streaming text-only generation.
+- `single_step_tool_router_agent_stream.py`
+  - Streaming tool-router behavior.
 - `single_step_router_agent_stream.py`
-  - Streaming route-selection behavior.
+  - Backward-compatible alias example for streaming tool-router behavior.
 - `single_step_json_tool_calling_agent_stream.py`
   - Streaming single-step JSON tool selection and execution.
 - `single_step_code_tool_calling_agent_stream.py`
@@ -17,6 +19,10 @@ incremental events and then a completed result.
   - Streaming multi-step code-driven ReAct loop.
 - `multi_step_json_tool_calling_agent_stream.py`
   - Streaming multi-step JSON-driven ReAct loop.
+- `multi_step_tool_router_agent_stream.py`
+  - Streaming multi-step TOOL_CALL/STOP routing loop.
+- `multi_step_direct_llm_agent_stream.py`
+  - Streaming multi-step direct-response CONTINUE/STOP loop.
 
 ## Quick Start
 
@@ -24,11 +30,14 @@ Run from repository root:
 
 ```bash
 PYTHONPATH=src python3 examples/agents/streaming/single_step_direct_llm_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/single_step_tool_router_agent_stream.py
 PYTHONPATH=src python3 examples/agents/streaming/single_step_router_agent_stream.py
 PYTHONPATH=src python3 examples/agents/streaming/single_step_json_tool_calling_agent_stream.py
 PYTHONPATH=src python3 examples/agents/streaming/single_step_code_tool_calling_agent_stream.py
 PYTHONPATH=src python3 examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py
 PYTHONPATH=src python3 examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/multi_step_tool_router_agent_stream.py
+PYTHONPATH=src python3 examples/agents/streaming/multi_step_direct_llm_agent_stream.py
 ```
 
 ## Expected Outputs

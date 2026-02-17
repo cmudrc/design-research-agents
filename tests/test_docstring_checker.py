@@ -17,13 +17,15 @@ def _write_file(repo_root: Path, relative_path: str, content: str) -> None:
     path.write_text(textwrap.dedent(content).lstrip("\n"), encoding="utf-8")
 
 
-def _run_checker(repo_root: Path) -> tuple[int, list[str]]:
+def _run_checker(repo_root: Path, *, baseline_path: Path | None = None) -> tuple[int, list[str]]:
     command = [
         sys.executable,
         str(SCRIPT_PATH),
         "--repo-root",
         str(repo_root),
     ]
+    if baseline_path is not None:
+        command.extend(["--baseline", str(baseline_path)])
     completed = subprocess.run(
         command,
         check=False,
@@ -274,6 +276,29 @@ def test_dataclass_alias_and_field_docstrings_pass() -> None:
     _write_file(repo_root, "src/pkg/dataclass_alias_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
+
+    assert exit_code == 0
+    assert lines == ["Google-style docstring checks passed."]
+
+
+def test_baseline_suppresses_known_violations() -> None:
+    source = """
+    def undocumented(value: int) -> int:
+        return value
+    """
+    repo_root = Path("artifacts/tests/docstring_checker_baseline")
+    if repo_root.exists():
+        shutil.rmtree(repo_root)
+    _write_file(repo_root, "src/pkg/baseline_example.py", source)
+
+    baseline_path = repo_root / "baseline.txt"
+    baseline_path.write_text(
+        "src/pkg/baseline_example.py:1: DGS001 Missing module docstring.\n"
+        "src/pkg/baseline_example.py:1: DGS005 Missing callable docstring.\n",
+        encoding="utf-8",
+    )
+
+    exit_code, lines = _run_checker(repo_root, baseline_path=baseline_path)
 
     assert exit_code == 0
     assert lines == ["Google-style docstring checks passed."]

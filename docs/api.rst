@@ -20,9 +20,13 @@ The supported top-level API is the curated export list from
     - ``McpServer``
 - Agents
     - ``SingleStepDirectLLMAgent``
+    - ``SingleStepToolRouterAgent``
+    - ``ToolRouterAgent``
     - ``SingleStepRouterAgent``
     - ``SingleStepJsonToolCallingAgent``
     - ``SingleStepCodeToolCallingAgent``
+    - ``MultiStepDirectLLMAgent``
+    - ``MultiStepToolRouterAgent``
     - ``MultiStepJsonToolCallingAgent``
     - ``MultiStepCodeToolCallingAgent``
 - Patterns
@@ -103,6 +107,14 @@ Agents
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.SingleStepToolRouterAgent
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ToolRouterAgent
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.SingleStepRouterAgent
    :members:
    :undoc-members:
@@ -112,6 +124,14 @@ Agents
    :undoc-members:
 
 .. autoclass:: design_research_agents.SingleStepCodeToolCallingAgent
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MultiStepDirectLLMAgent
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MultiStepToolRouterAgent
    :members:
    :undoc-members:
 
@@ -125,6 +145,10 @@ Agents
 
 Patterns
 --------
+
+.. autoclass:: design_research_agents.DebatePattern
+   :members:
+   :undoc-members:
 
 .. autoclass:: design_research_agents.PlannerExecutorPattern
    :members:

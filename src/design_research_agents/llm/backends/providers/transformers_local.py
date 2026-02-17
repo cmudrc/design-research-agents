@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 from design_research_agents.contracts.llm import (
     BackendCapabilities,
@@ -187,7 +187,9 @@ class TransformersLocalBackend(BaseLLMBackend):
             model_kwargs["trust_remote_code"] = True
         model = AutoModelForCausalLM.from_pretrained(self._model_id, **model_kwargs)
         if self._device and self._device not in {"auto"} and hasattr(model, "to"):
-            model = model.to(self._device)
+            move_to = getattr(model, "to", None)
+            if callable(move_to):
+                model = cast(Any, move_to)(self._device)
         self._tokenizer = tokenizer
         self._model = model
         return tokenizer, model

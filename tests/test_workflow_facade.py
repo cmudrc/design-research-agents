@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+from design_research_agents.agent import RuntimeControls
+from design_research_agents.contracts.llm import (
+    LLMChatParams,
+    LLMMessage,
+    LLMResponse,
+)
 from design_research_agents.contracts.workflow import AgentStep, LogicStep, LoopStep, ToolStep
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
+from design_research_agents.workflow import DebatePattern
 from design_research_agents.workflow.implementations.workflow import Workflow
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
@@ -398,9 +406,8 @@ def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
     assert workflow_meta["failure_policy"] == "fail_fast"
 
 
-
 def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
-    class _SequenceLLMClient(_NoopLLMClient):
+    class _SequenceLLMClient:
         def __init__(self, responses: Sequence[str]) -> None:
             self._responses = list(responses)
 
@@ -415,6 +422,9 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
             if not self._responses:
                 raise AssertionError("No more stubbed responses available.")
             return LLMResponse(model="noop-model", text=self._responses.pop(0), provider="noop")
+
+        def default_model(self) -> str:
+            return "noop-model"
 
     workflow = DebatePattern(
         llm_client=_SequenceLLMClient(
@@ -440,3 +450,4 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
     assert result.output["winner"] == "affirmative"
     assert result.output["terminated_reason"] == "completed"
     assert result.output["verdict"]["synthesis"].startswith("Adopt a phased rollout")
+    assert str(result.metadata["request_id"]).startswith("debate:")

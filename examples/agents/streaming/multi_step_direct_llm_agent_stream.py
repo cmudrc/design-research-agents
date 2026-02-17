@@ -1,19 +1,14 @@
-"""Runnable streaming example showing one ``SingleStepToolRouterAgent`` execution flow."""
+"""Runnable streaming example showing one ``MultiStepDirectLLMAgent`` lifecycle."""
 
 import dataclasses
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, Toolbox
-from design_research_agents.agent import SingleStepToolRouterAgent
+from design_research_agents import LlamaCppServerLLMClient
+from design_research_agents.agent import MultiStepDirectLLMAgent
 from design_research_agents.contracts.agent import AgentStreamEvent
 
 
 def _print_stream_event(event: AgentStreamEvent) -> None:
-    """Run print stream event.
-
-    Args:
-        event: Parameter value.
-    """
     if event.kind == "delta":
         print(f"delta: {event.delta_text or ''}")
         return
@@ -25,17 +20,16 @@ def _print_stream_event(event: AgentStreamEvent) -> None:
 
 
 def main() -> None:
-    """Execute one router-agent streaming run and print events."""
+    """Execute one multi-step direct-LLM streaming run and print events."""
     llm_client = LlamaCppServerLLMClient()
-    tool_runtime = Toolbox()
-    agent = SingleStepToolRouterAgent(
+    agent = MultiStepDirectLLMAgent(
         llm_client=llm_client,
-        tool_runtime=tool_runtime,
+        max_steps=3,
     )
 
     for event in agent.run_stream(
-        prompt="Calculate this expression and return only the numeric result: 12 * (4 + 1)",
-        request_id="example-router-agent-stream-001",
+        prompt="Draft and then finalize a concise answer to what 6 * 7 equals.",
+        request_id="example-multi-step-direct-llm-agent-stream-001",
     ):
         _print_stream_event(event)
 

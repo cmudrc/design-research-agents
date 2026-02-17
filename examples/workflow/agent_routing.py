@@ -35,7 +35,7 @@ def main() -> None:
         },
     )
 
-    # Internal routing is performed by SingleStepRouterAgent (tool-routing).
+    # Internal routing is performed by SingleStepToolRouterAgent (tool-routing).
     result = workflow.run(
         prompt="Calculate this expression and return the numeric result: 12 * (4 + 1)",
         request_id="example-agent-routing-workflow-001",

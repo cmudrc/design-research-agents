@@ -8,11 +8,14 @@ import pytest
 from design_research_agents.agent import (
     AgentRuntime,
     MultiStepCodeToolCallingAgent,
+    MultiStepDirectLLMAgent,
     MultiStepJsonToolCallingAgent,
+    MultiStepToolRouterAgent,
     SingleStepCodeToolCallingAgent,
     SingleStepDirectLLMAgent,
     SingleStepJsonToolCallingAgent,
     SingleStepRouterAgent,
+    SingleStepToolRouterAgent,
 )
 from design_research_agents.contracts.llm import LLMChatParams, LLMDelta, LLMMessage, LLMRequest
 from design_research_agents.tools import Toolbox
@@ -55,9 +58,12 @@ class _EmptyDefaultModelClient:
 def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
         SingleStepDirectLLMAgent,
+        SingleStepToolRouterAgent,
         SingleStepRouterAgent,
         SingleStepJsonToolCallingAgent,
         SingleStepCodeToolCallingAgent,
+        MultiStepDirectLLMAgent,
+        MultiStepToolRouterAgent,
         MultiStepJsonToolCallingAgent,
         MultiStepCodeToolCallingAgent,
         AgentRuntime,
@@ -71,7 +77,7 @@ def test_agent_constructor_signatures_expose_new_prompt_kwargs() -> None:
     assert "system_prompt" in direct_params
     assert "default_system_prompt" not in direct_params
 
-    router_params = inspect.signature(SingleStepRouterAgent.__init__).parameters
+    router_params = inspect.signature(SingleStepToolRouterAgent.__init__).parameters
     assert "user_prompt_template" in router_params
     assert "allowed_routes" in router_params
 
@@ -84,6 +90,14 @@ def test_agent_constructor_signatures_expose_new_prompt_kwargs() -> None:
     multi_json_params = inspect.signature(MultiStepJsonToolCallingAgent.__init__).parameters
     assert "continuation_user_prompt_template" in multi_json_params
     assert "step_memory_tail_items" in multi_json_params
+
+    multi_direct_params = inspect.signature(MultiStepDirectLLMAgent.__init__).parameters
+    assert "controller_user_prompt_template" in multi_direct_params
+    assert "step_memory_tail_items" in multi_direct_params
+
+    multi_router_params = inspect.signature(MultiStepToolRouterAgent.__init__).parameters
+    assert "user_prompt_template" in multi_router_params
+    assert "stop_on_step_failure" in multi_router_params
 
     multi_code_params = inspect.signature(MultiStepCodeToolCallingAgent.__init__).parameters
     assert "continuation_system_prompt" in multi_code_params

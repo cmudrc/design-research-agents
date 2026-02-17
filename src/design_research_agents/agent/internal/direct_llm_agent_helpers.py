@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import Any, cast
 
 from design_research_agents.agent.internal.input_parsing import extract_prompt
 from design_research_agents.agent.internal.prompt_alternatives import (
@@ -12,6 +13,7 @@ from design_research_agents.agent.internal.prompt_alternatives import (
 )
 from design_research_agents.contracts.agent import AgentResult
 from design_research_agents.contracts.llm import (
+    LLMChatParams,
     LLMClient,
     LLMDelta,
     LLMMessage,
@@ -30,7 +32,25 @@ def generate_response(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResp
     Returns:
         The resulting value.
     """
-    return llm_client.generate(llm_request)
+    generate_fn = cast(
+        Callable[[LLMRequest], LLMResponse] | None,
+        getattr(llm_client, "generate", None),
+    )
+    if generate_fn is not None:
+        return generate_fn(llm_request)
+
+    chat_fn = cast(Any, getattr(llm_client, "chat", None))
+    if chat_fn is not None:
+        model = llm_request.model or llm_client.default_model()
+        return cast(
+            LLMResponse,
+            chat_fn(
+                list(llm_request.messages),
+                model=model,
+                params=_chat_params_from_request(llm_request),
+            ),
+        )
+    raise AttributeError("LLM client does not expose generate() or compatible chat().")
 
 
 def stream_response(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[LLMDelta]:
@@ -43,7 +63,57 @@ def stream_response(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[
     Returns:
         The resulting value.
     """
-    return llm_client.stream(llm_request)
+    stream_fn = cast(
+        Callable[[LLMRequest], Iterator[LLMDelta]] | None,
+        getattr(llm_client, "stream", None),
+    )
+    if stream_fn is not None:
+        return stream_fn(llm_request)
+
+    stream_chat_fn = cast(Any, getattr(llm_client, "stream_chat", None))
+    if stream_chat_fn is not None:
+        model = llm_request.model or llm_client.default_model()
+        return _stream_from_stream_chat(
+            cast(
+                Iterator[object],
+                stream_chat_fn(
+                    list(llm_request.messages),
+                    model=model,
+                    params=_chat_params_from_request(llm_request),
+                ),
+            )
+        )
+    raise AttributeError("LLM client does not expose stream() or compatible stream_chat().")
+
+
+def _chat_params_from_request(llm_request: LLMRequest) -> LLMChatParams:
+    return LLMChatParams(
+        temperature=llm_request.temperature,
+        max_tokens=llm_request.max_tokens,
+        response_schema=llm_request.response_schema,
+        provider_options=dict(llm_request.provider_options),
+    )
+
+
+def _stream_from_stream_chat(stream_events: Iterator[object]) -> Iterator[LLMDelta]:
+    emitted_delta = False
+    for stream_event in stream_events:
+        event_kind = getattr(stream_event, "kind", None)
+        if event_kind == "delta":
+            delta_text = getattr(stream_event, "delta_text", None)
+            if isinstance(delta_text, str) and delta_text:
+                emitted_delta = True
+                yield LLMDelta(text_delta=delta_text)
+            continue
+        if event_kind != "completed":
+            continue
+        response = getattr(stream_event, "response", None)
+        response_text = getattr(response, "text", None)
+        if emitted_delta:
+            continue
+        if isinstance(response_text, str) and response_text:
+            emitted_delta = True
+            yield LLMDelta(text_delta=response_text)
 
 
 def build_success_result(
