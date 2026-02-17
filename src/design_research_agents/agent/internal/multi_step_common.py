@@ -15,6 +15,7 @@ def build_continue_prompt(
     step_number: int,
     prompt_template: str,
     memory_tail_items: int = 6,
+    retrieved_context: str = "",
 ) -> str:
     """Build the continuation-decision prompt from task context and memory.
 
@@ -24,6 +25,7 @@ def build_continue_prompt(
         step_number: Parameter value.
         prompt_template: Parameter value.
         memory_tail_items: Parameter value.
+        retrieved_context: Optional retrieved-context block injected into prompt.
 
     Returns:
         The resulting value.
@@ -35,6 +37,7 @@ def build_continue_prompt(
             "step_number": step_number,
             "task_prompt": prompt,
             "memory_tail": memory_preview,
+            "retrieved_context": retrieved_context or "(none)",
         },
         field_name="continuation_user_prompt_template",
     )
@@ -47,6 +50,7 @@ def build_step_prompt(
     step_number: int,
     prompt_template: str,
     memory_tail_items: int = 8,
+    retrieved_context: str = "",
 ) -> str:
     """Build one action-step prompt from task context and memory.
 
@@ -56,6 +60,7 @@ def build_step_prompt(
         step_number: Parameter value.
         prompt_template: Parameter value.
         memory_tail_items: Parameter value.
+        retrieved_context: Optional retrieved-context block injected into prompt.
 
     Returns:
         The resulting value.
@@ -67,6 +72,7 @@ def build_step_prompt(
             "task_prompt": prompt,
             "step_number": step_number,
             "memory_tail": memory_preview,
+            "retrieved_context": retrieved_context or "(none)",
         },
         field_name="step_user_prompt_template",
     )

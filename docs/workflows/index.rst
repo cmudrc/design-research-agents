@@ -21,6 +21,9 @@ Pages
 
 - :doc:`runtime_and_steps`
 - :doc:`patterns`
+- :doc:`networked_blackboard`
+- :doc:`memory_and_rag`
+- :doc:`reasoning_patterns`
 - :doc:`composition_guide`
 - :doc:`architecture_boundaries`
 
@@ -30,5 +33,8 @@ Pages
 
    runtime_and_steps
    patterns
+   networked_blackboard
+   memory_and_rag
+   reasoning_patterns
    composition_guide
    architecture_boundaries

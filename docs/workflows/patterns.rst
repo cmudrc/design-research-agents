@@ -6,6 +6,10 @@ Available reusable workflow patterns:
 - ``PlannerExecutorPattern``: planner + executor decomposition for complex tasks.
 - ``ReflexionPattern``: iterative proposal/revision loops.
 - ``RouterPattern``: intent-based delegation to selected agents.
+- ``NetworkedPattern``: round-based peer coordination with no central orchestrator.
+- ``BlackboardPattern``: networked coordination with explicit shared board semantics.
+- ``TreeSearchPattern``: generator/evaluator reasoning over beam-searched candidates.
+- ``RagReasoningPattern``: retrieval-augmented reasoning via memory workflow steps.
 - ``Workflow``: reusable user-defined graph with ``input_mode='schema'`` or ``input_mode='prompt'``.
 
 These workflow patterns are reference implementations built on first-class

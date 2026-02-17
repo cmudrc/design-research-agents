@@ -7,6 +7,7 @@ results across steps.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Mapping, Sequence
 
 from design_research_agents.agent.implementations.single_step_json_tool_calling_agent import (
@@ -38,6 +39,10 @@ from design_research_agents.agent.internal.multi_step_json_helpers import (
     normalize_step_final_output,
     resolve_step_error,
 )
+from design_research_agents.agent.internal.multi_step_memory import (
+    retrieve_memory_context,
+    write_memory_observation,
+)
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     inject_alternatives_into_prompt_pair,
@@ -60,6 +65,7 @@ from design_research_agents.contracts.llm import (
     LLMMessage,
     LLMResponse,
 )
+from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime
 from design_research_agents.tracing import (
     Tracer,
@@ -93,6 +99,10 @@ class MultiStepJsonToolCallingAgent(Agent):
         alternatives_prompt_target: AlternativesPromptTarget = "user",
         continuation_memory_tail_items: int = 6,
         step_memory_tail_items: int = 8,
+        memory_store: MemoryStore | None = None,
+        memory_namespace: str = "default",
+        memory_read_top_k: int = 4,
+        memory_write_observations: bool = True,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step JSON tool-calling agent.
@@ -108,6 +118,10 @@ class MultiStepJsonToolCallingAgent(Agent):
             alternatives_prompt_target: Prompt target for alternatives blocks.
             continuation_memory_tail_items: Memory tail size for continuation prompts.
             step_memory_tail_items: Memory tail size for step prompts.
+            memory_store: Optional persistent memory store for retrieval/write-back.
+            memory_namespace: Namespace partition used for memory reads/writes.
+            memory_read_top_k: Number of memory matches retrieved per step.
+            memory_write_observations: Whether to persist per-step observations.
             tracer: Optional explicit tracer dependency.
 
         Raises:
@@ -119,6 +133,8 @@ class MultiStepJsonToolCallingAgent(Agent):
             raise ValueError("continuation_memory_tail_items must be >= 1.")
         if step_memory_tail_items < 1:
             raise ValueError("step_memory_tail_items must be >= 1.")
+        if memory_read_top_k < 1:
+            raise ValueError("memory_read_top_k must be >= 1.")
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
@@ -145,6 +161,10 @@ class MultiStepJsonToolCallingAgent(Agent):
         )
         self._continuation_memory_tail_items = continuation_memory_tail_items
         self._step_memory_tail_items = step_memory_tail_items
+        self._memory_store = memory_store
+        self._memory_namespace = memory_namespace.strip() or "default"
+        self._memory_read_top_k = memory_read_top_k
+        self._memory_write_observations = memory_write_observations
         self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
@@ -208,6 +228,8 @@ class MultiStepJsonToolCallingAgent(Agent):
 
         memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]
         continuation_trace: list[dict[str, object]] = []
+        retrieval_trace: list[dict[str, object]] = []
+        memory_errors: list[str] = []
         step_outputs: list[dict[str, object]] = []
         tool_results: list[ToolResult] = []
         final_output: dict[str, object] = {}
@@ -215,6 +237,24 @@ class MultiStepJsonToolCallingAgent(Agent):
         terminated_reason = "max_steps_reached"
 
         for step_index in range(max_steps):
+            retrieved_context, retrieved_matches, retrieval_error = retrieve_memory_context(
+                memory_store=self._memory_store,
+                namespace=self._memory_namespace,
+                top_k=self._memory_read_top_k,
+                task_prompt=prompt,
+                memory=memory,
+                memory_tail_items=self._continuation_memory_tail_items,
+            )
+            if retrieval_error is not None:
+                memory_errors.append(f"read(step {step_index + 1}): {retrieval_error}")
+            retrieval_trace.append(
+                {
+                    "step": step_index + 1,
+                    "count": len(retrieved_matches),
+                    "namespace": self._memory_namespace,
+                }
+            )
+
             try:
                 should_continue, continue_reason, continue_source, continue_response = (
                     self._llm_should_continue(
@@ -225,6 +265,7 @@ class MultiStepJsonToolCallingAgent(Agent):
                         model=resolved_model,
                         alternatives_prompt_target=alternatives_prompt_target,
                         alternatives_text=step_tools_text,
+                        retrieved_context=retrieved_context,
                     )
                 )
             except Exception as exc:
@@ -260,6 +301,7 @@ class MultiStepJsonToolCallingAgent(Agent):
                 step_number=step_index + 1,
                 prompt_template=self._step_user_prompt_template,
                 memory_tail_items=self._step_memory_tail_items,
+                retrieved_context=retrieved_context,
             )
             step_request_id = f"{resolved_request_id}:step-{step_index + 1}"
 
@@ -302,6 +344,34 @@ class MultiStepJsonToolCallingAgent(Agent):
                     },
                 ]
             )
+
+            if self._memory_write_observations:
+                memory_write_error = write_memory_observation(
+                    memory_store=self._memory_store,
+                    namespace=self._memory_namespace,
+                    payload={
+                        "task": prompt,
+                        "step": step_index + 1,
+                        "thought": continue_reason,
+                        "selected_action": _summarize_tool_action(
+                            tool_name=step_result.output.get("tool_name"),
+                            tool_input=step_result.output.get("tool_input"),
+                        ),
+                        "observation_summary": _summarize_observation(
+                            final_output=step_final_output,
+                            error=step_error,
+                        ),
+                        "success": step_result.success,
+                    },
+                    metadata={
+                        "kind": "multi_step_observation",
+                        "agent": "MultiStepJsonToolCallingAgent",
+                        "step": step_index + 1,
+                        "success": step_result.success,
+                    },
+                )
+                if memory_write_error is not None:
+                    memory_errors.append(f"write(step {step_index + 1}): {memory_write_error}")
 
             if step_result.success:
                 final_output = step_final_output
@@ -354,6 +424,14 @@ class MultiStepJsonToolCallingAgent(Agent):
                     "alternatives_prompt_target": alternatives_prompt_target,
                     "continuation_memory_tail_items": self._continuation_memory_tail_items,
                     "step_memory_tail_items": self._step_memory_tail_items,
+                    "memory_namespace": self._memory_namespace,
+                    "memory_read_top_k": self._memory_read_top_k,
+                    "memory_write_observations": self._memory_write_observations,
+                },
+                "memory": {
+                    "enabled": self._memory_store is not None,
+                    "retrieval_trace": retrieval_trace,
+                    "errors": memory_errors,
                 },
             },
         )
@@ -395,6 +473,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         model: str,
         alternatives_prompt_target: AlternativesPromptTarget,
         alternatives_text: str,
+        retrieved_context: str,
     ) -> tuple[bool, str, str, LLMResponse | None]:
         """Ask the model whether execution should continue to the next step.
 
@@ -409,6 +488,7 @@ class MultiStepJsonToolCallingAgent(Agent):
             model: Model identifier for the call.
             alternatives_prompt_target: Prompt target for alternatives injection.
             alternatives_text: Alternatives block text for prompt injection.
+            retrieved_context: Retrieved memory context block for this step.
 
         Returns:
             Tuple of continuation decision, reason, source, and model response.
@@ -423,6 +503,7 @@ class MultiStepJsonToolCallingAgent(Agent):
             step_number=step_index + 1,
             prompt_template=self._continuation_user_prompt_template,
             memory_tail_items=self._continuation_memory_tail_items,
+            retrieved_context=retrieved_context,
         )
         system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
             system_prompt=system_prompt,
@@ -495,6 +576,51 @@ class MultiStepJsonToolCallingAgent(Agent):
             source="fallback",
         )
         return fallback_decision, "fallback heuristic", "fallback", response
+
+
+def _summarize_tool_action(*, tool_name: object, tool_input: object) -> str:
+    """Return compact tool action summary for memory write-back.
+
+    Args:
+        tool_name: Tool name payload.
+        tool_input: Tool input payload.
+
+    Returns:
+        Compact tool action summary.
+    """
+    normalized_name = str(tool_name or "").strip()
+    if not normalized_name:
+        return ""
+    if isinstance(tool_input, Mapping):
+        serialized_input = json.dumps(dict(tool_input), ensure_ascii=True, sort_keys=True)
+    else:
+        serialized_input = str(tool_input)
+    summary = f"{normalized_name} {serialized_input}".strip()
+    if len(summary) > 320:
+        return summary[:317] + "..."
+    return summary
+
+
+def _summarize_observation(*, final_output: object, error: object) -> str:
+    """Return compact observation summary for memory write-back.
+
+    Args:
+        final_output: Final output payload.
+        error: Optional error payload.
+
+    Returns:
+        Compact observation summary.
+    """
+    if isinstance(error, str) and error.strip():
+        return f"error: {error.strip()}"
+    if isinstance(final_output, Mapping):
+        serialized = json.dumps(dict(final_output), ensure_ascii=True, sort_keys=True)
+    else:
+        serialized = str(final_output)
+    normalized = serialized.strip()
+    if len(normalized) > 320:
+        return normalized[:317] + "..."
+    return normalized
 
 
 __all__ = [

@@ -30,6 +30,7 @@ from .llm import (
     ToolCallDelta,
     Usage,
 )
+from .memory import MemoryRecord, MemorySearchQuery, MemoryStore, MemoryWriteRecord
 from .tools import (
     ToolArtifact,
     ToolCostHints,
@@ -49,6 +50,10 @@ from .workflow import (
     LoopStepContinuePredicate,
     LoopStepStateReducer,
     LoopStepTerminationReason,
+    MemoryReadQueryBuilder,
+    MemoryReadStep,
+    MemoryWriteRecordsBuilder,
+    MemoryWriteStep,
     ToolStep,
     ToolStepInputBuilder,
     WorkflowDelegateRunner,
@@ -89,6 +94,14 @@ __all__ = [
     "LoopStepContinuePredicate",
     "LoopStepStateReducer",
     "LoopStepTerminationReason",
+    "MemoryReadQueryBuilder",
+    "MemoryReadStep",
+    "MemoryRecord",
+    "MemorySearchQuery",
+    "MemoryStore",
+    "MemoryWriteRecord",
+    "MemoryWriteRecordsBuilder",
+    "MemoryWriteStep",
     "Provenance",
     "TaskProfile",
     "ToolArtifact",

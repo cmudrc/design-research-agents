@@ -13,7 +13,22 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
+.. automodule:: design_research_agents.workflow.implementations.networked_blackboard
+   :members:
+   :undoc-members:
+   :no-index:
+
 .. automodule:: design_research_agents.workflow.implementations.propose_critic
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.workflow.implementations.rag_reasoning
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.workflow.implementations.tree_search
    :members:
    :undoc-members:
    :no-index:

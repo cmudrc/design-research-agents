@@ -22,7 +22,13 @@ from .step_context import (
     has_upstream_failure,
     route_deactivations,
 )
-from .step_execution import run_agent_step, run_logic_step, run_tool_step
+from .step_execution import (
+    run_agent_step,
+    run_logic_step,
+    run_memory_read_step,
+    run_memory_write_step,
+    run_tool_step,
+)
 from .step_tracing import activate_step_span, finish_step_span, start_step_span
 from .workflow_graph import (
     PreparedWorkflow,
@@ -55,6 +61,8 @@ __all__ = [
     "route_deactivations",
     "run_agent_step",
     "run_logic_step",
+    "run_memory_read_step",
+    "run_memory_write_step",
     "run_tool_step",
     "start_step_span",
     "validate_no_cycles",

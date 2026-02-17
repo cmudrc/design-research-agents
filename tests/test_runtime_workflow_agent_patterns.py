@@ -15,8 +15,16 @@ from design_research_agents.agent import (
     RuntimeControls,
     SingleStepToolRouterAgent,
 )
+from design_research_agents.contracts.memory import MemoryWriteRecord
+from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import PlannerExecutorPattern, ReflexionPattern, RouterPattern
+from design_research_agents.workflow import (
+    NetworkedPattern,
+    PlannerExecutorPattern,
+    RagReasoningPattern,
+    ReflexionPattern,
+    RouterPattern,
+)
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
 
 
@@ -327,3 +335,42 @@ def test_plan_execute_workflow_stream_emits_delta_then_completed() -> None:
     assert [event.kind for event in events] == ["delta", "completed"]
     assert events[1].result is not None
     assert events[1].result.success
+
+
+def test_networked_pattern_runs_peer_only_round_and_reports_order() -> None:
+    workflow = NetworkedPattern(
+        peers={
+            "peer_b": StaticMarkerAgent(marker="b"),
+            "peer_a": StaticMarkerAgent(marker="a"),
+        },
+        max_rounds=1,
+    )
+
+    result = workflow.run("Coordinate this design task.")
+
+    assert result.success
+    assert result.output["terminated_reason"] == "max_rounds_reached"
+    assert result.output["rounds_executed"] == 1
+    assert result.metadata["peer_order"] == ["peer_a", "peer_b"]
+
+
+def test_rag_reasoning_pattern_reads_memory_and_runs_delegate(tmp_path) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    store.write(
+        [MemoryWriteRecord(content="Context: prioritize safety.")],
+        namespace="design",
+    )
+    workflow = RagReasoningPattern(
+        reasoning_delegate=StaticMarkerAgent(marker="reasoned"),
+        memory_store=store,
+        memory_namespace="design",
+        memory_top_k=2,
+        write_back=False,
+    )
+
+    result = workflow.run("Draft a safe design plan.")
+    store.close()
+
+    assert result.success
+    assert result.output["retrieval"]["count"] >= 1
+    assert result.output["reasoning"]["output"]["agent_marker"] == "reasoned"

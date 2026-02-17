@@ -1,4 +1,4 @@
-"""Workflow step executors for tool, agent, and logic step kinds."""
+"""Workflow step executors for tool, agent, logic, and memory step kinds."""
 
 from __future__ import annotations
 
@@ -8,10 +8,17 @@ from dataclasses import asdict
 from typing import TypeGuard, cast
 
 from design_research_agents.contracts.agent import Agent
+from design_research_agents.contracts.memory import (
+    MemorySearchQuery,
+    MemoryStore,
+    MemoryWriteRecord,
+)
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
+    MemoryReadStep,
+    MemoryWriteStep,
     ToolStep,
     WorkflowDelegate,
     WorkflowDelegateRunner,
@@ -329,6 +336,239 @@ def run_logic_step(
         output=step_output,
         metadata={"stage": "execution"},
     )
+
+
+def run_memory_read_step(
+    *,
+    memory_store: MemoryStore | None,
+    step: MemoryReadStep,
+    step_id: str,
+    step_context: Mapping[str, object],
+) -> WorkflowStepResult:
+    """Execute one memory read step and return normalized workflow step result.
+
+    Args:
+        memory_store: Memory store used for retrieval.
+        step: Memory-read step definition to execute.
+        step_id: Step identifier for result metadata.
+        step_context: Step execution context with dependency outputs.
+
+    Returns:
+        Normalized workflow step result for this memory-read step.
+    """
+    if memory_store is None:
+        return _failed_step_result(
+            step_id=step_id,
+            error="Memory step requires a configured memory_store.",
+            metadata={"stage": "memory_binding", "step_kind": "memory_read"},
+        )
+
+    try:
+        built_query = step.query_builder(step_context)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "memory_read"},
+        )
+
+    try:
+        memory_query = _normalize_memory_search_query(step=step, built_query=built_query)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "memory_read"},
+        )
+
+    try:
+        matches = memory_store.search(memory_query)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "execution", "step_kind": "memory_read"},
+        )
+
+    output = {
+        "query": memory_query.asdict(),
+        "matches": [record.asdict() for record in matches],
+        "count": len(matches),
+        "namespace": memory_query.namespace,
+    }
+    return WorkflowStepResult(
+        step_id=step_id,
+        status="completed",
+        success=True,
+        output=output,
+        metadata={"stage": "execution", "step_kind": "memory_read"},
+    )
+
+
+def run_memory_write_step(
+    *,
+    memory_store: MemoryStore | None,
+    step: MemoryWriteStep,
+    step_id: str,
+    step_context: Mapping[str, object],
+) -> WorkflowStepResult:
+    """Execute one memory write step and return normalized workflow step result.
+
+    Args:
+        memory_store: Memory store used for persistence.
+        step: Memory-write step definition to execute.
+        step_id: Step identifier for result metadata.
+        step_context: Step execution context with dependency outputs.
+
+    Returns:
+        Normalized workflow step result for this memory-write step.
+    """
+    if memory_store is None:
+        return _failed_step_result(
+            step_id=step_id,
+            error="Memory step requires a configured memory_store.",
+            metadata={"stage": "memory_binding", "step_kind": "memory_write"},
+        )
+
+    try:
+        built_records = step.records_builder(step_context)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "memory_write"},
+        )
+
+    try:
+        normalized_records = _normalize_memory_write_records(built_records)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "memory_write"},
+        )
+
+    try:
+        written_records = memory_store.write(normalized_records, namespace=step.namespace)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "execution", "step_kind": "memory_write"},
+        )
+
+    output = {
+        "written": len(written_records),
+        "namespace": step.namespace,
+        "ids": [record.item_id for record in written_records],
+    }
+    return WorkflowStepResult(
+        step_id=step_id,
+        status="completed",
+        success=True,
+        output=output,
+        metadata={"stage": "execution", "step_kind": "memory_write"},
+    )
+
+
+def _normalize_memory_search_query(
+    *,
+    step: MemoryReadStep,
+    built_query: str | Mapping[str, object],
+) -> MemorySearchQuery:
+    """Normalize ``MemoryReadStep`` query-builder output into query contract.
+
+    Args:
+        step: Memory read step configuration.
+        built_query: Query-builder output payload.
+
+    Returns:
+        Normalized memory search query.
+
+    Raises:
+        TypeError: Raised when query-builder output type is unsupported.
+    """
+    if isinstance(built_query, str):
+        query_text = built_query
+        metadata_filters: dict[str, object] = {}
+        top_k = step.top_k
+        min_score = step.min_score
+    elif isinstance(built_query, Mapping):
+        text_value = built_query.get("text", built_query.get("query", ""))
+        query_text = str(text_value)
+
+        raw_filters = built_query.get("metadata_filters")
+        metadata_filters = dict(raw_filters) if isinstance(raw_filters, Mapping) else {}
+
+        raw_top_k = built_query.get("top_k")
+        top_k = raw_top_k if isinstance(raw_top_k, int) else step.top_k
+
+        raw_min_score = built_query.get("min_score")
+        if isinstance(raw_min_score, (int, float)):
+            min_score = float(raw_min_score)
+        else:
+            min_score = step.min_score
+    else:
+        raise TypeError("MemoryReadStep query_builder must return a string or mapping.")
+
+    normalized_top_k = max(1, int(top_k))
+    return MemorySearchQuery(
+        text=query_text,
+        namespace=step.namespace,
+        top_k=normalized_top_k,
+        min_score=min_score,
+        metadata_filters=metadata_filters,
+    )
+
+
+def _normalize_memory_write_records(
+    built_records: object,
+) -> list[MemoryWriteRecord]:
+    """Normalize write-builder output into ``MemoryWriteRecord`` list.
+
+    Args:
+        built_records: Write-builder output payload.
+
+    Returns:
+        Normalized write records.
+
+    Raises:
+        TypeError: Raised for unsupported write record payload types.
+        ValueError: Raised when mapping payloads omit ``content``.
+    """
+    if not isinstance(built_records, (list, tuple)):
+        raise TypeError("MemoryWriteStep records_builder must return a sequence.")
+
+    normalized_records: list[MemoryWriteRecord] = []
+    for record in built_records:
+        if isinstance(record, MemoryWriteRecord):
+            normalized_records.append(record)
+            continue
+
+        if isinstance(record, str):
+            normalized_records.append(MemoryWriteRecord(content=record))
+            continue
+
+        if isinstance(record, Mapping):
+            raw_content = record.get("content")
+            if raw_content is None:
+                raise ValueError("Memory write records must include 'content'.")
+            raw_metadata = record.get("metadata")
+            metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
+            raw_item_id = record.get("item_id")
+            item_id = str(raw_item_id).strip() if isinstance(raw_item_id, str) else None
+            normalized_records.append(
+                MemoryWriteRecord(
+                    content=str(raw_content),
+                    metadata=metadata,
+                    item_id=item_id or None,
+                )
+            )
+            continue
+
+        raise TypeError("Unsupported memory write record type.")
+
+    return normalized_records
 
 
 def _failed_step_result(

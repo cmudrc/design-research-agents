@@ -18,6 +18,8 @@ Highlights
 - Tool contracts and schemas for safe, structured I/O.
 - Tracing hooks and emitters for debugging and evaluation.
 - Streaming examples for real-time UX and analysis.
+- Workflow-native memory, networked blackboard coordination, and reusable
+  reasoning patterns (tree search and RAG).
 
 Typical workflow
 ----------------

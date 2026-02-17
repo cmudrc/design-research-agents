@@ -21,11 +21,13 @@ def test_render_prompt_substitutes_variables() -> None:
             "task_prompt": "Do a thing",
             "step_number": 2,
             "memory_tail": "[]",
+            "retrieved_context": "(none)",
         },
     )
     assert "Task: Do a thing" in rendered
     assert "Current step: 2" in rendered
     assert "Memory tail: []" in rendered
+    assert "Retrieved context: (none)" in rendered
 
 
 def test_render_prompt_raises_on_missing_variables() -> None:

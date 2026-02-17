@@ -13,6 +13,11 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
+.. automodule:: design_research_agents.contracts.memory
+   :members:
+   :undoc-members:
+   :no-index:
+
 .. automodule:: design_research_agents.contracts.tools
    :members:
    :undoc-members:

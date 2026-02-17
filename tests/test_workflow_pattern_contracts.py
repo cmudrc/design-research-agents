@@ -9,8 +9,14 @@ from design_research_agents.agent import RuntimeControls
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import Workflow
 from design_research_agents.workflow.implementations.agent_routing import RouterPattern
+from design_research_agents.workflow.implementations.networked_blackboard import (
+    BlackboardPattern,
+    NetworkedPattern,
+)
 from design_research_agents.workflow.implementations.plan_execute import PlannerExecutorPattern
 from design_research_agents.workflow.implementations.propose_critic import ReflexionPattern
+from design_research_agents.workflow.implementations.rag_reasoning import RagReasoningPattern
+from design_research_agents.workflow.implementations.tree_search import TreeSearchPattern
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
 
 
@@ -159,3 +165,22 @@ def test_workflow_factory_functions_are_removed() -> None:
     )
     for symbol in removed_symbols:
         assert symbol not in workflow_impl.__all__
+
+
+def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
+    networked_params = inspect.signature(NetworkedPattern.__init__).parameters
+    assert "peers" in networked_params
+    assert "max_rounds" in networked_params
+
+    blackboard_params = inspect.signature(BlackboardPattern.__init__).parameters
+    assert "stability_rounds" in blackboard_params
+
+    tree_params = inspect.signature(TreeSearchPattern.__init__).parameters
+    assert "generator_delegate" in tree_params
+    assert "evaluator_delegate" in tree_params
+    assert "beam_width" in tree_params
+
+    rag_params = inspect.signature(RagReasoningPattern.__init__).parameters
+    assert "reasoning_delegate" in rag_params
+    assert "memory_store" in rag_params
+    assert "memory_top_k" in rag_params

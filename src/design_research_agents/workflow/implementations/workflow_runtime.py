@@ -1,4 +1,4 @@
-"""Deterministic workflow runtime for tool, agent, and logic steps."""
+"""Deterministic workflow runtime for tool, agent, logic, loop, and memory steps."""
 
 from __future__ import annotations
 
@@ -9,11 +9,14 @@ from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
+from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
     AgentStep,
     LogicStep,
     LoopStep,
+    MemoryReadStep,
+    MemoryWriteStep,
     WorkflowDelegate,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
@@ -35,6 +38,8 @@ from design_research_agents.workflow.internal import (
     route_deactivations,
     run_agent_step,
     run_logic_step,
+    run_memory_read_step,
+    run_memory_write_step,
     run_tool_step,
     start_step_span,
     validate_no_cycles,
@@ -48,6 +53,7 @@ class WorkflowRuntime(WorkflowRunner):
         self,
         *,
         tool_runtime: ToolRuntime | None = None,
+        memory_store: MemoryStore | None = None,
         agents: Mapping[str, WorkflowDelegate] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
@@ -55,10 +61,12 @@ class WorkflowRuntime(WorkflowRunner):
 
         Args:
             tool_runtime: Optional tool runtime used for ``ToolStep`` execution.
+            memory_store: Optional memory store used for memory step execution.
             agents: Optional mapping of delegate names to runnable agents/workflows.
             tracer: Optional tracer used for workflow and step span emission.
         """
         self._tool_runtime = tool_runtime
+        self._memory_store = memory_store
         self._tracer = tracer
         self._agents = {
             name.strip(): agent
@@ -153,6 +161,7 @@ class WorkflowRuntime(WorkflowRunner):
                 "request_id": resolved_request_id,
                 "dependency_keys": sorted(resolved_dependencies.keys()),
                 "step_count": len(steps),
+                "memory_enabled": self._memory_store is not None,
             },
         )
         finish_trace_run(trace_scope, result=workflow_result)
@@ -336,6 +345,20 @@ class WorkflowRuntime(WorkflowRunner):
                     execution_mode=execution_mode,
                     failure_policy=failure_policy,
                     dependencies=dependencies,
+                )
+            elif isinstance(step, MemoryReadStep):
+                result = run_memory_read_step(
+                    memory_store=self._memory_store,
+                    step=step,
+                    step_id=step_id,
+                    step_context=step_context,
+                )
+            elif isinstance(step, MemoryWriteStep):
+                result = run_memory_write_step(
+                    memory_store=self._memory_store,
+                    step=step,
+                    step_id=step_id,
+                    step_context=step_context,
                 )
             elif isinstance(step, LoopStep):
                 result = self._run_loop_step(

@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pytest
 
+from design_research_agents.contracts.memory import (
+    MemoryRecord,
+    MemorySearchQuery,
+    MemoryStore,
+    MemoryWriteRecord,
+)
 from design_research_agents.llm import LlamaCppServerLLMClient
 from design_research_agents.llm.backends.providers import llama_cpp_server
+from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 
 
 def test_llama_cpp_server_command_contains_expected_args() -> None:
@@ -145,3 +154,41 @@ def test_llama_cpp_client_constructor_propagates_settings() -> None:
         assert "35" in command
     finally:
         client.close()
+
+
+def test_memory_contract_dataclasses_are_serializable() -> None:
+    write_record = MemoryWriteRecord(content="draft", metadata={"phase": 1}, item_id="abc")
+    search_query = MemorySearchQuery(
+        text="draft",
+        namespace="design",
+        top_k=3,
+        min_score=0.25,
+        metadata_filters={"phase": 1},
+    )
+    read_record = MemoryRecord(
+        item_id="abc",
+        namespace="design",
+        content="draft",
+        metadata={"phase": 1},
+        score=0.9,
+        lexical_score=0.8,
+        vector_score=0.95,
+    )
+
+    assert write_record.asdict()["item_id"] == "abc"
+    assert search_query.asdict()["top_k"] == 3
+    assert read_record.asdict()["score"] == 0.9
+
+
+def test_sqlite_memory_store_satisfies_memory_store_protocol(tmp_path) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+
+    def _accept_memory_store(protocol_value: MemoryStore) -> Sequence[MemoryRecord]:
+        protocol_value.write([MemoryWriteRecord(content="hello")], namespace="default")
+        return protocol_value.search(MemorySearchQuery(text="hello", namespace="default"))
+
+    matches = _accept_memory_store(store)
+    store.close()
+
+    assert len(matches) == 1
+    assert matches[0].content == "hello"

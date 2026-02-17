@@ -23,11 +23,17 @@ _EXPORTS: Final[dict[str, str]] = {
     "ToolStep": "design_research_agents.contracts:ToolStep",
     "AgentStep": "design_research_agents.contracts:AgentStep",
     "LoopStep": "design_research_agents.contracts:LoopStep",
+    "MemoryReadStep": "design_research_agents.contracts:MemoryReadStep",
+    "MemoryWriteStep": "design_research_agents.contracts:MemoryWriteStep",
     "Workflow": "design_research_agents.workflow:Workflow",
     "DebatePattern": "design_research_agents.workflow:DebatePattern",
     "PlannerExecutorPattern": "design_research_agents.workflow:PlannerExecutorPattern",
     "ReflexionPattern": "design_research_agents.workflow:ReflexionPattern",
     "RouterPattern": "design_research_agents.workflow:RouterPattern",
+    "NetworkedPattern": "design_research_agents.workflow:NetworkedPattern",
+    "BlackboardPattern": "design_research_agents.workflow:BlackboardPattern",
+    "TreeSearchPattern": "design_research_agents.workflow:TreeSearchPattern",
+    "RagReasoningPattern": "design_research_agents.workflow:RagReasoningPattern",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
@@ -89,6 +95,8 @@ if TYPE_CHECKING:
     from .contracts import AgentStep as AgentStep
     from .contracts import LogicStep as LogicStep
     from .contracts import LoopStep as LoopStep
+    from .contracts import MemoryReadStep as MemoryReadStep
+    from .contracts import MemoryWriteStep as MemoryWriteStep
     from .contracts import ToolStep as ToolStep
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MlxLocalLLMClient as MlxLocalLLMClient
@@ -100,8 +108,12 @@ if TYPE_CHECKING:
     from .tools import McpServer as McpServer
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
+    from .workflow import BlackboardPattern as BlackboardPattern
     from .workflow import DebatePattern as DebatePattern
+    from .workflow import NetworkedPattern as NetworkedPattern
     from .workflow import PlannerExecutorPattern as PlannerExecutorPattern
+    from .workflow import RagReasoningPattern as RagReasoningPattern
     from .workflow import ReflexionPattern as ReflexionPattern
     from .workflow import RouterPattern as RouterPattern
+    from .workflow import TreeSearchPattern as TreeSearchPattern
     from .workflow import Workflow as Workflow

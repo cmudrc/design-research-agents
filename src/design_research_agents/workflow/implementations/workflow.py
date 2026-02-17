@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
+from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
     WorkflowDelegate,
@@ -89,6 +90,7 @@ class Workflow:
         self,
         *,
         tool_runtime: ToolRuntime,
+        memory_store: MemoryStore | None = None,
         steps: Sequence[WorkflowStep],
         agents: Mapping[str, WorkflowDelegate] | None = None,
         input_mode: WorkflowInputMode = "prompt",
@@ -105,6 +107,7 @@ class Workflow:
 
         Args:
             tool_runtime: Tool runtime used by ``ToolStep`` executions.
+            memory_store: Optional memory store used by memory step executions.
             steps: Static workflow step graph to execute for each run.
             agents: Optional delegate registry used by ``AgentStep``.
             input_mode: Input normalization mode (``prompt`` or ``schema``).
@@ -129,6 +132,7 @@ class Workflow:
 
         self._runtime = WorkflowRuntime(
             tool_runtime=tool_runtime,
+            memory_store=memory_store,
             agents=agents,
             tracer=tracer,
         )

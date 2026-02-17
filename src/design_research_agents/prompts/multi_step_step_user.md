@@ -9,3 +9,4 @@ Use tools only via call_tool("tool_name", {...}).
 Do not use import statements.
 Assign final_output to a dict before finishing.
 Memory tail: $memory_tail
+Retrieved context: $retrieved_context

@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 
 from .agent import Agent
+from .memory import MemoryWriteRecord
 
 WorkflowExecutionMode = Literal["sequential", "dag"]
 WorkflowFailurePolicy = Literal["skip_dependents", "propagate_failed_state"]
@@ -15,6 +16,11 @@ WorkflowStepStatus = Literal["completed", "failed", "skipped"]
 ToolStepInputBuilder: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
 AgentStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
 LogicStepHandler: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
+MemoryReadQueryBuilder: TypeAlias = Callable[[Mapping[str, object]], str | Mapping[str, object]]
+MemoryWriteRecordsBuilder: TypeAlias = Callable[
+    [Mapping[str, object]],
+    Sequence[str | Mapping[str, object] | MemoryWriteRecord],
+]
 LoopStepContinuePredicate: TypeAlias = Callable[[int, Mapping[str, object]], bool]
 LoopStepStateReducer: TypeAlias = Callable[
     [Mapping[str, object], "WorkflowResult", int],
@@ -97,7 +103,41 @@ class LoopStep:
     """Failure handling policy applied within each loop iteration run."""
 
 
-WorkflowStep: TypeAlias = ToolStep | AgentStep | LogicStep | LoopStep
+@dataclass(slots=True, frozen=True)
+class MemoryReadStep:
+    """Workflow step that reads relevant records from the memory store."""
+
+    step_id: str
+    """Unique step identifier used for dependency wiring and result lookup."""
+    query_builder: MemoryReadQueryBuilder
+    """Callback that builds query text or query payload from step context."""
+    dependencies: tuple[str, ...] = ()
+    """Step ids that must complete before this step can run."""
+    namespace: str = "default"
+    """Namespace partition to read from."""
+    top_k: int = 5
+    """Maximum number of records to return."""
+    min_score: float | None = None
+    """Optional minimum score threshold for returned records."""
+
+
+@dataclass(slots=True, frozen=True)
+class MemoryWriteStep:
+    """Workflow step that writes records into the memory store."""
+
+    step_id: str
+    """Unique step identifier used for dependency wiring and result lookup."""
+    records_builder: MemoryWriteRecordsBuilder
+    """Callback that builds record payloads from step context."""
+    dependencies: tuple[str, ...] = ()
+    """Step ids that must complete before this step can run."""
+    namespace: str = "default"
+    """Namespace partition to write into."""
+
+
+WorkflowStep: TypeAlias = (
+    ToolStep | AgentStep | LogicStep | LoopStep | MemoryReadStep | MemoryWriteStep
+)
 
 
 @dataclass(slots=True, frozen=True)

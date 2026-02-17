@@ -10,7 +10,14 @@ All workflow step primitives are exported from the top-level package:
 
 .. code-block:: python
 
-   from design_research_agents import AgentStep, LogicStep, LoopStep, ToolStep
+   from design_research_agents import (
+       AgentStep,
+       LogicStep,
+       LoopStep,
+       MemoryReadStep,
+       MemoryWriteStep,
+       ToolStep,
+   )
 
 Step types
 ----------
@@ -28,6 +35,12 @@ Step types
   Key fields: ``step_id``, ``steps``, ``max_iterations``, ``initial_state``,
   ``continue_predicate``, ``state_reducer``, ``execution_mode``, ``failure_policy``.
   Use it when iterative orchestration is first-class and state must evolve per iteration.
+- ``MemoryReadStep``: retrieval step against a configured memory store.
+  Key fields: ``step_id``, ``query_builder``, ``namespace``, ``top_k``, ``min_score``.
+  Use it to inject retrieved context into downstream agent/tool steps.
+- ``MemoryWriteStep``: persistence step for normalized memory records.
+  Key fields: ``step_id``, ``records_builder``, ``namespace``.
+  Use it to store intermediate/final artifacts for later retrieval.
 
 Loop primitive
 --------------

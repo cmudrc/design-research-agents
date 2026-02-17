@@ -23,6 +23,12 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
   - User-defined `Workflow` with `input_mode="schema"` for structured input payloads.
 - `workflow_prompt_mode.py`
   - User-defined `Workflow` with `input_mode="prompt"` for string prompt payloads.
+- `networked_blackboard.py`
+  - Peer-only `BlackboardPattern` orchestration without a central coordinator.
+- `tree_search.py`
+  - `TreeSearchPattern` beam-style candidate generation and evaluation.
+- `rag_reasoning.py`
+  - `RagReasoningPattern` chaining memory read, delegated reasoning, and optional write-back.
 
 ## Quick Start
 
@@ -37,6 +43,9 @@ PYTHONPATH=src python3 examples/workflow/agent_routing.py
 PYTHONPATH=src python3 examples/workflow/debate_pattern.py
 PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
 PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
+PYTHONPATH=src python3 examples/workflow/networked_blackboard.py
+PYTHONPATH=src python3 examples/workflow/tree_search.py
+PYTHONPATH=src python3 examples/workflow/rag_reasoning.py
 ```
 
 ## Implementation Mapping
@@ -49,6 +58,9 @@ PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
 - `debate_pattern.py` (`DebatePattern`) -> `examples/workflow/debate_pattern.py`
 - `workflow_schema_mode.py` (`Workflow` in `schema` mode) -> `examples/workflow/workflow_schema_mode.py`
 - `workflow_prompt_mode.py` (`Workflow` in `prompt` mode) -> `examples/workflow/workflow_prompt_mode.py`
+- `networked_blackboard.py` (`BlackboardPattern`) -> `examples/workflow/networked_blackboard.py`
+- `tree_search.py` (`TreeSearchPattern`) -> `examples/workflow/tree_search.py`
+- `rag_reasoning.py` (`RagReasoningPattern`) -> `examples/workflow/rag_reasoning.py`
 
 ## Expected Outputs
 

@@ -37,7 +37,13 @@ The supported top-level API is the curated export list from
     - ``ToolStep``
     - ``AgentStep``
     - ``LoopStep``
+    - ``MemoryReadStep``
+    - ``MemoryWriteStep``
     - ``Workflow``
+    - ``NetworkedPattern``
+    - ``BlackboardPattern``
+    - ``TreeSearchPattern``
+    - ``RagReasoningPattern``
 
 The API is constructor-first: agents and workflows expose customization through
 ``__init__`` kwargs (prompt overrides, routing/tool allowlists, and workflow
@@ -152,6 +158,22 @@ Patterns
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.NetworkedPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.BlackboardPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.TreeSearchPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.RagReasoningPattern
+   :members:
+   :undoc-members:
+
 Workflows
 ---------
 
@@ -168,6 +190,14 @@ Workflows
    :undoc-members:
 
 .. autoclass:: design_research_agents.LoopStep
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MemoryReadStep
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MemoryWriteStep
    :members:
    :undoc-members:
 

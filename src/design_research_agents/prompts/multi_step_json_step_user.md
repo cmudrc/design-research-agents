@@ -8,3 +8,4 @@ Return only one JSON object with this shape:
 {"tool_name":"<name>","tool_input":{...},"reason":"short rationale"}
 Do not include markdown or extra text.
 Memory tail: $memory_tail
+Retrieved context: $retrieved_context

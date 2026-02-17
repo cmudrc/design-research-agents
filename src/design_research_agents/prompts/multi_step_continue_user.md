@@ -9,3 +9,4 @@ Decision policy:
 Step number: $step_number
 Task: $task_prompt
 Memory tail: $memory_tail
+Retrieved context: $retrieved_context

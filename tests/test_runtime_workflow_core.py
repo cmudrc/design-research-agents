@@ -6,7 +6,16 @@ from collections.abc import Mapping
 
 import pytest
 
-from design_research_agents.contracts.workflow import AgentStep, LogicStep, LoopStep, ToolStep
+from design_research_agents.contracts.memory import MemoryWriteRecord
+from design_research_agents.contracts.workflow import (
+    AgentStep,
+    LogicStep,
+    LoopStep,
+    MemoryReadStep,
+    MemoryWriteStep,
+    ToolStep,
+)
+from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 from design_research_agents.workflow import WorkflowRuntime
 from tests.helpers.workflow_stubs import (
     StaticMarkerAgent,
@@ -439,3 +448,100 @@ def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
     assert result.step_results["missing_tool"].metadata["stage"] == "tool_binding"
     assert result.step_results["missing_agent"].status == "failed"
     assert result.step_results["missing_agent"].metadata["stage"] == "agent_binding"
+
+
+def test_workflow_runtime_memory_steps_fail_without_memory_store_binding() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        MemoryReadStep(
+            step_id="read_memory",
+            query_builder=lambda context: "design brief",
+        ),
+        MemoryWriteStep(
+            step_id="write_memory",
+            dependencies=("read_memory",),
+            records_builder=lambda context: [{"content": "artifact"}],
+        ),
+    ]
+
+    result = workflow.run(
+        steps,
+        execution_mode="sequential",
+        failure_policy="propagate_failed_state",
+    )
+
+    assert not result.success
+    assert result.step_results["read_memory"].status == "failed"
+    assert result.step_results["read_memory"].metadata["stage"] == "memory_binding"
+    assert result.step_results["write_memory"].status == "failed"
+    assert result.step_results["write_memory"].metadata["stage"] == "memory_binding"
+
+
+def test_workflow_runtime_memory_steps_succeed_and_emit_standardized_outputs(tmp_path) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    workflow = WorkflowRuntime(memory_store=store)
+    steps = [
+        MemoryWriteStep(
+            step_id="write_memory",
+            records_builder=lambda context: [
+                {"content": "alpha design note", "metadata": {"kind": "note"}}
+            ],
+            namespace="research",
+        ),
+        MemoryReadStep(
+            step_id="read_memory",
+            dependencies=("write_memory",),
+            query_builder=lambda context: {
+                "text": "alpha design",
+                "metadata_filters": {"kind": "note"},
+            },
+            namespace="research",
+            top_k=3,
+        ),
+    ]
+
+    result = workflow.run(steps, execution_mode="sequential")
+    store.close()
+
+    assert result.success
+    write_output = result.step_results["write_memory"].output
+    read_output = result.step_results["read_memory"].output
+
+    assert write_output["written"] == 1
+    assert write_output["namespace"] == "research"
+    assert isinstance(write_output["ids"], list)
+    assert read_output["count"] >= 1
+    assert read_output["namespace"] == "research"
+    assert isinstance(read_output["matches"], list)
+    assert read_output["query"]["namespace"] == "research"
+
+
+def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(tmp_path) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    store.write(
+        [MemoryWriteRecord(content="preloaded design context", metadata={"kind": "context"})],
+        namespace="workspace",
+    )
+    workflow = WorkflowRuntime(memory_store=store)
+    steps = [
+        MemoryReadStep(
+            step_id="read_memory",
+            query_builder=lambda context: "design context",
+            namespace="workspace",
+            top_k=1,
+        ),
+        LogicStep(
+            step_id="postprocess",
+            dependencies=("read_memory",),
+            handler=lambda context: {
+                "count": context["dependency_results"]["read_memory"]["output"]["count"]
+            },
+        ),
+    ]
+
+    result = workflow.run(steps, execution_mode="dag")
+    store.close()
+
+    assert result.success
+    assert result.execution_order == ["read_memory", "postprocess"]
+    assert result.step_results["postprocess"].output["count"] == 1
