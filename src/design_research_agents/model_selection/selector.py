@@ -128,7 +128,8 @@ class ModelSelector:
               which can be used to instantiate an LLMClient at a later time or in a different
               context.
 
-
+        Raises:
+            Exception: Raised when execution fails.
         """
         if output not in {"client", "decision", "client_config"}:
             raise ValueError("output must be one of: 'client', 'decision', 'client_config'.")
@@ -152,6 +153,17 @@ class ModelSelector:
         return _build_client_from_config(client_config)
 
     def _resolve_client_config(self, decision: ModelSelectionDecision) -> dict[str, object]:
+        """Run resolve client config.
+
+        Args:
+            decision: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         provider = decision.provider.strip()
         default_config: dict[str, object] | None = None
         if provider == "openai":
@@ -211,6 +223,17 @@ class ModelSelector:
         return full_config
 
     def _resolve_local_client_config(self, decision: ModelSelectionDecision) -> dict[str, object]:
+        """Run resolve local client config.
+
+        Args:
+            decision: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         if self._local_client_resolver is None:
             raise ValueError(
                 "ModelSelector cannot map selected provider "
@@ -228,6 +251,17 @@ class ModelSelector:
 
 
 def _build_client_from_config(config: dict[str, object]) -> LLMClient:
+    """Run build client from config.
+
+    Args:
+        config: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     client_class = config.get("client_class")
     kwargs = config.get("kwargs")
     if not isinstance(client_class, str) or client_class not in _CLIENT_CLASSES:
@@ -242,6 +276,17 @@ def _build_client_from_config(config: dict[str, object]) -> LLMClient:
 def _coerce_hardware_profile(
     value: Mapping[str, object] | HardwareProfile | None,
 ) -> HardwareProfile | None:
+    """Run coerce hardware profile.
+
+    Args:
+        value: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if value is None:
         return None
     if isinstance(value, HardwareProfile):
@@ -263,6 +308,17 @@ def _coerce_hardware_profile(
 
 
 def _coerce_load_average(raw: object) -> tuple[float, float, float] | None:
+    """Run coerce load average.
+
+    Args:
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if raw is None:
         return None
     if not isinstance(raw, (tuple, list)) or len(raw) != 3:
@@ -272,6 +328,17 @@ def _coerce_load_average(raw: object) -> tuple[float, float, float] | None:
 
 
 def _coerce_optional_float(raw: object) -> float | None:
+    """Run coerce optional float.
+
+    Args:
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if raw is None:
         return None
     if isinstance(raw, bool):
@@ -285,6 +352,17 @@ def _coerce_optional_float(raw: object) -> float | None:
 
 
 def _coerce_optional_int(raw: object) -> int | None:
+    """Run coerce optional int.
+
+    Args:
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if raw is None:
         return None
     if isinstance(raw, bool):
@@ -298,6 +376,17 @@ def _coerce_optional_int(raw: object) -> int | None:
 
 
 def _coerce_optional_bool(raw: object) -> bool | None:
+    """Run coerce optional bool.
+
+    Args:
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if raw is None:
         return None
     if not isinstance(raw, bool):
@@ -306,6 +395,17 @@ def _coerce_optional_bool(raw: object) -> bool | None:
 
 
 def _coerce_optional_str(raw: object) -> str | None:
+    """Run coerce optional str.
+
+    Args:
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if raw is None:
         return None
     if not isinstance(raw, str):

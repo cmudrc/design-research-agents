@@ -130,12 +130,20 @@ class Toolbox(ToolRuntime):
 
     @property
     def registry(self) -> ToolRegistry:
-        """Return the source-merging registry."""
+        """Return the source-merging registry.
+
+        Returns:
+            The resulting value.
+        """
         return self._registry
 
     @property
     def config(self) -> ToolRuntimeConfig:
-        """Return active runtime configuration."""
+        """Return active runtime configuration.
+
+        Returns:
+            The resulting value.
+        """
         return self._config
 
     def list_tools(self) -> Sequence[ToolSpec]:
@@ -207,6 +215,9 @@ class Toolbox(ToolRuntime):
 
         Returns:
             None
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         normalized_name = callable_tool.name.strip()
         if not normalized_name:
@@ -226,6 +237,16 @@ class Toolbox(ToolRuntime):
             _request_id: str,
             _dependencies: Mapping[str, object],
         ) -> object:
+            """Run handler.
+
+            Args:
+                input_dict: Parameter value.
+                _request_id: Parameter value.
+                _dependencies: Parameter value.
+
+            Returns:
+                The resulting value.
+            """
             del _request_id, _dependencies
             return callable_tool.handler(input_dict)
 

@@ -12,9 +12,14 @@ from .sources.base import ToolSource
 
 @dataclass(slots=True, frozen=True)
 class _ToolRoute:
+    """_ToolRoute class."""
+
     source_id: str
+    """Field value for ``source_id``."""
     source_tool_name: str
+    """Field value for ``source_tool_name``."""
     spec: ToolSpec
+    """Field value for ``spec``."""
 
 
 class ToolRegistry:
@@ -26,17 +31,29 @@ class ToolRegistry:
         self._routes: dict[str, _ToolRoute] = {}
 
     def add_source(self, source: ToolSource) -> None:
-        """Add a source and rebuild routing tables."""
+        """Add a source and rebuild routing tables.
+
+        Args:
+            source: Parameter value.
+        """
         self._sources[source.source_id] = source
         self._rebuild_routes()
 
     def remove_source(self, source_id: str) -> None:
-        """Remove a source by id and rebuild routing tables."""
+        """Remove a source by id and rebuild routing tables.
+
+        Args:
+            source_id: Parameter value.
+        """
         self._sources.pop(source_id, None)
         self._rebuild_routes()
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """List routed tool specs across all registered sources."""
+        """List routed tool specs across all registered sources.
+
+        Returns:
+            The resulting value.
+        """
         self._rebuild_routes()
         return tuple(route.spec for route in self._routes.values())
 
@@ -48,7 +65,17 @@ class ToolRegistry:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke a routed tool name."""
+        """Invoke a routed tool name.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         self._rebuild_routes()
         route = self._routes.get(tool_name)
 
@@ -79,6 +106,11 @@ class ToolRegistry:
         )
 
     def _rebuild_routes(self) -> None:
+        """Run rebuild routes.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         rebuilt_routes: dict[str, _ToolRoute] = {}
         for source_id, source in sorted(self._sources.items()):
             for spec in source.list_tools():

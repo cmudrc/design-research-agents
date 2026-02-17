@@ -14,18 +14,31 @@ class InProcessToolSource:
     """Simple source that invokes Python handlers in-process."""
 
     def __init__(self, *, source_id: str) -> None:
-        """Initialize in-process tool source storage for specs and handlers."""
+        """Initialize in-process tool source storage for specs and handlers.
+
+        Args:
+            source_id: Parameter value.
+        """
         self.source_id = source_id
         self._specs: dict[str, ToolSpec] = {}
         self._handlers: dict[str, ToolHandler] = {}
 
     def register_tool(self, *, spec: ToolSpec, handler: ToolHandler) -> None:
-        """Register or replace one tool spec and its execution handler."""
+        """Register or replace one tool spec and its execution handler.
+
+        Args:
+            spec: Parameter value.
+            handler: Parameter value.
+        """
         self._specs[spec.name] = spec
         self._handlers[spec.name] = handler
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """List all currently registered in-process tools."""
+        """List all currently registered in-process tools.
+
+        Returns:
+            The resulting value.
+        """
         return tuple(self._specs.values())
 
     def invoke(
@@ -36,7 +49,17 @@ class InProcessToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one in-process handler and normalize return payloads."""
+        """Invoke one in-process handler and normalize return payloads.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         span_id = start_tool_call(
             tool_name=tool_name,
             tool_input=input_dict,

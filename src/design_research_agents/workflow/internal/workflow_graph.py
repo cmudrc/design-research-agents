@@ -15,12 +15,25 @@ class PreparedWorkflow:
     """Normalized workflow graph and dependency maps."""
 
     step_map: dict[str, WorkflowStep]
+    """Field value for ``step_map``."""
     dependencies: dict[str, tuple[str, ...]]
+    """Field value for ``dependencies``."""
     dependents: dict[str, list[str]]
+    """Field value for ``dependents``."""
 
 
 def prepare_workflow_graph(steps: Sequence[WorkflowStep]) -> PreparedWorkflow:
-    """Normalize workflow steps into dependency and dependent lookup maps."""
+    """Normalize workflow steps into dependency and dependent lookup maps.
+
+    Args:
+        steps: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     step_map: dict[str, WorkflowStep] = {}
     dependencies: dict[str, tuple[str, ...]] = {}
 
@@ -46,7 +59,17 @@ def prepare_workflow_graph(steps: Sequence[WorkflowStep]) -> PreparedWorkflow:
 
 
 def normalize_step_id(raw_step_id: object) -> str:
-    """Validate and normalize one workflow step id."""
+    """Validate and normalize one workflow step id.
+
+    Args:
+        raw_step_id: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if not isinstance(raw_step_id, str):
         raise ValueError("Workflow step_id must be a non-empty string.")
     normalized = raw_step_id.strip()
@@ -56,7 +79,14 @@ def normalize_step_id(raw_step_id: object) -> str:
 
 
 def normalize_dependencies(raw_dependencies: Sequence[str]) -> tuple[str, ...]:
-    """Normalize a step dependency list into a tuple of non-empty ids."""
+    """Normalize a step dependency list into a tuple of non-empty ids.
+
+    Args:
+        raw_dependencies: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     normalized: list[str] = []
     for dependency in raw_dependencies:
         if not isinstance(dependency, str):
@@ -74,7 +104,14 @@ def release_dependents(
     in_degree: dict[str, int],
     ready_steps: list[str],
 ) -> None:
-    """Release DAG dependents once one step has completed or skipped."""
+    """Release DAG dependents once one step has completed or skipped.
+
+    Args:
+        step_id: Parameter value.
+        dependents: Parameter value.
+        in_degree: Parameter value.
+        ready_steps: Parameter value.
+    """
     for dependent in dependents.get(step_id, ()):  # pragma: no branch - tiny helper
         in_degree[dependent] = max(0, in_degree[dependent] - 1)
         if in_degree[dependent] == 0:
@@ -85,11 +122,25 @@ def validate_no_cycles(
     step_map: Mapping[str, WorkflowStep],
     dependencies: Mapping[str, Sequence[str]],
 ) -> None:
-    """Validate that workflow dependencies form an acyclic graph."""
+    """Validate that workflow dependencies form an acyclic graph.
+
+    Args:
+        step_map: Parameter value.
+        dependencies: Parameter value.
+    """
     visiting: set[str] = set()
     visited: set[str] = set()
 
     def _dfs(step_id: str, path: list[str]) -> None:
+        """Run dfs.
+
+        Args:
+            step_id: Parameter value.
+            path: Parameter value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         if step_id in visiting:
             cycle_start = path.index(step_id)
             cycle_path = [*path[cycle_start:], step_id]

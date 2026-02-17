@@ -14,7 +14,11 @@ class ToolSource(Protocol):
     source_id: str
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """Return all tools exposed by the source."""
+        """Return all tools exposed by the source.
+
+        Returns:
+            The resulting value.
+        """
 
     def invoke(
         self,
@@ -24,4 +28,14 @@ class ToolSource(Protocol):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke a tool by source-native name."""
+        """Invoke a tool by source-native name.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """

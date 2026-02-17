@@ -13,7 +13,12 @@ from ._helpers import get_int, get_str
 
 
 def register_data_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
-    """Register CSV loading and summary tools with policy-guarded reads."""
+    """Register CSV loading and summary tools with policy-guarded reads.
+
+    Args:
+        source: Parameter value.
+        policy: Parameter value.
+    """
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=True),
@@ -61,6 +66,15 @@ def register_data_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> N
 
 
 def _load_csv(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run load csv.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     nrows = get_int(input_dict, "nrows", default=100)
     columns_raw = input_dict.get("columns")
@@ -85,6 +99,18 @@ def _load_csv(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _describe(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run describe.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     kind = get_str(input_dict, "kind", default="csv").lower()
     if kind != "csv":

@@ -16,7 +16,12 @@ from ._helpers import get_int, get_str
 
 
 def register_search_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
-    """Register workspace text-search tools with rg and Python fallback."""
+    """Register workspace text-search tools with rg and Python fallback.
+
+    Args:
+        source: Parameter value.
+        policy: Parameter value.
+    """
     source.register_tool(
         spec=ToolSpec(
             name="search.ripgrep",
@@ -50,6 +55,18 @@ def register_search_tools(source: InProcessToolSource, *, policy: ToolPolicy) ->
 
 
 def _search(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run search.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     query = get_str(input_dict, "query").strip()
     if not query:
         raise ValueError("query must be a non-empty string.")
@@ -89,6 +106,19 @@ def _search_with_rg(
     max_matches: int,
     context_lines: int,
 ) -> Mapping[str, object]:
+    """Run search with rg.
+
+    Args:
+        rg_binary: Parameter value.
+        root: Parameter value.
+        query: Parameter value.
+        globs: Parameter value.
+        max_matches: Parameter value.
+        context_lines: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     command = [
         rg_binary,
         "--line-number",
@@ -149,6 +179,16 @@ def _search_with_python(
     query: str,
     max_matches: int,
 ) -> Mapping[str, object]:
+    """Run search with python.
+
+    Args:
+        root: Parameter value.
+        query: Parameter value.
+        max_matches: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     pattern = re.compile(query)
     matches: list[dict[str, object]] = []
 

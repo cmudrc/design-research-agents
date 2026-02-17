@@ -1,143 +1,17 @@
-"""Focused tests for generic pure and mixed workflow chunk facades."""
+"""Focused tests for the generic ``Workflow`` facade."""
 
 from __future__ import annotations
 
-import inspect
 import json
-from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
 import pytest
 
-from design_research_agents.agent import RuntimeControls
-from design_research_agents.contracts.agent import Agent, AgentResult
-from design_research_agents.contracts.llm import (
-    LLMChatParams,
-    LLMDelta,
-    LLMMessage,
-    LLMRequest,
-    LLMResponse,
-    LLMStreamEvent,
-)
-from design_research_agents.contracts.workflow import AgentStep, LogicStep, ToolStep
+from design_research_agents.contracts.workflow import AgentStep, LogicStep, LoopStep, ToolStep
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow.implementations.agent_routing import AgentRoutingWorkflow
-from design_research_agents.workflow.implementations.debate_pattern import DebatePattern
-from design_research_agents.workflow.implementations.mixed_agent_workflow import MixedAgentWorkflow
-from design_research_agents.workflow.implementations.plan_execute import PlanExecuteWorkflow
-from design_research_agents.workflow.implementations.propose_critic import (
-    ProposeAndCritiqueWorkflow,
-)
-from design_research_agents.workflow.implementations.pure_tool_workflow import PureToolWorkflow
-
-
-class _NoopLLMClient:
-    """LLM stub used when tests inject concrete agents directly."""
-
-    def chat(
-        self,
-        messages: Sequence[LLMMessage],
-        *,
-        model: str,
-        params: LLMChatParams,
-    ) -> LLMResponse:
-        del messages, params
-        return LLMResponse(model=model, text="{}", provider="noop")
-
-    def stream_chat(
-        self,
-        messages: Sequence[LLMMessage],
-        *,
-        model: str,
-        params: LLMChatParams,
-    ) -> Iterator[LLMStreamEvent]:
-        response = self.chat(messages, model=model, params=params)
-        yield LLMStreamEvent(kind="delta", delta_text=response.text)
-        yield LLMStreamEvent(kind="completed", response=response)
-
-    def generate(self, request: LLMRequest) -> LLMResponse:
-        return self.chat(
-            request.messages,
-            model=request.model or self.default_model(),
-            params=LLMChatParams(),
-        )
-
-    def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        response = self.generate(request)
-        yield LLMDelta(text_delta=response.text)
-
-    def default_model(self) -> str:
-        return "noop-model"
-
-
-class _StaticJsonDraftAgent(Agent):
-    """Agent stub that always returns one JSON object in ``output.model_text``."""
-
-    def __init__(self, *, payload: Mapping[str, object]) -> None:
-        self._payload = dict(payload)
-        self.run_count = 0
-
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        del prompt, request_id, dependencies
-        self.run_count += 1
-        return AgentResult(
-            output={"model_text": json.dumps(self._payload, ensure_ascii=True)},
-            success=True,
-            tool_results=[],
-            model_response=None,
-            metadata={"agent": "static-json-draft"},
-        )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
-
-
-class _CaptureDependenciesAgent(Agent):
-    """Agent stub that captures invocation dependencies for assertions."""
-
-    def __init__(self) -> None:
-        self.last_dependencies: Mapping[str, object] | None = None
-
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        del prompt, request_id
-        self.last_dependencies = dict(dependencies or {})
-        return AgentResult(
-            output={"model_text": "{}"},
-            success=True,
-            tool_results=[],
-            model_response=None,
-            metadata={"agent": "capture-deps"},
-        )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
+from design_research_agents.workflow.implementations.workflow import Workflow
+from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 
 def _write_dataset(*, filename: str) -> str:
@@ -300,16 +174,17 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
     ]
 
 
-def test_pure_tool_workflow_accepts_user_defined_steps_with_inputs() -> None:
+def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
     dataset_path = _write_dataset(filename="pure_arbitrary_dataset.csv")
-    workflow = PureToolWorkflow(
+    workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=_pure_dataset_steps(),
+        input_mode="schema",
         input_schema=_pure_input_schema(),
     )
 
     result = workflow.run(
-        inputs={
+        {
             "dataset_csv_path": dataset_path,
             "quality_report_path": "artifacts/tests/pure_arbitrary_report.json",
             "required_columns": ["participant_id", "study_arm"],
@@ -326,17 +201,18 @@ def test_pure_tool_workflow_accepts_user_defined_steps_with_inputs() -> None:
     )
 
 
-def test_pure_tool_workflow_validates_inputs_with_schema_hook() -> None:
+def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
     dataset_path = _write_dataset(filename="pure_schema_dataset.csv")
-    workflow = PureToolWorkflow(
+    workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=_pure_dataset_steps(),
+        input_mode="schema",
         input_schema=_pure_input_schema(),
     )
 
     with pytest.raises(SchemaValidationError):
         workflow.run(
-            inputs={
+            {
                 "dataset_csv_path": dataset_path,
                 "quality_report_path": "artifacts/tests/pure_schema_report.json",
                 "required_columns": ["participant_id"],
@@ -346,48 +222,41 @@ def test_pure_tool_workflow_validates_inputs_with_schema_hook() -> None:
         )
 
 
-def test_pure_tool_workflow_without_schema_allows_arbitrary_inputs() -> None:
-    steps = [
-        LogicStep(
-            step_id="echo_inputs",
-            handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
-        )
-    ]
-    workflow = PureToolWorkflow(
+def test_workflow_schema_mode_without_schema_allows_arbitrary_inputs() -> None:
+    workflow = Workflow(
         tool_runtime=Toolbox(),
-        steps=steps,
+        steps=[
+            LogicStep(
+                step_id="echo_inputs",
+                handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
+            )
+        ],
+        input_mode="schema",
     )
 
-    result = workflow.run(inputs={"free_form": {"a": 1, "b": 2}}, request_id="test-pure-free")
+    result = workflow.run({"free_form": {"a": 1, "b": 2}}, request_id="test-pure-free")
 
     assert result.success
     assert result.step_results["echo_inputs"].output["inputs_snapshot"]["free_form"]["a"] == 1
 
 
-def test_mixed_workflow_requires_non_empty_agents_and_steps() -> None:
-    with pytest.raises(ValueError, match="agents"):
-        MixedAgentWorkflow(
-            tool_runtime=Toolbox(),
-            agents={},
-            steps=[LogicStep(step_id="noop", handler=lambda context: {})],
-        )
-
+def test_workflow_requires_non_empty_steps() -> None:
     with pytest.raises(ValueError, match="steps"):
-        MixedAgentWorkflow(
+        Workflow(
             tool_runtime=Toolbox(),
-            agents={"any": _StaticJsonDraftAgent(payload={"title": "x"})},
             steps=[],
         )
 
 
-def test_mixed_workflow_executes_user_defined_branching_steps() -> None:
-    writer_agent = _StaticJsonDraftAgent(
+def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
+    writer_agent = StaticJsonDraftAgent(
         payload={"title": "Agent title", "summary": "Agent summary"}
     )
-    workflow = MixedAgentWorkflow(
+    workflow = Workflow(
         tool_runtime=Toolbox(),
         agents={"writer_agent": writer_agent},
         steps=_mixed_branching_steps(agent_name="writer_agent"),
+        input_mode="prompt",
         base_context={"audience": "research"},
     )
 
@@ -404,8 +273,8 @@ def test_mixed_workflow_executes_user_defined_branching_steps() -> None:
     assert writer_agent.run_count == 1
 
 
-def test_mixed_workflow_injects_prompt_and_preserves_base_context() -> None:
-    writer_agent = _StaticJsonDraftAgent(payload={"title": "ignored"})
+def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> None:
+    writer_agent = StaticJsonDraftAgent(payload={"title": "ignored"})
     custom_steps = [
         AgentStep(
             step_id="delegate",
@@ -424,10 +293,11 @@ def test_mixed_workflow_injects_prompt_and_preserves_base_context() -> None:
             },
         ),
     ]
-    workflow = MixedAgentWorkflow(
+    workflow = Workflow(
         tool_runtime=Toolbox(),
         agents={"analyst_agent": writer_agent},
         steps=custom_steps,
+        input_mode="prompt",
         base_context={"base_tag": "custom"},
     )
 
@@ -443,51 +313,40 @@ def test_mixed_workflow_injects_prompt_and_preserves_base_context() -> None:
     )
 
 
-def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
-    plan_params = inspect.signature(PlanExecuteWorkflow.__init__).parameters
-    assert "default_request_id_prefix" in plan_params
-    assert "plan_execute_planner_system_prompt" in plan_params
-
-    propose_params = inspect.signature(ProposeAndCritiqueWorkflow.__init__).parameters
-    assert "propose_critic_proposer_user_prompt_template" in propose_params
-    assert "default_dependencies" in propose_params
-
-    routing_params = inspect.signature(AgentRoutingWorkflow.__init__).parameters
-    assert "agent_routing_router_system_prompt" in routing_params
-    assert "default_request_id_prefix" in routing_params
-
-    debate_params = inspect.signature(DebatePattern.__init__).parameters
-    assert "debate_affirmative_system_prompt" in debate_params
-    assert "debate_judge_user_prompt_template" in debate_params
-
-    mixed_params = inspect.signature(MixedAgentWorkflow.__init__).parameters
-    assert "default_execution_mode" in mixed_params
-    assert "default_failure_policy" in mixed_params
-
-    pure_params = inspect.signature(PureToolWorkflow.__init__).parameters
-    assert "default_execution_mode" in pure_params
-    assert "default_dependencies" in pure_params
-
-
-def test_workflow_factory_functions_are_removed() -> None:
-    from design_research_agents.workflow import implementations as workflow_impl
-
-    removed_symbols = (
-        "plan_execute_workflow",
-        "propose_and_critique_workflow",
-        "agent_routing_workflow",
-        "mixed_agent_workflow",
-        "pure_tool_workflow",
+def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
+    writer_agent = StaticJsonDraftAgent(payload={"title": "loop title"})
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        agents={"writer_agent": writer_agent},
+        input_mode="prompt",
+        steps=[
+            LoopStep(
+                step_id="agent_loop",
+                steps=(
+                    AgentStep(
+                        step_id="delegate",
+                        agent_name="writer_agent",
+                        prompt_builder=lambda context: str(context["prompt"]),
+                    ),
+                ),
+                max_iterations=1,
+                execution_mode="sequential",
+            )
+        ],
     )
-    for symbol in removed_symbols:
-        assert symbol not in workflow_impl.__all__
+
+    result = workflow.run("Draft a loop response.")
+
+    assert result.success
+    assert writer_agent.run_count == 1
 
 
-def test_mixed_workflow_default_run_controls_and_dependencies_are_applied() -> None:
-    capture_agent = _CaptureDependenciesAgent()
-    workflow = MixedAgentWorkflow(
+def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied() -> None:
+    capture_agent = CaptureDependenciesAgent()
+    workflow = Workflow(
         tool_runtime=Toolbox(),
         agents={"capture": capture_agent},
+        input_mode="prompt",
         steps=[
             AgentStep(step_id="delegate", agent_name="capture", prompt="Run"),
             LogicStep(
@@ -517,9 +376,10 @@ def test_mixed_workflow_default_run_controls_and_dependencies_are_applied() -> N
     assert capture_agent.last_dependencies["from_run"] == "yes"
 
 
-def test_pure_workflow_default_run_controls_are_applied() -> None:
-    workflow = PureToolWorkflow(
+def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
+    workflow = Workflow(
         tool_runtime=Toolbox(),
+        input_mode="schema",
         steps=[
             LogicStep(
                 step_id="inspect",
@@ -531,11 +391,12 @@ def test_pure_workflow_default_run_controls_are_applied() -> None:
         default_request_id_prefix="pure-default",
     )
 
-    result = workflow.run()
+    result = workflow.run({})
     workflow_meta = result.step_results["inspect"].output["workflow"]
     assert str(workflow_meta["request_id"]).startswith("pure-default:")
     assert workflow_meta["execution_mode"] == "dag"
     assert workflow_meta["failure_policy"] == "fail_fast"
+
 
 
 def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:

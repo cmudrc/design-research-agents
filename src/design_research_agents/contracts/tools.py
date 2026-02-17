@@ -22,8 +22,11 @@ class ToolCostHints:
     """
 
     token_cost_estimate: int | None = None
+    """Estimated token usage for one invocation."""
     latency_ms_estimate: int | None = None
+    """Estimated end-to-end latency in milliseconds."""
     usd_cost_estimate: float | None = None
+    """Estimated direct monetary cost in USD."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -31,9 +34,13 @@ class ToolSideEffects:
     """Declared side effects for one tool implementation."""
 
     filesystem_read: bool = False
+    """Whether the tool reads from the filesystem."""
     filesystem_write: bool = False
+    """Whether the tool writes to the filesystem."""
     network: bool = False
+    """Whether the tool performs network I/O."""
     commands: tuple[str, ...] = ()
+    """Command names the tool may execute, when command execution is used."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,11 +48,17 @@ class ToolMetadata:
     """Tool source and guardrail metadata surfaced to runtimes/agents."""
 
     source: Literal["core", "mcp", "script", "custom"] = "core"
+    """Origin of the tool implementation."""
     side_effects: ToolSideEffects = field(default_factory=ToolSideEffects)
+    """Declared operational side effects used for policy enforcement."""
     timeout_s: int = 30
+    """Maximum allowed invocation time in seconds."""
     max_output_bytes: int = 65_536
+    """Maximum serialized output size accepted by runtime wrappers."""
     risky: bool | None = None
+    """Explicit risk marker; inferred from side effects when omitted."""
     server_id: str | None = None
+    """Owning server id for remote tools (for example MCP), when applicable."""
 
     def __post_init__(self) -> None:
         """Infer ``risky`` from side effects when not explicitly provided."""
@@ -74,16 +87,27 @@ class ToolSpec:
     """
 
     name: str
+    """Stable tool identifier used for invocation."""
     description: str
+    """Human-readable tool description used by planners and routers."""
     input_schema: dict[str, object]
+    """JSON-schema-like input contract for tool calls."""
     output_schema: dict[str, object]
+    """JSON-schema-like output contract for tool results."""
     metadata: ToolMetadata = field(default_factory=ToolMetadata)
+    """Operational metadata and policy hints."""
     permissions: tuple[str, ...] = ()
+    """Permission tags surfaced to callers and policy layers."""
     cost_hints: ToolCostHints = field(default_factory=ToolCostHints)
+    """Optional cost estimates used by planning heuristics."""
 
     @property
     def json_schema(self) -> dict[str, object]:
-        """Return the input schema for LLM tool-calling payloads."""
+        """Return the input schema for LLM tool-calling payloads.
+
+        Returns:
+            Input JSON schema mapping for this tool.
+        """
         return self.input_schema
 
 
@@ -92,7 +116,9 @@ class ToolArtifact:
     """File-like artifact emitted by a tool invocation."""
 
     path: str
+    """Filesystem path to the emitted artifact."""
     mime: str
+    """MIME type describing artifact content."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -100,7 +126,9 @@ class ToolError:
     """Structured tool failure details."""
 
     type: str
+    """Machine-readable error type identifier."""
     message: str
+    """Human-readable error message."""
 
 
 @dataclass(slots=True, frozen=True, init=False)
@@ -108,12 +136,19 @@ class ToolResult:
     """Result payload emitted from a tool runtime invocation."""
 
     tool_name: str
+    """Name of the invoked tool."""
     ok: bool
+    """True when invocation succeeded."""
     result: object
+    """Primary tool return payload."""
     artifacts: tuple[ToolArtifact, ...]
+    """Artifact list emitted by the invocation."""
     warnings: tuple[str, ...]
+    """Non-fatal warnings produced during invocation."""
     error: ToolError | None
+    """Structured error details when ``ok`` is false."""
     metadata: dict[str, object]
+    """Supplemental runtime metadata for diagnostics and tracing."""
 
     def __init__(
         self,
@@ -126,7 +161,17 @@ class ToolResult:
         error: ToolError | Mapping[str, object] | str | None = None,
         metadata: Mapping[str, object] | None = None,
     ) -> None:
-        """Initialize canonical tool result payload."""
+        """Initialize canonical tool result payload.
+
+        Args:
+            tool_name: Name of the invoked tool.
+            ok: Invocation success flag.
+            result: Primary result payload (defaults to empty mapping).
+            artifacts: Raw or typed artifact entries to normalize.
+            warnings: Warning messages to attach to the result.
+            error: Error payload to normalize into ``ToolError``.
+            metadata: Optional diagnostic metadata mapping.
+        """
         resolved_result: object = result if result is not None else {}
 
         resolved_artifacts: list[ToolArtifact] = []

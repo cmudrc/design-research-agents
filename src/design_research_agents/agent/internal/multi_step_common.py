@@ -16,7 +16,18 @@ def build_continue_prompt(
     prompt_template: str,
     memory_tail_items: int = 6,
 ) -> str:
-    """Build the continuation-decision prompt from task context and memory."""
+    """Build the continuation-decision prompt from task context and memory.
+
+    Args:
+        prompt: Parameter value.
+        memory: Parameter value.
+        step_number: Parameter value.
+        prompt_template: Parameter value.
+        memory_tail_items: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     memory_preview = json.dumps(list(memory)[-memory_tail_items:], sort_keys=True)
     return render_template_text(
         template_text=prompt_template,
@@ -37,7 +48,18 @@ def build_step_prompt(
     prompt_template: str,
     memory_tail_items: int = 8,
 ) -> str:
-    """Build one action-step prompt from task context and memory."""
+    """Build one action-step prompt from task context and memory.
+
+    Args:
+        prompt: Parameter value.
+        memory: Parameter value.
+        step_number: Parameter value.
+        prompt_template: Parameter value.
+        memory_tail_items: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     memory_preview = json.dumps(list(memory)[-memory_tail_items:], sort_keys=True)
     return render_template_text(
         template_text=prompt_template,
@@ -51,7 +73,14 @@ def build_step_prompt(
 
 
 def extract_continuation_thought(parsed: Mapping[str, object]) -> str:
-    """Extract normalized continuation thought text from model output."""
+    """Extract normalized continuation thought text from model output.
+
+    Args:
+        parsed: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     thought = parsed.get("thought")
     if thought is not None:
         return str(thought)
@@ -64,7 +93,16 @@ def fallback_should_continue(
     step_index: int,
     max_steps: int,
 ) -> bool:
-    """Fallback continuation policy used when model output is invalid JSON."""
+    """Fallback continuation policy used when model output is invalid JSON.
+
+    Args:
+        memory: Parameter value.
+        step_index: Parameter value.
+        max_steps: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if step_index >= max_steps:
         return False
 
@@ -84,5 +122,12 @@ def fallback_should_continue(
 
 
 def has_observation(memory: Sequence[Mapping[str, object]]) -> bool:
-    """Return whether memory includes at least one observation entry."""
+    """Return whether memory includes at least one observation entry.
+
+    Args:
+        memory: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return any(entry.get("kind") == "observation" for entry in memory)

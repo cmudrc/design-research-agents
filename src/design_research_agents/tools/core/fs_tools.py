@@ -14,7 +14,12 @@ from ._helpers import get_bool, get_int, get_str
 
 
 def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
-    """Register policy-guarded filesystem read/write utility tools."""
+    """Register policy-guarded filesystem read/write utility tools.
+
+    Args:
+        source: Parameter value.
+        policy: Parameter value.
+    """
     read_metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=True),
@@ -140,6 +145,15 @@ def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> Non
 
 
 def _list_dir(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run list dir.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     path = policy.resolve_read_path(get_str(input_dict, "path", default="."))
     pattern = get_str(input_dict, "pattern", default="*")
     max_entries = get_int(input_dict, "max_entries", default=200)
@@ -161,6 +175,15 @@ def _list_dir(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _read_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run read text.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     max_bytes = get_int(input_dict, "max_bytes", default=65_536)
 
@@ -180,6 +203,18 @@ def _read_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappi
 
 
 def _write_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run write text.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     path = policy.resolve_write_path(get_str(input_dict, "path"))
     content = get_str(input_dict, "content")
     overwrite = get_bool(input_dict, "overwrite", default=False)
@@ -195,6 +230,15 @@ def _write_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapp
 
 
 def _glob(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run glob.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     root = policy.resolve_read_path(get_str(input_dict, "path"))
     pattern = get_str(input_dict, "pattern")
     matches = sorted(str(path) for path in root.rglob(pattern))
@@ -202,6 +246,15 @@ def _glob(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[st
 
 
 def _stat(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run stat.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     stat = path.stat()
     return {
@@ -216,6 +269,18 @@ def _stat(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[st
 
 
 def _hash(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run hash.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     algo = get_str(input_dict, "algo", default="sha256").lower()
     if algo not in hashlib.algorithms_available:

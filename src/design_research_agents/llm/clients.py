@@ -50,7 +50,14 @@ class _SingleBackendLLMClient(LLMClient):
         self._backend = backend
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        """Generate one response using the configured backend."""
+        """Generate one response using the configured backend.
+
+        Args:
+            request: Provider-neutral request payload.
+
+        Returns:
+            Normalized completion response.
+        """
         return self._backend.generate(request)
 
     def chat(
@@ -60,7 +67,16 @@ class _SingleBackendLLMClient(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
-        """Build and execute a request-object call from chat-style inputs."""
+        """Build and execute a request-object call from chat-style inputs.
+
+        Args:
+            messages: Ordered chat messages for this completion request.
+            model: Target model identifier.
+            params: Generation controls (temperature, max tokens, schema, options).
+
+        Returns:
+            Normalized completion response.
+        """
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -76,7 +92,14 @@ class _SingleBackendLLMClient(LLMClient):
         return self.generate(request)
 
     def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        """Stream response deltas for one request."""
+        """Stream response deltas for one request.
+
+        Args:
+            request: Provider-neutral request payload.
+
+        Returns:
+            Iterator yielding normalized response deltas.
+        """
         return self._backend.stream(request)
 
     def stream_chat(
@@ -86,7 +109,16 @@ class _SingleBackendLLMClient(LLMClient):
         model: str,
         params: LLMChatParams,
     ) -> Iterator[LLMStreamEvent]:
-        """Build and execute a streaming request from chat-style inputs."""
+        """Build and execute a streaming request from chat-style inputs.
+
+        Args:
+            messages: Ordered chat messages for this completion request.
+            model: Target model identifier.
+            params: Generation controls (temperature, max tokens, schema, options).
+
+        Yields:
+            Streaming events containing deltas and one final completed response.
+        """
         request = LLMRequest(
             messages=messages,
             model=model,
@@ -122,7 +154,14 @@ class _SingleBackendLLMClient(LLMClient):
         yield LLMStreamEvent(kind="completed", response=completed)
 
     def default_model(self) -> str:
-        """Return the configured backend default model."""
+        """Return the configured backend default model.
+
+        Returns:
+            Non-empty model identifier configured as backend default.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         default_model = self._backend.default_model
         if not isinstance(default_model, str) or not default_model.strip():
             raise ValueError("LLM backend default_model is not configured.")
@@ -447,12 +486,29 @@ def _resolve_model_patterns(
     model_patterns: tuple[str, ...] | None,
     default_model: str,
 ) -> tuple[str, ...]:
+    """Resolve model patterns, defaulting to the configured default model.
+
+    Args:
+        model_patterns: Optional explicit model-match patterns.
+        default_model: Fallback model used when no patterns are provided.
+
+    Returns:
+        Non-empty tuple of model patterns used by selectors/routers.
+    """
     if model_patterns is not None:
         return model_patterns
     return (default_model,)
 
 
 def _config_hash(config_payload: dict[str, object]) -> str:
+    """Create a short stable hash for backend configuration payloads.
+
+    Args:
+        config_payload: JSON-serializable configuration mapping.
+
+    Returns:
+        Deterministic 12-character SHA-256 prefix.
+    """
     encoded = json.dumps(config_payload, sort_keys=True, default=str).encode("utf-8")
     return sha256(encoded).hexdigest()[:12]
 

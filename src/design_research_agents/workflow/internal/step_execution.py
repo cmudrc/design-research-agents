@@ -34,7 +34,21 @@ def run_tool_step(
     failure_policy: WorkflowFailurePolicy,
     dependencies: Mapping[str, object],
 ) -> WorkflowStepResult:
-    """Execute one tool step and return normalized workflow step result."""
+    """Execute one tool step and return normalized workflow step result.
+
+    Args:
+        tool_runtime: Tool runtime used to resolve and invoke tools.
+        step: Tool step definition to execute.
+        step_id: Step identifier for result metadata.
+        step_context: Step execution context with dependency outputs.
+        request_id: Workflow request id for scoped tool invocation ids.
+        execution_mode: Effective workflow execution mode.
+        failure_policy: Effective workflow failure policy.
+        dependencies: Run dependency mapping passed into tool invocation.
+
+    Returns:
+        Normalized workflow step result for this tool step.
+    """
     if tool_runtime is None:
         return _failed_step_result(
             step_id=step_id,
@@ -115,7 +129,21 @@ def run_agent_step(
     failure_policy: WorkflowFailurePolicy,
     dependencies: Mapping[str, object],
 ) -> WorkflowStepResult:
-    """Execute one agent-like step and return normalized workflow step result."""
+    """Execute one agent-like step and return normalized workflow step result.
+
+    Args:
+        agents: Delegate registry for ``AgentStep`` resolution.
+        step: Agent step definition to execute.
+        step_id: Step identifier for result metadata.
+        step_context: Step execution context with dependency outputs.
+        request_id: Workflow request id for scoped delegate invocation ids.
+        execution_mode: Effective workflow execution mode.
+        failure_policy: Effective workflow failure policy.
+        dependencies: Run dependency mapping passed into delegate invocation.
+
+    Returns:
+        Normalized workflow step result for this agent step.
+    """
     selected_delegate = agents.get(step.agent_name)
     if selected_delegate is None:
         return _failed_step_result(
@@ -238,7 +266,14 @@ def run_agent_step(
 def _is_workflow_delegate_runner(
     delegate: WorkflowDelegate,
 ) -> TypeGuard[WorkflowDelegateRunner]:
-    """Return true when delegate ``run`` signature matches workflow style."""
+    """Return true when delegate ``run`` signature matches workflow style.
+
+    Args:
+        delegate: Delegate object registered for an ``AgentStep``.
+
+    Returns:
+        ``True`` when delegate ``run`` signature matches workflow-style execution.
+    """
     run_callable = getattr(delegate, "run", None)
     if run_callable is None:
         return False
@@ -268,7 +303,16 @@ def run_logic_step(
     step_id: str,
     step_context: Mapping[str, object],
 ) -> WorkflowStepResult:
-    """Execute one logic step handler and normalize result payload."""
+    """Execute one logic step handler and normalize result payload.
+
+    Args:
+        step: Logic step definition to execute.
+        step_id: Step identifier for result metadata.
+        step_context: Step execution context with dependency outputs.
+
+    Returns:
+        Normalized workflow step result for this logic step.
+    """
     try:
         step_output = dict(step.handler(step_context))
     except Exception as exc:
@@ -294,6 +338,17 @@ def _failed_step_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object] | None = None,
 ) -> WorkflowStepResult:
+    """Build a standardized failed ``WorkflowStepResult`` payload.
+
+    Args:
+        step_id: Step identifier for the failed step.
+        error: Human-readable failure message.
+        metadata: Additional metadata to attach to the result.
+        output: Optional partial output captured before failure.
+
+    Returns:
+        Failed workflow step result.
+    """
     return WorkflowStepResult(
         step_id=step_id,
         status="failed",

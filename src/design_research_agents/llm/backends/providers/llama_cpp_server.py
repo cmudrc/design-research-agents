@@ -38,15 +38,25 @@ class LlamaCppServerBackend:
     """
 
     model: str
+    """Field value for ``model``."""
     hf_model_repo_id: str | None = None
+    """Field value for ``hf_model_repo_id``."""
     api_model: str = "local-model"
+    """Field value for ``api_model``."""
     host: str = "127.0.0.1"
+    """Field value for ``host``."""
     port: int = 8001
+    """Field value for ``port``."""
     startup_timeout_seconds: float = 60.0
+    """Field value for ``startup_timeout_seconds``."""
     poll_interval_seconds: float = 0.25
+    """Field value for ``poll_interval_seconds``."""
     python_executable: str = sys.executable
+    """Field value for ``python_executable``."""
     extra_server_args: tuple[str, ...] = ()
+    """Field value for ``extra_server_args``."""
     _process: subprocess.Popen[str] | None = field(default=None, init=False, repr=False)
+    """Field value for ``_process``."""
 
     def __post_init__(self) -> None:
         """Initialize delegated OpenAI-compatible caller and shutdown hook.

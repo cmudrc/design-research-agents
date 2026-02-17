@@ -21,8 +21,11 @@ class CoreToolsConfig:
     """Configuration for built-in core tools."""
 
     enabled: bool = True
+    """Whether built-in core tools are registered."""
     allow_network: bool = False
+    """Whether core tools may use outbound network access."""
     allow_writes_outside_artifacts: bool = False
+    """Whether core tools may write outside the artifacts directory."""
     allowed_commands: tuple[str, ...] = (
         "git",
         "rg",
@@ -32,8 +35,11 @@ class CoreToolsConfig:
         "ruff",
         "pytest",
     )
+    """Command allowlist enforced by shell-executing core tools."""
     artifacts_dir: str = "artifacts"
+    """Directory used for tool-generated artifacts."""
     workspace_root: str = "."
+    """Workspace root path exposed to filesystem-aware tools."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -54,9 +60,7 @@ class McpServer:
     element should be the executable, and the subsequent elements are its arguments."""
 
     timeout_s: int = 20
-    """Timeout in seconds for server responses. If the server does not respond within 
-    this time frame, it will be  considered unresponsive, and appropriate error handling
-     will be triggered."""
+    """Timeout in seconds for server responses before treating it as unresponsive."""
 
     env_allowlist: tuple[str, ...] = (
         "PATH",
@@ -82,7 +86,9 @@ class McpConfig:
     """Configuration for attached MCP servers."""
 
     enabled: bool = False
+    """Whether MCP-backed tools are enabled."""
     servers: tuple[McpServer, ...] = ()
+    """Configured external MCP servers to attach."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -172,7 +178,9 @@ class ScriptToolsConfig:
     """Configuration for explicitly declared script tools."""
 
     enabled: bool = False
+    """Whether script-backed tools are enabled."""
     tools: tuple[ScriptTool, ...] = ()
+    """Explicit script-backed tool definitions."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -213,9 +221,7 @@ class CallableTool:
     security constraints or to inform users about the tool's capabilities."""
 
     risky: bool | None = None
-    """risky: Optional boolean flag indicating whether the tool performs potentially risky 
-    operations, such as executing shell commands, accessing the filesystem, or making 
-    network requests."""
+    """Whether the tool performs potentially risky operations."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -223,12 +229,26 @@ class ToolRuntimeConfig:
     """Top-level configuration for source-enabled toolbox runtime."""
 
     core_tools: CoreToolsConfig = field(default_factory=CoreToolsConfig)
+    """Configuration block for built-in core tools."""
     mcp: McpConfig = field(default_factory=McpConfig)
+    """Configuration block for MCP-backed tools."""
     script_tools: ScriptToolsConfig = field(default_factory=ScriptToolsConfig)
+    """Configuration block for explicit script tools."""
 
 
 def load_tool_runtime_config(path: str) -> ToolRuntimeConfig:
-    """Load toolbox runtime config from YAML."""
+    """Load toolbox runtime config from YAML.
+
+    Args:
+        path: Path to YAML configuration file.
+
+    Returns:
+        Parsed runtime configuration.
+
+    Raises:
+        RuntimeError: If YAML support is unavailable.
+        ValueError: If configuration shape or values are invalid.
+    """
     if yaml is None:
         raise RuntimeError("YAML support requires PyYAML. Install with: pip install pyyaml")
     with open(path, encoding="utf-8") as handle:
@@ -250,6 +270,14 @@ def load_tool_runtime_config(path: str) -> ToolRuntimeConfig:
 
 
 def _parse_core_config(raw: object) -> CoreToolsConfig:
+    """Parse the ``core_tools`` configuration section.
+
+    Args:
+        raw: Raw section payload from parsed YAML.
+
+    Returns:
+        Normalized core-tools configuration.
+    """
     if not isinstance(raw, dict):
         return CoreToolsConfig()
     defaults = CoreToolsConfig()
@@ -264,6 +292,17 @@ def _parse_core_config(raw: object) -> CoreToolsConfig:
 
 
 def _parse_mcp_config(raw: object) -> McpConfig:
+    """Parse the ``mcp`` configuration section.
+
+    Args:
+        raw: Raw section payload from parsed YAML.
+
+    Returns:
+        Normalized MCP configuration.
+
+    Raises:
+        ValueError: If server definitions are malformed.
+    """
     if not isinstance(raw, dict):
         return McpConfig()
     enabled = bool(raw.get("enabled", False))
@@ -301,6 +340,17 @@ def _parse_mcp_config(raw: object) -> McpConfig:
 
 
 def _parse_script_config(raw: object) -> ScriptToolsConfig:
+    """Parse the ``script_tools`` configuration section.
+
+    Args:
+        raw: Raw section payload from parsed YAML.
+
+    Returns:
+        Normalized script-tools configuration.
+
+    Raises:
+        ValueError: If tool definitions are malformed.
+    """
     if not isinstance(raw, dict):
         return ScriptToolsConfig()
     enabled = bool(raw.get("enabled", False))
@@ -352,6 +402,14 @@ def _parse_script_config(raw: object) -> ScriptToolsConfig:
 
 
 def _parse_str(value: object) -> str | None:
+    """Normalize an optional string value.
+
+    Args:
+        value: Raw value to normalize.
+
+    Returns:
+        Stripped string, or ``None`` when value is empty/non-string.
+    """
     if not isinstance(value, str):
         return None
     normalized = value.strip()
@@ -359,6 +417,17 @@ def _parse_str(value: object) -> str | None:
 
 
 def _parse_str_list(value: object) -> tuple[str, ...]:
+    """Parse a list of strings into a normalized tuple.
+
+    Args:
+        value: Raw value expected to be a list of strings.
+
+    Returns:
+        Tuple of non-empty stripped strings.
+
+    Raises:
+        ValueError: If ``value`` is not a list of strings.
+    """
     if value is None:
         return ()
     if not isinstance(value, list):
@@ -374,6 +443,18 @@ def _parse_str_list(value: object) -> tuple[str, ...]:
 
 
 def _parse_int(value: object, *, default: int) -> int:
+    """Parse an optional integer with default fallback.
+
+    Args:
+        value: Raw value to parse.
+        default: Default integer when ``value`` is ``None``.
+
+    Returns:
+        Parsed integer value.
+
+    Raises:
+        ValueError: If ``value`` is not an integer.
+    """
     if value is None:
         return default
     if isinstance(value, bool) or not isinstance(value, int):
@@ -382,6 +463,17 @@ def _parse_int(value: object, *, default: int) -> int:
 
 
 def _parse_optional_bool(value: object) -> bool | None:
+    """Parse an optional boolean value.
+
+    Args:
+        value: Raw value to parse.
+
+    Returns:
+        Parsed boolean value, or ``None`` when value is absent.
+
+    Raises:
+        ValueError: If ``value`` is not a boolean.
+    """
     if value is None:
         return None
     if not isinstance(value, bool):
@@ -390,6 +482,18 @@ def _parse_optional_bool(value: object) -> bool | None:
 
 
 def _parse_mapping(value: object, *, default: dict[str, object]) -> dict[str, object]:
+    """Parse an optional mapping with default fallback.
+
+    Args:
+        value: Raw value to parse.
+        default: Default mapping when ``value`` is ``None``.
+
+    Returns:
+        Parsed mapping copied into a dictionary.
+
+    Raises:
+        ValueError: If ``value`` is not a mapping.
+    """
     if value is None:
         return dict(default)
     if not isinstance(value, Mapping):
@@ -398,6 +502,17 @@ def _parse_mapping(value: object, *, default: dict[str, object]) -> dict[str, ob
 
 
 def _parse_env(value: object) -> dict[str, str]:
+    """Parse environment-variable mapping for MCP server execution.
+
+    Args:
+        value: Raw value expected to be a string-keyed mapping.
+
+    Returns:
+        Parsed environment mapping.
+
+    Raises:
+        ValueError: If ``value`` is not a valid mapping.
+    """
     if value is None:
         return {}
     if not isinstance(value, dict):

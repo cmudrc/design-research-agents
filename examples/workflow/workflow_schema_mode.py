@@ -1,9 +1,9 @@
-"""Runnable example for the reusable pure-tool workflow orchestration chunk."""
+"""Runnable example for ``Workflow`` in schema-input mode."""
 
 import json
 from pathlib import Path
 
-from design_research_agents import PureToolWorkflow, Toolbox
+from design_research_agents import Toolbox, Workflow
 from design_research_agents.contracts.workflow import LogicStep, ToolStep
 
 INPUT_SCHEMA: dict[str, object] = {
@@ -104,14 +104,15 @@ def main() -> None:
         ),
     ]
 
-    workflow = PureToolWorkflow(
+    workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=workflow_steps,
+        input_mode="schema",
         input_schema=INPUT_SCHEMA,
     )
 
     strict_result = workflow.run(
-        inputs={
+        {
             "dataset_csv_path": str(dataset_path),
             "required_columns": [
                 "participant_id",
@@ -127,7 +128,7 @@ def main() -> None:
         request_id="example-pure-tool-workflow-strict",
     )
     relaxed_result = workflow.run(
-        inputs={
+        {
             "dataset_csv_path": str(dataset_path),
             "required_columns": [
                 "participant_id",

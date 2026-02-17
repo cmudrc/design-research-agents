@@ -39,4 +39,4 @@ Examples
 Official docs
 -------------
 
-- `OpenAI API compatibility reference <https://platform.openai.com/docs/api-reference>`_
+- `OpenAI API compatibility reference <https://developers.openai.com/api/reference/overview>`_

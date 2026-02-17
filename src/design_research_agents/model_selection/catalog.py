@@ -23,6 +23,7 @@ class ModelCatalog:
     """
 
     models: tuple[ModelSpec, ...]
+    """Field value for ``models``."""
 
     @classmethod
     def default(cls) -> ModelCatalog:
@@ -145,6 +146,15 @@ def _build_default_models() -> list[ModelSpec]:
 
 def _estimate_gguf_memory_hint(size_b: float, quant_bits: int) -> ModelMemoryHint:
     # Weight bytes are a rough proxy for runtime RAM/VRAM needs.
+    """Run estimate gguf memory hint.
+
+    Args:
+        size_b: Parameter value.
+        quant_bits: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     weight_bytes = size_b * 1e9 * (quant_bits / 8)
     weight_gb = weight_bytes / (1024**3)
     min_ram_gb = max(1.0, weight_gb * 1.35 + 0.6)
@@ -157,6 +167,14 @@ def _estimate_gguf_memory_hint(size_b: float, quant_bits: int) -> ModelMemoryHin
 
 
 def _quality_tier(size_b: float) -> int:
+    """Run quality tier.
+
+    Args:
+        size_b: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if size_b <= 1.0:
         return 1
     if size_b <= 2.0:
@@ -169,6 +187,15 @@ def _quality_tier(size_b: float) -> int:
 
 
 def _latency_tier(size_b: float, quant_name: str) -> LatencyTier:
+    """Run latency tier.
+
+    Args:
+        size_b: Parameter value.
+        quant_name: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if size_b <= 1.0:
         return "fast"
     if size_b <= 4.0:
@@ -179,6 +206,15 @@ def _latency_tier(size_b: float, quant_name: str) -> LatencyTier:
 
 
 def _speed_tier(latency_tier: LatencyTier, quant_name: str) -> int:
+    """Run speed tier.
+
+    Args:
+        latency_tier: Parameter value.
+        quant_name: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     base = {"fast": 5, "medium": 3, "slow": 1}[latency_tier]
     if quant_name == "q4_k_m":
         base += 1

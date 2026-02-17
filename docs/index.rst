@@ -56,3 +56,4 @@ Get started
    :hidden:
 
    api
+   reference/index

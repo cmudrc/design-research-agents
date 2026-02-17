@@ -9,7 +9,14 @@ from design_research_agents.contracts.llm import LLMMessage, ToolCall, Usage
 
 
 def messages_to_prompt(messages: Sequence[LLMMessage]) -> str:
-    """Combine messages into a plain prompt for non-chat backends."""
+    """Combine messages into a plain prompt for non-chat backends.
+
+    Args:
+        messages: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     segments: list[str] = []
     for message in messages:
         role = message.role
@@ -19,7 +26,14 @@ def messages_to_prompt(messages: Sequence[LLMMessage]) -> str:
 
 
 def parse_usage(payload: Any) -> Usage | None:
-    """Parse OpenAI-style usage fields into a typed usage payload."""
+    """Parse OpenAI-style usage fields into a typed usage payload.
+
+    Args:
+        payload: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(payload, dict):
         return None
     prompt_tokens = _coerce_int(payload.get("prompt_tokens"))
@@ -35,7 +49,14 @@ def parse_usage(payload: Any) -> Usage | None:
 
 
 def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
-    """Parse tool-call payloads from provider responses into canonical form."""
+    """Parse tool-call payloads from provider responses into canonical form.
+
+    Args:
+        raw_tool_calls: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw_tool_calls, list):
         return ()
     tool_calls: list[ToolCall] = []
@@ -63,6 +84,14 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
 
 
 def _coerce_int(value: Any) -> int | None:
+    """Run coerce int.
+
+    Args:
+        value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if isinstance(value, bool):
         return None
     if isinstance(value, int):

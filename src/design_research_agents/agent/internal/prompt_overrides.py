@@ -14,14 +14,34 @@ def resolve_prompt_text(
     default_prompt_name: str,
     field_name: str,
 ) -> str:
-    """Resolve prompt text from optional override or packaged default."""
+    """Resolve prompt text from optional override or packaged default.
+
+    Args:
+        override: Parameter value.
+        default_prompt_name: Parameter value.
+        field_name: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if override is None:
         return load_prompt(default_prompt_name)
     return validate_prompt_text(value=override, field_name=field_name)
 
 
 def validate_prompt_text(*, value: str, field_name: str) -> str:
-    """Validate one prompt/template override and return normalized text."""
+    """Validate one prompt/template override and return normalized text.
+
+    Args:
+        value: Parameter value.
+        field_name: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     normalized = value.strip()
     if not normalized:
         raise ValueError(f"{field_name} must be a non-empty string when provided.")
@@ -34,7 +54,19 @@ def render_template_text(
     variables: Mapping[str, object],
     field_name: str,
 ) -> str:
-    """Render template text with strict missing-key validation."""
+    """Render template text with strict missing-key validation.
+
+    Args:
+        template_text: Parameter value.
+        variables: Parameter value.
+        field_name: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     normalized_template = validate_prompt_text(value=template_text, field_name=field_name)
     normalized_variables = {key: str(value) for key, value in variables.items()}
     template = Template(normalized_template)

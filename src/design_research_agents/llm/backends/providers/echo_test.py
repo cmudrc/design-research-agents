@@ -19,7 +19,13 @@ class EchoTestBackend(BaseLLMBackend):
     """Echo backend that returns a normalized prompt string."""
 
     def __init__(self, *, name: str, model: str, config_hash: str) -> None:
-        """Configure a deterministic echo backend for tests."""
+        """Configure a deterministic echo backend for tests.
+
+        Args:
+            name: Parameter value.
+            model: Parameter value.
+            config_hash: Parameter value.
+        """
         super().__init__(
             name=name,
             kind="echo_test",
@@ -31,7 +37,11 @@ class EchoTestBackend(BaseLLMBackend):
         )
 
     def capabilities(self) -> BackendCapabilities:
-        """Return capabilities exposed by the echo backend."""
+        """Return capabilities exposed by the echo backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendCapabilities(
             streaming=True,
             tool_calling="none",
@@ -41,10 +51,22 @@ class EchoTestBackend(BaseLLMBackend):
         )
 
     def healthcheck(self) -> BackendStatus:
-        """Return an always-healthy status for deterministic test backend."""
+        """Return an always-healthy status for deterministic test backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendStatus(ok=True, message="echo-test backend is always healthy.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Run generate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         prompt = messages_to_prompt(request.messages)
         cleaned_prompt = " ".join(prompt.strip().split())
         if not cleaned_prompt:
@@ -53,5 +75,13 @@ class EchoTestBackend(BaseLLMBackend):
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Run stream.
+
+        Args:
+            request: Parameter value.
+
+        Yields:
+            The yielded values.
+        """
         response = self._generate(request)
         yield LLMDelta(text_delta=response.text)

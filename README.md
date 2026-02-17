@@ -13,7 +13,7 @@ workflow orchestration, and pluggable LLM backends.
 This project focuses on composable agent systems you can run, inspect, and test:
 
 - Agent implementations (top-level exports): `SingleStepDirectLLMAgent`, `SingleStepRouterAgent`, `SingleStepJsonToolCallingAgent`, `SingleStepCodeToolCallingAgent`, `MultiStepJsonToolCallingAgent`, `MultiStepCodeToolCallingAgent`
-- Reusable workflows: `PlanExecuteWorkflow`, `ProposeAndCritiqueWorkflow`, `AgentRoutingWorkflow`, `DebatePattern`, `PureToolWorkflow`, and `MixedAgentWorkflow`
+- Reusable workflow surfaces: `Workflow`, `DebatePattern`, `PlannerExecutorPattern`, `ReflexionPattern`, and `RouterPattern`
 - Workflow orchestration runtime is available via `design_research_agents.workflow` for advanced usage
 - Provider-specific LLM clients with constructor-first defaults
 - Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads
@@ -21,16 +21,20 @@ This project focuses on composable agent systems you can run, inspect, and test:
 ## Public API 
 ```python
 from design_research_agents import (
+    AgentStep,
     LlamaCppServerLLMClient,
+    LoopStep,
     ModelSelector,
-    PlanExecuteWorkflow,
+    PlannerExecutorPattern,
     SingleStepJsonToolCallingAgent,
+    Workflow,
     Toolbox,
 )
 
 agent = SingleStepJsonToolCallingAgent(...)
 tool_runtime = Toolbox(...)
-workflow = PlanExecuteWorkflow(...)
+pattern = PlannerExecutorPattern(...)
+workflow = Workflow(input_mode="prompt", steps=(AgentStep(...), LoopStep(...)))
 selector = ModelSelector(...)
 decision = selector.select(task="summarize interview findings", output="decision")
 llm_client = LlamaCppServerLLMClient()

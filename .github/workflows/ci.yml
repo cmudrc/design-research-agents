@@ -34,7 +34,7 @@ jobs:
         run: make install-dev
 
       - name: Run checks
-        # Lint, format check, typing, and tests.
+        # Lint, format check, typing, structural/docstring gates, and tests.
         run: make ci
 
   coverage-badge:

@@ -1,19 +1,17 @@
 """Reusable orchestration implementation chunks."""
 
-from .agent_routing import AgentRoutingWorkflow
+from .agent_routing import RouterPattern
 from .debate_pattern import DebatePattern
-from .mixed_agent_workflow import MixedAgentWorkflow
-from .plan_execute import PlanExecuteWorkflow
-from .propose_critic import ProposeAndCritiqueWorkflow
-from .pure_tool_workflow import PureToolWorkflow
+from .plan_execute import PlannerExecutorPattern
+from .propose_critic import ReflexionPattern
+from .workflow import Workflow
 from .workflow_runtime import WorkflowRuntime
 
 __all__ = [
-    "AgentRoutingWorkflow",
     "DebatePattern",
-    "MixedAgentWorkflow",
-    "PlanExecuteWorkflow",
-    "ProposeAndCritiqueWorkflow",
-    "PureToolWorkflow",
+    "PlannerExecutorPattern",
+    "ReflexionPattern",
+    "RouterPattern",
+    "Workflow",
     "WorkflowRuntime",
 ]

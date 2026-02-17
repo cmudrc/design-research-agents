@@ -12,6 +12,14 @@ API_COVERAGE_BADGE_SVG = Path(".github/badges/examples-api-coverage.svg")
 
 
 def _pick_color(percent: int) -> str:
+    """Run pick color.
+
+    Args:
+        percent: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if percent >= 90:
         return "#4c1"  # brightgreen
     if percent >= 80:
@@ -26,11 +34,28 @@ def _pick_color(percent: int) -> str:
 
 
 def _text_width(text: str) -> int:
-    """Approximate text width in badge pixels."""
+    """Approximate text width in badge pixels.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return 10 + (len(text) * 6)
 
 
 def _render_badge(label: str, message: str, color: str) -> str:
+    """Run render badge.
+
+    Args:
+        label: Parameter value.
+        message: Parameter value.
+        color: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     label_width = _text_width(label)
     message_width = _text_width(message)
     total_width = label_width + message_width
@@ -65,6 +90,14 @@ def _render_badge(label: str, message: str, color: str) -> str:
 
 
 def _read_metrics(path: Path) -> tuple[int, int, float, int, int]:
+    """Run read metrics.
+
+    Args:
+        path: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
     examples = data.get("examples", {})
     public_api = data.get("public_api", {})
@@ -78,6 +111,14 @@ def _read_metrics(path: Path) -> tuple[int, int, float, int, int]:
 
 
 def _format_percent(percent: float) -> str:
+    """Run format percent.
+
+    Args:
+        percent: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return str(int(percent))
 
 

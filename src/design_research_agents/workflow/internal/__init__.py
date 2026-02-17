@@ -1,5 +1,22 @@
 """Internal helpers for the workflow runtime."""
 
+from .loop_state import (
+    normalize_mapping,
+    normalize_mapping_records,
+    parse_loop_iteration,
+)
+from .pattern_runtime import (
+    WorkflowBudgetTracker,
+    attach_runtime_metadata,
+    build_pattern_failure_result,
+    render_prompt_template,
+    resolve_prompt_override,
+)
+from .run_defaults import (
+    merge_dependencies,
+    normalize_request_id_prefix,
+    resolve_request_id_with_prefix,
+)
 from .step_context import (
     build_step_context,
     has_upstream_failure,
@@ -17,13 +34,24 @@ from .workflow_graph import (
 
 __all__ = [
     "PreparedWorkflow",
+    "WorkflowBudgetTracker",
     "activate_step_span",
+    "attach_runtime_metadata",
+    "build_pattern_failure_result",
     "build_step_context",
     "finish_step_span",
     "has_upstream_failure",
+    "merge_dependencies",
+    "normalize_mapping",
+    "normalize_mapping_records",
+    "normalize_request_id_prefix",
     "normalize_step_id",
+    "parse_loop_iteration",
     "prepare_workflow_graph",
     "release_dependents",
+    "render_prompt_template",
+    "resolve_prompt_override",
+    "resolve_request_id_with_prefix",
     "route_deactivations",
     "run_agent_step",
     "run_logic_step",

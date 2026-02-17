@@ -7,7 +7,6 @@ results across steps.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator, Mapping, Sequence
 
 from design_research_agents.agent.implementations.single_step_json_tool_calling_agent import (
@@ -33,6 +32,12 @@ from design_research_agents.agent.internal.multi_step_common import (
     fallback_should_continue,
     has_observation,
 )
+from design_research_agents.agent.internal.multi_step_json_helpers import (
+    build_step_tools_text,
+    failure_result,
+    normalize_step_final_output,
+    resolve_step_error,
+)
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
     inject_alternatives_into_prompt_pair,
@@ -43,7 +48,6 @@ from design_research_agents.agent.internal.response_schemas import (
     build_continuation_response_schema,
     clone_response_schema,
 )
-from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
@@ -56,7 +60,7 @@ from design_research_agents.contracts.llm import (
     LLMMessage,
     LLMResponse,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime
 from design_research_agents.tracing import (
     Tracer,
     emit_continuation_decision,
@@ -105,6 +109,9 @@ class MultiStepJsonToolCallingAgent(Agent):
             continuation_memory_tail_items: Memory tail size for continuation prompts.
             step_memory_tail_items: Memory tail size for step prompts.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -159,6 +166,9 @@ class MultiStepJsonToolCallingAgent(Agent):
 
         Returns:
             Final agent result payload.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -185,7 +195,7 @@ class MultiStepJsonToolCallingAgent(Agent):
             llm_client=self._llm_client,
         )
         alternatives_prompt_target = self._alternatives_prompt_target
-        step_tools_text = _build_step_tools_text(
+        step_tools_text = build_step_tools_text(
             tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
         )
 
@@ -263,8 +273,8 @@ class MultiStepJsonToolCallingAgent(Agent):
 
             tool_results.extend(step_result.tool_results)
             raw_tool_output = step_result.output.get("tool_output")
-            step_final_output = _normalize_step_final_output(raw_tool_output)
-            step_error = _resolve_step_error(step_result)
+            step_final_output = normalize_step_final_output(raw_tool_output)
+            step_error = resolve_step_error(step_result)
             step_output = {
                 "step": step_index + 1,
                 "success": step_result.success,
@@ -299,7 +309,7 @@ class MultiStepJsonToolCallingAgent(Agent):
 
             terminated_reason = "step_failure"
             if stop_on_step_failure:
-                result = _failure_result(
+                result = failure_result(
                     error=step_error,
                     model_response=last_model_response,
                     tool_results=tool_results,
@@ -402,6 +412,9 @@ class MultiStepJsonToolCallingAgent(Agent):
 
         Returns:
             Tuple of continuation decision, reason, source, and model response.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         system_prompt = self._continuation_system_prompt
         user_prompt = build_continue_prompt(
@@ -484,65 +497,6 @@ class MultiStepJsonToolCallingAgent(Agent):
         return fallback_decision, "fallback heuristic", "fallback", response
 
 
-def _build_step_tools_text(*, tool_specs: Mapping[str, ToolSpec]) -> str:
-    """Build formatted tools text for multi-step prompt injection.
-
-    Args:
-        tool_specs: Tool specs available in the runtime.
-
-    Returns:
-        Rendered tools block text.
-    """
-    tool_lines: list[str] = []
-    for spec in tool_specs.values():
-        tool_lines.append(
-            "\n".join(
-                [
-                    f"- tool_name: {spec.name}",
-                    f"  description: {spec.description or '(none)'}",
-                    f"  input_schema: {json.dumps(spec.input_schema, sort_keys=True)}",
-                ]
-            )
-        )
-    return "\n".join(tool_lines)
-
-
-def _resolve_step_error(step_result: AgentResult) -> str:
-    """Extract a stable step error message from one step result."""
-    raw_error = step_result.output.get("error")
-    if isinstance(raw_error, str) and raw_error.strip():
-        return raw_error
-
-    for tool_result in step_result.tool_results:
-        if not tool_result.ok and isinstance(tool_result.error, str) and tool_result.error.strip():
-            return tool_result.error
-
-    return "Step execution failed."
-
-
-def _normalize_step_final_output(raw_tool_output: object) -> dict[str, object]:
-    """Normalize one step output into a dictionary payload."""
-    if isinstance(raw_tool_output, Mapping):
-        return dict(raw_tool_output)
-    return {"tool_output": raw_tool_output}
-
-
-def _failure_result(
-    *,
-    error: str,
-    model_response: LLMResponse | None,
-    tool_results: list[ToolResult],
-    request_id: str,
-    dependencies: Mapping[str, object],
-    metadata: Mapping[str, object],
-    output: Mapping[str, object],
-) -> AgentResult:
-    return build_failure_result(
-        error=error,
-        model_response=model_response,
-        tool_results=tool_results,
-        request_id=request_id,
-        dependencies=dependencies,
-        metadata=metadata,
-        output=output,
-    )
+__all__ = [
+    "MultiStepJsonToolCallingAgent",
+]

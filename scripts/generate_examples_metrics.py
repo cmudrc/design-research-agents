@@ -16,6 +16,11 @@ METRICS_JSON = REPO_ROOT / "artifacts" / "examples" / "examples_metrics.json"
 
 
 def _discover_runnable_examples() -> tuple[Path, ...]:
+    """Run discover runnable examples.
+
+    Returns:
+        The resulting value.
+    """
     discovered: list[Path] = []
     for extension in ("*.py", "*.sh"):
         for path in sorted(EXAMPLES_ROOT.rglob(extension)):
@@ -29,10 +34,26 @@ def _discover_runnable_examples() -> tuple[Path, ...]:
 
 
 def _discover_python_examples() -> tuple[Path, ...]:
+    """Run discover python examples.
+
+    Returns:
+        The resulting value.
+    """
     return tuple(path for path in _discover_runnable_examples() if path.suffix == ".py")
 
 
 def _parse_junit_pass_fail_counts(path: Path) -> tuple[int, int, int]:
+    """Run parse junit pass fail counts.
+
+    Args:
+        path: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     root = ET.fromstring(path.read_text(encoding="utf-8"))
     testcases = list(root.iter("testcase"))
     if not testcases:
@@ -50,6 +71,17 @@ def _parse_junit_pass_fail_counts(path: Path) -> tuple[int, int, int]:
 
 
 def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
+    """Run extract exports from init.
+
+    Args:
+        path: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     export_dict: ast.Dict | None = None
 
@@ -86,50 +118,122 @@ def _collect_public_api_symbols_used_in_examples(
     example_files: tuple[Path, ...],
     export_symbols: tuple[str, ...],
 ) -> tuple[str, ...]:
+    """Run collect public api symbols used in examples.
+
+    Args:
+        example_files: Parameter value.
+        export_symbols: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     export_set = set(export_symbols)
     covered: set[str] = set()
 
     for path in example_files:
         module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        package_aliases: set[str] = set()
-
-        for node in ast.walk(module):
-            if isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name == "design_research_agents":
-                        package_aliases.add(alias.asname or "design_research_agents")
-            elif isinstance(node, ast.ImportFrom):
-                module_name = node.module or ""
-                if module_name == "design_research_agents" or module_name.startswith(
-                    "design_research_agents."
-                ):
-                    for alias in node.names:
-                        imported_name = alias.name
-                        if imported_name == "*":
-                            covered.update(export_set)
-                            continue
-                        if imported_name in export_set:
-                            covered.add(imported_name)
-
-        for node in ast.walk(module):
-            if not isinstance(node, ast.Attribute):
-                continue
-            if not isinstance(node.value, ast.Name):
-                continue
-            if node.value.id in package_aliases and node.attr in export_set:
-                covered.add(node.attr)
+        package_aliases = _collect_package_aliases(module)
+        covered.update(_collect_explicit_imported_exports(module, export_set))
+        covered.update(_collect_attribute_access_exports(module, export_set, package_aliases))
 
     return tuple(sorted(covered))
 
 
+def _collect_package_aliases(module: ast.Module) -> set[str]:
+    """Run collect package aliases.
+
+    Args:
+        module: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
+    aliases: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Import):
+            continue
+        for alias in node.names:
+            if alias.name == "design_research_agents":
+                aliases.add(alias.asname or "design_research_agents")
+    return aliases
+
+
+def _collect_explicit_imported_exports(module: ast.Module, export_set: set[str]) -> set[str]:
+    """Run collect explicit imported exports.
+
+    Args:
+        module: Parameter value.
+        export_set: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
+    covered: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module_name = node.module or ""
+        if module_name != "design_research_agents" and not module_name.startswith(
+            "design_research_agents."
+        ):
+            continue
+        for alias in node.names:
+            imported_name = alias.name
+            if imported_name == "*":
+                covered.update(export_set)
+                continue
+            if imported_name in export_set:
+                covered.add(imported_name)
+    return covered
+
+
+def _collect_attribute_access_exports(
+    module: ast.Module,
+    export_set: set[str],
+    package_aliases: set[str],
+) -> set[str]:
+    """Run collect attribute access exports.
+
+    Args:
+        module: Parameter value.
+        export_set: Parameter value.
+        package_aliases: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
+    covered: set[str] = set()
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Attribute):
+            continue
+        if not isinstance(node.value, ast.Name):
+            continue
+        if node.value.id in package_aliases and node.attr in export_set:
+            covered.add(node.attr)
+    return covered
+
+
 def _percent(part: int, whole: int) -> float:
+    """Run percent.
+
+    Args:
+        part: Parameter value.
+        whole: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if whole == 0:
         return 100.0
     return round((part / whole) * 100, 1)
 
 
 def main() -> None:
-    """Compute and persist examples pass/fail and API-in-examples coverage metrics."""
+    """Compute and persist examples pass/fail and API-in-examples coverage metrics.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     runnable_examples = _discover_runnable_examples()
     python_examples = _discover_python_examples()
 

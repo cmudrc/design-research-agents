@@ -24,29 +24,29 @@ if _DETERMINISTIC_MODE:
     )
 
 _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
-    "single_step_direct_llm_agent.py": ("4",),
-    "single_step_router_agent.py": (
+    "examples/agents/basic/single_step_direct_llm_agent.py": ("4",),
+    "examples/agents/basic/single_step_router_agent.py": (
         '{"selection":"text.word_count","reason":"Analyze text content."}',
     ),
-    "single_step_json_tool_calling_agent.py": (
+    "examples/agents/basic/single_step_json_tool_calling_agent.py": (
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
-    "single_step_json_callable_tool_agent.py": (
+    "examples/agents/basic/single_step_json_callable_tool_agent.py": (
         (
             '{"tool_name":"normalize.title","tool_input":{"title":"the old man and the sea"},'
             '"reason":"Normalize the provided title casing."}'
         ),
     ),
-    "single_step_json_script_rubric_score_agent.py": (
+    "examples/tools/script_tools/python/single_step_json_script_rubric_score_agent.py": (
         (
             '{"tool_name":"script::rubric_score","tool_input":{"text":"Agents can quickly score '
             'this sample summary.","max_score":12}}'
         ),
     ),
-    "single_step_json_script_repo_quickscan_agent.py": (
+    "examples/tools/script_tools/bash/single_step_json_script_repo_quickscan_agent.py": (
         '{"tool_name":"script::repo_quickscan","tool_input":{"include_hidden":false}}',
     ),
-    "single_step_code_tool_calling_agent.py": (
+    "examples/agents/basic/single_step_code_tool_calling_agent.py": (
         "\n".join(
             [
                 'csv_text = "tool,source\\ncalculator,core\\nrepo_quickscan,script\\n"',
@@ -67,7 +67,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             ]
         ),
     ),
-    "multi_step_code_tool_calling_agent.py": (
+    "examples/agents/basic/multi_step_code_tool_calling_agent.py": (
         '{"continue": true, "thought": "Read README and analyze text stats."}',
         "\n".join(
             [
@@ -84,7 +84,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         '{"continue": false, "thought": "Task complete."}',
     ),
-    "multi_step_json_tool_calling_agent.py": (
+    "examples/agents/basic/multi_step_json_tool_calling_agent.py": (
         '{"continue": true, "thought": "Read README first."}',
         (
             '{"tool_name":"fs.read_text","tool_input":{"path":"README.md","max_bytes":800},'
@@ -92,7 +92,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         '{"continue": false, "thought": "Task complete."}',
     ),
-    "plan_execute.py": (
+    "examples/workflow/plan_execute.py": (
         (
             '{"steps":[{"step_id":"analyze_repo_tools","instruction":"Write a small CSV artifact '
             "describing tool sources, then describe that CSV and search the tools package for "
@@ -120,7 +120,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             ]
         ),
     ),
-    "propose_critic.py": (
+    "examples/workflow/propose_critic.py": (
         "Draft v1: simple proposal.",
         (
             '{"approved": false, "feedback": "Add more detail.", '
@@ -129,7 +129,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         "Draft v2: proposal with more detail.",
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
-    "agent_routing.py": (
+    "examples/workflow/agent_routing.py": (
         '{"selection":"json_tool_agent","reason":"Arithmetic request uses tools."}',
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
@@ -141,23 +141,23 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             '"synthesis":"Use local models for sensitive data and hosted APIs for burst capacity."}'
         ),
     ),
-    "mixed_agent_workflow.py": (
+    "examples/workflow/workflow_prompt_mode.py": (
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
             'script, and MCP tools.","priority":"high"}'
         ),
     ),
-    "single_step_direct_llm_agent_stream.py": ("The answer is 4.",),
-    "single_step_router_agent_stream.py": (
+    "examples/agents/streaming/single_step_direct_llm_agent_stream.py": ("The answer is 4.",),
+    "examples/agents/streaming/single_step_router_agent_stream.py": (
         '{"selection":"calculator","reason":"Arithmetic request."}',
     ),
-    "single_step_json_tool_calling_agent_stream.py": (
+    "examples/agents/streaming/single_step_json_tool_calling_agent_stream.py": (
         (
             '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"},'
             '"reason":"Arithmetic request."}'
         ),
     ),
-    "single_step_code_tool_calling_agent_stream.py": (
+    "examples/agents/streaming/single_step_code_tool_calling_agent_stream.py": (
         "\n".join(
             [
                 'repo_files = call_tool("fs.list_dir", {"path": ".", "max_entries": 30})',
@@ -170,7 +170,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             ]
         ),
     ),
-    "multi_step_code_tool_calling_agent_stream.py": (
+    "examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py": (
         '{"continue": true, "thought": "Run one action step."}',
         "\n".join(
             [
@@ -180,7 +180,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             ]
         ),
     ),
-    "multi_step_json_tool_calling_agent_stream.py": (
+    "examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py": (
         '{"continue": true, "thought": "Run one action step."}',
         (
             '{"tool_name":"text.word_count","tool_input":{"text":"README measured"},'
@@ -191,6 +191,20 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
 
 
 if _DETERMINISTIC_MODE:
+
+    def _resolve_example_id() -> str:
+        configured_id = os.environ.get("DRA_EXAMPLE_ID")
+        if isinstance(configured_id, str) and configured_id.strip():
+            return configured_id.strip()
+
+        script_path = Path(sys.argv[0])
+        if script_path.is_absolute():
+            try:
+                repo_root = Path.cwd().resolve()
+                return script_path.resolve().relative_to(repo_root).as_posix()
+            except ValueError:
+                return script_path.name
+        return script_path.as_posix()
 
     class _DeterministicExampleClient:
         def __init__(self, *, response_texts: Sequence[str]) -> None:
@@ -240,11 +254,14 @@ if _DETERMINISTIC_MODE:
             )
 
     def _patched_LlamaCppServerLLMClient() -> _DeterministicExampleClient:
-        script_name = Path(sys.argv[0]).name
-        responses = _SCRIPT_RESPONSES.get(script_name)
+        example_id = _resolve_example_id()
+        responses = _SCRIPT_RESPONSES.get(example_id)
+        if responses is None:
+            script_name = Path(sys.argv[0]).name
+            responses = _SCRIPT_RESPONSES.get(script_name)
         if responses is None:
             raise RuntimeError(
-                f"No deterministic LLM response profile configured for script '{script_name}'."
+                f"No deterministic LLM response profile configured for '{example_id}'."
             )
         return _DeterministicExampleClient(response_texts=responses)
 

@@ -37,8 +37,14 @@ jobs:
         # Docs pipeline only needs docs-related tooling.
         run: make install-dev
 
-      - name: Build Sphinx docs
+      - name: Run docs consistency checks
+        run: make docs-check
+
+      - name: Build strict Sphinx docs
         run: make docs
+
+      - name: Validate links
+        run: make docs-linkcheck
 
       - name: Setup Pages
         # Only prepare Pages on main branch pushes.

@@ -36,12 +36,13 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
    PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
+   PYTHONPATH=src python3 examples/workflow/workflow_runtime_loop_step.py
    PYTHONPATH=src python3 examples/workflow/plan_execute.py
    PYTHONPATH=src python3 examples/workflow/propose_critic.py
    PYTHONPATH=src python3 examples/workflow/agent_routing.py
    PYTHONPATH=src python3 examples/workflow/debate_pattern.py
-   PYTHONPATH=src python3 examples/workflow/pure_tool_workflow.py
-   PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
+   PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
+   PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
    PYTHONPATH=src python3 examples/model_selection/local.py
    PYTHONPATH=src python3 examples/model_selection/remote.py
    PYTHONPATH=src python3 examples/tools/mcp_minimal.py
@@ -59,14 +60,14 @@ Run client configuration examples:
    PYTHONPATH=src python3 examples/clients/transformers_local_client.py
    PYTHONPATH=src python3 examples/clients/mlx_local_client.py
 
-Workflow run signatures in the two reusable workflow classes:
+Workflow run signatures in the reusable ``Workflow`` class:
 
-- ``MixedAgentWorkflow``: initialize once, then call ``run(prompt=...)``.
-- Supply ``agents`` and ``steps`` at init; no built-in mixed-step builder.
-- ``PureToolWorkflow``: initialize once, then call ``run(inputs=...)`` with
-  user-defined tool/logic ``steps`` supplied at init.
-- Optional ``input_schema`` can validate run inputs; step topology and any
-  scenario-specific behavior are caller-owned.
+- ``Workflow(input_mode='prompt')``: initialize once, then call ``run(\"...\")``.
+- ``Workflow(input_mode='schema')``: initialize once, then call
+  ``run({...})`` with optional ``input_schema`` validation.
+- Supply ``steps`` at init and optionally ``agents`` when ``AgentStep`` entries
+  are present in the graph.
+- Step topology and any scenario-specific behavior are caller-owned.
 
 Run additional streaming examples:
 

@@ -5,7 +5,6 @@ from collections.abc import Iterator
 import pytest
 
 from design_research_agents.agent import (
-    AgentRuntime,
     SingleStepCodeToolCallingAgent,
     SingleStepJsonToolCallingAgent,
     SingleStepRouterAgent,
@@ -19,6 +18,7 @@ from design_research_agents.contracts.llm import (
     LLMStreamEvent,
 )
 from design_research_agents.tools import Toolbox
+from design_research_agents.workflow import PlannerExecutorPattern
 
 
 class _SequenceLLMClient:
@@ -108,8 +108,8 @@ def test_single_step_code_agent_rejects_empty_prompt_override() -> None:
         )
 
 
-def test_agent_runtime_plan_execute_template_override_supports_task_prompt_variable() -> None:
-    runtime = AgentRuntime(
+def test_plan_execute_workflow_template_override_supports_task_prompt_variable() -> None:
+    workflow = PlannerExecutorPattern(
         llm_client=_SequenceLLMClient(
             response_texts=[
                 '{"steps":[{"step_id":"one","instruction":"Compute 6 * 7.",'
@@ -119,19 +119,17 @@ def test_agent_runtime_plan_execute_template_override_supports_task_prompt_varia
             ]
         ),
         tool_runtime=Toolbox(),
-        mode="plan_execute",
         plan_execute_planner_user_prompt_template="Task block:\n$task_prompt",
     )
-    result = runtime.run("Compute 6 * 7.")
+    result = workflow.run("Compute 6 * 7.")
     assert result.success
 
 
-def test_agent_runtime_plan_execute_template_override_rejects_missing_variables() -> None:
-    runtime = AgentRuntime(
+def test_plan_execute_workflow_template_override_rejects_missing_variables() -> None:
+    workflow = PlannerExecutorPattern(
         llm_client=_SequenceLLMClient(response_texts=['{"steps":[]}']),
         tool_runtime=Toolbox(),
-        mode="plan_execute",
         plan_execute_planner_user_prompt_template="Task block:\n$unknown_key",
     )
     with pytest.raises(ValueError, match="unknown_key"):
-        runtime.run("Compute 6 * 7.")
+        workflow.run("Compute 6 * 7.")

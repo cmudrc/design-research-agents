@@ -81,7 +81,10 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D", "C90"]
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 

@@ -4,6 +4,11 @@ Agents
 The framework provides six core concrete agent implementations. Choose by
 execution pattern first, then by control requirements.
 
+``AgentRuntime`` remains available as a react-mode facade over
+``MultiStepCodeToolCallingAgent``. Multi-agent orchestration patterns
+(``PlannerExecutorPattern``, ``ReflexionPattern``, ``RouterPattern``) live in
+the workflow module and are implemented with ``WorkflowRuntime`` primitives.
+
 Overview
 --------
 
