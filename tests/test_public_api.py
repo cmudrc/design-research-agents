@@ -24,6 +24,7 @@ EXPECTED_PUBLIC_API = [
     "PlanExecuteWorkflow",
     "ProposeAndCritiqueWorkflow",
     "AgentRoutingWorkflow",
+    "DebatePattern",
     "PureToolWorkflow",
     "MixedAgentWorkflow",
     "LlamaCppServerLLMClient",

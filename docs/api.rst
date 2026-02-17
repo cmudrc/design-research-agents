@@ -30,6 +30,7 @@ The supported top-level API is the curated export list from
     - ``PlanExecuteWorkflow``
     - ``ProposeAndCritiqueWorkflow``
     - ``AgentRoutingWorkflow``
+    - ``DebatePattern``
     - ``PureToolWorkflow``
     - ``MixedAgentWorkflow``
 

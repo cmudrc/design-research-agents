@@ -9,6 +9,8 @@ Available reusable workflow patterns:
   - Iterative proposal/revision loops
 - ``AgentRoutingWorkflow``
   - Intent-based delegation to selected agents
+- ``DebatePattern``
+  - Multi-round affirmative/negative debate with a judging pass
 - ``PureToolWorkflow``
   - Reusable pure tool/logic graph with ``run(inputs=...)``
 - ``MixedAgentWorkflow``
@@ -26,6 +28,7 @@ Examples
 - ``examples/workflow/plan_execute.py``
 - ``examples/workflow/propose_critic.py``
 - ``examples/workflow/agent_routing.py``
+- ``examples/workflow/debate_pattern.py``
 - ``examples/workflow/pure_tool_workflow.py``
 - ``examples/workflow/mixed_agent_workflow.py``
 - ``examples/workflow/README.md``

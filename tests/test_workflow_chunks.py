@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from design_research_agents.agent import RuntimeControls
 from design_research_agents.contracts.agent import Agent, AgentResult
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -22,6 +23,7 @@ from design_research_agents.contracts.workflow import AgentStep, LogicStep, Tool
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow.implementations.agent_routing import AgentRoutingWorkflow
+from design_research_agents.workflow.implementations.debate_pattern import DebatePattern
 from design_research_agents.workflow.implementations.mixed_agent_workflow import MixedAgentWorkflow
 from design_research_agents.workflow.implementations.plan_execute import PlanExecuteWorkflow
 from design_research_agents.workflow.implementations.propose_critic import (
@@ -454,6 +456,10 @@ def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
     assert "agent_routing_router_system_prompt" in routing_params
     assert "default_request_id_prefix" in routing_params
 
+    debate_params = inspect.signature(DebatePattern.__init__).parameters
+    assert "debate_affirmative_system_prompt" in debate_params
+    assert "debate_judge_user_prompt_template" in debate_params
+
     mixed_params = inspect.signature(MixedAgentWorkflow.__init__).parameters
     assert "default_execution_mode" in mixed_params
     assert "default_failure_policy" in mixed_params
@@ -530,3 +536,46 @@ def test_pure_workflow_default_run_controls_are_applied() -> None:
     assert str(workflow_meta["request_id"]).startswith("pure-default:")
     assert workflow_meta["execution_mode"] == "dag"
     assert workflow_meta["failure_policy"] == "fail_fast"
+
+
+def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
+    class _SequenceLLMClient(_NoopLLMClient):
+        def __init__(self, responses: Sequence[str]) -> None:
+            self._responses = list(responses)
+
+        def chat(
+            self,
+            messages: Sequence[LLMMessage],
+            *,
+            model: str,
+            params: LLMChatParams,
+        ) -> LLMResponse:
+            del messages, model, params
+            if not self._responses:
+                raise AssertionError("No more stubbed responses available.")
+            return LLMResponse(model="noop-model", text=self._responses.pop(0), provider="noop")
+
+    workflow = DebatePattern(
+        llm_client=_SequenceLLMClient(
+            [
+                "Affirmative argument",
+                "Negative argument",
+                json.dumps(
+                    {
+                        "winner": "affirmative",
+                        "rationale": "Affirmative provided stronger evidence.",
+                        "synthesis": "Adopt a phased rollout with explicit safeguards.",
+                    }
+                ),
+            ]
+        ),
+        tool_runtime=Toolbox(),
+        controls=RuntimeControls(max_iterations=1),
+    )
+
+    result = workflow.run("Should the team launch this product now?")
+
+    assert result.success
+    assert result.output["winner"] == "affirmative"
+    assert result.output["terminated_reason"] == "completed"
+    assert result.output["verdict"]["synthesis"].startswith("Adopt a phased rollout")

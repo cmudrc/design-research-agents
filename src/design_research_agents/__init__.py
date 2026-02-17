@@ -20,6 +20,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "PlanExecuteWorkflow": "design_research_agents.workflow:PlanExecuteWorkflow",
     "ProposeAndCritiqueWorkflow": "design_research_agents.workflow:ProposeAndCritiqueWorkflow",
     "AgentRoutingWorkflow": "design_research_agents.workflow:AgentRoutingWorkflow",
+    "DebatePattern": "design_research_agents.workflow:DebatePattern",
     "PureToolWorkflow": "design_research_agents.workflow:PureToolWorkflow",
     "MixedAgentWorkflow": "design_research_agents.workflow:MixedAgentWorkflow",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
@@ -71,6 +72,7 @@ if TYPE_CHECKING:
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
     from .workflow import AgentRoutingWorkflow as AgentRoutingWorkflow
+    from .workflow import DebatePattern as DebatePattern
     from .workflow import MixedAgentWorkflow as MixedAgentWorkflow
     from .workflow import PlanExecuteWorkflow as PlanExecuteWorkflow
     from .workflow import ProposeAndCritiqueWorkflow as ProposeAndCritiqueWorkflow

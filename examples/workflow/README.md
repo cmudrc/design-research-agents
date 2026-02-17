@@ -15,6 +15,8 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
   - Propose/critique revision loop.
 - `agent_routing.py`
   - Intent/agent routing with delegate execution.
+- `debate_pattern.py`
+  - Structured affirmative/negative debate with judged synthesis.
 - `pure_tool_workflow.py`
   - User-defined pure tool/logic step graph with `run(inputs=...)`.
 - `mixed_agent_workflow.py`
@@ -29,6 +31,7 @@ PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
 PYTHONPATH=src python3 examples/workflow/plan_execute.py
 PYTHONPATH=src python3 examples/workflow/propose_critic.py
 PYTHONPATH=src python3 examples/workflow/agent_routing.py
+PYTHONPATH=src python3 examples/workflow/debate_pattern.py
 PYTHONPATH=src python3 examples/workflow/pure_tool_workflow.py
 PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
 ```
@@ -39,6 +42,7 @@ PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
 - `plan_execute.py` (`PlanExecuteWorkflow`) -> `examples/workflow/plan_execute.py`
 - `propose_critic.py` (`ProposeAndCritiqueWorkflow`) -> `examples/workflow/propose_critic.py`
 - `agent_routing.py` (`AgentRoutingWorkflow`) -> `examples/workflow/agent_routing.py`
+- `debate_pattern.py` (`DebatePattern`) -> `examples/workflow/debate_pattern.py`
 - `pure_tool_workflow.py` (`PureToolWorkflow`) -> `examples/workflow/pure_tool_workflow.py`
 - `mixed_agent_workflow.py` (`MixedAgentWorkflow`) -> `examples/workflow/mixed_agent_workflow.py`
 

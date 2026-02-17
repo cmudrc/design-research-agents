@@ -133,6 +133,14 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         '{"selection":"json_tool_agent","reason":"Arithmetic request uses tools."}',
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
+    "debate_pattern.py": (
+        "Local models improve data control and predictable costs for many research workloads.",
+        "Hosted APIs can ship faster and often provide higher quality with less ops burden.",
+        (
+            '{"winner":"tie","rationale":"Both positions are compelling with different tradeoffs.",'
+            '"synthesis":"Use local models for sensitive data and hosted APIs for burst capacity."}'
+        ),
+    ),
     "mixed_agent_workflow.py": (
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
