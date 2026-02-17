@@ -30,7 +30,6 @@ Run additional contract-focused examples:
 
    PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_tool_router_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/single_step_router_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_json_tool_calling_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_json_callable_tool_agent.py
    PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
@@ -78,7 +77,6 @@ Run additional streaming examples:
 
    PYTHONPATH=src python3 examples/agents/streaming/single_step_direct_llm_agent_stream.py
    PYTHONPATH=src python3 examples/agents/streaming/single_step_tool_router_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/single_step_router_agent_stream.py
    PYTHONPATH=src python3 examples/agents/streaming/single_step_json_tool_calling_agent_stream.py
    PYTHONPATH=src python3 examples/agents/streaming/single_step_code_tool_calling_agent_stream.py
    PYTHONPATH=src python3 examples/agents/streaming/multi_step_direct_llm_agent_stream.py

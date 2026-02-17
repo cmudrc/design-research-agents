@@ -18,11 +18,9 @@ The supported top-level API is the curated export list from
     - ``CallableTool``
     - ``ScriptTool``
     - ``McpServer``
-- Agents
+- Agents (core implementations)
     - ``SingleStepDirectLLMAgent``
     - ``SingleStepToolRouterAgent``
-    - ``ToolRouterAgent``
-    - ``SingleStepRouterAgent``
     - ``SingleStepJsonToolCallingAgent``
     - ``SingleStepCodeToolCallingAgent``
     - ``MultiStepDirectLLMAgent``
@@ -108,14 +106,6 @@ Agents
    :undoc-members:
 
 .. autoclass:: design_research_agents.SingleStepToolRouterAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.ToolRouterAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.SingleStepRouterAgent
    :members:
    :undoc-members:
 

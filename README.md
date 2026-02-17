@@ -12,7 +12,7 @@ workflow orchestration, and pluggable LLM backends.
 
 This project focuses on composable agent systems you can run, inspect, and test:
 
-- Agent implementations (top-level exports): `SingleStepDirectLLMAgent`, `SingleStepToolRouterAgent` (with `SingleStepRouterAgent` alias), `SingleStepJsonToolCallingAgent`, `SingleStepCodeToolCallingAgent`, `MultiStepDirectLLMAgent`, `MultiStepToolRouterAgent`, `MultiStepJsonToolCallingAgent`, `MultiStepCodeToolCallingAgent`
+- Agent implementations (top-level exports): `SingleStepDirectLLMAgent`, `SingleStepToolRouterAgent`, `SingleStepJsonToolCallingAgent`, `SingleStepCodeToolCallingAgent`, `MultiStepDirectLLMAgent`, `MultiStepToolRouterAgent`, `MultiStepJsonToolCallingAgent`, `MultiStepCodeToolCallingAgent`
 - Reusable workflow surfaces: `Workflow`, `DebatePattern`, `PlannerExecutorPattern`, `ReflexionPattern`, and `RouterPattern`
 - Workflow orchestration runtime is available via `design_research_agents.workflow` for advanced usage
 - Provider-specific LLM clients with constructor-first defaults

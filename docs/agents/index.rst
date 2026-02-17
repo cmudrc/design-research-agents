@@ -13,7 +13,7 @@ Overview
 --------
 
 - ``SingleStepDirectLLMAgent``
-- ``SingleStepToolRouterAgent`` (``SingleStepRouterAgent`` alias)
+- ``SingleStepToolRouterAgent``
 - ``SingleStepJsonToolCallingAgent``
 - ``SingleStepCodeToolCallingAgent``
 - ``MultiStepDirectLLMAgent``

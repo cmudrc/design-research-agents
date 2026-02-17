@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Final
 _EXPORTS: Final[dict[str, str]] = {
     "SingleStepDirectLLMAgent": "design_research_agents.agent:SingleStepDirectLLMAgent",
     "SingleStepToolRouterAgent": "design_research_agents.agent:SingleStepToolRouterAgent",
-    "ToolRouterAgent": "design_research_agents.agent:ToolRouterAgent",
-    "SingleStepRouterAgent": "design_research_agents.agent:SingleStepRouterAgent",
     "SingleStepJsonToolCallingAgent": "design_research_agents.agent:SingleStepJsonToolCallingAgent",
     "SingleStepCodeToolCallingAgent": "design_research_agents.agent:SingleStepCodeToolCallingAgent",
     "MultiStepDirectLLMAgent": "design_research_agents.agent:MultiStepDirectLLMAgent",
@@ -87,9 +85,7 @@ if TYPE_CHECKING:
     from .agent import SingleStepCodeToolCallingAgent as SingleStepCodeToolCallingAgent
     from .agent import SingleStepDirectLLMAgent as SingleStepDirectLLMAgent
     from .agent import SingleStepJsonToolCallingAgent as SingleStepJsonToolCallingAgent
-    from .agent import SingleStepRouterAgent as SingleStepRouterAgent
     from .agent import SingleStepToolRouterAgent as SingleStepToolRouterAgent
-    from .agent import ToolRouterAgent as ToolRouterAgent
     from .contracts import AgentStep as AgentStep
     from .contracts import LogicStep as LogicStep
     from .contracts import LoopStep as LoopStep

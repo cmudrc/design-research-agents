@@ -13,8 +13,6 @@ EXPECTED_PUBLIC_API = [
     "__version__",
     "SingleStepDirectLLMAgent",
     "SingleStepToolRouterAgent",
-    "ToolRouterAgent",
-    "SingleStepRouterAgent",
     "SingleStepJsonToolCallingAgent",
     "SingleStepCodeToolCallingAgent",
     "MultiStepDirectLLMAgent",

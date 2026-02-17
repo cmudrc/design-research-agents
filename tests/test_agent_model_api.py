@@ -14,7 +14,6 @@ from design_research_agents.agent import (
     SingleStepCodeToolCallingAgent,
     SingleStepDirectLLMAgent,
     SingleStepJsonToolCallingAgent,
-    SingleStepRouterAgent,
     SingleStepToolRouterAgent,
 )
 from design_research_agents.contracts.llm import LLMChatParams, LLMDelta, LLMMessage, LLMRequest
@@ -59,7 +58,6 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
         SingleStepDirectLLMAgent,
         SingleStepToolRouterAgent,
-        SingleStepRouterAgent,
         SingleStepJsonToolCallingAgent,
         SingleStepCodeToolCallingAgent,
         MultiStepDirectLLMAgent,

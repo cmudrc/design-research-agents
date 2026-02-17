@@ -352,15 +352,6 @@ class SingleStepToolRouterAgent(Agent):
         yield AgentStreamEvent(kind="completed", result=result)
 
 
-class SingleStepRouterAgent(SingleStepToolRouterAgent):
-    """Backward-compatible alias for ``SingleStepToolRouterAgent``."""
-
-
-ToolRouterAgent = SingleStepToolRouterAgent
-
-
 __all__ = [
-    "SingleStepRouterAgent",
     "SingleStepToolRouterAgent",
-    "ToolRouterAgent",
 ]

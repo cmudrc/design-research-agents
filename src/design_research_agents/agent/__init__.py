@@ -16,11 +16,7 @@ from .implementations.multi_step_tool_router_agent import MultiStepToolRouterAge
 from .implementations.single_step_code_tool_calling_agent import SingleStepCodeToolCallingAgent
 from .implementations.single_step_direct_llm_agent import SingleStepDirectLLMAgent
 from .implementations.single_step_json_tool_calling_agent import SingleStepJsonToolCallingAgent
-from .implementations.single_step_router_agent import (
-    SingleStepRouterAgent,
-    SingleStepToolRouterAgent,
-    ToolRouterAgent,
-)
+from .implementations.single_step_router_agent import SingleStepToolRouterAgent
 from .runtime import AgentRuntime
 from .runtime_controls import RuntimeControls
 
@@ -34,7 +30,5 @@ __all__ = [
     "SingleStepCodeToolCallingAgent",
     "SingleStepDirectLLMAgent",
     "SingleStepJsonToolCallingAgent",
-    "SingleStepRouterAgent",
     "SingleStepToolRouterAgent",
-    "ToolRouterAgent",
 ]

@@ -28,9 +28,6 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     "examples/agents/basic/single_step_tool_router_agent.py": (
         '{"tool_names":["text.word_count"],"reason":"Analyze text content."}',
     ),
-    "examples/agents/basic/single_step_router_agent.py": (
-        '{"tool_names":["text.word_count"],"reason":"Analyze text content."}',
-    ),
     "examples/agents/basic/single_step_json_tool_calling_agent.py": (
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
@@ -166,9 +163,6 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     ),
     "examples/agents/streaming/single_step_direct_llm_agent_stream.py": ("The answer is 4.",),
     "examples/agents/streaming/single_step_tool_router_agent_stream.py": (
-        '{"tool_names":["calculator"],"reason":"Arithmetic request."}',
-    ),
-    "examples/agents/streaming/single_step_router_agent_stream.py": (
         '{"tool_names":["calculator"],"reason":"Arithmetic request."}',
     ),
     "examples/agents/streaming/single_step_json_tool_calling_agent_stream.py": (
