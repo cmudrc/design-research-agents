@@ -1,4 +1,4 @@
-"""Runnable streaming example showing one ``SingleStepToolRouterAgent`` execution flow."""
+"""Runnable streaming example showing one ``SingleStepToolRouterAgent`` flow."""
 
 import dataclasses
 import json
@@ -9,11 +9,6 @@ from design_research_agents.contracts.agent import AgentStreamEvent
 
 
 def _print_stream_event(event: AgentStreamEvent) -> None:
-    """Run print stream event.
-
-    Args:
-        event: Parameter value.
-    """
     if event.kind == "delta":
         print(f"delta: {event.delta_text or ''}")
         return
@@ -25,7 +20,7 @@ def _print_stream_event(event: AgentStreamEvent) -> None:
 
 
 def main() -> None:
-    """Execute one router-agent streaming run and print events."""
+    """Execute one streaming tool-router run and print events."""
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     agent = SingleStepToolRouterAgent(
@@ -35,7 +30,7 @@ def main() -> None:
 
     for event in agent.run_stream(
         prompt="Calculate this expression and return only the numeric result: 12 * (4 + 1)",
-        request_id="example-router-agent-stream-001",
+        request_id="example-tool-router-agent-stream-001",
     ):
         _print_stream_event(event)
 

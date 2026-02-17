@@ -14,14 +14,15 @@ Patterns
 - Constructor kwargs now use ``system_prompt`` (replacing the old
   ``default_system_prompt`` name).
 
-``SingleStepRouterAgent``
-^^^^^^^^^^^^^^^^^^^^^^^^^
+``SingleStepToolRouterAgent``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Model selects exactly one route from runtime tool routes.
 - Strong fit for strict one-shot route selection.
 - Supports constructor-time overrides for ``system_prompt``,
   ``user_prompt_template``, ``alternatives_prompt_target``, and
   ``allowed_routes``.
+- ``SingleStepRouterAgent`` remains available as a backward-compatible alias.
 
 ``SingleStepJsonToolCallingAgent``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -45,11 +46,13 @@ Examples
 --------
 
 - ``examples/agents/basic/single_step_direct_llm_agent.py``
+- ``examples/agents/basic/single_step_tool_router_agent.py``
 - ``examples/agents/basic/single_step_router_agent.py``
 - ``examples/agents/basic/single_step_json_tool_calling_agent.py``
 - ``examples/agents/basic/single_step_json_callable_tool_agent.py``
 - ``examples/agents/basic/single_step_code_tool_calling_agent.py``
 - ``examples/agents/streaming/single_step_direct_llm_agent_stream.py``
+- ``examples/agents/streaming/single_step_tool_router_agent_stream.py``
 - ``examples/agents/streaming/single_step_router_agent_stream.py``
 - ``examples/agents/streaming/single_step_json_tool_calling_agent_stream.py``
 - ``examples/agents/streaming/single_step_code_tool_calling_agent_stream.py``

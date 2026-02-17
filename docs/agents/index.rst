@@ -1,7 +1,7 @@
 Agents
 ======
 
-The framework provides six core concrete agent implementations. Choose by
+The framework provides eight core concrete agent implementations. Choose by
 execution pattern first, then by control requirements.
 
 ``AgentRuntime`` remains available as a react-mode facade over
@@ -13,9 +13,11 @@ Overview
 --------
 
 - ``SingleStepDirectLLMAgent``
-- ``SingleStepRouterAgent``
+- ``SingleStepToolRouterAgent`` (``SingleStepRouterAgent`` alias)
 - ``SingleStepJsonToolCallingAgent``
 - ``SingleStepCodeToolCallingAgent``
+- ``MultiStepDirectLLMAgent``
+- ``MultiStepToolRouterAgent``
 - ``MultiStepJsonToolCallingAgent``
 - ``MultiStepCodeToolCallingAgent``
 
@@ -32,7 +34,7 @@ Decision table
      - ``SingleStepDirectLLMAgent``
      - Lowest orchestration overhead
    * - One-shot model-driven tool route selection
-     - ``SingleStepRouterAgent``
+     - ``SingleStepToolRouterAgent``
      - Strict route schema with one route execution
    * - One-shot structured tool call
      - ``SingleStepJsonToolCallingAgent``
@@ -40,6 +42,12 @@ Decision table
    * - One-shot multi-call tool choreography
      - ``SingleStepCodeToolCallingAgent``
      - Generated code can call multiple tools in one step
+   * - Iterative direct (no external tools)
+     - ``MultiStepDirectLLMAgent``
+     - Internal CONTINUE/STOP controller steps
+   * - Iterative tool routing loop
+     - ``MultiStepToolRouterAgent``
+     - ReAct-style TOOL_CALL/STOP controller loop
    * - Iterative structured tool loops
      - ``MultiStepJsonToolCallingAgent``
      - ReAct-style multi-step loop with JSON actions

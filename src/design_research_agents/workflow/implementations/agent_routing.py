@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 
 from design_research_agents.agent.implementations.single_step_router_agent import (
-    SingleStepRouterAgent,
+    SingleStepToolRouterAgent,
 )
 from design_research_agents.agent.internal.agent_routing_runtime_adapter import (
     AgentRoutingToolRuntimeAdapter,
@@ -215,7 +215,7 @@ class RouterPattern(Agent):
             alternatives=self._alternatives,
             descriptions=self._alternative_descriptions,
         )
-        router_agent = SingleStepRouterAgent(
+        router_agent = SingleStepToolRouterAgent(
             llm_client=self._llm_client,
             tool_runtime=routing_tool_runtime,
             system_prompt=self._router_system_prompt,
@@ -251,7 +251,7 @@ class RouterPattern(Agent):
                     "routing": router_result.metadata.get("routing", {}),
                 }
 
-            selected_name = str(router_result.output.get("tool_name", "")).strip()
+            selected_name = _extract_selected_name_from_router_output(router_result.output)
             return {
                 "status": "selected",
                 "selected_name": selected_name,
@@ -463,6 +463,18 @@ class RouterPattern(Agent):
                 }
             },
         )
+
+
+def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> str:
+    raw_tool_names = output.get("tool_names")
+    if isinstance(raw_tool_names, Sequence):
+        for raw_name in raw_tool_names:
+            if not isinstance(raw_name, str):
+                continue
+            normalized_name = raw_name.strip()
+            if normalized_name:
+                return normalized_name
+    return str(output.get("tool_name", "")).strip()
 
 
 __all__ = [

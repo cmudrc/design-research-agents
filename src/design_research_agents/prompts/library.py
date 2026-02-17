@@ -23,6 +23,10 @@ _PROMPT_FILES: Final[dict[str, str]] = {
     "multi_step_continue_user": "multi_step_continue_user.md",
     "multi_step_step_user": "multi_step_step_user.md",
     "multi_step_json_step_user": "multi_step_json_step_user.md",
+    "multi_step_direct_controller_system": "multi_step_direct_controller_system.md",
+    "multi_step_direct_controller_user": "multi_step_direct_controller_user.md",
+    "multi_step_tool_router_system": "multi_step_tool_router_system.md",
+    "multi_step_tool_router_user": "multi_step_tool_router_user.md",
 }
 
 PROMPT_NAMES: Final[tuple[str, ...]] = tuple(sorted(_PROMPT_FILES))

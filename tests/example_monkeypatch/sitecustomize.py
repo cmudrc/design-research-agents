@@ -25,8 +25,11 @@ if _DETERMINISTIC_MODE:
 
 _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     "examples/agents/basic/single_step_direct_llm_agent.py": ("4",),
+    "examples/agents/basic/single_step_tool_router_agent.py": (
+        '{"tool_names":["text.word_count"],"reason":"Analyze text content."}',
+    ),
     "examples/agents/basic/single_step_router_agent.py": (
-        '{"selection":"text.word_count","reason":"Analyze text content."}',
+        '{"tool_names":["text.word_count"],"reason":"Analyze text content."}',
     ),
     "examples/agents/basic/single_step_json_tool_calling_agent.py": (
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
@@ -92,6 +95,20 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         '{"continue": false, "thought": "Task complete."}',
     ),
+    "examples/agents/basic/multi_step_tool_router_agent.py": (
+        (
+            '{"action":"TOOL_CALL","tool_names":["calculator"],'
+            '"tool_input":{"expression":"12 * (4 + 1)"},"reason":"Compute result."}'
+        ),
+        '{"action":"STOP","final_output":{"result":60.0},"reason":"Task complete."}',
+    ),
+    "examples/agents/basic/multi_step_direct_llm_agent.py": (
+        (
+            '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.",'
+            '"reason":"Need final wording."}'
+        ),
+        '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
+    ),
     "examples/workflow/plan_execute.py": (
         (
             '{"steps":[{"step_id":"analyze_repo_tools","instruction":"Write a small CSV artifact '
@@ -130,10 +147,10 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
     "examples/workflow/agent_routing.py": (
-        '{"selection":"json_tool_agent","reason":"Arithmetic request uses tools."}',
+        '{"tool_names":["json_tool_agent"],"reason":"Arithmetic request uses tools."}',
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
-    "debate_pattern.py": (
+    "examples/workflow/debate_pattern.py": (
         "Local models improve data control and predictable costs for many research workloads.",
         "Hosted APIs can ship faster and often provide higher quality with less ops burden.",
         (
@@ -148,8 +165,11 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
     ),
     "examples/agents/streaming/single_step_direct_llm_agent_stream.py": ("The answer is 4.",),
+    "examples/agents/streaming/single_step_tool_router_agent_stream.py": (
+        '{"tool_names":["calculator"],"reason":"Arithmetic request."}',
+    ),
     "examples/agents/streaming/single_step_router_agent_stream.py": (
-        '{"selection":"calculator","reason":"Arithmetic request."}',
+        '{"tool_names":["calculator"],"reason":"Arithmetic request."}',
     ),
     "examples/agents/streaming/single_step_json_tool_calling_agent_stream.py": (
         (
@@ -186,6 +206,20 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             '{"tool_name":"text.word_count","tool_input":{"text":"README measured"},'
             '"reason":"Compute compact metric."}'
         ),
+    ),
+    "examples/agents/streaming/multi_step_tool_router_agent_stream.py": (
+        (
+            '{"action":"TOOL_CALL","tool_names":["calculator"],'
+            '"tool_input":{"expression":"12 * (4 + 1)"},"reason":"Compute result."}'
+        ),
+        '{"action":"STOP","final_output":{"result":60.0},"reason":"done"}',
+    ),
+    "examples/agents/streaming/multi_step_direct_llm_agent_stream.py": (
+        (
+            '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.",'
+            '"reason":"Need final wording."}'
+        ),
+        '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
     ),
 }
 
@@ -265,7 +299,87 @@ if _DETERMINISTIC_MODE:
             )
         return _DeterministicExampleClient(response_texts=responses)
 
+    class _DeterministicCapabilities:
+        def __init__(self) -> None:
+            self.streaming = False
+            self.tool_calling = "best_effort"
+            self.json_mode = "prompt+validate"
+            self.vision = False
+            self.max_context_tokens = None
+
+    class _DeterministicBackend:
+        def __init__(
+            self,
+            *,
+            name: str,
+            kind: str,
+            max_retries: int,
+            model_patterns: Sequence[str],
+            extra_fields: dict[str, object],
+        ) -> None:
+            self.name = name
+            self.kind = kind
+            self.max_retries = max_retries
+            self.model_patterns = tuple(model_patterns)
+            for field_name, field_value in extra_fields.items():
+                setattr(self, field_name, field_value)
+
+        def capabilities(self) -> _DeterministicCapabilities:
+            return _DeterministicCapabilities()
+
+    class _DeterministicConfiguredClient:
+        def __init__(
+            self,
+            *,
+            name: str,
+            default_model: str,
+            kind: str,
+            max_retries: int,
+            model_patterns: Sequence[str],
+            extra_backend_fields: dict[str, object],
+        ) -> None:
+            self._default_model = default_model
+            self._backend = _DeterministicBackend(
+                name=name,
+                kind=kind,
+                max_retries=max_retries,
+                model_patterns=model_patterns,
+                extra_fields=extra_backend_fields,
+            )
+
+        def default_model(self) -> str:
+            return self._default_model
+
+        def close(self) -> None:
+            return None
+
+    def _patched_MlxLocalLLMClient(**kwargs: object) -> _DeterministicConfiguredClient:
+        default_model = kwargs.get("default_model", kwargs.get("model_id", "example-model"))
+        if not isinstance(default_model, str):
+            default_model = "example-model"
+        name = str(kwargs.get("name", "mlx-local"))
+        raw_model_patterns = kwargs.get("model_patterns", ())
+        model_patterns = (
+            tuple(raw_model_patterns)
+            if isinstance(raw_model_patterns, Sequence) and not isinstance(raw_model_patterns, str)
+            else ()
+        )
+        max_retries_raw = kwargs.get("max_retries", 2)
+        max_retries = int(max_retries_raw) if isinstance(max_retries_raw, int) else 2
+        return _DeterministicConfiguredClient(
+            name=name,
+            default_model=default_model,
+            kind="mlx_local",
+            max_retries=max_retries,
+            model_patterns=model_patterns,
+            extra_backend_fields={
+                "_model_id": kwargs.get("model_id", default_model),
+                "_quantization": kwargs.get("quantization", "4bit"),
+            },
+        )
+
     llm_module.LlamaCppServerLLMClient = _patched_LlamaCppServerLLMClient
+    llm_module.MlxLocalLLMClient = _patched_MlxLocalLLMClient
 
     # Patch top-level exported accessor for tests that import it directly.
     try:
@@ -274,3 +388,4 @@ if _DETERMINISTIC_MODE:
         package_api = None
     if package_api is not None:
         package_api.LlamaCppServerLLMClient = _patched_LlamaCppServerLLMClient
+        package_api.MlxLocalLLMClient = _patched_MlxLocalLLMClient

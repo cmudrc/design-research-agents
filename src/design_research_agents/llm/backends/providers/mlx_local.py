@@ -146,7 +146,10 @@ class MlxLocalBackend(BaseLLMBackend):
                 "The 'mlx-lm' package is required for mlx_local backends. "
                 "Install with: pip install mlx-lm"
             ) from exc
-        model, tokenizer = load(self._model_id)
+        loaded = load(self._model_id)
+        if not isinstance(loaded, tuple) or len(loaded) < 2:
+            raise RuntimeError("mlx_lm.load() returned an unexpected result.")
+        model, tokenizer = loaded[0], loaded[1]
         self._model = model
         self._tokenizer = tokenizer
         return model, tokenizer

@@ -6,8 +6,7 @@ Available reusable workflow patterns:
 - ``PlannerExecutorPattern``: planner + executor decomposition for complex tasks.
 - ``ReflexionPattern``: iterative proposal/revision loops.
 - ``RouterPattern``: intent-based delegation to selected agents.
-- ``Workflow``: reusable user-defined graph with ``input_mode='schema'`` or
-  ``input_mode='prompt'``.
+- ``Workflow``: reusable user-defined graph with ``input_mode='schema'`` or ``input_mode='prompt'``.
 
 These workflow patterns are reference implementations built on first-class
 workflow primitives: ``LogicStep``, ``ToolStep``, ``AgentStep``, and

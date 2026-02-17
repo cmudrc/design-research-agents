@@ -30,9 +30,9 @@ def build_router_selection_response_schema(
 ) -> dict[str, object]:
     """Build schema for router route-selection output.
 
-    The schema allows either:
-    - an integer selection index within runtime route bounds, or
-    - a string selection identifier matching one runtime route tool name.
+    The schema accepts either:
+    - ``tool_names`` as a non-empty ordered list of route identifiers, or
+    - legacy ``selection`` as one discrete index/identifier.
 
     Args:
         alternative_identifiers: Ordered route identifiers available to the router.
@@ -44,8 +44,19 @@ def build_router_selection_response_schema(
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": ["selection"],
+        "anyOf": [
+            {"required": ["tool_names"]},
+            {"required": ["selection"]},
+        ],
         "properties": {
+            "tool_names": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "string",
+                    "enum": list(alternative_identifiers),
+                },
+            },
             "selection": {
                 "anyOf": [
                     {
@@ -101,5 +112,43 @@ def build_continuation_response_schema() -> dict[str, object]:
         "properties": {
             "continue": {"type": "boolean"},
             "thought": {"type": "string"},
+        },
+    }
+
+
+def build_multi_step_direct_controller_response_schema() -> dict[str, object]:
+    """Build schema for direct-LLM multi-step controller decisions."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["decision", "content"],
+        "properties": {
+            "decision": {"type": "string", "enum": ["CONTINUE", "STOP"]},
+            "content": {"type": "string"},
+            "final_output": {"type": "string"},
+            "reason": {"type": "string"},
+        },
+    }
+
+
+def build_multi_step_tool_router_response_schema(
+    *,
+    tool_names: Sequence[str],
+) -> dict[str, object]:
+    """Build schema for one multi-step tool-router decision."""
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action"],
+        "properties": {
+            "action": {"type": "string", "enum": ["TOOL_CALL", "STOP"]},
+            "tool_names": {
+                "type": "array",
+                "items": {"type": "string", "enum": list(tool_names)},
+                "minItems": 1,
+            },
+            "tool_input": {"type": "object"},
+            "final_output": {"type": "object"},
+            "reason": {"type": "string"},
         },
     }

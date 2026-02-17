@@ -7,7 +7,7 @@ import pytest
 from design_research_agents.agent import (
     SingleStepCodeToolCallingAgent,
     SingleStepJsonToolCallingAgent,
-    SingleStepRouterAgent,
+    SingleStepToolRouterAgent,
 )
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -92,7 +92,7 @@ def test_single_step_json_tool_agent_rejects_unmatched_allowed_tools() -> None:
 
 def test_single_step_router_agent_rejects_unmatched_allowed_routes() -> None:
     with pytest.raises(ValueError, match="allowed_routes"):
-        SingleStepRouterAgent(
+        SingleStepToolRouterAgent(
             llm_client=_SequenceLLMClient(response_texts=['{"selection":0,"reason":"x"}']),
             tool_runtime=Toolbox(),
             allowed_routes=["unknown_route"],

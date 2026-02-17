@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Mapping
 from string import Template
 from uuid import uuid4
@@ -60,8 +61,7 @@ _DEFAULT_NEGATIVE_USER_PROMPT_TEMPLATE = "\n".join(
     ]
 )
 _DEFAULT_JUDGE_SYSTEM_PROMPT = (
-    "You are a strict debate judge. "
-    "Return JSON only with winner, rationale, and synthesis."
+    "You are a strict debate judge. Return JSON only with winner, rationale, and synthesis."
 )
 _DEFAULT_JUDGE_USER_PROMPT_TEMPLATE = "\n".join(
     [
@@ -145,6 +145,8 @@ class DebatePattern(Agent):
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
         )
+        if resolved_request_id is None:
+            resolved_request_id = f"debate:{uuid4().hex}"
         resolved_dependencies = _merge_dependencies(
             default_dependencies=self._default_dependencies,
             run_dependencies=dependencies,
@@ -219,7 +221,7 @@ class DebatePattern(Agent):
                     template_text=self._judge_user_prompt_template,
                     variables={
                         "task_prompt": prompt,
-                        "debate_rounds_json": str(rounds),
+                        "debate_rounds_json": json.dumps(rounds, ensure_ascii=True, sort_keys=True),
                     },
                     field_name="debate_judge_user_prompt_template",
                 ),
