@@ -152,7 +152,7 @@ distclean: clean
 ci: qa-full
 
 # Check set used by local pre-commit hook.
-pre-commit: lint fmt-check type structure-check docstrings-check unit
+pre-commit: lint fmt-check type structure-check docstrings-check unit docs-build
 
 # Compatibility aliases.
 format: fmt

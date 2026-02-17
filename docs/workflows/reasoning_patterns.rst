@@ -10,8 +10,7 @@ Available patterns
 - ``ReflexionPattern``
   - Iterative propose/critique refinement.
 - ``TreeSearchPattern``
-  - Generator + evaluator delegate orchestration with
-    ``max_depth``, ``branch_factor``, and ``beam_width`` controls.
+  - Generator + evaluator delegate orchestration with ``max_depth``, ``branch_factor``, and ``beam_width`` controls.
 - ``RagReasoningPattern``
   - Retrieval-augmented reasoning with memory read/write workflow primitives.
 
