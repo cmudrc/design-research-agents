@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="116" 
-    height="20" role="img" aria-label="Test Coverage: 82%">
+    height="20" role="img" aria-label="Test Coverage: 84%">
   <linearGradient id="g" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
     <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
@@ -18,7 +18,7 @@
   font-size="11">
     <text x="44.0" y="15" fill="#010101" fill-opacity=".3">Test Coverage</text>
     <text x="44.0" y="14">Test Coverage</text>
-    <text x="102.0" y="15" fill="#010101" fill-opacity=".3">82%</text>
-    <text x="102.0" y="14">82%</text>
+    <text x="102.0" y="15" fill="#010101" fill-opacity=".3">84%</text>
+    <text x="102.0" y="14">84%</text>
   </g>
 </svg>
