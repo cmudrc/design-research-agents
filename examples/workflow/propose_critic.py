@@ -1,4 +1,4 @@
-"""Runnable example for the reusable ``propose_critic`` orchestration chunk."""
+"""Runnable example for ``ReflexionPattern`` workflow orchestration."""
 
 from design_research_agents import (
     LlamaCppServerLLMClient,
@@ -8,7 +8,7 @@ from design_research_agents import (
 
 
 def main() -> None:
-    """Run ``propose_critic`` orchestration with configurable dependencies."""
+    """Run propose/critique refinement orchestration with configurable dependencies."""
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     workflow = ReflexionPattern(

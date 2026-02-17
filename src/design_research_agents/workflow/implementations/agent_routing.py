@@ -53,7 +53,23 @@ class RouterPattern(Agent):
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and initialize workflow-native routing settings."""
+        """Store dependencies and initialize workflow-native routing settings.
+
+        Args:
+            llm_client: LLM client used by the router agent.
+            tool_runtime: Tool runtime used to cost/metadata-account delegated calls.
+            alternatives: Mapping of route keys to delegate agents.
+            alternative_descriptions: Optional descriptions used to guide routing.
+            controls: Runtime controls (budgets, streaming, limits).
+            agent_routing_router_system_prompt: Optional override for router system prompt.
+            agent_routing_router_user_prompt_template: Optional override for router user prompt.
+            default_request_id_prefix: Optional prefix used to derive request ids.
+            default_dependencies: Dependency defaults merged into each run.
+            tracer: Optional tracer used for run-level instrumentation.
+
+        Raises:
+            ValueError: If no valid route alternatives are supplied.
+        """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._controls = controls or RuntimeControls()
@@ -100,7 +116,19 @@ class RouterPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one intent-routing orchestration run."""
+        """Execute one intent-routing orchestration run.
+
+        Args:
+            prompt: User prompt to route to the best delegate.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency overrides for this run.
+
+        Returns:
+            Final routed agent result with routing metadata.
+
+        Raises:
+            Exception: Propagates runtime failures from routing/delegate execution.
+        """
         configured_request_id = resolve_request_id_with_prefix(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
@@ -142,7 +170,16 @@ class RouterPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Execute one run and emit wrapper-style stream events."""
+        """Execute one run and emit wrapper-style stream events.
+
+        Args:
+            prompt: User prompt to route to the best delegate.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency overrides for this run.
+
+        Yields:
+            Delta and completed events derived from ``run`` output.
+        """
         runtime_result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         if self._controls.streaming_enabled:
             delta_text = (
@@ -160,6 +197,19 @@ class RouterPattern(Agent):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> AgentResult:
+        """Run router-selection workflow and delegated agent execution.
+
+        Args:
+            prompt: User prompt to route.
+            request_id: Resolved request id for this orchestration run.
+            dependencies: Normalized dependency mapping for delegates.
+
+        Returns:
+            Pattern result containing routing decision and delegate output.
+
+        Raises:
+            RuntimeError: If internal workflow invariants are violated.
+        """
         budget_tracker = WorkflowBudgetTracker()
         routing_tool_runtime = AgentRoutingToolRuntimeAdapter(
             alternatives=self._alternatives,
@@ -179,6 +229,14 @@ class RouterPattern(Agent):
         delegated_result: AgentResult | None = None
 
         def _run_selection(context: Mapping[str, object]) -> Mapping[str, object]:
+            """Execute router-model selection step.
+
+            Args:
+                context: Step execution context (unused by selection logic).
+
+            Returns:
+                Selection status payload consumed by downstream delegate step.
+            """
             del context
             nonlocal router_result
             router_result = router_agent.run(
@@ -201,6 +259,14 @@ class RouterPattern(Agent):
             }
 
         def _run_delegate(context: Mapping[str, object]) -> Mapping[str, object]:
+            """Execute selected delegate agent based on selection-step output.
+
+            Args:
+                context: Step execution context containing dependency step outputs.
+
+            Returns:
+                Delegate status payload and selected route metadata.
+            """
             nonlocal delegated_result
             dependency_results = context.get("dependency_results")
             if not isinstance(dependency_results, Mapping):

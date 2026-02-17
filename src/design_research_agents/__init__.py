@@ -37,11 +37,24 @@ __all__ = ["__version__", *_EXPORTS.keys()]
 
 try:
     __version__ = version("design-research-agents")
+    """The current version of the design-research-agents package."""
 except PackageNotFoundError:
     __version__ = "unknown"
+    """The current version of the design-research-agents package."""
 
 
 def __getattr__(name: str) -> object:
+    """Lazily resolve and cache one public export.
+
+    Args:
+        name: Public symbol name requested from the package module.
+
+    Returns:
+        Resolved export object.
+
+    Raises:
+        AttributeError: If ``name`` is not part of the public export map.
+    """
     export_ref = _EXPORTS.get(name)
     if export_ref is None:
         raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
@@ -53,6 +66,11 @@ def __getattr__(name: str) -> object:
 
 
 def __dir__() -> list[str]:
+    """Return package attribute names including deferred exports.
+
+    Returns:
+        Sorted attribute list for interactive discovery.
+    """
     return sorted(set(globals()) | set(__all__))
 
 

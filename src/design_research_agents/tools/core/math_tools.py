@@ -18,7 +18,11 @@ from ._helpers import get_str
 
 
 def register_math_tools(source: InProcessToolSource) -> None:
-    """Register calculator/math tools on an in-process source."""
+    """Register calculator/math tools on an in-process source.
+
+    Args:
+        source: Parameter value.
+    """
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=False, filesystem_write=False),
@@ -64,6 +68,19 @@ def _calculator_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
+    """Run calculator handler.
+
+    Args:
+        input_dict: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     del request_id, dependencies
     expression = get_str(input_dict, "expression").strip()
     if not expression:
@@ -73,12 +90,30 @@ def _calculator_handler(
 
 
 def _safe_eval_arithmetic(expression: str) -> float:
-    """Evaluate strict arithmetic expression with a safe AST walker."""
+    """Evaluate strict arithmetic expression with a safe AST walker.
+
+    Args:
+        expression: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     tree = ast.parse(expression, mode="eval")
     return float(_eval_node(tree.body))
 
 
 def _eval_node(node: ast.AST) -> int | float:
+    """Run eval node.
+
+    Args:
+        node: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     binary_operations: dict[
         type[ast.operator], Callable[[int | float, int | float], int | float]
     ] = {

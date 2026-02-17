@@ -27,6 +27,12 @@ class _StdioMcpClient:
     """Tiny stdio JSON-RPC client used for MCP tools/list and tools/call."""
 
     def __init__(self, *, server: McpServer, policy: ToolPolicy) -> None:
+        """Run init.
+
+        Args:
+            server: Parameter value.
+            policy: Parameter value.
+        """
         self._server = server
         self._policy = policy
         self._process: subprocess.Popen[str] | None = None
@@ -34,6 +40,14 @@ class _StdioMcpClient:
         self._initialized = False
 
     def list_tools(self) -> list[dict[str, object]]:
+        """Run list tools.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         list_tools_response = self._request("tools/list", {})
         response_result = list_tools_response.get("result")
         if not isinstance(response_result, Mapping):
@@ -48,6 +62,18 @@ class _StdioMcpClient:
         return parsed
 
     def call_tool(self, *, tool_name: str, arguments: Mapping[str, object]) -> dict[str, object]:
+        """Run call tool.
+
+        Args:
+            tool_name: Parameter value.
+            arguments: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         call_tool_response = self._request(
             "tools/call",
             {"name": tool_name, "arguments": dict(arguments)},
@@ -58,6 +84,18 @@ class _StdioMcpClient:
         return dict(response_result)
 
     def _request(self, method: str, params: Mapping[str, object]) -> dict[str, object]:
+        """Run request.
+
+        Args:
+            method: Parameter value.
+            params: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         self._ensure_started()
         self._ensure_initialized()
 
@@ -87,6 +125,7 @@ class _StdioMcpClient:
         return response_payload
 
     def _ensure_started(self) -> None:
+        """Run ensure started."""
         if self._process is not None:
             return
 
@@ -105,6 +144,11 @@ class _StdioMcpClient:
         )
 
     def _ensure_initialized(self) -> None:
+        """Run ensure initialized.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         if self._initialized:
             return
         process = self._process
@@ -142,6 +186,17 @@ class _StdioMcpClient:
         self._initialized = True
 
     def _read_response(self, *, expected_id: int) -> dict[str, object]:
+        """Run read response.
+
+        Args:
+            expected_id: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         process = self._process
         if process is None or process.stdout is None:
             raise McpProtocolError("MCP server stdout is unavailable.")
@@ -190,14 +245,20 @@ class _StdioMcpClient:
         self._initialized = False
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Run del."""
         self.close()
 
 
 @dataclass(slots=True, frozen=True)
 class _McpRoute:
+    """_McpRoute class."""
+
     server_id: str
+    """Field value for ``server_id``."""
     remote_tool_name: str
+    """Field value for ``remote_tool_name``."""
     spec: ToolSpec
+    """Field value for ``spec``."""
 
 
 class McpToolSource:
@@ -206,7 +267,12 @@ class McpToolSource:
     source_id = "mcp"
 
     def __init__(self, *, mcp_config: McpConfig, policy: ToolPolicy) -> None:
-        """Initialize MCP clients and route table for configured servers."""
+        """Initialize MCP clients and route table for configured servers.
+
+        Args:
+            mcp_config: Parameter value.
+            policy: Parameter value.
+        """
         self._config = mcp_config
         self._policy = policy
         self._clients: dict[str, _StdioMcpClient] = {
@@ -216,7 +282,11 @@ class McpToolSource:
         self._routes: dict[str, _McpRoute] = {}
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """List tools discovered across configured MCP servers."""
+        """List tools discovered across configured MCP servers.
+
+        Returns:
+            The resulting value.
+        """
         self._refresh_routes()
         return tuple(route.spec for _, route in sorted(self._routes.items()))
 
@@ -228,7 +298,17 @@ class McpToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one routed MCP tool and normalize response payload."""
+        """Invoke one routed MCP tool and normalize response payload.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         del request_id, dependencies
         self._refresh_routes()
         route = self._routes.get(tool_name)
@@ -300,6 +380,7 @@ class McpToolSource:
         )
 
     def _refresh_routes(self) -> None:
+        """Run refresh routes."""
         rebuilt: dict[str, _McpRoute] = {}
         for server in self._config.servers:
             client = self._clients[server.id]

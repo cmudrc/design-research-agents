@@ -30,10 +30,15 @@ class AgentResult:
     """
 
     output: dict[str, object]
+    """Agent-defined output payload, such as answer content or structured artifacts."""
     success: bool
+    """True when the run completed without terminal failure."""
     tool_results: list[ToolResult] = field(default_factory=list)
+    """Tool invocation results captured during execution, in call order."""
     model_response: LLMResponse | None = None
+    """Final model response associated with the run, when available."""
     metadata: dict[str, object] = field(default_factory=dict)
+    """Additional diagnostics, runtime counters, and trace metadata."""
 
     def asdict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation of the result.
@@ -71,8 +76,11 @@ class AgentStreamEvent:
     """
 
     kind: AgentStreamEventKind
+    """Event kind indicating delta, completion, or failure."""
     delta_text: str | None = None
+    """Incremental text fragment for ``kind='delta'`` events."""
     result: AgentResult | None = None
+    """Final result payload for terminal events."""
 
 
 class Agent(Protocol):

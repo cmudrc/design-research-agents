@@ -51,7 +51,13 @@ class WorkflowRuntime(WorkflowRunner):
         agents: Mapping[str, WorkflowDelegate] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Initialize workflow runtime dependencies for tool and delegate steps."""
+        """Initialize workflow runtime dependencies for tool and delegate steps.
+
+        Args:
+            tool_runtime: Optional tool runtime used for ``ToolStep`` execution.
+            agents: Optional mapping of delegate names to runnable agents/workflows.
+            tracer: Optional tracer used for workflow and step span emission.
+        """
         self._tool_runtime = tool_runtime
         self._tracer = tracer
         self._agents = {
@@ -70,7 +76,23 @@ class WorkflowRuntime(WorkflowRunner):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> WorkflowResult:
-        """Execute one workflow definition and return aggregated results."""
+        """Execute one workflow definition and return aggregated results.
+
+        Args:
+            steps: Workflow step definitions to execute.
+            context: Optional shared context mapping available to all step builders.
+            execution_mode: Scheduling mode (``sequential`` or ``dag``).
+            failure_policy: Upstream-failure handling strategy for dependents.
+            request_id: Optional external request id for trace correlation.
+            dependencies: Optional dependency payloads exposed to step executions.
+
+        Returns:
+            Aggregated workflow result containing per-step outputs and metadata.
+
+        Raises:
+            ValueError: If an unsupported execution mode is requested.
+            RuntimeError: If DAG execution leaves unresolved steps.
+        """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         base_context = dict(context or {})
@@ -147,6 +169,23 @@ class WorkflowRuntime(WorkflowRunner):
         failure_policy: WorkflowFailurePolicy,
         execution_mode: WorkflowExecutionMode,
     ) -> tuple[dict[str, WorkflowStepResult], list[str]]:
+        """Execute steps strictly in the user-provided order.
+
+        Args:
+            prepared: Precomputed workflow graph metadata.
+            original_steps: Original ordered step sequence from caller input.
+            base_context: Shared workflow context mapping.
+            resolved_request_id: Resolved request id used for nested calls.
+            resolved_dependencies: Resolved dependency payload mapping.
+            failure_policy: Upstream-failure handling strategy.
+            execution_mode: Scheduling mode used for downstream step execution.
+
+        Returns:
+            Tuple of ``(step_results, execution_order)``.
+
+        Raises:
+            ValueError: If a step is encountered before one of its dependencies.
+        """
         step_results: dict[str, WorkflowStepResult] = {}
         execution_order: list[str] = []
         deactivated_steps: set[str] = set()
@@ -193,6 +232,22 @@ class WorkflowRuntime(WorkflowRunner):
         failure_policy: WorkflowFailurePolicy,
         execution_mode: WorkflowExecutionMode,
     ) -> tuple[dict[str, WorkflowStepResult], list[str]]:
+        """Execute a DAG workflow using dependency-driven scheduling.
+
+        Args:
+            prepared: Precomputed workflow graph metadata.
+            base_context: Shared workflow context mapping.
+            resolved_request_id: Resolved request id used for nested calls.
+            resolved_dependencies: Resolved dependency payload mapping.
+            failure_policy: Upstream-failure handling strategy.
+            execution_mode: Scheduling mode used for downstream step execution.
+
+        Returns:
+            Tuple of ``(step_results, execution_order)``.
+
+        Raises:
+            RuntimeError: If execution terminates before all DAG nodes resolve.
+        """
         in_degree: dict[str, int] = {
             step_id: len(prepared.dependencies[step_id]) for step_id in prepared.step_map
         }
@@ -253,6 +308,20 @@ class WorkflowRuntime(WorkflowRunner):
         failure_policy: WorkflowFailurePolicy,
         dependencies: Mapping[str, object],
     ) -> WorkflowStepResult:
+        """Dispatch one normalized step to its concrete execution handler.
+
+        Args:
+            step: Normalized workflow step definition.
+            step_id: Canonical step id for trace/result bookkeeping.
+            step_context: Runtime step context built from dependencies and base context.
+            request_id: Workflow request id used for downstream calls.
+            execution_mode: Scheduling mode propagated to nested executions.
+            failure_policy: Upstream-failure policy propagated to nested executions.
+            dependencies: External dependency payload mapping available to delegates.
+
+        Returns:
+            Step execution result payload.
+        """
         step_span_id = start_step_span(step=step, step_id=step_id)
         with activate_step_span(step_span_id):
             if isinstance(step, LogicStep):
@@ -305,6 +374,18 @@ class WorkflowRuntime(WorkflowRunner):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> WorkflowStepResult:
+        """Execute a ``LoopStep`` by repeatedly running its nested body workflow.
+
+        Args:
+            step: Loop step definition with body, state hooks, and limits.
+            step_id: Canonical step id for trace/result bookkeeping.
+            step_context: Runtime step context from outer workflow.
+            request_id: Workflow request id prefix for nested loop iterations.
+            dependencies: External dependency payload mapping for nested runs.
+
+        Returns:
+            Loop step result including termination metadata and iteration summaries.
+        """
         if step.max_iterations < 1:
             return WorkflowStepResult(
                 step_id=step_id,
@@ -425,6 +506,24 @@ class WorkflowRuntime(WorkflowRunner):
         failure_policy: WorkflowFailurePolicy,
         dependencies: Mapping[str, object],
     ) -> WorkflowStepResult:
+        """Evaluate preconditions, build context, and execute one step.
+
+        Args:
+            step: Normalized workflow step definition.
+            step_id: Canonical step id for trace/result bookkeeping.
+            step_dependencies: Dependency step ids required before execution.
+            step_results: Results accumulated so far.
+            deactivated_steps: Steps deactivated by prior routing decisions.
+            prepared: Precomputed workflow graph metadata.
+            base_context: Shared workflow context mapping.
+            request_id: Workflow request id used for downstream calls.
+            execution_mode: Scheduling mode propagated to nested executions.
+            failure_policy: Upstream-failure handling strategy.
+            dependencies: External dependency payload mapping for delegates.
+
+        Returns:
+            Step result, including skipped/failed outcomes when preconditions fail.
+        """
         if step_id in deactivated_steps:
             return self._skip_step_result(step_id=step_id, reason="skipped_branch_not_selected")
 
@@ -474,6 +573,15 @@ class WorkflowRuntime(WorkflowRunner):
         return step_result
 
     def _skip_step_result(self, *, step_id: str, reason: str) -> WorkflowStepResult:
+        """Construct a standardized skipped-step result.
+
+        Args:
+            step_id: Canonical step id for the skipped step.
+            reason: Machine-readable skip reason.
+
+        Returns:
+            Skipped ``WorkflowStepResult`` payload.
+        """
         return WorkflowStepResult(
             step_id=step_id,
             status="skipped",

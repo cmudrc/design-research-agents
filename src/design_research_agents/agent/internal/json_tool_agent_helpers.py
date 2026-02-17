@@ -24,8 +24,11 @@ class ToolChoice:
     """Normalized tool option used by planning, validation, and fallback logic."""
 
     tool_name: str
+    """Field value for ``tool_name``."""
     description: str
+    """Field value for ``description``."""
     input_schema: dict[str, object]
+    """Field value for ``input_schema``."""
 
 
 def extract_tool_choices(
@@ -33,7 +36,18 @@ def extract_tool_choices(
     tool_specs: Mapping[str, ToolSpec],
     allowed_tool_names: Sequence[str] | None = None,
 ) -> list[ToolChoice]:
-    """Extract normalized tool choices from runtime specs."""
+    """Extract normalized tool choices from runtime specs.
+
+    Args:
+        tool_specs: Parameter value.
+        allowed_tool_names: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     allowed_name_set = set(allowed_tool_names or [])
     filtered_specs = [
         spec
@@ -56,7 +70,16 @@ def extract_tool_choices(
 
 
 def build_tool_call_prompt(*, prompt: str, choices_block: str, prompt_template: str) -> str:
-    """Build prompt asking model to select tool and structured arguments."""
+    """Build prompt asking model to select tool and structured arguments.
+
+    Args:
+        prompt: Parameter value.
+        choices_block: Parameter value.
+        prompt_template: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return render_template_text(
         template_text=prompt_template,
         variables={
@@ -72,7 +95,18 @@ def resolve_allowed_tool_names(
     runtime_specs: Mapping[str, ToolSpec],
     allowed_tools: Sequence[str] | None,
 ) -> tuple[str, ...] | None:
-    """Resolve tool allowlist against runtime specs."""
+    """Resolve tool allowlist against runtime specs.
+
+    Args:
+        runtime_specs: Parameter value.
+        allowed_tools: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if allowed_tools is None:
         return None
 
@@ -88,7 +122,14 @@ def resolve_allowed_tool_names(
 
 
 def build_tool_choices_text(*, choices: Sequence[ToolChoice]) -> str:
-    """Build formatted runtime tool choices text."""
+    """Build formatted runtime tool choices text.
+
+    Args:
+        choices: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     choice_lines: list[str] = []
     for choice in choices:
         choice_lines.append(
@@ -104,7 +145,14 @@ def build_tool_choices_text(*, choices: Sequence[ToolChoice]) -> str:
 
 
 def clone_tool_choice(choice: ToolChoice) -> ToolChoice:
-    """Clone one tool choice so run-local payloads remain isolated."""
+    """Clone one tool choice so run-local payloads remain isolated.
+
+    Args:
+        choice: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return ToolChoice(
         tool_name=choice.tool_name,
         description=choice.description,
@@ -117,19 +165,41 @@ def request_tool_call_response(
     llm_client: LLMClient,
     llm_request: LLMRequest,
 ) -> LLMResponse:
-    """Dispatch one tool-call planning request to the LLM client."""
+    """Dispatch one tool-call planning request to the LLM client.
+
+    Args:
+        llm_client: Parameter value.
+        llm_request: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return cast(Callable[[LLMRequest], LLMResponse], llm_client.generate)(llm_request)
 
 
 def tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, object]:
-    """Build the strict tool-call response schema for available tools."""
+    """Build the strict tool-call response schema for available tools.
+
+    Args:
+        available_tool_names: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return build_tool_call_response_schema(
         tool_names=available_tool_names,
     )
 
 
 def parse_tool_call_from_response(llm_response: LLMResponse) -> dict[str, object] | None:
-    """Extract first structured tool call payload from provider tool-call metadata."""
+    """Extract first structured tool call payload from provider tool-call metadata.
+
+    Args:
+        llm_response: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not llm_response.tool_calls:
         return None
     call = llm_response.tool_calls[0]
@@ -145,7 +215,14 @@ def parse_tool_call_from_response(llm_response: LLMResponse) -> dict[str, object
 
 
 def parse_tool_call(raw_text: str) -> dict[str, object] | None:
-    """Parse tool-call JSON payload from model text output."""
+    """Parse tool-call JSON payload from model text output.
+
+    Args:
+        raw_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return parse_json_mapping(raw_text)
 
 
@@ -155,7 +232,16 @@ def select_tool_choice(
     prompt: str,
     choices: Sequence[ToolChoice],
 ) -> tuple[ToolChoice, str, str]:
-    """Select validated tool choice from model output or fallback routing."""
+    """Select validated tool choice from model output or fallback routing.
+
+    Args:
+        parsed_tool_call: Parameter value.
+        prompt: Parameter value.
+        choices: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     allowed_names = {choice.tool_name for choice in choices}
     if parsed_tool_call is not None:
         raw_tool_name = parsed_tool_call.get("tool_name", parsed_tool_call.get("name"))
@@ -178,7 +264,17 @@ def resolve_tool_input(
     input_payload: Mapping[str, object],
     llm_response_text: str,
 ) -> dict[str, object]:
-    """Resolve final tool input from model payload, run input, or heuristics."""
+    """Resolve final tool input from model payload, run input, or heuristics.
+
+    Args:
+        selected_choice: Parameter value.
+        parsed_tool_call: Parameter value.
+        input_payload: Parameter value.
+        llm_response_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if parsed_tool_call is not None:
         raw_tool_input = parsed_tool_call.get(
             "tool_input",
@@ -205,7 +301,14 @@ def resolve_tool_input(
 
 
 def coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
-    """Convert raw tool-input payload into a JSON-like dictionary when possible."""
+    """Convert raw tool-input payload into a JSON-like dictionary when possible.
+
+    Args:
+        raw_tool_input: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if isinstance(raw_tool_input, Mapping):
         return dict(raw_tool_input)
     if isinstance(raw_tool_input, str):
@@ -220,7 +323,15 @@ def fallback_select_tool_choice(
     prompt: str,
     choices: Sequence[ToolChoice],
 ) -> tuple[ToolChoice, str]:
-    """Select fallback tool choice using deterministic lexical-signal scoring."""
+    """Select fallback tool choice using deterministic lexical-signal scoring.
+
+    Args:
+        prompt: Parameter value.
+        choices: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     prompt_text = prompt.lower()
     prompt_tokens = tokenize(prompt_text)
     prompt_looks_math = looks_like_arithmetic_request(prompt_text)
@@ -252,12 +363,26 @@ def fallback_select_tool_choice(
 
 
 def tokenize(text: str) -> set[str]:
-    """Tokenize text into normalized alphanumeric words for lexical matching."""
+    """Tokenize text into normalized alphanumeric words for lexical matching.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return {token for token in re.findall(r"[a-z0-9_]+", text) if token}
 
 
 def looks_like_arithmetic_request(text: str) -> bool:
-    """Return whether prompt text appears to request arithmetic computation."""
+    """Return whether prompt text appears to request arithmetic computation.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if re.search(r"\d+\s*[\+\-\*\/%]\s*\d+", text):
         return True
     math_keywords = {
@@ -277,7 +402,14 @@ def looks_like_arithmetic_request(text: str) -> bool:
 
 
 def looks_like_text_analysis_request(text: str) -> bool:
-    """Return whether prompt text appears to request text analysis."""
+    """Return whether prompt text appears to request text analysis.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     text_keywords = {
         "text",
         "word",
@@ -296,7 +428,14 @@ def looks_like_text_analysis_request(text: str) -> bool:
 
 
 def looks_like_arithmetic_tool(text: str) -> bool:
-    """Return whether tool description text appears arithmetic-focused."""
+    """Return whether tool description text appears arithmetic-focused.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     arithmetic_tool_keywords = {
         "calc",
         "calculator",
@@ -310,7 +449,14 @@ def looks_like_arithmetic_tool(text: str) -> bool:
 
 
 def looks_like_text_tool(text: str) -> bool:
-    """Return whether tool description text appears text-analysis-focused."""
+    """Return whether tool description text appears text-analysis-focused.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     text_tool_keywords = {
         "text",
         "word",

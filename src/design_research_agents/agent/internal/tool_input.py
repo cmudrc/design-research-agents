@@ -12,7 +12,15 @@ TEXT_WORD_COUNT_TOOL_NAMES = frozenset({"text.word_count"})
 
 
 def infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str:
-    """Infer arithmetic expression from payload fields and prompt text."""
+    """Infer arithmetic expression from payload fields and prompt text.
+
+    Args:
+        input_payload: Parameter value.
+        prompt: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     explicit_expression = input_payload.get("expression")
     if explicit_expression is not None:
         return str(explicit_expression)
@@ -38,7 +46,16 @@ def resolve_known_tool_input(
     input_payload: Mapping[str, object],
     text_fallback: str,
 ) -> dict[str, object] | None:
-    """Build heuristic input payloads for known core tool families."""
+    """Build heuristic input payloads for known core tool families.
+
+    Args:
+        tool_name: Parameter value.
+        input_payload: Parameter value.
+        text_fallback: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if tool_name in CALCULATOR_TOOL_NAMES:
         return {
             "expression": infer_expression(

@@ -74,19 +74,43 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         self._capabilities = capabilities
 
     def capabilities(self) -> BackendCapabilities:
-        """Return declared capabilities for this endpoint."""
+        """Return declared capabilities for this endpoint.
+
+        Returns:
+            The resulting value.
+        """
         return self._capabilities
 
     def healthcheck(self) -> BackendStatus:
-        """Return static status for configured HTTP backend."""
+        """Return static status for configured HTTP backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendStatus(ok=True, message="OpenAI-compatible backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Run generate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         payload = self._build_payload(request, include_response_format=True)
         response = _post_json(self._chat_url, payload, headers=self._headers())
         return _parse_completion_response(response, request, provider=self.name)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Run stream.
+
+        Args:
+            request: Parameter value.
+
+        Yields:
+            The yielded values.
+        """
         payload = self._build_payload(request, include_response_format=True)
         payload["stream"] = True
         response = _post_stream(self._chat_url, payload, headers=self._headers())
@@ -112,6 +136,11 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
 
     @property
     def _chat_url(self) -> str:
+        """Run chat url.
+
+        Returns:
+            The resulting value.
+        """
         base = self.base_url or ""
         if base.endswith("/v1"):
             return f"{base}/chat/completions"
@@ -122,6 +151,11 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         return f"{base}/v1/chat/completions"
 
     def _headers(self) -> dict[str, str]:
+        """Run headers.
+
+        Returns:
+            The resulting value.
+        """
         headers = {"Content-Type": "application/json"}
         api_key = self._resolve_api_key()
         if api_key:
@@ -129,6 +163,11 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         return headers
 
     def _resolve_api_key(self) -> str | None:
+        """Run resolve api key.
+
+        Returns:
+            The resulting value.
+        """
         if self._api_key:
             return self._api_key
         env_value = os.getenv(self._api_key_env)
@@ -140,6 +179,15 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
+        """Run build payload.
+
+        Args:
+            request: Parameter value.
+            include_response_format: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         payload: dict[str, Any] = {
             "model": request.model,
             "messages": _format_messages(request.messages),
@@ -159,6 +207,19 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
 
 
 def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> dict[str, Any]:
+    """Run post json.
+
+    Args:
+        url: Parameter value.
+        payload: Parameter value.
+        headers: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     request = Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -179,6 +240,19 @@ def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) ->
 
 
 def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> HTTPResponse:
+    """Run post stream.
+
+    Args:
+        url: Parameter value.
+        payload: Parameter value.
+        headers: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     request = Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -194,6 +268,14 @@ def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) 
 
 
 def _iter_sse_events(response: Iterable[bytes]) -> Iterator[str]:
+    """Run iter sse events.
+
+    Args:
+        response: Parameter value.
+
+    Yields:
+        The yielded values.
+    """
     buffer: list[str] = []
     for raw_line in response:
         line = raw_line.decode("utf-8").strip()
@@ -214,6 +296,19 @@ def _parse_completion_response(
     *,
     provider: str,
 ) -> LLMResponse:
+    """Run parse completion response.
+
+    Args:
+        response: Parameter value.
+        request: Parameter value.
+        provider: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     choices = response.get("choices") or []
     if not choices:
         raise LLMInvalidRequestError("OpenAI-compatible response has no choices.")
@@ -233,6 +328,14 @@ def _parse_completion_response(
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
+    """Run format messages.
+
+    Args:
+        messages: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     payloads: list[dict[str, Any]] = []
     for message in messages:
         role = getattr(message, "role", None)
@@ -251,6 +354,14 @@ def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
+    """Run format tool.
+
+    Args:
+        tool: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return {
         "type": "function",
         "function": {
@@ -262,6 +373,14 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
 
 
 def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
+    """Run format response format.
+
+    Args:
+        request: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if request.response_format and isinstance(request.response_format, dict):
         return request.response_format
     if request.response_schema:
@@ -276,6 +395,14 @@ def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
 
 
 def _http_error(exc: HTTPError) -> Exception:
+    """Run http error.
+
+    Args:
+        exc: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     try:
         body = exc.read().decode("utf-8")
         payload = json.loads(body)
@@ -286,6 +413,14 @@ def _http_error(exc: HTTPError) -> Exception:
 
 
 def _extract_tool_call_deltas(raw: Any) -> list[ToolCallDelta]:
+    """Run extract tool call deltas.
+
+    Args:
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw, list):
         return []
     deltas: list[ToolCallDelta] = []

@@ -40,8 +40,8 @@ Run additional contract-focused examples:
    PYTHONPATH=src python3 examples/workflow/plan_execute.py
    PYTHONPATH=src python3 examples/workflow/propose_critic.py
    PYTHONPATH=src python3 examples/workflow/agent_routing.py
-   PYTHONPATH=src python3 examples/workflow/pure_tool_workflow.py
-   PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
+   PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
+   PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
    PYTHONPATH=src python3 examples/model_selection/local.py
    PYTHONPATH=src python3 examples/model_selection/remote.py
    PYTHONPATH=src python3 examples/tools/mcp_minimal.py

@@ -14,7 +14,17 @@ AlternativesPromptTarget = Literal["user", "system"]
 
 
 def normalize_alternatives_prompt_target(raw_target: object) -> AlternativesPromptTarget:
-    """Normalize and validate one alternatives prompt target value."""
+    """Normalize and validate one alternatives prompt target value.
+
+    Args:
+        raw_target: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if isinstance(raw_target, str):
         normalized_target = raw_target.strip().lower()
         if normalized_target in {"user", "system"}:

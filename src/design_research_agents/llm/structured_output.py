@@ -23,8 +23,11 @@ class StructuredOutputResult:
     """Normalized structured output result from prompt+validate flows."""
 
     response: LLMResponse
+    """Field value for ``response``."""
     parsed: object
+    """Field value for ``parsed``."""
     attempts: int
+    """Field value for ``attempts``."""
 
 
 def generate_json(
@@ -35,7 +38,21 @@ def generate_json(
     max_retries: int,
     extra_instructions: str | None = None,
 ) -> StructuredOutputResult:
-    """Prompt the model for strict JSON output and validate against schema."""
+    """Prompt the model for strict JSON output and validate against schema.
+
+    Args:
+        generate_fn: Parameter value.
+        request: Parameter value.
+        schema: Parameter value.
+        max_retries: Parameter value.
+        extra_instructions: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if max_retries < 0:
         raise ValueError("max_retries must be >= 0.")
 
@@ -62,7 +79,14 @@ def generate_json(
 
 
 def build_tool_call_instruction(tools: Sequence[ToolSpec]) -> str:
-    """Build an instruction block describing available tools."""
+    """Build an instruction block describing available tools.
+
+    Args:
+        tools: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     lines = [
         "You may select tools by returning JSON that matches the schema below.",
         "Available tools:",
@@ -75,6 +99,15 @@ def build_tool_call_instruction(tools: Sequence[ToolSpec]) -> str:
 
 
 def _with_instruction(request: LLMRequest, instruction: str) -> LLMRequest:
+    """Run with instruction.
+
+    Args:
+        request: Parameter value.
+        instruction: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     messages = list(request.messages)
     messages.append(LLMMessage(role="system", content=instruction))
     return LLMRequest(
@@ -97,6 +130,16 @@ def _build_json_instruction(
     extra_instructions: str | None,
     error_message: str | None,
 ) -> str:
+    """Run build json instruction.
+
+    Args:
+        schema: Parameter value.
+        extra_instructions: Parameter value.
+        error_message: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     lines = [
         "Return only valid JSON as your entire response.",
         "Do not include markdown, comments, or trailing text.",
@@ -115,6 +158,17 @@ def _build_json_instruction(
 
 
 def _parse_json_strict(text: str) -> Any:
+    """Run parse json strict.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     normalized = text.strip()
     if not normalized:
         raise ValueError("Empty response; expected JSON payload.")
@@ -122,6 +176,15 @@ def _parse_json_strict(text: str) -> Any:
 
 
 def _validate_json(schema: dict[str, object] | None, parsed: object) -> None:
+    """Run validate json.
+
+    Args:
+        schema: Parameter value.
+        parsed: Parameter value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if schema is None:
         return
     try:

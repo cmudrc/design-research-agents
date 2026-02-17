@@ -27,13 +27,21 @@ class HardwareProfile:
     """
 
     total_ram_gb: float | None
+    """Field value for ``total_ram_gb``."""
     available_ram_gb: float | None
+    """Field value for ``available_ram_gb``."""
     cpu_count: int | None
+    """Field value for ``cpu_count``."""
     load_average: tuple[float, float, float] | None
+    """Field value for ``load_average``."""
     gpu_present: bool | None
+    """Field value for ``gpu_present``."""
     gpu_vram_gb: float | None
+    """Field value for ``gpu_vram_gb``."""
     gpu_name: str | None = None
+    """Field value for ``gpu_name``."""
     platform_name: str | None = None
+    """Field value for ``platform_name``."""
 
     @classmethod
     def detect(cls) -> HardwareProfile:
@@ -85,17 +93,32 @@ class HardwareProfile:
 
 
 class _WindowsMemoryStatus(Protocol):
+    """_WindowsMemoryStatus class."""
+
     ullTotalPhys: int
     ullAvailPhys: int
 
 
 def _bytes_to_gib(value: int | None) -> float | None:
+    """Run bytes to gib.
+
+    Args:
+        value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if value is None:
         return None
     return value / (1024**3)
 
 
 def _detect_load_average() -> tuple[float, float, float] | None:
+    """Run detect load average.
+
+    Returns:
+        The resulting value.
+    """
     try:
         return os.getloadavg()
     except (AttributeError, OSError):
@@ -103,6 +126,11 @@ def _detect_load_average() -> tuple[float, float, float] | None:
 
 
 def _detect_total_ram_bytes() -> int | None:
+    """Run detect total ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     system = platform.system()
     # Prefer OS-specific APIs for more accurate totals.
     if system == "Windows":
@@ -116,6 +144,11 @@ def _detect_total_ram_bytes() -> int | None:
 
 
 def _detect_available_ram_bytes() -> int | None:
+    """Run detect available ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     system = platform.system()
     # Prefer OS-specific APIs for more accurate availability.
     if system == "Windows":
@@ -129,6 +162,11 @@ def _detect_available_ram_bytes() -> int | None:
 
 
 def _read_proc_meminfo() -> dict[str, int] | None:
+    """Run read proc meminfo.
+
+    Returns:
+        The resulting value.
+    """
     if not os.path.exists("/proc/meminfo"):
         return None
     meminfo: dict[str, int] = {}
@@ -151,6 +189,11 @@ def _read_proc_meminfo() -> dict[str, int] | None:
 
 
 def _detect_sysconf_total_ram_bytes() -> int | None:
+    """Run detect sysconf total ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     try:
         pages = os.sysconf("SC_PHYS_PAGES")
         page_size = os.sysconf("SC_PAGE_SIZE")
@@ -162,6 +205,11 @@ def _detect_sysconf_total_ram_bytes() -> int | None:
 
 
 def _detect_sysconf_available_ram_bytes() -> int | None:
+    """Run detect sysconf available ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     try:
         pages = os.sysconf("SC_AVPHYS_PAGES")
         page_size = os.sysconf("SC_PAGE_SIZE")
@@ -173,6 +221,11 @@ def _detect_sysconf_available_ram_bytes() -> int | None:
 
 
 def _detect_windows_total_ram_bytes() -> int | None:
+    """Run detect windows total ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     status = _windows_memory_status()
     if status is None:
         return None
@@ -180,6 +233,11 @@ def _detect_windows_total_ram_bytes() -> int | None:
 
 
 def _detect_windows_available_ram_bytes() -> int | None:
+    """Run detect windows available ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     status = _windows_memory_status()
     if status is None:
         return None
@@ -187,6 +245,11 @@ def _detect_windows_available_ram_bytes() -> int | None:
 
 
 def _detect_macos_total_ram_bytes() -> int | None:
+    """Run detect macos total ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     output = _run_command(["sysctl", "-n", "hw.memsize"])
     if output is None:
         return None
@@ -197,6 +260,11 @@ def _detect_macos_total_ram_bytes() -> int | None:
 
 
 def _detect_macos_available_ram_bytes() -> int | None:
+    """Run detect macos available ram bytes.
+
+    Returns:
+        The resulting value.
+    """
     output = _run_command(["vm_stat"])
     if output is None:
         return None
@@ -223,6 +291,14 @@ def _detect_macos_available_ram_bytes() -> int | None:
 
 
 def _run_command(args: list[str]) -> str | None:
+    """Run run command.
+
+    Args:
+        args: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     try:
         result = subprocess.run(
             args,
@@ -240,6 +316,11 @@ def _run_command(args: list[str]) -> str | None:
 
 def _detect_gpu_info() -> tuple[bool | None, int | None, str | None]:
     # Probe NVIDIA first, then fall back to platform-specific inspection.
+    """Run detect gpu info.
+
+    Returns:
+        The resulting value.
+    """
     nvidia_info = _detect_nvidia_gpu_info()
     if nvidia_info is not None:
         return nvidia_info
@@ -256,6 +337,11 @@ def _detect_gpu_info() -> tuple[bool | None, int | None, str | None]:
 
 
 def _detect_nvidia_gpu_info() -> tuple[bool, int | None, str | None] | None:
+    """Run detect nvidia gpu info.
+
+    Returns:
+        The resulting value.
+    """
     output = _run_command(
         [
             "nvidia-smi",
@@ -286,6 +372,11 @@ def _detect_nvidia_gpu_info() -> tuple[bool, int | None, str | None] | None:
 
 
 def _detect_macos_gpu_info() -> tuple[bool, int | None, str | None] | None:
+    """Run detect macos gpu info.
+
+    Returns:
+        The resulting value.
+    """
     output = _run_command(["system_profiler", "SPDisplaysDataType"])
     if output is None:
         return None
@@ -307,6 +398,11 @@ def _detect_macos_gpu_info() -> tuple[bool, int | None, str | None] | None:
 
 
 def _detect_windows_gpu_info() -> tuple[bool, int | None, str | None] | None:
+    """Run detect windows gpu info.
+
+    Returns:
+        The resulting value.
+    """
     output = _run_command(
         [
             "wmic",
@@ -343,6 +439,11 @@ def _detect_windows_gpu_info() -> tuple[bool, int | None, str | None] | None:
 
 
 def _windows_memory_status() -> _WindowsMemoryStatus | None:
+    """Run windows memory status.
+
+    Returns:
+        The resulting value.
+    """
     if platform.system() != "Windows":
         return None
     try:
@@ -351,6 +452,8 @@ def _windows_memory_status() -> _WindowsMemoryStatus | None:
         return None
 
     class _MemoryStatus(ctypes.Structure):
+        """_MemoryStatus class."""
+
         _fields_ = [
             ("dwLength", ctypes.c_ulong),
             ("dwMemoryLoad", ctypes.c_ulong),

@@ -9,7 +9,14 @@ from design_research_agents.contracts.tools import ToolResult, ToolSpec
 
 
 def tool_spec_to_mcp_payload(spec: ToolSpec) -> dict[str, object]:
-    """Convert one ToolSpec into MCP ``tools/list`` payload shape."""
+    """Convert one ToolSpec into MCP ``tools/list`` payload shape.
+
+    Args:
+        spec: Internal tool specification to expose over MCP.
+
+    Returns:
+        MCP-compatible ``tools/list`` entry.
+    """
     return {
         "name": spec.name,
         "description": spec.description,
@@ -18,7 +25,14 @@ def tool_spec_to_mcp_payload(spec: ToolSpec) -> dict[str, object]:
 
 
 def tool_result_to_mcp_payload(result: ToolResult) -> dict[str, object]:
-    """Convert one ToolResult into MCP ``tools/call`` response payload."""
+    """Convert one ToolResult into MCP ``tools/call`` response payload.
+
+    Args:
+        result: Internal tool invocation result.
+
+    Returns:
+        MCP-compatible ``tools/call`` response payload.
+    """
     structured_content = {
         "tool_name": result.tool_name,
         "ok": result.ok,

@@ -15,6 +15,19 @@ def _invoke_dict(
     tool_name: str,
     tool_input_payload: Mapping[str, object],
 ) -> dict[str, object]:
+    """Run invoke dict.
+
+    Args:
+        runtime: Parameter value.
+        tool_name: Parameter value.
+        tool_input_payload: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     tool_result = runtime.invoke(
         tool_name,
         tool_input_payload,

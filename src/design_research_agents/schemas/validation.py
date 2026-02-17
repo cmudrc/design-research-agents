@@ -42,6 +42,13 @@ def validate_payload_against_schema(
 
 
 def _validate(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    """Validate one payload node against one schema node.
+
+    Args:
+        payload: Payload value at the current location.
+        schema: Schema mapping that constrains the payload.
+        location: JSONPath-like location string used in error messages.
+    """
     _validate_any_of(payload=payload, schema=schema, location=location)
     _validate_enum(payload=payload, schema=schema, location=location)
 
@@ -58,6 +65,16 @@ def _validate(*, payload: object, schema: Mapping[str, object], location: str) -
 
 
 def _validate_type(*, payload: object, expected_type: str, location: str) -> None:
+    """Validate that a payload matches one primitive/object/array schema type.
+
+    Args:
+        payload: Payload value to type-check.
+        expected_type: Schema ``type`` value to enforce.
+        location: JSONPath-like location string used in error messages.
+
+    Raises:
+        SchemaValidationError: If payload does not match ``expected_type``.
+    """
     validators: dict[str, Callable[[object], bool]] = {
         "object": lambda value: isinstance(value, Mapping),
         "array": lambda value: isinstance(value, list),
@@ -76,10 +93,28 @@ def _validate_type(*, payload: object, expected_type: str, location: str) -> Non
 
 
 def _is_sequence(value: object) -> TypeGuard[Sequence[object]]:
+    """Check whether a value is a non-string sequence.
+
+    Args:
+        value: Candidate value to inspect.
+
+    Returns:
+        ``True`` when ``value`` is a sequence and not ``str``/``bytes``.
+    """
     return isinstance(value, Sequence) and not isinstance(value, (str, bytes))
 
 
 def _validate_any_of(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    """Validate ``anyOf`` constraints by accepting the first matching branch.
+
+    Args:
+        payload: Payload value to validate.
+        schema: Schema mapping that may contain ``anyOf``.
+        location: JSONPath-like location string used in error messages.
+
+    Raises:
+        SchemaValidationError: If no ``anyOf`` branch validates the payload.
+    """
     any_of = schema.get("anyOf")
     if not _is_sequence(any_of):
         return
@@ -100,6 +135,16 @@ def _validate_any_of(*, payload: object, schema: Mapping[str, object], location:
 
 
 def _validate_enum(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    """Validate enum membership when ``enum`` is present in schema.
+
+    Args:
+        payload: Payload value to validate.
+        schema: Schema mapping that may contain ``enum`` values.
+        location: JSONPath-like location string used in error messages.
+
+    Raises:
+        SchemaValidationError: If payload is not in the allowed enum set.
+    """
     enum_values = schema.get("enum")
     if not _is_sequence(enum_values):
         return
@@ -116,6 +161,16 @@ def _validate_union_types(
     expected_types: Sequence[object],
     location: str,
 ) -> None:
+    """Validate payload against a union of candidate schema types.
+
+    Args:
+        payload: Payload value to validate.
+        expected_types: Candidate schema ``type`` entries.
+        location: JSONPath-like location string used in error messages.
+
+    Raises:
+        SchemaValidationError: If payload matches none of the candidate types.
+    """
     type_errors: list[str] = []
     for candidate_type in expected_types:
         if not isinstance(candidate_type, str):
@@ -131,6 +186,16 @@ def _validate_union_types(
 
 
 def _validate_object(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    """Validate object payloads, required keys, and child properties.
+
+    Args:
+        payload: Payload value expected to be an object mapping.
+        schema: Object schema containing ``properties`` and related rules.
+        location: JSONPath-like location string used in error messages.
+
+    Raises:
+        SchemaValidationError: If object constraints are violated.
+    """
     if not isinstance(payload, Mapping):
         raise SchemaValidationError(f"{location}: expected object")
 
@@ -162,6 +227,16 @@ def _validate_object(*, payload: object, schema: Mapping[str, object], location:
 
 
 def _validate_array(*, payload: object, schema: Mapping[str, object], location: str) -> None:
+    """Validate array payloads and recursively validate each item.
+
+    Args:
+        payload: Payload value expected to be a list.
+        schema: Array schema that may include an ``items`` schema.
+        location: JSONPath-like location string used in error messages.
+
+    Raises:
+        SchemaValidationError: If payload is not an array or item validation fails.
+    """
     if not isinstance(payload, list):
         raise SchemaValidationError(f"{location}: expected array")
     items_schema = schema.get("items")

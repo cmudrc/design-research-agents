@@ -6,11 +6,34 @@ from collections.abc import Mapping
 
 
 def get_str(input_dict: Mapping[str, object], key: str, *, default: str = "") -> str:
+    """Run get str.
+
+    Args:
+        input_dict: Parameter value.
+        key: Parameter value.
+        default: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     value = input_dict.get(key, default)
     return str(value)
 
 
 def get_int(input_dict: Mapping[str, object], key: str, *, default: int) -> int:
+    """Run get int.
+
+    Args:
+        input_dict: Parameter value.
+        key: Parameter value.
+        default: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     value = input_dict.get(key, default)
     if isinstance(value, bool):
         raise ValueError(f"'{key}' must be an integer.")
@@ -24,6 +47,19 @@ def get_int(input_dict: Mapping[str, object], key: str, *, default: int) -> int:
 
 
 def get_bool(input_dict: Mapping[str, object], key: str, *, default: bool = False) -> bool:
+    """Run get bool.
+
+    Args:
+        input_dict: Parameter value.
+        key: Parameter value.
+        default: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     value = input_dict.get(key, default)
     if isinstance(value, bool):
         return value

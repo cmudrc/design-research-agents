@@ -13,7 +13,14 @@ from design_research_agents.tools.config import McpServer, load_tool_runtime_con
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run CLI entrypoint and return process exit code."""
+    """Run CLI entrypoint and return process exit code.
+
+    Args:
+        argv: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     parser = argparse.ArgumentParser(prog="dra")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -57,6 +64,14 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _handle_mcp(cli_args: argparse.Namespace) -> int:
+    """Run handle mcp.
+
+    Args:
+        cli_args: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if cli_args.mcp_command == "serve":
         _serve_stdio()
         return 0
@@ -107,6 +122,14 @@ def _handle_mcp(cli_args: argparse.Namespace) -> int:
 
 
 def _handle_script(cli_args: argparse.Namespace) -> int:
+    """Run handle script.
+
+    Args:
+        cli_args: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if cli_args.script_command == "lint":
         diagnostics = _lint_script_target(Path(str(cli_args.target)).expanduser())
         if not diagnostics:
@@ -164,6 +187,14 @@ def _handle_script(cli_args: argparse.Namespace) -> int:
 
 
 def _build_runtime(path: str | None) -> Toolbox:
+    """Run build runtime.
+
+    Args:
+        path: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not path:
         return Toolbox()
 
@@ -181,6 +212,14 @@ def _build_runtime(path: str | None) -> Toolbox:
 
 
 def _parse_json_object(raw_json_text: str) -> dict[str, object] | None:
+    """Run parse json object.
+
+    Args:
+        raw_json_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     try:
         parsed_payload = json.loads(raw_json_text)
     except json.JSONDecodeError:
@@ -191,10 +230,27 @@ def _parse_json_object(raw_json_text: str) -> dict[str, object] | None:
 
 
 def _server_exists(servers: tuple[McpServer, ...], server_id: str) -> bool:
+    """Run server exists.
+
+    Args:
+        servers: Parameter value.
+        server_id: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return any(server.id == server_id for server in servers)
 
 
 def _lint_script_target(target_path: Path) -> list[dict[str, str]]:
+    """Run lint script target.
+
+    Args:
+        target_path: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     diagnostics: list[dict[str, str]] = []
     if not target_path.exists():
         return [{"path": str(target_path), "error": "Target path does not exist."}]

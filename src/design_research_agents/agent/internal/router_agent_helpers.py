@@ -25,8 +25,11 @@ class ToolAlternative:
     """Normalized candidate route used by routing prompt and validation logic."""
 
     tool_name: str
+    """Field value for ``tool_name``."""
     description: str
+    """Field value for ``description``."""
     input_schema: dict[str, object]
+    """Field value for ``input_schema``."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -34,7 +37,9 @@ class ParsedRoute:
     """Parsed model payload describing a discrete route selection."""
 
     selection: int | str
+    """Field value for ``selection``."""
     reason: str | None
+    """Field value for ``reason``."""
 
 
 def routing_failure_result(
@@ -46,7 +51,19 @@ def routing_failure_result(
     alternatives: Sequence[ToolAlternative],
     parsed_route: ParsedRoute | None,
 ) -> AgentResult:
-    """Build a structured failure result for invalid/incomplete model routing."""
+    """Build a structured failure result for invalid/incomplete model routing.
+
+    Args:
+        error: Parameter value.
+        llm_response: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        alternatives: Parameter value.
+        parsed_route: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     output: dict[str, object] = {
         "error": error,
         "model_text": llm_response.text,
@@ -86,7 +103,18 @@ def extract_alternatives(
     runtime_specs: Mapping[str, ToolSpec],
     compiled_runtime_alternatives: Sequence[ToolAlternative],
 ) -> list[ToolAlternative]:
-    """Return routing alternatives compiled from runtime tool specifications."""
+    """Return routing alternatives compiled from runtime tool specifications.
+
+    Args:
+        runtime_specs: Parameter value.
+        compiled_runtime_alternatives: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     del runtime_specs
     if compiled_runtime_alternatives:
         return [clone_alternative(alternative) for alternative in compiled_runtime_alternatives]
@@ -97,7 +125,14 @@ def extract_alternatives(
 
 
 def clone_alternative(alternative: ToolAlternative) -> ToolAlternative:
-    """Clone one alternative to keep run-level payload mutations isolated."""
+    """Clone one alternative to keep run-level payload mutations isolated.
+
+    Args:
+        alternative: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return ToolAlternative(
         tool_name=alternative.tool_name,
         description=alternative.description,
@@ -110,7 +145,15 @@ def compile_runtime_alternatives(
     tool_specs: Mapping[str, ToolSpec],
     allowed_route_names: Sequence[str] | None = None,
 ) -> tuple[ToolAlternative, ...]:
-    """Compile default routing alternatives directly from runtime tool specs."""
+    """Compile default routing alternatives directly from runtime tool specs.
+
+    Args:
+        tool_specs: Parameter value.
+        allowed_route_names: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     allowed_name_set = set(allowed_route_names or [])
     return tuple(
         ToolAlternative(
@@ -128,7 +171,18 @@ def resolve_allowed_route_names(
     runtime_specs: Mapping[str, ToolSpec],
     allowed_routes: Sequence[str] | None,
 ) -> tuple[str, ...] | None:
-    """Resolve route allowlist against runtime specs."""
+    """Resolve route allowlist against runtime specs.
+
+    Args:
+        runtime_specs: Parameter value.
+        allowed_routes: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if allowed_routes is None:
         return None
 
@@ -149,7 +203,16 @@ def build_route_prompt(
     routes_block: str,
     prompt_template: str,
 ) -> str:
-    """Build the route-selection user prompt consumed by the model."""
+    """Build the route-selection user prompt consumed by the model.
+
+    Args:
+        prompt: Parameter value.
+        routes_block: Parameter value.
+        prompt_template: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return render_template_text(
         template_text=prompt_template,
         variables={
@@ -164,7 +227,14 @@ def build_routes_text(
     *,
     alternatives: Sequence[ToolAlternative],
 ) -> str:
-    """Build formatted runtime route alternatives text."""
+    """Build formatted runtime route alternatives text.
+
+    Args:
+        alternatives: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     route_lines: list[str] = []
     for index, alternative in enumerate(alternatives):
         route_lines.append(
@@ -184,14 +254,28 @@ def route_response_schema(
     *,
     alternatives: Sequence[ToolAlternative],
 ) -> dict[str, object]:
-    """Build route-selection schema from runtime-derived alternatives."""
+    """Build route-selection schema from runtime-derived alternatives.
+
+    Args:
+        alternatives: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return build_router_selection_response_schema(
         alternative_identifiers=[alternative.tool_name for alternative in alternatives]
     )
 
 
 def parse_route_response(raw_text: str) -> ParsedRoute | None:
-    """Parse model route JSON payload from raw text output."""
+    """Parse model route JSON payload from raw text output.
+
+    Args:
+        raw_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     parsed = parse_json_mapping(raw_text)
     if parsed is None:
         return None
@@ -226,7 +310,15 @@ def resolve_model_route(
     parsed_route: ParsedRoute | None,
     alternatives: Sequence[ToolAlternative],
 ) -> tuple[ToolAlternative, int, str] | None:
-    """Resolve and validate model-selected route against available alternatives."""
+    """Resolve and validate model-selected route against available alternatives.
+
+    Args:
+        parsed_route: Parameter value.
+        alternatives: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if parsed_route is None:
         return None
 
@@ -259,7 +351,15 @@ def resolve_tool_input(
     tool_name: str,
     input_payload: Mapping[str, object],
 ) -> dict[str, object]:
-    """Resolve tool input from run payload and tool-specific heuristics."""
+    """Resolve tool input from run payload and tool-specific heuristics.
+
+    Args:
+        tool_name: Parameter value.
+        input_payload: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_tool_input = input_payload.get("tool_input")
     if isinstance(raw_tool_input, Mapping):
         return dict(raw_tool_input)

@@ -15,6 +15,19 @@ def _invoke_dict(
     tool_name: str,
     payload: Mapping[str, object],
 ) -> dict[str, object]:
+    """Run invoke dict.
+
+    Args:
+        runtime: Parameter value.
+        tool_name: Parameter value.
+        payload: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     result = runtime.invoke(tool_name, payload, request_id="example-mcp-minimal", dependencies={})
     if not result.ok:
         message = result.error.message if result.error is not None else "unknown tool error"

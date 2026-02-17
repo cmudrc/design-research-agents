@@ -37,6 +37,7 @@ Run these before opening a pull request:
 make format
 make lint
 make typecheck
+make docstrings-check
 make test
 make docs
 ```
@@ -69,9 +70,39 @@ Please include:
 
 - Python 3.11+ target.
 - Ruff for linting/formatting.
-- Google-style docstrings for public modules, classes, and functions.
+- Complete Google-style docstrings are required for all Python callables
+  (including private/dunder) in `src/`, `examples/`, and `scripts/`.
+  - Modules and classes must include a non-empty summary line.
+  - Callables must include `Args`, `Returns`/`Yields`, and `Raises` sections
+    whenever they apply.
 - Mypy for type checking.
 - Pytest for tests.
+
+Minimal docstring templates:
+
+```python
+"""Module summary."""
+```
+
+```python
+class Example:
+    """Class summary."""
+```
+
+```python
+def run(value: int) -> int:
+    """Run the operation.
+
+    Args:
+        value: Input value.
+
+    Returns:
+        The computed value.
+
+    Raises:
+        ValueError: Raised when input is invalid.
+    """
+```
 
 CI enforces these checks on Python 3.11 and 3.12.
 

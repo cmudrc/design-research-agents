@@ -12,7 +12,14 @@ from design_research_agents.contracts.llm import (
 
 
 def map_backend_exception(exc: Exception) -> LLMError:
-    """Map backend/provider exceptions into normalized contract exceptions."""
+    """Map backend/provider exceptions into normalized contract exceptions.
+
+    Args:
+        exc: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if isinstance(exc, LLMError):
         return exc
 

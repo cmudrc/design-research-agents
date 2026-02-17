@@ -111,7 +111,20 @@ class ReflexionPattern(Agent):
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and initialize workflow-native orchestration settings."""
+        """Store dependencies and initialize workflow-native orchestration settings.
+
+        Args:
+            llm_client: LLM client used by proposer and critic calls.
+            tool_runtime: Tool runtime used by loop execution runtime.
+            controls: Runtime controls (iterations, budgets, streaming).
+            propose_critic_proposer_system_prompt: Optional override for proposer system prompt.
+            propose_critic_proposer_user_prompt_template: Optional proposer user prompt template.
+            propose_critic_critic_system_prompt: Optional override for critic system prompt.
+            propose_critic_critic_user_prompt_template: Optional critic user prompt template.
+            default_request_id_prefix: Optional prefix used to derive request ids.
+            default_dependencies: Dependency defaults merged into each run.
+            tracer: Optional tracer used for run-level instrumentation.
+        """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._controls = controls or RuntimeControls()
@@ -146,7 +159,19 @@ class ReflexionPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one propose-and-critique orchestration run."""
+        """Execute one propose-and-critique orchestration run.
+
+        Args:
+            prompt: Task prompt to iteratively refine.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency overrides for this run.
+
+        Returns:
+            Pattern result containing final proposal and critique history.
+
+        Raises:
+            Exception: Propagates runtime failures from proposer/critic loop execution.
+        """
         configured_request_id = resolve_request_id_with_prefix(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
@@ -188,7 +213,16 @@ class ReflexionPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Execute one run and emit wrapper-style stream events."""
+        """Execute one run and emit wrapper-style stream events.
+
+        Args:
+            prompt: Task prompt to iteratively refine.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency overrides for this run.
+
+        Yields:
+            Delta and completed events derived from ``run`` output.
+        """
         runtime_result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         if self._controls.streaming_enabled:
             delta_text = (
@@ -206,6 +240,19 @@ class ReflexionPattern(Agent):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> AgentResult:
+        """Run propose/critic loop until approval or termination.
+
+        Args:
+            prompt: Task prompt to iteratively refine.
+            request_id: Resolved request id for this orchestration run.
+            dependencies: Normalized dependency mapping for this run.
+
+        Returns:
+            Final reflexion pattern result.
+
+        Raises:
+            RuntimeError: If loop execution fails irrecoverably.
+        """
         budget_tracker = WorkflowBudgetTracker()
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
         proposer = SingleStepDirectLLMAgent(
@@ -221,6 +268,15 @@ class ReflexionPattern(Agent):
         last_model_response = None
 
         def _continue_predicate(iteration: int, state: Mapping[str, object]) -> bool:
+            """Continue until proposal is approved or an unrecoverable failure occurs.
+
+            Args:
+                iteration: One-based loop iteration index.
+                state: Current loop state before this iteration.
+
+            Returns:
+                ``True`` when another propose/critic iteration should run.
+            """
             del iteration
             if bool(state.get("approved")):
                 return False
@@ -228,6 +284,17 @@ class ReflexionPattern(Agent):
             return not (isinstance(failure_reason, str) and failure_reason)
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
+            """Execute one propose-then-critic iteration.
+
+            Args:
+                context: Step context containing loop metadata and loop state.
+
+            Returns:
+                Iteration payload containing proposal, approval, and feedback fields.
+
+            Raises:
+                ValueError: If required loop metadata is missing.
+            """
             nonlocal last_model_response
 
             loop_metadata = context.get("_loop")
@@ -353,6 +420,16 @@ class ReflexionPattern(Agent):
             iteration_result: WorkflowResult,
             iteration: int,
         ) -> Mapping[str, object]:
+            """Fold one iteration result into accumulated reflexion loop state.
+
+            Args:
+                state: Current aggregate loop state.
+                iteration_result: Workflow result produced by this iteration body.
+                iteration: One-based iteration index.
+
+            Returns:
+                Updated state with proposal, feedback, and critique history.
+            """
             next_state = dict(state)
             critique_iterations = normalize_mapping_records(next_state.get("critique_iterations"))
             next_state["critique_iterations"] = critique_iterations

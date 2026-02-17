@@ -15,10 +15,19 @@ All workflow step primitives are exported from the top-level package:
 Step types
 ----------
 
-- ``LogicStep``: deterministic local handlers
-- ``ToolStep``: tool runtime invocations
-- ``AgentStep``: delegated agent/workflow execution
-- ``LoopStep``: iterative nested workflow body with loop state callbacks
+- ``LogicStep``: deterministic local handlers.
+  Key fields: ``step_id``, ``handler``, ``dependencies``, ``route_map``.
+  Use it for pure orchestration logic, branching, and deterministic transforms.
+- ``ToolStep``: tool runtime invocations.
+  Key fields: ``step_id``, ``tool_name``, ``input_builder``, ``dependencies``.
+  Use it for explicit tool boundary calls through ``Toolbox``.
+- ``AgentStep``: delegated agent/workflow execution.
+  Key fields: ``step_id``, ``agent_name``, ``prompt_builder``, ``dependencies``.
+  Use it when nested agents/patterns should own their own prompting or tool usage.
+- ``LoopStep``: iterative nested workflow body with loop state callbacks.
+  Key fields: ``step_id``, ``steps``, ``max_iterations``, ``initial_state``,
+  ``continue_predicate``, ``state_reducer``, ``execution_mode``, ``failure_policy``.
+  Use it when iterative orchestration is first-class and state must evolve per iteration.
 
 Loop primitive
 --------------
@@ -47,10 +56,22 @@ Reusable facade
 - ``Workflow(input_mode='schema')`` for mapping input with optional schema validation.
 - Supports optional ``agents`` registration for ``AgentStep`` delegates.
 
+Input mode contracts
+--------------------
+
+- ``input_mode='prompt'`` accepts non-empty string input only.
+  It rejects non-string values and blank/whitespace-only prompts.
+  Prompt input is provided to step context under ``prompt``.
+- ``input_mode='schema'`` accepts mapping input only.
+  It optionally validates payloads against ``input_schema``.
+  Schema input is provided to step context under ``inputs``.
+- Both modes support constructor-level run defaults and per-run overrides.
+  They return ``AgentResult`` with serialized ``WorkflowResult`` metadata.
+
 Examples
 --------
 
 - ``examples/workflow/workflow_runtime.py``
 - ``examples/workflow/workflow_runtime_loop_step.py``
-- ``examples/workflow/pure_tool_workflow.py``
-- ``examples/workflow/mixed_agent_workflow.py``
+- ``examples/workflow/workflow_schema_mode.py``
+- ``examples/workflow/workflow_prompt_mode.py``

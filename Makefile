@@ -5,7 +5,7 @@ PYTEST ?= $(PYTHON) -m pytest
 RUFF ?= $(PYTHON) -m ruff
 MYPY ?= $(PYTHON) -m mypy
 
-.PHONY: install install-dev install-all check-python test coverage structure-check examples-deterministic examples-metrics lint lint-fix format format-check typecheck run-example docs ci clean purge-ignored-junk pre-commit
+.PHONY: install install-dev install-all check-python test coverage structure-check docstrings-check examples-deterministic examples-metrics lint lint-fix format format-check typecheck run-example docs docs-linkcheck docs-check ci clean purge-ignored-junk pre-commit
 
 # Install a batteries-included development environment.
 install:
@@ -39,6 +39,10 @@ coverage: check-python
 # Enforce structural module size thresholds.
 structure-check: check-python
 	$(PYTHON) scripts/check_structural_thresholds.py
+
+# Enforce complete Google-style docstrings for src/examples/scripts.
+docstrings-check: check-python
+	$(PYTHON) scripts/check_google_docstrings.py
 
 # Run deterministic example tests and emit junit XML for metrics/badge generation.
 examples-deterministic: check-python
@@ -74,9 +78,18 @@ typecheck: check-python
 run-example: check-python
 	PYTHONPATH=src $(PYTHON) examples/workflow/workflow_runtime.py
 
-# Build Sphinx HTML documentation.
+# Build strict Sphinx HTML documentation.
 docs: check-python
-	$(PYTHON) -m sphinx -b html docs docs/_build/html
+	PYTHONPATH=src $(PYTHON) -m sphinx -b html docs docs/_build/html -n -W --keep-going -E
+	@$(PYTHON) -c "import os,webbrowser; webbrowser.open('file://' + os.path.abspath('docs/_build/html/index.html'))"
+
+# Run strict Sphinx link validation.
+docs-linkcheck: check-python
+	PYTHONPATH=src $(PYTHON) -m sphinx -b linkcheck docs docs/_build/linkcheck -W --keep-going -E
+
+# Validate docs terminology and local path consistency.
+docs-check: check-python
+	$(PYTHON) scripts/check_docs_consistency.py
 
 # Remove traces/ dirs anywhere + Sphinx build output + egg-info.
 purge-ignored-junk:
@@ -88,10 +101,10 @@ purge-ignored-junk:
 	@find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
 
 # Aggregate checks used by CI.
-ci: lint format-check typecheck structure-check test coverage
+ci: lint format-check typecheck structure-check docstrings-check test coverage
 
 # Make me squeaky clean
 clean: purge-ignored-junk lint-fix format
 
 # Check for pre-commit
-pre-commit: lint format-check typecheck structure-check test
+pre-commit: lint format-check typecheck structure-check docstrings-check test

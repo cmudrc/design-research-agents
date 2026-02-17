@@ -109,6 +109,9 @@ class MultiStepJsonToolCallingAgent(Agent):
             continuation_memory_tail_items: Memory tail size for continuation prompts.
             step_memory_tail_items: Memory tail size for step prompts.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -163,6 +166,9 @@ class MultiStepJsonToolCallingAgent(Agent):
 
         Returns:
             Final agent result payload.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -406,6 +412,9 @@ class MultiStepJsonToolCallingAgent(Agent):
 
         Returns:
             Tuple of continuation decision, reason, source, and model response.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         system_prompt = self._continuation_system_prompt
         user_prompt = build_continue_prompt(

@@ -24,8 +24,12 @@ class ScriptToolRuntimeError(RuntimeError):
 
 @dataclass(slots=True, frozen=True)
 class _ScriptToolBinding:
+    """_ScriptToolBinding class."""
+
     canonical_name: str
+    """Field value for ``canonical_name``."""
     config: ScriptTool
+    """Field value for ``config``."""
 
 
 class ScriptToolSource:
@@ -34,7 +38,12 @@ class ScriptToolSource:
     source_id = "script"
 
     def __init__(self, *, script_tools: tuple[ScriptTool, ...], policy: ToolPolicy) -> None:
-        """Initialize script tool bindings with policy controls."""
+        """Initialize script tool bindings with policy controls.
+
+        Args:
+            script_tools: Parameter value.
+            policy: Parameter value.
+        """
         self._policy = policy
         self._bindings: dict[str, _ScriptToolBinding] = {}
         for script_tool in script_tools:
@@ -45,7 +54,11 @@ class ScriptToolSource:
             )
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """List script-backed tool specs."""
+        """List script-backed tool specs.
+
+        Returns:
+            The resulting value.
+        """
         specs: list[ToolSpec] = []
         for canonical_name, binding in sorted(self._bindings.items()):
             config = binding.config
@@ -80,7 +93,17 @@ class ScriptToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one configured script tool by canonical name."""
+        """Invoke one configured script tool by canonical name.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         del request_id, dependencies
         binding = self._bindings.get(tool_name)
         if binding is None:
@@ -98,6 +121,14 @@ class ScriptToolSource:
 
 
 def _canonical_script_tool_name(raw_name: str) -> str:
+    """Run canonical script tool name.
+
+    Args:
+        raw_name: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     normalized = raw_name.strip()
     if normalized.startswith("script::"):
         return normalized
@@ -111,6 +142,17 @@ def _run_script_tool(
     input_dict: Mapping[str, object],
     policy: ToolPolicy,
 ) -> ToolResult:
+    """Run run script tool.
+
+    Args:
+        tool_name: Parameter value.
+        config: Parameter value.
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if config.network and not policy.config.allow_network:
         return ToolResult(
             tool_name=tool_name,
@@ -221,6 +263,17 @@ def _run_script_tool(
 
 
 def _parse_envelope(stdout_text: str) -> Mapping[str, object]:
+    """Run parse envelope.
+
+    Args:
+        stdout_text: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     stripped = stdout_text.strip()
     if not stripped:
         raise ScriptToolRuntimeError(

@@ -18,7 +18,14 @@ from design_research_agents.tracing.context import (
 
 
 def step_kind(step: WorkflowStep) -> str:
-    """Return a string label describing the workflow step kind."""
+    """Return a string label describing the workflow step kind.
+
+    Args:
+        step: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if isinstance(step, ToolStep):
         return "tool"
     if isinstance(step, AgentStep):
@@ -29,7 +36,15 @@ def step_kind(step: WorkflowStep) -> str:
 
 
 def start_step_span(*, step: WorkflowStep, step_id: str) -> str | None:
-    """Start one step-level tracing span when a trace session is active."""
+    """Start one step-level tracing span when a trace session is active.
+
+    Args:
+        step: Parameter value.
+        step_id: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     session = current_trace_session()
     if session is None:
         return None
@@ -46,7 +61,14 @@ def start_step_span(*, step: WorkflowStep, step_id: str) -> str | None:
 
 
 def finish_step_span(*, span_id: str | None, step_id: str, status: str, error: str | None) -> None:
-    """Finish one step-level tracing span when available."""
+    """Finish one step-level tracing span when available.
+
+    Args:
+        span_id: Parameter value.
+        step_id: Parameter value.
+        status: Parameter value.
+        error: Parameter value.
+    """
     session = current_trace_session()
     if session is None or span_id is None:
         return
@@ -63,7 +85,14 @@ def finish_step_span(*, span_id: str | None, step_id: str, status: str, error: s
 
 @contextmanager
 def activate_step_span(span_id: str | None) -> Iterator[None]:
-    """Temporarily bind a step span as the active tracing span."""
+    """Temporarily bind a step span as the active tracing span.
+
+    Args:
+        span_id: Parameter value.
+
+    Yields:
+        The yielded values.
+    """
     if span_id is None:
         yield
         return

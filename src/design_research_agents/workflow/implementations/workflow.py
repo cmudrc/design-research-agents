@@ -27,12 +27,34 @@ WorkflowInputMode = Literal["prompt", "schema"]
 
 
 def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
+    """Validate and freeze configured workflow steps.
+
+    Args:
+        steps: Workflow steps supplied to the facade constructor.
+
+    Returns:
+        Immutable step tuple used for runtime execution.
+
+    Raises:
+        ValueError: If no steps were provided.
+    """
     if not steps:
         raise ValueError("'steps' must contain at least one workflow step.")
     return tuple(steps)
 
 
 def _normalize_prompt(input_data: object) -> str:
+    """Validate and normalize prompt-mode workflow input.
+
+    Args:
+        input_data: Raw workflow input value.
+
+    Returns:
+        Trimmed prompt string.
+
+    Raises:
+        ValueError: If input is not a non-empty string.
+    """
     if not isinstance(input_data, str):
         raise ValueError("Workflow configured with input_mode='prompt' requires string input.")
     normalized_prompt = input_data.strip()
@@ -42,6 +64,17 @@ def _normalize_prompt(input_data: object) -> str:
 
 
 def _normalize_inputs(input_data: object) -> dict[str, object]:
+    """Validate and normalize schema-mode workflow input.
+
+    Args:
+        input_data: Raw workflow input value.
+
+    Returns:
+        Input mapping copied into a mutable dictionary.
+
+    Raises:
+        ValueError: If input is not a mapping when provided.
+    """
     if input_data is None:
         return {}
     if not isinstance(input_data, Mapping):
@@ -68,7 +101,25 @@ class Workflow:
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store runtime dependencies, step graph, and input handling mode."""
+        """Store runtime dependencies, step graph, and input handling mode.
+
+        Args:
+            tool_runtime: Tool runtime used by ``ToolStep`` executions.
+            steps: Static workflow step graph to execute for each run.
+            agents: Optional delegate registry used by ``AgentStep``.
+            input_mode: Input normalization mode (``prompt`` or ``schema``).
+            input_schema: Optional schema enforced when ``input_mode='schema'``.
+            prompt_context_key: Context key used to store normalized prompt input.
+            base_context: Base context merged into every run context.
+            default_execution_mode: Default runtime step scheduling mode.
+            default_failure_policy: Default dependency failure handling policy.
+            default_request_id_prefix: Optional prefix used to derive request ids.
+            default_dependencies: Default dependency objects injected into each run.
+            tracer: Optional tracer used for workflow runtime events.
+
+        Raises:
+            ValueError: If constructor inputs are inconsistent.
+        """
         normalized_mode: WorkflowInputMode = input_mode
         if normalized_mode not in {"prompt", "schema"}:
             raise ValueError("input_mode must be either 'prompt' or 'schema'.")
@@ -100,7 +151,18 @@ class Workflow:
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> WorkflowResult:
-        """Execute one workflow run with input interpreted by ``input_mode``."""
+        """Execute one workflow run with input interpreted by ``input_mode``.
+
+        Args:
+            input_data: Prompt string or schema mapping depending on ``input_mode``.
+            execution_mode: Optional per-run execution mode override.
+            failure_policy: Optional per-run failure policy override.
+            request_id: Optional explicit request id for tracing/correlation.
+            dependencies: Optional per-run dependency overrides.
+
+        Returns:
+            Aggregated workflow execution result.
+        """
         resolved_request_id = resolve_request_id_with_prefix(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,

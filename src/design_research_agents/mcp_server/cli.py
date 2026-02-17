@@ -6,7 +6,11 @@ from .server import _serve_stdio
 
 
 def main() -> int:
-    """Run stdio MCP server for CLI entrypoints."""
+    """Run stdio MCP server for CLI entrypoints.
+
+    Returns:
+        Process exit code (``0`` on normal shutdown).
+    """
     _serve_stdio()
     return 0
 

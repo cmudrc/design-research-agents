@@ -19,7 +19,17 @@ from .code_tool_agent_parsing import AllowedTool
 
 
 def compile_sandboxed_code(code_text: str) -> CodeType:
-    """Validate and compile generated code under strict sandbox constraints."""
+    """Validate and compile generated code under strict sandbox constraints.
+
+    Args:
+        code_text: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if not code_text:
         raise ValueError("Generated code is empty.")
 
@@ -29,7 +39,14 @@ def compile_sandboxed_code(code_text: str) -> CodeType:
 
 
 def validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
-    """Validate AST uses only explicitly allowed constructs and names."""
+    """Validate AST uses only explicitly allowed constructs and names.
+
+    Args:
+        syntax_tree: Parameter value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     banned_node_types: tuple[type[ast.AST], ...] = (
         ast.Import,
         ast.ImportFrom,
@@ -91,38 +108,85 @@ class _FinalOutputProxy(dict[str, object]):
     """Mutable placeholder used to detect whether ``final_output`` was touched."""
 
     def __init__(self) -> None:
+        """Run init."""
         super().__init__()
         self._was_mutated = False
 
     @property
     def was_mutated(self) -> bool:
+        """Run was mutated.
+
+        Returns:
+            The resulting value.
+        """
         return self._was_mutated
 
     def __setitem__(self, key: str, value: object) -> None:
+        """Run setitem.
+
+        Args:
+            key: Parameter value.
+            value: Parameter value.
+        """
         self._was_mutated = True
         super().__setitem__(key, value)
 
     def __delitem__(self, key: str) -> None:
+        """Run delitem.
+
+        Args:
+            key: Parameter value.
+        """
         self._was_mutated = True
         super().__delitem__(key)
 
     def clear(self) -> None:
+        """Run clear."""
         self._was_mutated = True
         super().clear()
 
     def pop(self, key: str, default: object = None) -> object:
+        """Run pop.
+
+        Args:
+            key: Parameter value.
+            default: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         self._was_mutated = True
         return super().pop(key, default)
 
     def popitem(self) -> tuple[str, object]:
+        """Run popitem.
+
+        Returns:
+            The resulting value.
+        """
         self._was_mutated = True
         return super().popitem()
 
     def setdefault(self, key: str, default: object = None) -> object:
+        """Run setdefault.
+
+        Args:
+            key: Parameter value.
+            default: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         self._was_mutated = True
         return super().setdefault(key, default)
 
     def update(self, *args: object, **kwargs: object) -> None:
+        """Run update.
+
+        Args:
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
         self._was_mutated = True
         super().update(*args, **kwargs)
 
@@ -141,11 +205,43 @@ def execute_compiled_code(  # noqa: C901
     validate_tool_input_schema: bool,
     tool_results: list[ToolResult],
 ) -> dict[str, object]:
-    """Execute compiled code with strict runtime sandbox and tool guardrails."""
+    """Execute compiled code with strict runtime sandbox and tool guardrails.
+
+    Args:
+        compiled_code: Parameter value.
+        prompt: Parameter value.
+        input_payload: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        allowed_tools: Parameter value.
+        tool_runtime: Parameter value.
+        max_tool_calls: Parameter value.
+        execution_timeout_seconds: Parameter value.
+        validate_tool_input_schema: Parameter value.
+        tool_results: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     allowed_tools_map = {tool.tool_name: tool for tool in allowed_tools}
     tool_call_count = 0
 
     def call_tool(tool_name: str, tool_input: Mapping[str, object]) -> dict[str, object]:
+        """Run call tool.
+
+        Args:
+            tool_name: Parameter value.
+            tool_input: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         nonlocal tool_call_count
         if not isinstance(tool_name, str):
             emit_guardrail_decision(
@@ -297,13 +393,29 @@ def execute_compiled_code(  # noqa: C901
 
 @contextmanager
 def execution_timeout(*, seconds: int) -> Iterator[None]:
-    """Enforce execution timeout via POSIX alarms when available."""
+    """Enforce execution timeout via POSIX alarms when available.
+
+    Args:
+        seconds: Parameter value.
+
+    Yields:
+        The yielded values.
+    """
     if not hasattr(signal, "SIGALRM"):
         # Non-POSIX fallback: no hard timeout support.
         yield
         return
 
     def _on_timeout(signum: int, frame: object) -> None:
+        """Run on timeout.
+
+        Args:
+            signum: Parameter value.
+            frame: Parameter value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         del signum, frame
         raise TimeoutError(f"Execution exceeded timeout ({seconds}s).")
 
@@ -327,7 +439,15 @@ def validate_input_against_schema(
     input_payload: Mapping[str, object],
     input_schema: Mapping[str, object],
 ) -> None:
-    """Validate tool input against constrained JSON-schema-like subset."""
+    """Validate tool input against constrained JSON-schema-like subset.
+
+    Args:
+        input_payload: Parameter value.
+        input_schema: Parameter value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     schema_type = input_schema.get("type")
     if isinstance(schema_type, str) and schema_type != "object":
         raise ValueError("Tool input schema type must be object.")
@@ -364,7 +484,16 @@ def validate_field_type(
     field_value: object,
     field_schema: Mapping[str, object],
 ) -> None:
-    """Validate one input field value against supported schema type hints."""
+    """Validate one input field value against supported schema type hints.
+
+    Args:
+        field_name: Parameter value.
+        field_value: Parameter value.
+        field_schema: Parameter value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     field_type = field_schema.get("type")
     if not isinstance(field_type, str):
         return
@@ -398,7 +527,21 @@ def failure_result(
     generated_code: str,
     raw_generated_code: str | None = None,
 ) -> AgentResult:
-    """Build a structured failure result for predictable error handling."""
+    """Build a structured failure result for predictable error handling.
+
+    Args:
+        error: Parameter value.
+        model_response: Parameter value.
+        tool_results: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        metadata: Parameter value.
+        generated_code: Parameter value.
+        raw_generated_code: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     output: dict[str, object] = {
         "error": error,
         "model_text": model_response.text if model_response is not None else "",

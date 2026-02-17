@@ -83,11 +83,28 @@ class ConsoleTraceSink:
             self._write_line(rendered)
 
     def _normalize_attributes(self, attrs: object) -> Mapping[str, object]:
+        """Run normalize attributes.
+
+        Args:
+            attrs: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if isinstance(attrs, Mapping):
             return attrs
         return {}
 
     def _emit_token_delta(self, *, event_type: str, attrs: Mapping[str, object]) -> bool:
+        """Run emit token delta.
+
+        Args:
+            event_type: Parameter value.
+            attrs: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if event_type != "ModelCallToken":
             return False
         delta_text = attrs.get("delta_text")
@@ -98,6 +115,11 @@ class ConsoleTraceSink:
         return True
 
     def _maybe_close_streaming_line(self, event_type: str) -> None:
+        """Run maybe close streaming line.
+
+        Args:
+            event_type: Parameter value.
+        """
         if self._streaming_line_open and event_type.startswith("ModelCall"):
             self._stream.write("\n")
             self._streaming_line_open = False
@@ -109,6 +131,16 @@ class ConsoleTraceSink:
         attrs: Mapping[str, object],
         event: Mapping[str, object],
     ) -> str | None:
+        """Run render event line.
+
+        Args:
+            event_type: Parameter value.
+            attrs: Parameter value.
+            event: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         event_lines: dict[str, str] = {
             "RunStarted": (
                 f"[run] start run_id={event.get('run_id')} "
@@ -186,5 +218,10 @@ class ConsoleTraceSink:
             self._streaming_line_open = False
 
     def _write_line(self, text: str) -> None:
+        """Run write line.
+
+        Args:
+            text: Parameter value.
+        """
         self._stream.write(f"{text}\n")
         self._stream.flush()

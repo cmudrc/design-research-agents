@@ -14,9 +14,13 @@ class AllowedTool:
     """Normalized allowed-tool definition used during one run."""
 
     tool_name: str
+    """Field value for ``tool_name``."""
     description: str
+    """Field value for ``description``."""
     input_schema: dict[str, object]
+    """Field value for ``input_schema``."""
     default_tool_input: dict[str, object] | None = None
+    """Field value for ``default_tool_input``."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -24,20 +28,35 @@ class CodeNormalizationResult:
     """Captures optional pre-validation code normalization details."""
 
     code_text: str
+    """Field value for ``code_text``."""
     raw_code_text: str
+    """Field value for ``raw_code_text``."""
     stripped_safe_tool_imports: int
+    """Field value for ``stripped_safe_tool_imports``."""
     rewritten_tool_calls: int
+    """Field value for ``rewritten_tool_calls``."""
     rewritten_direct_name_calls: int
+    """Field value for ``rewritten_direct_name_calls``."""
     rewritten_module_attr_calls: int
+    """Field value for ``rewritten_module_attr_calls``."""
     parse_error: str | None = None
+    """Field value for ``parse_error``."""
 
     @property
     def changed(self) -> bool:
-        """Return whether normalization altered imports/calls."""
+        """Return whether normalization altered imports/calls.
+
+        Returns:
+            The resulting value.
+        """
         return self.stripped_safe_tool_imports > 0 or self.rewritten_tool_calls > 0
 
     def metadata(self) -> dict[str, object]:
-        """Return a compact normalization metadata payload."""
+        """Return a compact normalization metadata payload.
+
+        Returns:
+            The resulting value.
+        """
         return {
             "changed": self.changed,
             "stripped_safe_tool_imports": self.stripped_safe_tool_imports,
@@ -52,7 +71,14 @@ def extract_allowed_tools(
     *,
     default_allowed_tools: Sequence[AllowedTool],
 ) -> tuple[list[AllowedTool], str]:
-    """Return allowed tools compiled at initialization time."""
+    """Return allowed tools compiled at initialization time.
+
+    Args:
+        default_allowed_tools: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return (
         [clone_allowed_tool(tool) for tool in default_allowed_tools],
         "init_default",
@@ -64,7 +90,15 @@ def compile_default_allowed_tools(
     runtime_specs: Mapping[str, ToolSpec],
     default_tools: Sequence[Mapping[str, object]] | None,
 ) -> tuple[AllowedTool, ...]:
-    """Compile default allowed tools from init config and runtime tool specs."""
+    """Compile default allowed tools from init config and runtime tool specs.
+
+    Args:
+        runtime_specs: Parameter value.
+        default_tools: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if default_tools is not None:
         compiled_from_input = normalize_allowed_tools(
             raw_tools=default_tools,
@@ -87,7 +121,15 @@ def normalize_allowed_tools(
     raw_tools: object,
     runtime_specs: Mapping[str, ToolSpec],
 ) -> list[AllowedTool]:
-    """Normalize explicit allowed-tool payload into runtime-backed tool entries."""
+    """Normalize explicit allowed-tool payload into runtime-backed tool entries.
+
+    Args:
+        raw_tools: Parameter value.
+        runtime_specs: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw_tools, Sequence) or isinstance(raw_tools, (str, bytes)):
         return []
 
@@ -138,7 +180,14 @@ def normalize_allowed_tools(
 
 
 def clone_allowed_tool(allowed_tool: AllowedTool) -> AllowedTool:
-    """Clone one allowed tool to isolate run-level payload mutations."""
+    """Clone one allowed tool to isolate run-level payload mutations.
+
+    Args:
+        allowed_tool: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return AllowedTool(
         tool_name=allowed_tool.tool_name,
         description=allowed_tool.description,
@@ -152,7 +201,14 @@ def clone_allowed_tool(allowed_tool: AllowedTool) -> AllowedTool:
 
 
 def extract_prompt(input_payload: Mapping[str, object]) -> str:
-    """Extract prompt text from run input."""
+    """Extract prompt text from run input.
+
+    Args:
+        input_payload: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
     )
@@ -165,7 +221,16 @@ def extract_positive_int(
     key: str,
     default_value: int,
 ) -> int:
-    """Extract a positive integer option from run input."""
+    """Extract a positive integer option from run input.
+
+    Args:
+        input_payload: Parameter value.
+        key: Parameter value.
+        default_value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_value = input_payload.get(key)
     if raw_value is None:
         return default_value
@@ -182,7 +247,16 @@ def extract_boolean(
     key: str,
     default_value: bool,
 ) -> bool:
-    """Extract a boolean option from run input."""
+    """Extract a boolean option from run input.
+
+    Args:
+        input_payload: Parameter value.
+        key: Parameter value.
+        default_value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
         return raw_value
@@ -190,7 +264,14 @@ def extract_boolean(
 
 
 def extract_python_code(raw_model_text: str) -> str:
-    """Extract Python code from model output text, preferring fenced blocks."""
+    """Extract Python code from model output text, preferring fenced blocks.
+
+    Args:
+        raw_model_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     fenced_match = match_fenced_code_block(raw_model_text)
     if fenced_match is not None:
         return fenced_match.strip()
@@ -198,7 +279,14 @@ def extract_python_code(raw_model_text: str) -> str:
 
 
 def match_fenced_code_block(raw_text: str) -> str | None:
-    """Return first Python-like fenced code block when present and well-formed."""
+    """Return first Python-like fenced code block when present and well-formed.
+
+    Args:
+        raw_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     fence = "```"
     start_index = raw_text.find(fence)
     if start_index == -1:
@@ -222,6 +310,11 @@ class _CodeCanonicalizer(ast.NodeTransformer):
     """Conservative AST normalizer for common tool-call variants."""
 
     def __init__(self, *, allowed_tool_names: set[str]) -> None:
+        """Run init.
+
+        Args:
+            allowed_tool_names: Parameter value.
+        """
         self._allowed_tool_names = allowed_tool_names
         self.stripped_safe_tool_imports = 0
         self.rewritten_tool_calls = 0
@@ -229,6 +322,14 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         self.rewritten_module_attr_calls = 0
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
+        """Run visit Module.
+
+        Args:
+            node: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         new_body: list[ast.stmt] = []
         for statement in node.body:
             if self._is_strippable_tool_import(statement):
@@ -245,6 +346,14 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return node
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
+        """Run visit Call.
+
+        Args:
+            node: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         visited_node = self.generic_visit(node)
         if not isinstance(visited_node, ast.Call):
             return visited_node
@@ -272,6 +381,14 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return rewritten_call
 
     def _is_strippable_tool_import(self, statement: ast.stmt) -> bool:
+        """Run is strippable tool import.
+
+        Args:
+            statement: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if not isinstance(statement, ast.Import):
             return False
         if not statement.names:
@@ -287,6 +404,14 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         self,
         call_target: ast.expr,
     ) -> tuple[str, str] | None:
+        """Run resolve rewrite target.
+
+        Args:
+            call_target: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if isinstance(call_target, ast.Name):
             if call_target.id in self._allowed_tool_names:
                 return call_target.id, "direct_name"
@@ -302,6 +427,14 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return call_target.attr, "module_attr"
 
     def _build_tool_input_argument(self, node: ast.Call) -> ast.expr | None:
+        """Run build tool input argument.
+
+        Args:
+            node: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if len(node.args) == 1 and not node.keywords:
             if isinstance(node.args[0], ast.Starred):
                 return None
@@ -326,7 +459,15 @@ def canonicalize_generated_code(
     code_text: str,
     allowed_tools: Sequence[AllowedTool],
 ) -> CodeNormalizationResult:
-    """Rewrite narrow, known-safe tool call variants into canonical form."""
+    """Rewrite narrow, known-safe tool call variants into canonical form.
+
+    Args:
+        code_text: Parameter value.
+        allowed_tools: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not code_text:
         return CodeNormalizationResult(
             code_text=code_text,

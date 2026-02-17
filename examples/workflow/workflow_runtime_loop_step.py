@@ -41,12 +41,28 @@ def main() -> None:
 
 
 def _increment_handler(context: Mapping[str, object]) -> Mapping[str, object]:
+    """Run increment handler.
+
+    Args:
+        context: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     loop_state = context.get("loop_state")
     state_mapping = loop_state if isinstance(loop_state, Mapping) else {}
     return {"counter": int(state_mapping.get("counter", 0)) + 1}
 
 
 def _snapshot_handler(context: Mapping[str, object]) -> Mapping[str, object]:
+    """Run snapshot handler.
+
+    Args:
+        context: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     dependency_results = context.get("dependency_results")
     if not isinstance(dependency_results, Mapping):
         return {"counter": 0, "status": "looping"}
@@ -67,7 +83,16 @@ def _state_reducer(
     iteration_result: WorkflowResult,
     iteration: int,
 ) -> Mapping[str, object]:
-    """Carry the latest counter value into the next iteration."""
+    """Carry the latest counter value into the next iteration.
+
+    Args:
+        state: Parameter value.
+        iteration_result: Parameter value.
+        iteration: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     del state, iteration
     return {
         "counter": int(iteration_result.step_results["increment"].output["counter"]),

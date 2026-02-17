@@ -71,6 +71,9 @@ class SingleStepDirectLLMAgent(Agent):
             max_tokens: Optional default output-token cap.
             provider_options: Optional default backend-specific options.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         if max_tokens is not None and max_tokens < 1:
             raise ValueError("max_tokens must be >= 1 when provided.")
@@ -100,6 +103,9 @@ class SingleStepDirectLLMAgent(Agent):
 
         Returns:
             Final agent result payload.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -156,6 +162,9 @@ class SingleStepDirectLLMAgent(Agent):
 
         Yields:
             Streaming events through completion.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)

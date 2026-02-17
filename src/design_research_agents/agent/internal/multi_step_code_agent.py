@@ -118,6 +118,9 @@ class MultiStepCodeToolCallingAgent(Agent):
             continuation_memory_tail_items: Memory tail size for continuation prompts.
             step_memory_tail_items: Memory tail size for step prompts.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -189,6 +192,9 @@ class MultiStepCodeToolCallingAgent(Agent):
 
         Returns:
             Final agent result payload.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -479,6 +485,9 @@ class MultiStepCodeToolCallingAgent(Agent):
 
         Returns:
             Tuple of continuation decision, reason, source, and model response.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         system_prompt = self._continuation_system_prompt
         user_prompt = build_continue_prompt(
@@ -627,6 +636,20 @@ def _failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
+    """Run failure result.
+
+    Args:
+        error: Parameter value.
+        model_response: Parameter value.
+        tool_results: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        metadata: Parameter value.
+        output: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return build_failure_result(
         error=error,
         model_response=model_response,

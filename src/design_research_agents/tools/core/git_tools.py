@@ -13,7 +13,12 @@ from ._helpers import get_bool, get_int, get_str
 
 
 def register_git_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> None:
-    """Register read-oriented git inspection tools."""
+    """Register read-oriented git inspection tools.
+
+    Args:
+        source: Parameter value.
+        policy: Parameter value.
+    """
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=True, commands=("git",)),
@@ -92,6 +97,15 @@ def register_git_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> No
 
 
 def _git_status(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run git status.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     return {
         "repo": str(repo),
@@ -100,6 +114,15 @@ def _git_status(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapp
 
 
 def _git_diff(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run git diff.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     staged = get_bool(input_dict, "staged", default=False)
     pathspec = get_str(input_dict, "pathspec", default="").strip()
@@ -115,6 +138,15 @@ def _git_diff(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _git_log(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run git log.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     max_commits = get_int(input_dict, "max_commits", default=20)
     return {
@@ -128,6 +160,18 @@ def _git_log(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping
 
 
 def _git_show(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
+    """Run git show.
+
+    Args:
+        input_dict: Parameter value.
+        policy: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     rev = get_str(input_dict, "rev").strip()
     if not rev:
@@ -140,6 +184,16 @@ def _git_show(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _run_git(*, policy: ToolPolicy, repo: str, args: list[str]) -> str:
+    """Run run git.
+
+    Args:
+        policy: Parameter value.
+        repo: Parameter value.
+        args: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     policy.validate_command("git")
     completed = subprocess.run(
         ["git", "-C", repo, *args],

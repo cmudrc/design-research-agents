@@ -59,7 +59,11 @@ class MlxLocalBackend(BaseLLMBackend):
         self._tokenizer: Any | None = None
 
     def capabilities(self) -> BackendCapabilities:
-        """Return capabilities inferred from installed MLX version."""
+        """Return capabilities inferred from installed MLX version.
+
+        Returns:
+            The resulting value.
+        """
         return BackendCapabilities(
             streaming=_mlx_supports_streaming(),
             tool_calling="best_effort",
@@ -69,10 +73,22 @@ class MlxLocalBackend(BaseLLMBackend):
         )
 
     def healthcheck(self) -> BackendStatus:
-        """Return static health state for configured MLX backend."""
+        """Return static health state for configured MLX backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendStatus(ok=True, message="MLX backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Run generate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         model, tokenizer = self._ensure_model()
         prompt = _format_prompt(request, tokenizer)
         output = _mlx_generate(
@@ -86,6 +102,14 @@ class MlxLocalBackend(BaseLLMBackend):
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Run stream.
+
+        Args:
+            request: Parameter value.
+
+        Yields:
+            The yielded values.
+        """
         model, tokenizer = self._ensure_model()
         prompt = _format_prompt(request, tokenizer)
         output = _mlx_generate(
@@ -105,6 +129,14 @@ class MlxLocalBackend(BaseLLMBackend):
                 yield LLMDelta(text_delta=str(chunk))
 
     def _ensure_model(self) -> tuple[Any, Any]:
+        """Run ensure model.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         if self._model is not None and self._tokenizer is not None:
             return self._model, self._tokenizer
         try:
@@ -121,6 +153,15 @@ class MlxLocalBackend(BaseLLMBackend):
 
 
 def _format_prompt(request: LLMRequest, tokenizer: Any | None) -> str:
+    """Run format prompt.
+
+    Args:
+        request: Parameter value.
+        tokenizer: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     messages = [{"role": message.role, "content": message.content} for message in request.messages]
     if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
         try:
@@ -144,6 +185,19 @@ def _mlx_generate(
     temperature: float | None,
     stream: bool | None = None,
 ) -> str | Iterator[str]:
+    """Run mlx generate.
+
+    Args:
+        model: Parameter value.
+        tokenizer: Parameter value.
+        prompt: Parameter value.
+        max_tokens: Parameter value.
+        temperature: Parameter value.
+        stream: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     from mlx_lm import generate
 
     kwargs: dict[str, Any] = {
@@ -156,6 +210,11 @@ def _mlx_generate(
 
 
 def _mlx_supports_streaming() -> bool:
+    """Run mlx supports streaming.
+
+    Returns:
+        The resulting value.
+    """
     try:
         from mlx_lm import generate
     except ImportError:

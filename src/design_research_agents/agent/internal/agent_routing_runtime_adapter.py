@@ -38,7 +38,11 @@ class AgentRoutingToolRuntimeAdapter(ToolRuntime):
         }
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """Return virtual tool specs derived from agent-routing alternatives."""
+        """Return virtual tool specs derived from agent-routing alternatives.
+
+        Returns:
+            The resulting value.
+        """
         specs: list[ToolSpec] = []
         for name, agent in self._alternatives.items():
             specs.append(
@@ -68,7 +72,17 @@ class AgentRoutingToolRuntimeAdapter(ToolRuntime):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Record a routing choice as a successful virtual tool invocation."""
+        """Record a routing choice as a successful virtual tool invocation.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if tool_name not in self._alternatives:
             return ToolResult(
                 tool_name=tool_name,

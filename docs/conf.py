@@ -28,6 +28,8 @@ author = "design-research-agents contributors"
 # - viewcode: add links to highlighted source
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
 ]
@@ -35,6 +37,38 @@ extensions = [
 # Docstring style: prefer Google-style (works well with type hints).
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
+napoleon_use_param = True
+napoleon_use_rtype = False
+
+# Keep type hints out of rendered docs to avoid unresolved nitpicky targets.
+autodoc_typehints = "none"
+
+# Generate autosummary stub pages at build time.
+autosummary_generate = True
+autosummary_imported_members = True
+
+# Treat unresolved cross references as errors.
+nitpicky = True
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+}
+nitpick_ignore = [
+    ("py:class", "AgentResult"),
+    ("py:class", "LlamaCppServerBackend"),
+    ("py:class", "design_research_agents.contracts.agent.AgentResult"),
+    ("py:class", "design_research_agents.contracts.llm.LLMResponse"),
+    ("py:class", "design_research_agents.contracts.tools.ToolCostHints"),
+    ("py:class", "design_research_agents.contracts.tools.ToolMetadata"),
+    ("py:class", "design_research_agents.contracts.tools.ToolResult"),
+    ("py:class", "design_research_agents.model_selection.catalog.ModelCatalog"),
+    ("py:class", "design_research_agents.model_selection.types.ModelCostHint"),
+    ("py:class", "design_research_agents.model_selection.types.ModelLatencyHint"),
+    ("py:class", "design_research_agents.model_selection.types.ModelMemoryHint"),
+    ("py:class", "design_research_agents.model_selection.types.ModelSafetyConstraints"),
+    ("py:class", "design_research_agents.model_selection.types.ModelSelectionPolicyConfig"),
+    ("py:class", "design_research_agents.model_selection.types.ModelSpec"),
+    ("py:exc", "SchemaValidationError"),
+]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
@@ -52,6 +86,15 @@ else:
         html_theme = "alabaster"
 
 html_static_path = ["_static"]
+
+# Linkcheck tuning for stable CI behavior.
+linkcheck_retries = 2
+linkcheck_timeout = 10
+linkcheck_workers = 10
+linkcheck_anchors = False
+linkcheck_ignore = [
+    r"https://api\.example\.com/.*",
+]
 
 
 _VIEWPORT_META_RE = re.compile(r'<meta name="viewport"[^>]*>', re.IGNORECASE)

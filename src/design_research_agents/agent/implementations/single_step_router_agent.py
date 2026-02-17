@@ -137,6 +137,9 @@ class SingleStepRouterAgent(Agent):
 
         Returns:
             Final agent result payload.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)

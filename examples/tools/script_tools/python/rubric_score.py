@@ -28,7 +28,11 @@ from pathlib import Path
 
 
 def main() -> int:
-    """Run rubric scoring over stdin JSON input and emit a tool envelope."""
+    """Run rubric scoring over stdin JSON input and emit a tool envelope.
+
+    Returns:
+        The resulting value.
+    """
     raw_input_text = sys.stdin.read()
     input_payload = json.loads(raw_input_text) if raw_input_text.strip() else {}
     rubric_text = str(input_payload.get("text", ""))

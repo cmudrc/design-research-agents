@@ -21,12 +21,28 @@ from design_research_agents.contracts.llm import (
 
 
 def generate_response(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResponse:
-    """Issue one non-streaming LLM request."""
+    """Issue one non-streaming LLM request.
+
+    Args:
+        llm_client: Parameter value.
+        llm_request: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return llm_client.generate(llm_request)
 
 
 def stream_response(llm_client: LLMClient, llm_request: LLMRequest) -> Iterator[LLMDelta]:
-    """Issue one streaming LLM request."""
+    """Issue one streaming LLM request.
+
+    Args:
+        llm_client: Parameter value.
+        llm_request: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return llm_client.stream(llm_request)
 
 
@@ -39,7 +55,19 @@ def build_success_result(
     message_count: int,
     llm_request: LLMRequest,
 ) -> AgentResult:
-    """Build a success result payload from one completed model response."""
+    """Build a success result payload from one completed model response.
+
+    Args:
+        llm_response: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        message_source: Parameter value.
+        message_count: Parameter value.
+        llm_request: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     output: dict[str, object] = {
         "model": llm_response.model,
         "model_text": llm_response.text,
@@ -70,7 +98,15 @@ def extract_messages(
     input_payload: Mapping[str, object],
     default_system_prompt: str | None,
 ) -> tuple[list[LLMMessage], str]:
-    """Extract normalized message list from explicit messages or prompt fallback."""
+    """Extract normalized message list from explicit messages or prompt fallback.
+
+    Args:
+        input_payload: Parameter value.
+        default_system_prompt: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     normalized_input_messages = normalize_messages(input_payload.get("messages"))
     if normalized_input_messages:
         return (
@@ -100,7 +136,15 @@ def extract_system_prompt(
     input_payload: Mapping[str, object],
     default_system_prompt: str | None,
 ) -> str | None:
-    """Extract optional system prompt override from run input or defaults."""
+    """Extract optional system prompt override from run input or defaults.
+
+    Args:
+        input_payload: Parameter value.
+        default_system_prompt: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_system_prompt = input_payload.get("system_prompt", default_system_prompt)
     if raw_system_prompt is None:
         return None
@@ -109,7 +153,14 @@ def extract_system_prompt(
 
 
 def normalize_messages(raw_messages: object) -> list[LLMMessage]:
-    """Normalize optional message payload into a validated ``LLMMessage`` list."""
+    """Normalize optional message payload into a validated ``LLMMessage`` list.
+
+    Args:
+        raw_messages: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw_messages, Sequence) or isinstance(raw_messages, (str, bytes)):
         return []
 
@@ -136,7 +187,15 @@ def inject_alternatives_into_messages(
     messages: Sequence[LLMMessage],
     input_payload: Mapping[str, object],
 ) -> list[LLMMessage]:
-    """Inject optional alternatives context into either system or user prompt."""
+    """Inject optional alternatives context into either system or user prompt.
+
+    Args:
+        messages: Parameter value.
+        input_payload: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     alternatives_text = format_raw_alternatives(input_payload.get("alternatives"))
     if not alternatives_text:
         return list(messages)
@@ -156,7 +215,15 @@ def inject_alternatives_into_system_message(
     messages: Sequence[LLMMessage],
     alternatives_text: str,
 ) -> list[LLMMessage]:
-    """Inject alternatives text into the first system message or create one."""
+    """Inject alternatives text into the first system message or create one.
+
+    Args:
+        messages: Parameter value.
+        alternatives_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     injected_messages = list(messages)
     for index, message in enumerate(injected_messages):
         if message.role != "system":
@@ -190,7 +257,15 @@ def inject_alternatives_into_user_message(
     messages: Sequence[LLMMessage],
     alternatives_text: str,
 ) -> list[LLMMessage]:
-    """Inject alternatives text into the last user message or append one."""
+    """Inject alternatives text into the last user message or append one.
+
+    Args:
+        messages: Parameter value.
+        alternatives_text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     injected_messages = list(messages)
     for index in range(len(injected_messages) - 1, -1, -1):
         message = injected_messages[index]
@@ -223,7 +298,14 @@ def inject_alternatives_into_user_message(
 def extract_response_schema(
     input_payload: Mapping[str, object],
 ) -> dict[str, object] | None:
-    """Extract optional response-schema mapping from run input."""
+    """Extract optional response-schema mapping from run input.
+
+    Args:
+        input_payload: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_response_schema = input_payload.get("response_schema")
     if isinstance(raw_response_schema, Mapping):
         return {key: value for key, value in raw_response_schema.items() if isinstance(key, str)}
@@ -235,7 +317,15 @@ def extract_temperature(
     input_payload: Mapping[str, object],
     default_value: float | None,
 ) -> float | None:
-    """Extract optional sampling temperature from input payload."""
+    """Extract optional sampling temperature from input payload.
+
+    Args:
+        input_payload: Parameter value.
+        default_value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_temperature = input_payload.get("temperature", default_value)
     if isinstance(raw_temperature, (int, float)):
         return float(raw_temperature)
@@ -255,7 +345,15 @@ def extract_max_tokens(
     input_payload: Mapping[str, object],
     default_value: int | None,
 ) -> int | None:
-    """Extract optional positive max-token value from input payload."""
+    """Extract optional positive max-token value from input payload.
+
+    Args:
+        input_payload: Parameter value.
+        default_value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_max_tokens = input_payload.get("max_tokens", default_value)
     if isinstance(raw_max_tokens, int):
         return raw_max_tokens if raw_max_tokens > 0 else default_value
@@ -272,14 +370,29 @@ def merge_provider_options(
     default_provider_options: Mapping[str, object],
     raw_provider_options: object,
 ) -> dict[str, object]:
-    """Merge default and input provider options into a plain dictionary."""
+    """Merge default and input provider options into a plain dictionary.
+
+    Args:
+        default_provider_options: Parameter value.
+        raw_provider_options: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     merged = dict(default_provider_options)
     merged.update(coerce_provider_options(raw_provider_options))
     return merged
 
 
 def coerce_provider_options(raw_provider_options: object) -> dict[str, object]:
-    """Normalize optional provider options into ``dict[str, object]``."""
+    """Normalize optional provider options into ``dict[str, object]``.
+
+    Args:
+        raw_provider_options: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw_provider_options, Mapping):
         return {}
     return {key: value for key, value in raw_provider_options.items() if isinstance(key, str)}

@@ -19,7 +19,20 @@ def build_failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
-    """Build a structured failure result with stable metadata fields."""
+    """Build a structured failure result with stable metadata fields.
+
+    Args:
+        error: Parameter value.
+        model_response: Parameter value.
+        tool_results: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        metadata: Parameter value.
+        output: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return AgentResult(
         output={"error": error, **dict(output)},
         success=False,

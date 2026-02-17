@@ -3,15 +3,11 @@ Workflow Patterns
 
 Available reusable workflow patterns:
 
-- ``PlannerExecutorPattern``
-  - Planner + executor decomposition for complex tasks
-- ``ReflexionPattern``
-  - Iterative proposal/revision loops
-- ``RouterPattern``
-  - Intent-based delegation to selected agents
-- ``Workflow``
-  - Reusable user-defined graph with ``input_mode='schema'`` or
-    ``input_mode='prompt'``
+- ``PlannerExecutorPattern``: planner + executor decomposition for complex tasks.
+- ``ReflexionPattern``: iterative proposal/revision loops.
+- ``RouterPattern``: intent-based delegation to selected agents.
+- ``Workflow``: reusable user-defined graph with ``input_mode='schema'`` or
+  ``input_mode='prompt'``.
 
 These workflow patterns are reference implementations built on first-class
 workflow primitives: ``LogicStep``, ``ToolStep``, ``AgentStep``, and
@@ -30,6 +26,6 @@ Examples
 - ``examples/workflow/plan_execute.py``
 - ``examples/workflow/propose_critic.py``
 - ``examples/workflow/agent_routing.py``
-- ``examples/workflow/pure_tool_workflow.py``
-- ``examples/workflow/mixed_agent_workflow.py``
+- ``examples/workflow/workflow_schema_mode.py``
+- ``examples/workflow/workflow_prompt_mode.py``
 - ``examples/workflow/README.md``

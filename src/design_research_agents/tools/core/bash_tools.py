@@ -32,7 +32,11 @@ _COMMAND_PREFIXES = frozenset({"command", "builtin", "env", "sudo", "time", "noh
 
 
 def register_bash_tools(source: InProcessToolSource) -> None:
-    """Register BashKit-backed execution tooling in the in-process source."""
+    """Register BashKit-backed execution tooling in the in-process source.
+
+    Args:
+        source: Parameter value.
+    """
     source.register_tool(
         spec=ToolSpec(
             name="bash.exec",
@@ -74,6 +78,19 @@ def _bash_exec_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
+    """Run bash exec handler.
+
+    Args:
+        input_dict: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     del request_id, dependencies
     script = get_str(input_dict, "script").strip()
     if not script:
@@ -117,6 +134,17 @@ def _bash_exec_handler(
 
 
 def _get_allowed_commands(value: object) -> set[str] | None:
+    """Run get allowed commands.
+
+    Args:
+        value: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if value is None:
         return None
     if not isinstance(value, list):
@@ -133,6 +161,14 @@ def _get_allowed_commands(value: object) -> set[str] | None:
 
 
 def _extract_command_names(script: str) -> tuple[str, ...]:
+    """Run extract command names.
+
+    Args:
+        script: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     commands: list[str] = []
     for raw_line in script.splitlines():
         stripped = raw_line.strip()
@@ -144,6 +180,14 @@ def _extract_command_names(script: str) -> tuple[str, ...]:
 
 
 def _extract_line_command_names(line: str) -> tuple[str, ...]:
+    """Run extract line command names.
+
+    Args:
+        line: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     lexer = shlex.shlex(line, posix=True, punctuation_chars="();|&<>")
     lexer.whitespace_split = True
     lexer.commenters = "#"
@@ -177,6 +221,14 @@ def _extract_line_command_names(line: str) -> tuple[str, ...]:
 
 
 def _normalize_command_name(token: str) -> str:
+    """Run normalize command name.
+
+    Args:
+        token: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     candidate = token.strip()
     if not candidate:
         return ""
@@ -188,6 +240,14 @@ def _normalize_command_name(token: str) -> str:
 
 
 def _is_env_assignment(token: str) -> bool:
+    """Run is env assignment.
+
+    Args:
+        token: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if "=" not in token:
         return False
     key, _, value = token.partition("=")
@@ -199,6 +259,14 @@ def _is_env_assignment(token: str) -> bool:
 
 
 def _is_redirection_token(token: str) -> bool:
+    """Run is redirection token.
+
+    Args:
+        token: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if token in {">", ">>", "<", "<<", "<<<", "<>", "&>", "&>>"}:
         return True
     return (token.endswith(">") and token[:-1].isdigit()) or (

@@ -10,6 +10,17 @@ from design_research_agents.agent import SingleStepJsonToolCallingAgent
 
 
 def _normalize_title(payload: Mapping[str, object]) -> dict[str, object]:
+    """Run normalize title.
+
+    Args:
+        payload: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     raw_title = str(payload.get("title", "")).strip()
     if not raw_title:
         raise ValueError("title is required.")

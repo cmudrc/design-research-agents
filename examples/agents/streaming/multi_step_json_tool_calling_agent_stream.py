@@ -9,6 +9,11 @@ from design_research_agents.contracts.agent import AgentStreamEvent
 
 
 def _print_stream_event(event: AgentStreamEvent) -> None:
+    """Run print stream event.
+
+    Args:
+        event: Parameter value.
+    """
     if event.kind == "delta":
         print(f"delta: {event.delta_text or ''}")
         return

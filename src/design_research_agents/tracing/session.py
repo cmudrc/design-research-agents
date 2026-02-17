@@ -19,14 +19,23 @@ class TraceEvent:
     """Normalized trace event payload."""
 
     event_type: str
+    """Field value for ``event_type``."""
     run_id: str
+    """Field value for ``run_id``."""
     span_id: str
+    """Field value for ``span_id``."""
     parent_span_id: str | None
+    """Field value for ``parent_span_id``."""
     timestamp: str
+    """Field value for ``timestamp``."""
     timestamp_ms: int
+    """Field value for ``timestamp_ms``."""
     duration_ms: int | None = None
+    """Field value for ``duration_ms``."""
     attributes: dict[str, object] = field(default_factory=dict)
+    """Field value for ``attributes``."""
     event_index: int | None = None
+    """Field value for ``event_index``."""
 
     def asdict(self) -> dict[str, object]:
         """Return JSON-serializable dictionary representation.
@@ -41,8 +50,12 @@ class TraceEvent:
 
 @dataclass(slots=True, frozen=True)
 class _SpanInfo:
+    """_SpanInfo class."""
+
     start_time: float
+    """Field value for ``start_time``."""
     parent_span_id: str | None
+    """Field value for ``parent_span_id``."""
 
 
 class TraceSession:

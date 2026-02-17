@@ -17,11 +17,20 @@ class StdioMcpServer:
     """Minimal JSON-RPC MCP server over stdio."""
 
     def __init__(self, *, runtime: ToolRuntime | None = None) -> None:
-        """Initialize the server with a runtime or default unified runtime."""
+        """Initialize the server with a runtime or default unified runtime.
+
+        Args:
+            runtime: Tool runtime used to list and invoke tools. Defaults to ``Toolbox``.
+        """
         self._runtime = runtime or Toolbox()
 
     def serve(self, *, stdin: TextIO, stdout: TextIO) -> None:
-        """Serve until stdin closes."""
+        """Serve until stdin closes.
+
+        Args:
+            stdin: Input stream carrying one JSON-RPC request per line.
+            stdout: Output stream used for JSON-RPC responses.
+        """
         for line in stdin:
             raw_line = line.strip()
             if not raw_line:
@@ -42,6 +51,14 @@ class StdioMcpServer:
             stdout.flush()
 
     def _handle_request(self, request: Mapping[str, object]) -> dict[str, object]:
+        """Dispatch one JSON-RPC request to an MCP handler.
+
+        Args:
+            request: Parsed JSON-RPC request object.
+
+        Returns:
+            JSON-RPC response object.
+        """
         request_id = request.get("id")
         method = str(request.get("method", ""))
         params = request.get("params")
@@ -110,6 +127,16 @@ class StdioMcpServer:
         code: int,
         message: str,
     ) -> dict[str, object]:
+        """Build a JSON-RPC error response payload.
+
+        Args:
+            request_id: Request id to echo back to the client.
+            code: JSON-RPC error code.
+            message: Human-readable error message.
+
+        Returns:
+            JSON-RPC error response object.
+        """
         return {
             "jsonrpc": "2.0",
             "id": request_id,
@@ -127,6 +154,14 @@ class StdioMcpServer:
         code: int,
         message: str,
     ) -> None:
+        """Write one JSON-RPC error object to the output stream.
+
+        Args:
+            stdout: Output stream receiving the encoded error line.
+            request_id: Request id to echo back to the client.
+            code: JSON-RPC error code.
+            message: Human-readable error message.
+        """
         stdout.write(
             json.dumps(
                 {
@@ -142,7 +177,11 @@ class StdioMcpServer:
 
 
 def _serve_stdio(runtime: ToolRuntime | None = None) -> None:
-    """Start stdio MCP server."""
+    """Start stdio MCP server.
+
+    Args:
+        runtime: Optional tool runtime override used by the server.
+    """
     server = StdioMcpServer(runtime=runtime)
     server.serve(stdin=sys.stdin, stdout=sys.stdout)
 

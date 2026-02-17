@@ -20,11 +20,18 @@ class StreamAccumulator:
     """Collect streaming deltas into a response payload."""
 
     text_parts: list[str] = field(default_factory=list)
+    """Field value for ``text_parts``."""
     tool_calls: dict[str, dict[str, Any]] = field(default_factory=dict)
+    """Field value for ``tool_calls``."""
     usage: Usage | None = None
+    """Field value for ``usage``."""
 
     def apply(self, delta: LLMDelta) -> None:
-        """Apply one streaming delta to the accumulator state."""
+        """Apply one streaming delta to the accumulator state.
+
+        Args:
+            delta: Parameter value.
+        """
         if delta.text_delta:
             self.text_parts.append(delta.text_delta)
         if delta.tool_call_delta:
@@ -33,10 +40,19 @@ class StreamAccumulator:
             self.usage = delta.usage_delta
 
     def text(self) -> str:
-        """Return the accumulated text payload."""
+        """Return the accumulated text payload.
+
+        Returns:
+            The resulting value.
+        """
         return "".join(self.text_parts)
 
     def _apply_tool_call_delta(self, delta: ToolCallDelta) -> None:
+        """Run apply tool call delta.
+
+        Args:
+            delta: Parameter value.
+        """
         call_id = delta.call_id or "call_1"
         entry = self.tool_calls.setdefault(
             call_id,
@@ -51,7 +67,11 @@ class StreamAccumulator:
             entry["arguments"] += delta.arguments_json_delta
 
     def build_tool_calls(self) -> tuple[ToolCall, ...]:
-        """Build normalized tool calls from accumulated call fragments."""
+        """Build normalized tool calls from accumulated call fragments.
+
+        Returns:
+            The resulting value.
+        """
         calls: list[ToolCall] = []
         for call_id, payload in self.tool_calls.items():
             name = payload.get("name") or ""
@@ -66,7 +86,16 @@ def finalize_stream_response(
     accumulator: StreamAccumulator,
     model: str,
 ) -> LLMResponse:
-    """Return the final stream response, preferring backend-attached responses."""
+    """Return the final stream response, preferring backend-attached responses.
+
+    Args:
+        stream: Parameter value.
+        accumulator: Parameter value.
+        model: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     response = getattr(stream, "response", None)
     if isinstance(response, LLMResponse):
         if not response.text and accumulator.text_parts:

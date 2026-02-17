@@ -35,7 +35,21 @@ class TransformersLocalBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
-        """Configure local Transformers backend and deferred model loading."""
+        """Configure local Transformers backend and deferred model loading.
+
+        Args:
+            name: Parameter value.
+            model_id: Parameter value.
+            default_model: Parameter value.
+            device: Parameter value.
+            dtype: Parameter value.
+            quantization: Parameter value.
+            trust_remote_code: Parameter value.
+            revision: Parameter value.
+            config_hash: Parameter value.
+            max_retries: Parameter value.
+            model_patterns: Parameter value.
+        """
         super().__init__(
             name=name,
             kind="transformers_local",
@@ -55,7 +69,11 @@ class TransformersLocalBackend(BaseLLMBackend):
         self._model: Any | None = None
 
     def capabilities(self) -> BackendCapabilities:
-        """Return capabilities inferred from installed Transformers features."""
+        """Return capabilities inferred from installed Transformers features.
+
+        Returns:
+            The resulting value.
+        """
         return BackendCapabilities(
             streaming=_streaming_available(),
             tool_calling="best_effort",
@@ -65,10 +83,22 @@ class TransformersLocalBackend(BaseLLMBackend):
         )
 
     def healthcheck(self) -> BackendStatus:
-        """Return static health status for configured backend."""
+        """Return static health status for configured backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendStatus(ok=True, message="Transformers backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Run generate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         tokenizer, model = self._ensure_model()
         prompt = _format_prompt(request, tokenizer)
         inputs = tokenizer(prompt, return_tensors="pt")
@@ -85,6 +115,14 @@ class TransformersLocalBackend(BaseLLMBackend):
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Run stream.
+
+        Args:
+            request: Parameter value.
+
+        Yields:
+            The yielded values.
+        """
         tokenizer, model = self._ensure_model()
         try:
             from transformers import TextIteratorStreamer
@@ -115,6 +153,14 @@ class TransformersLocalBackend(BaseLLMBackend):
         thread.join(timeout=1.0)
 
     def _ensure_model(self) -> tuple[Any, Any]:
+        """Run ensure model.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         if self._model is not None and self._tokenizer is not None:
             return self._tokenizer, self._model
         try:
@@ -148,6 +194,15 @@ class TransformersLocalBackend(BaseLLMBackend):
 
 
 def _format_prompt(request: LLMRequest, tokenizer: Any) -> str:
+    """Run format prompt.
+
+    Args:
+        request: Parameter value.
+        tokenizer: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     messages = [{"role": message.role, "content": message.content} for message in request.messages]
     if hasattr(tokenizer, "apply_chat_template"):
         try:
@@ -163,6 +218,17 @@ def _format_prompt(request: LLMRequest, tokenizer: Any) -> str:
 
 
 def _resolve_dtype(dtype: str) -> Any:
+    """Run resolve dtype.
+
+    Args:
+        dtype: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     try:
         import torch
     except ImportError as exc:
@@ -180,6 +246,14 @@ def _resolve_dtype(dtype: str) -> Any:
 
 
 def _quantization_kwargs(quantization: str) -> dict[str, Any]:
+    """Run quantization kwargs.
+
+    Args:
+        quantization: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if quantization == "8bit":
         return {"load_in_8bit": True}
     if quantization == "4bit":
@@ -188,6 +262,15 @@ def _quantization_kwargs(quantization: str) -> dict[str, Any]:
 
 
 def _move_to_device(inputs: dict[str, Any], model: Any) -> dict[str, Any]:
+    """Run move to device.
+
+    Args:
+        inputs: Parameter value.
+        model: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     device = getattr(model, "device", None)
     if device is None:
         return inputs
@@ -195,6 +278,11 @@ def _move_to_device(inputs: dict[str, Any], model: Any) -> dict[str, Any]:
 
 
 def _streaming_available() -> bool:
+    """Run streaming available.
+
+    Returns:
+        The resulting value.
+    """
     try:
         from transformers import TextIteratorStreamer
     except ImportError:

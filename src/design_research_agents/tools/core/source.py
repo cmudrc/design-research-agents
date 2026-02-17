@@ -23,12 +23,17 @@ class CoreToolSource:
     source_id = "core"
 
     def __init__(self, *, policy: ToolPolicy) -> None:
-        """Initialize core source and register default built-in tools."""
+        """Initialize core source and register default built-in tools.
+
+        Args:
+            policy: Parameter value.
+        """
         self._policy = policy
         self._source = InProcessToolSource(source_id=self.source_id)
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
+        """Run register default tools."""
         register_math_tools(self._source)
         register_text_tools(self._source)
         register_fs_tools(self._source, policy=self._policy)
@@ -38,7 +43,11 @@ class CoreToolSource:
         register_bash_tools(self._source)
 
     def list_tools(self) -> Sequence[ToolSpec]:
-        """List all core tools after validating policy compatibility."""
+        """List all core tools after validating policy compatibility.
+
+        Returns:
+            The resulting value.
+        """
         specs = tuple(self._source.list_tools())
         for spec in specs:
             self._policy.validate_tool_spec(spec)
@@ -52,7 +61,17 @@ class CoreToolSource:
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        """Invoke one core tool with policy validation and artifact checks."""
+        """Invoke one core tool with policy validation and artifact checks.
+
+        Args:
+            tool_name: Parameter value.
+            input_dict: Parameter value.
+            request_id: Parameter value.
+            dependencies: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         spec = next(
             (candidate for candidate in self._source.list_tools() if candidate.name == tool_name),
             None,
@@ -77,7 +96,12 @@ class CoreToolSource:
         return result
 
     def register_tool(self, *, spec: ToolSpec, handler: object) -> None:
-        """Register an additional in-process core tool handler."""
+        """Register an additional in-process core tool handler.
+
+        Args:
+            spec: Parameter value.
+            handler: Parameter value.
+        """
         self._source.register_tool(spec=spec, handler=handler)  # type: ignore[arg-type]
 
 

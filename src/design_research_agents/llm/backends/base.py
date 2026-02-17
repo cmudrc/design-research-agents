@@ -30,6 +30,7 @@ class ToolCallSchemaConfig:
     """Schema configuration for best-effort tool call extraction."""
 
     property_name: str = "tool_calls"
+    """Field value for ``property_name``."""
 
 
 class BaseLLMBackend(ABC):
@@ -54,7 +55,17 @@ class BaseLLMBackend(ABC):
         max_retries: int = 2,
         model_patterns: Sequence[str] | None = None,
     ) -> None:
-        """Initialize immutable backend identity and routing metadata."""
+        """Initialize immutable backend identity and routing metadata.
+
+        Args:
+            name: Parameter value.
+            kind: Parameter value.
+            default_model: Parameter value.
+            base_url: Parameter value.
+            config_hash: Parameter value.
+            max_retries: Parameter value.
+            model_patterns: Parameter value.
+        """
         self.name = name
         self.kind = kind
         self.default_model = default_model
@@ -64,7 +75,17 @@ class BaseLLMBackend(ABC):
         self.model_patterns = tuple(model_patterns or ())
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        """Generate a response while enforcing backend capability constraints."""
+        """Generate a response while enforcing backend capability constraints.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         resolved_request = self._resolve_model(request)
         if resolved_request.tools and resolved_request.response_schema:
             raise LLMInvalidRequestError("Requests cannot specify both tools and response_schema.")
@@ -85,39 +106,99 @@ class BaseLLMBackend(ABC):
         return self._generate(resolved_request)
 
     def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        """Stream response deltas for the given request."""
+        """Stream response deltas for the given request.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         resolved_request = self._resolve_model(request)
         if not self.capabilities().streaming:
             raise LLMCapabilityError(f"Backend '{self.name}' does not support streaming.")
         return self._stream(resolved_request)
 
     def embed(self, texts: Sequence[str]) -> EmbeddingResult:
-        """Return embeddings for the supplied texts (optional)."""
+        """Return embeddings for the supplied texts (optional).
+
+        Args:
+            texts: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         raise LLMCapabilityError(f"Backend '{self.name}' does not support embeddings.")
 
     def supports_model(self, model: str) -> bool:
-        """Return whether the backend claims to support the given model id."""
+        """Return whether the backend claims to support the given model id.
+
+        Args:
+            model: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         if not self.model_patterns:
             return True
         return any(_matches_model_pattern(model, pattern) for pattern in self.model_patterns)
 
     @abstractmethod
     def capabilities(self) -> BackendCapabilities:
-        """Return declared backend capabilities."""
+        """Return declared backend capabilities.
+
+        Returns:
+            The resulting value.
+        """
 
     @abstractmethod
     def healthcheck(self) -> BackendStatus:
-        """Return backend healthcheck status."""
+        """Return backend healthcheck status.
+
+        Returns:
+            The resulting value.
+        """
 
     @abstractmethod
     def _generate(self, request: LLMRequest) -> LLMResponse:
-        """Provider-specific non-streaming generation implementation."""
+        """Provider-specific non-streaming generation implementation.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
 
     @abstractmethod
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        """Provider-specific streaming generation implementation."""
+        """Provider-specific streaming generation implementation.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
 
     def _resolve_model(self, request: LLMRequest) -> LLMRequest:
+        """Run resolve model.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         model = request.model.strip() if request.model else self.default_model or ""
         if not model or "*" in model:
             raise LLMInvalidRequestError(f"Backend '{self.name}' requires an explicit model id.")
@@ -128,6 +209,14 @@ class BaseLLMBackend(ABC):
         return _replace_request_model(request, model=model)
 
     def _generate_prompt_validated_json(self, request: LLMRequest) -> LLMResponse:
+        """Run generate prompt validated json.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         result = generate_json(
             generate_fn=self._generate,
             request=request,
@@ -151,6 +240,14 @@ class BaseLLMBackend(ABC):
         )
 
     def _generate_best_effort_tool_calls(self, request: LLMRequest) -> LLMResponse:
+        """Run generate best effort tool calls.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         tools = request.tools
         tool_schema = _build_tool_call_schema(tools)
         instruction = build_tool_call_instruction(tools)
@@ -179,6 +276,15 @@ class BaseLLMBackend(ABC):
 
 
 def _replace_request_model(request: LLMRequest, *, model: str) -> LLMRequest:
+    """Run replace request model.
+
+    Args:
+        request: Parameter value.
+        model: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return LLMRequest(
         messages=request.messages,
         model=model,
@@ -200,6 +306,17 @@ def _merge_response(
     tool_calls: tuple[ToolCall, ...] | None = None,
     raw: dict[str, object] | None = None,
 ) -> LLMResponse:
+    """Run merge response.
+
+    Args:
+        response: Parameter value.
+        text: Parameter value.
+        tool_calls: Parameter value.
+        raw: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return LLMResponse(
         text=response.text if text is None else text,
         tool_calls=response.tool_calls if tool_calls is None else tool_calls,
@@ -217,16 +334,41 @@ def _merge_raw(
     current: dict[str, object] | None,
     update: dict[str, object],
 ) -> dict[str, object]:
+    """Run merge raw.
+
+    Args:
+        current: Parameter value.
+        update: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     merged = dict(current or {})
     merged.update(update)
     return merged
 
 
 def _normalize_json_text(parsed: object) -> str:
+    """Run normalize json text.
+
+    Args:
+        parsed: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return json.dumps(parsed, ensure_ascii=True, sort_keys=True)
 
 
 def _build_tool_call_schema(tools: Sequence[ToolSpec]) -> dict[str, object]:
+    """Run build tool call schema.
+
+    Args:
+        tools: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     tool_names = [tool.name for tool in tools]
     return {
         "type": "object",
@@ -250,6 +392,18 @@ def _build_tool_call_schema(tools: Sequence[ToolSpec]) -> dict[str, object]:
 
 
 def _parse_tool_calls(parsed: object, tools: Sequence[ToolSpec]) -> list[ToolCall]:
+    """Run parse tool calls.
+
+    Args:
+        parsed: Parameter value.
+        tools: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     tool_names = {tool.name for tool in tools}
     payload = parsed
     if isinstance(payload, dict) and "tool_calls" in payload:
@@ -283,6 +437,15 @@ def _parse_tool_calls(parsed: object, tools: Sequence[ToolSpec]) -> list[ToolCal
 
 
 def _matches_model_pattern(model: str, pattern: str) -> bool:
+    """Run matches model pattern.
+
+    Args:
+        model: Parameter value.
+        pattern: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if pattern == model:
         return True
     if "*" not in pattern:

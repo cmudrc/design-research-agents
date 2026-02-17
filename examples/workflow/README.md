@@ -1,8 +1,8 @@
 ## Workflow Runtime Examples
 
 These entrypoints exercise orchestration-level flows, including reusable
-workflow chunks in `src/design_research_agents/workflow/implementations/`.
-Most chunks follow agent-like reuse semantics:
+workflow patterns in `src/design_research_agents/workflow/implementations/`.
+Most pattern classes follow agent-like reuse semantics:
 initialize once, then call `.run(...)` repeatedly with per-run input.
 
 ## What Each Example Demonstrates
@@ -17,9 +17,9 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
   - Propose/critique revision loop.
 - `agent_routing.py`
   - Intent/agent routing with delegate execution.
-- `pure_tool_workflow.py`
+- `workflow_schema_mode.py`
   - User-defined `Workflow` with `input_mode="schema"` for structured input payloads.
-- `mixed_agent_workflow.py`
+- `workflow_prompt_mode.py`
   - User-defined `Workflow` with `input_mode="prompt"` for string prompt payloads.
 
 ## Quick Start
@@ -32,8 +32,8 @@ PYTHONPATH=src python3 examples/workflow/workflow_runtime_loop_step.py
 PYTHONPATH=src python3 examples/workflow/plan_execute.py
 PYTHONPATH=src python3 examples/workflow/propose_critic.py
 PYTHONPATH=src python3 examples/workflow/agent_routing.py
-PYTHONPATH=src python3 examples/workflow/pure_tool_workflow.py
-PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
+PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
+PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
 ```
 
 ## Implementation Mapping
@@ -43,8 +43,8 @@ PYTHONPATH=src python3 examples/workflow/mixed_agent_workflow.py
 - `plan_execute.py` (`PlannerExecutorPattern`) -> `examples/workflow/plan_execute.py`
 - `propose_critic.py` (`ReflexionPattern`) -> `examples/workflow/propose_critic.py`
 - `agent_routing.py` (`RouterPattern`) -> `examples/workflow/agent_routing.py`
-- `pure_tool_workflow.py` (`Workflow` in `schema` mode) -> `examples/workflow/pure_tool_workflow.py`
-- `mixed_agent_workflow.py` (`Workflow` in `prompt` mode) -> `examples/workflow/mixed_agent_workflow.py`
+- `workflow_schema_mode.py` (`Workflow` in `schema` mode) -> `examples/workflow/workflow_schema_mode.py`
+- `workflow_prompt_mode.py` (`Workflow` in `prompt` mode) -> `examples/workflow/workflow_prompt_mode.py`
 
 ## Expected Outputs
 

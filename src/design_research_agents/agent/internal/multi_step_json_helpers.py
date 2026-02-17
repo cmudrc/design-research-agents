@@ -12,7 +12,14 @@ from design_research_agents.contracts.tools import ToolResult, ToolSpec
 
 
 def build_step_tools_text(*, tool_specs: Mapping[str, ToolSpec]) -> str:
-    """Build formatted tools text for multi-step prompt injection."""
+    """Build formatted tools text for multi-step prompt injection.
+
+    Args:
+        tool_specs: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     tool_lines: list[str] = []
     for spec in tool_specs.values():
         tool_lines.append(
@@ -28,7 +35,14 @@ def build_step_tools_text(*, tool_specs: Mapping[str, ToolSpec]) -> str:
 
 
 def resolve_step_error(step_result: AgentResult) -> str:
-    """Extract a stable step error message from one step result."""
+    """Extract a stable step error message from one step result.
+
+    Args:
+        step_result: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     raw_error = step_result.output.get("error")
     if isinstance(raw_error, str) and raw_error.strip():
         return raw_error
@@ -41,7 +55,14 @@ def resolve_step_error(step_result: AgentResult) -> str:
 
 
 def normalize_step_final_output(raw_tool_output: object) -> dict[str, object]:
-    """Normalize one step output into a dictionary payload."""
+    """Normalize one step output into a dictionary payload.
+
+    Args:
+        raw_tool_output: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if isinstance(raw_tool_output, Mapping):
         return dict(raw_tool_output)
     return {"tool_output": raw_tool_output}
@@ -57,7 +78,20 @@ def failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
 ) -> AgentResult:
-    """Build normalized multi-step failure result payload."""
+    """Build normalized multi-step failure result payload.
+
+    Args:
+        error: Parameter value.
+        model_response: Parameter value.
+        tool_results: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+        metadata: Parameter value.
+        output: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return build_failure_result(
         error=error,
         model_response=model_response,

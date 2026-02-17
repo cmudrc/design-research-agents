@@ -133,7 +133,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         '{"selection":"json_tool_agent","reason":"Arithmetic request uses tools."}',
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
-    "examples/workflow/mixed_agent_workflow.py": (
+    "examples/workflow/workflow_prompt_mode.py": (
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
             'script, and MCP tools.","priority":"high"}'

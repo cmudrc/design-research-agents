@@ -1,4 +1,4 @@
-"""Runnable example for the reusable ``plan_execute`` orchestration chunk."""
+"""Runnable example for ``PlannerExecutorPattern`` workflow orchestration."""
 
 from design_research_agents import (
     LlamaCppServerLLMClient,
@@ -8,7 +8,7 @@ from design_research_agents import (
 
 
 def main() -> None:
-    """Run ``plan_execute`` orchestration with configurable runtime dependencies."""
+    """Run planner + executor orchestration with configurable dependencies."""
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     workflow = PlannerExecutorPattern(

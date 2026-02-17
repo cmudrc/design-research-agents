@@ -46,7 +46,19 @@ class OpenAIServiceBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
-        """Configure OpenAI client defaults and optional capability overrides."""
+        """Configure OpenAI client defaults and optional capability overrides.
+
+        Args:
+            name: Parameter value.
+            default_model: Parameter value.
+            api_key_env: Parameter value.
+            api_key: Parameter value.
+            base_url: Parameter value.
+            capabilities: Parameter value.
+            config_hash: Parameter value.
+            max_retries: Parameter value.
+            model_patterns: Parameter value.
+        """
         super().__init__(
             name=name,
             kind="openai_service",
@@ -62,7 +74,11 @@ class OpenAIServiceBackend(BaseLLMBackend):
         self._capabilities_override = capabilities
 
     def capabilities(self) -> BackendCapabilities:
-        """Return effective capabilities for this OpenAI backend."""
+        """Return effective capabilities for this OpenAI backend.
+
+        Returns:
+            The resulting value.
+        """
         default_caps = BackendCapabilities(
             streaming=True,
             tool_calling="native",
@@ -73,10 +89,25 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return self._capabilities_override or default_caps
 
     def healthcheck(self) -> BackendStatus:
-        """Return static status for a configured OpenAI backend."""
+        """Return static status for a configured OpenAI backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendStatus(ok=True, message="OpenAI backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Run generate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         request_payload = self._build_payload(request, include_response_format=True)
         try:
             completion_response = self._call_with_retry(request_payload)
@@ -94,6 +125,17 @@ class OpenAIServiceBackend(BaseLLMBackend):
             raise mapped_error from exc
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Run stream.
+
+        Args:
+            request: Parameter value.
+
+        Yields:
+            The yielded values.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         stream_payload = self._build_payload(request, include_response_format=True)
         stream_payload["stream"] = True
         stream_payload["stream_options"] = {"include_usage": True}
@@ -132,6 +174,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
                 yield LLMDelta(usage_delta=usage_payload)
 
     def _fallback_prompt_validate(self, request: LLMRequest) -> LLMResponse:
+        """Run fallback prompt validate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         structured_output_result = generate_json(
             generate_fn=lambda req: self._generate_without_response_format(req),
             request=request,
@@ -142,6 +192,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return _merge_structured_response(structured_output_result)
 
     def _generate_without_response_format(self, request: LLMRequest) -> LLMResponse:
+        """Run generate without response format.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         request_payload = self._build_payload(request, include_response_format=False)
         completion_response = self._call_with_retry(request_payload)
         return _parse_completion_response(completion_response, request, provider=self.name)
@@ -152,6 +210,15 @@ class OpenAIServiceBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
+        """Run build payload.
+
+        Args:
+            request: Parameter value.
+            include_response_format: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         request_payload: dict[str, Any] = {
             "model": request.model,
             "messages": _format_messages(request.messages),
@@ -170,6 +237,17 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return request_payload
 
     def _call_with_retry(self, request_payload: dict[str, Any]) -> Any:
+        """Run call with retry.
+
+        Args:
+            request_payload: Parameter value.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         client = self._client or self._create_client()
         backoff = 0.5
         for attempt in range(self.max_retries + 1):
@@ -184,6 +262,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return client.chat.completions.create(**request_payload)
 
     def _create_client(self) -> Any:
+        """Run create client.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         api_key = self._resolve_api_key()
         try:
             from openai import OpenAI
@@ -199,6 +285,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return self._client
 
     def _resolve_api_key(self) -> str:
+        """Run resolve api key.
+
+        Returns:
+            The resulting value.
+
+        Raises:
+            Exception: Raised when execution fails.
+        """
         if self._api_key:
             return self._api_key
         env_value = os.getenv(self._api_key_env)
@@ -208,6 +302,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
+    """Run format messages.
+
+    Args:
+        messages: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     message_payloads: list[dict[str, Any]] = []
     for message in messages:
         role = getattr(message, "role", None)
@@ -226,6 +328,14 @@ def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
+    """Run format tool.
+
+    Args:
+        tool: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return {
         "type": "function",
         "function": {
@@ -237,6 +347,14 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
 
 
 def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
+    """Run format response format.
+
+    Args:
+        request: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if request.response_format and isinstance(request.response_format, dict):
         return request.response_format
     if request.response_schema:
@@ -256,6 +374,19 @@ def _parse_completion_response(
     *,
     provider: str,
 ) -> LLMResponse:
+    """Run parse completion response.
+
+    Args:
+        completion_response: Parameter value.
+        request: Parameter value.
+        provider: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     choices = getattr(completion_response, "choices", None) or []
     if not choices:
         raise LLMInvalidRequestError("OpenAI response has no choices.")
@@ -280,6 +411,14 @@ def _parse_completion_response(
 
 
 def _response_to_dict(completion_response: Any) -> dict[str, Any]:
+    """Run response to dict.
+
+    Args:
+        completion_response: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     try:
         response_payload = completion_response.model_dump()
         if isinstance(response_payload, dict):
@@ -290,6 +429,14 @@ def _response_to_dict(completion_response: Any) -> dict[str, Any]:
 
 
 def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
+    """Run tool calls to list.
+
+    Args:
+        raw_tool_calls: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if raw_tool_calls is None:
         return None
     if isinstance(raw_tool_calls, list):
@@ -301,6 +448,14 @@ def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
 
 
 def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
+    """Run usage to dict.
+
+    Args:
+        raw_usage: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if raw_usage is None:
         return None
     if isinstance(raw_usage, dict):
@@ -315,15 +470,39 @@ def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
 
 
 def _is_response_format_error(error: Exception) -> bool:
+    """Run is response format error.
+
+    Args:
+        error: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     message = str(error).lower()
     return "response_format" in message or "json_schema" in message
 
 
 def _should_retry(error: Exception) -> bool:
+    """Run should retry.
+
+    Args:
+        error: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     return isinstance(error, (LLMRateLimitError, LLMProviderError))
 
 
 def _merge_structured_response(structured_output_result: Any) -> LLMResponse:
+    """Run merge structured response.
+
+    Args:
+        structured_output_result: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     parsed_text = structured_output_result.parsed
     if not isinstance(parsed_text, str):
         parsed_text = json.dumps(parsed_text, ensure_ascii=True, sort_keys=True)

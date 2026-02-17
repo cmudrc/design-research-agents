@@ -28,7 +28,9 @@ class ModelSelectionPolicy:
     """
 
     catalog: ModelCatalog = field(default_factory=ModelCatalog.default)
+    """Field value for ``catalog``."""
     config: ModelSelectionPolicyConfig = field(default_factory=ModelSelectionPolicyConfig)
+    """Field value for ``config``."""
 
     def select_model(
         self,
@@ -46,6 +48,9 @@ class ModelSelectionPolicy:
 
         Returns:
             Selection decision with rationale and safety bounds.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_constraints = constraints or ModelSelectionConstraints()
         resolved_hardware = hardware_profile or HardwareProfile.detect()
@@ -142,6 +147,15 @@ def _ram_budget_gb(
     hardware_profile: HardwareProfile,
     config: ModelSelectionPolicyConfig,
 ) -> float | None:
+    """Run ram budget gb.
+
+    Args:
+        hardware_profile: Parameter value.
+        config: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if hardware_profile.available_ram_gb is not None:
         return max(0.0, hardware_profile.available_ram_gb - config.ram_reserve_gb)
     if hardware_profile.total_ram_gb is not None:
@@ -153,12 +167,30 @@ def _vram_budget_gb(
     hardware_profile: HardwareProfile,
     config: ModelSelectionPolicyConfig,
 ) -> float | None:
+    """Run vram budget gb.
+
+    Args:
+        hardware_profile: Parameter value.
+        config: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if hardware_profile.gpu_vram_gb is None:
         return None
     return max(0.0, hardware_profile.gpu_vram_gb - config.vram_reserve_gb)
 
 
 def _fits_ram_budget(model: ModelSpec, ram_budget_gb: float | None) -> bool:
+    """Run fits ram budget.
+
+    Args:
+        model: Parameter value.
+        ram_budget_gb: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if model.memory_hint is None or model.memory_hint.min_ram_gb is None:
         return True
     if ram_budget_gb is None:
@@ -169,6 +201,15 @@ def _fits_ram_budget(model: ModelSpec, ram_budget_gb: float | None) -> bool:
 def _should_prefer_remote(
     hardware_profile: HardwareProfile, config: ModelSelectionPolicyConfig
 ) -> bool:
+    """Run should prefer remote.
+
+    Args:
+        hardware_profile: Parameter value.
+        config: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     load = hardware_profile.load_average
     cpu_count = hardware_profile.cpu_count
     if load is None or cpu_count is None or cpu_count <= 0:
@@ -181,6 +222,15 @@ def _apply_provider_constraints(
     candidates: list[ModelSpec],
     constraints: ModelSelectionConstraints,
 ) -> list[ModelSpec]:
+    """Run apply provider constraints.
+
+    Args:
+        candidates: Parameter value.
+        constraints: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if constraints.preferred_provider:
         preferred = [
             model for model in candidates if model.provider == constraints.preferred_provider
@@ -196,6 +246,16 @@ def _apply_cost_constraints(
     *,
     remote_cost_floor_usd: float,
 ) -> list[ModelSpec]:
+    """Run apply cost constraints.
+
+    Args:
+        candidates: Parameter value.
+        constraints: Parameter value.
+        remote_cost_floor_usd: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if constraints.max_cost_usd is None:
         return candidates
     if constraints.max_cost_usd <= remote_cost_floor_usd:
@@ -219,6 +279,19 @@ def _select_candidate_pool(
     remote_candidates: list[ModelSpec],
     fallback_candidates: list[ModelSpec],
 ) -> tuple[list[ModelSpec], str]:
+    """Run select candidate pool.
+
+    Args:
+        intent: Parameter value.
+        constraints: Parameter value.
+        prefer_remote_due_to_load: Parameter value.
+        local_candidates: Parameter value.
+        remote_candidates: Parameter value.
+        fallback_candidates: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if constraints.require_local:
         if local_candidates:
             return local_candidates, "local_required"
@@ -244,6 +317,18 @@ def _pick_best_model(
     vram_budget_gb: float | None,
     prefer_remote_due_to_load: bool,
 ) -> ModelSpec:
+    """Run pick best model.
+
+    Args:
+        candidates: Parameter value.
+        intent: Parameter value.
+        ram_budget_gb: Parameter value.
+        vram_budget_gb: Parameter value.
+        prefer_remote_due_to_load: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     scored = []
     for model in candidates:
         score = _score_model(
@@ -274,6 +359,18 @@ def _score_model(
     vram_budget_gb: float | None,
     prefer_remote_due_to_load: bool,
 ) -> float:
+    """Run score model.
+
+    Args:
+        model: Parameter value.
+        intent: Parameter value.
+        ram_budget_gb: Parameter value.
+        vram_budget_gb: Parameter value.
+        prefer_remote_due_to_load: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     quality = model.quality_tier or 0
     speed = model.speed_tier or 0
     if intent.priority == "quality":
@@ -316,6 +413,20 @@ def _build_rationale(
     ram_budget_gb: float | None,
     vram_budget_gb: float | None,
 ) -> str:
+    """Run build rationale.
+
+    Args:
+        selected_model: Parameter value.
+        intent: Parameter value.
+        constraints: Parameter value.
+        hardware_profile: Parameter value.
+        selection_reason: Parameter value.
+        ram_budget_gb: Parameter value.
+        vram_budget_gb: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     parts = [
         f"priority={intent.priority}",
         f"selection_reason={selection_reason}",

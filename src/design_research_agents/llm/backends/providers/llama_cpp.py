@@ -39,7 +39,16 @@ class LlamaCppBackend(BaseLLMBackend):
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
-        """Initialize the managed llama.cpp server wrapper backend."""
+        """Initialize the managed llama.cpp server wrapper backend.
+
+        Args:
+            name: Parameter value.
+            llama_backend: Parameter value.
+            default_model: Parameter value.
+            config_hash: Parameter value.
+            max_retries: Parameter value.
+            model_patterns: Parameter value.
+        """
         super().__init__(
             name=name,
             kind="llama_cpp",
@@ -63,17 +72,41 @@ class LlamaCppBackend(BaseLLMBackend):
         )
 
     def capabilities(self) -> BackendCapabilities:
-        """Return capabilities provided by the wrapped llama.cpp server."""
+        """Return capabilities provided by the wrapped llama.cpp server.
+
+        Returns:
+            The resulting value.
+        """
         return _LLAMA_CPP_CAPABILITIES
 
     def healthcheck(self) -> BackendStatus:
-        """Return static health status for configured llama.cpp backend."""
+        """Return static health status for configured llama.cpp backend.
+
+        Returns:
+            The resulting value.
+        """
         return BackendStatus(ok=True, message="llama.cpp backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Run generate.
+
+        Args:
+            request: Parameter value.
+
+        Returns:
+            The resulting value.
+        """
         self._backend.start()
         return self._http_backend.generate(request)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Run stream.
+
+        Args:
+            request: Parameter value.
+
+        Yields:
+            The yielded values.
+        """
         response = self._generate(request)
         yield LLMDelta(text_delta=response.text)

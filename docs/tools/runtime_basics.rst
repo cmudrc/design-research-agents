@@ -63,5 +63,5 @@ Examples
 --------
 
 - ``examples/tools/source_fusion_story.py``
-- ``examples/workflow/pure_tool_workflow.py``
+- ``examples/workflow/workflow_schema_mode.py``
 - ``examples/tools/README.md``

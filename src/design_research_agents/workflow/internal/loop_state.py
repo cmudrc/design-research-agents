@@ -6,14 +6,28 @@ from collections.abc import Mapping
 
 
 def normalize_mapping(raw_value: object) -> dict[str, object]:
-    """Normalize an arbitrary object into a mutable mapping copy."""
+    """Normalize an arbitrary object into a mutable mapping copy.
+
+    Args:
+        raw_value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw_value, Mapping):
         return {}
     return dict(raw_value)
 
 
 def normalize_mapping_records(raw_value: object) -> list[dict[str, object]]:
-    """Normalize an arbitrary object into list-of-mapping records."""
+    """Normalize an arbitrary object into list-of-mapping records.
+
+    Args:
+        raw_value: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     if not isinstance(raw_value, list):
         return []
     normalized: list[dict[str, object]] = []
@@ -24,7 +38,18 @@ def normalize_mapping_records(raw_value: object) -> list[dict[str, object]]:
 
 
 def parse_loop_iteration(raw_value: object, *, error_prefix: str) -> int:
-    """Parse one loop-iteration value from loop metadata."""
+    """Parse one loop-iteration value from loop metadata.
+
+    Args:
+        raw_value: Parameter value.
+        error_prefix: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     if isinstance(raw_value, int):
         return raw_value
     if isinstance(raw_value, str) and raw_value.strip():

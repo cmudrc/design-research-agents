@@ -110,7 +110,19 @@ class PlannerExecutorPattern(Agent):
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and initialize workflow-native orchestration settings."""
+        """Store dependencies and initialize workflow-native orchestration settings.
+
+        Args:
+            llm_client: LLM client used for planner and executor model calls.
+            tool_runtime: Tool runtime used by executor agent steps.
+            controls: Runtime controls (iterations, tool calls, budgets, streaming).
+            plan_execute_planner_system_prompt: Optional override for planner system prompt.
+            plan_execute_planner_user_prompt_template: Optional override for planner user prompt.
+            plan_execute_executor_step_prompt_template: Optional override for executor step prompt.
+            default_request_id_prefix: Optional prefix used to derive request ids.
+            default_dependencies: Dependency defaults merged into each run.
+            tracer: Optional tracer used for run-level instrumentation.
+        """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._controls = controls or RuntimeControls()
@@ -140,7 +152,19 @@ class PlannerExecutorPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Execute one plan-execute orchestration run."""
+        """Execute one plan-execute orchestration run.
+
+        Args:
+            prompt: Task prompt to plan and execute.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency overrides for this run.
+
+        Returns:
+            Pattern result containing plan, step results, and final output.
+
+        Raises:
+            Exception: Propagates runtime failures from planner or executor phases.
+        """
         configured_request_id = resolve_request_id_with_prefix(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
@@ -182,7 +206,16 @@ class PlannerExecutorPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Execute one run and emit wrapper-style stream events."""
+        """Execute one run and emit wrapper-style stream events.
+
+        Args:
+            prompt: Task prompt to plan and execute.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency overrides for this run.
+
+        Yields:
+            Delta and completed events derived from ``run`` output.
+        """
         runtime_result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         if self._controls.streaming_enabled:
             delta_text = (
@@ -200,6 +233,19 @@ class PlannerExecutorPattern(Agent):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> AgentResult:
+        """Run planner phase then execute planned steps through a loop step.
+
+        Args:
+            prompt: Task prompt to plan and execute.
+            request_id: Resolved request id for this orchestration run.
+            dependencies: Normalized dependency mapping for this run.
+
+        Returns:
+            Final plan-execute pattern result.
+
+        Raises:
+            RuntimeError: If required loop outputs are missing.
+        """
         budget_tracker = WorkflowBudgetTracker()
         runtime_tool_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
@@ -322,10 +368,30 @@ class PlannerExecutorPattern(Agent):
         last_model_response: LLMResponse | None = planner_response
 
         def _continue_predicate(iteration: int, state: Mapping[str, object]) -> bool:
+            """Continue while there are remaining planned steps.
+
+            Args:
+                iteration: One-based loop iteration index.
+                state: Current loop state before this iteration.
+
+            Returns:
+                ``True`` when another planned step should execute.
+            """
             del state
             return iteration <= len(plan_steps)
 
         def _executor_prompt_builder(step_context: Mapping[str, object]) -> str:
+            """Build executor prompt text for the current planned step.
+
+            Args:
+                step_context: Step context containing loop metadata and state.
+
+            Returns:
+                Rendered prompt text for ``SingleStepCodeToolCallingAgent``.
+
+            Raises:
+                ValueError: If loop metadata or plan step payload is invalid.
+            """
             loop_metadata = step_context.get("_loop")
             if not isinstance(loop_metadata, Mapping):
                 raise ValueError("Loop metadata is required for plan execution prompt building.")
@@ -374,6 +440,16 @@ class PlannerExecutorPattern(Agent):
             iteration_result: WorkflowResult,
             iteration: int,
         ) -> Mapping[str, object]:
+            """Fold one loop iteration result into accumulated plan-execution state.
+
+            Args:
+                state: Current aggregate loop state.
+                iteration_result: Workflow result produced by this iteration body.
+                iteration: One-based iteration index.
+
+            Returns:
+                Updated loop state with step result history and latest final output.
+            """
             nonlocal final_output
             nonlocal last_model_response
 
@@ -542,6 +618,14 @@ class PlannerExecutorPattern(Agent):
 
 
 def _deserialize_tool_results(raw_tool_results: object) -> list[ToolResult]:
+    """Deserialize serialized tool result dictionaries from nested workflow output.
+
+    Args:
+        raw_tool_results: Raw value expected to be a list of tool-result mappings.
+
+    Returns:
+        Parsed tool results that passed structural validation.
+    """
     if not isinstance(raw_tool_results, list):
         return []
     parsed_results: list[ToolResult] = []
@@ -556,6 +640,14 @@ def _deserialize_tool_results(raw_tool_results: object) -> list[ToolResult]:
 
 
 def _deserialize_model_response(raw_model_response: object) -> LLMResponse | None:
+    """Deserialize a serialized model response mapping when present.
+
+    Args:
+        raw_model_response: Raw value expected to be a model-response mapping.
+
+    Returns:
+        Parsed model response, or ``None`` when decoding fails.
+    """
     if not isinstance(raw_model_response, Mapping):
         return None
     try:

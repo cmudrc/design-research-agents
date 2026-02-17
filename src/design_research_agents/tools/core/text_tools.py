@@ -13,7 +13,11 @@ from ._helpers import get_str
 
 
 def register_text_tools(source: InProcessToolSource) -> None:
-    """Register core text analysis and extraction utilities."""
+    """Register core text analysis and extraction utilities.
+
+    Args:
+        source: Parameter value.
+    """
     metadata = ToolMetadata(
         source="core",
         side_effects=ToolSideEffects(filesystem_read=False, filesystem_write=False),
@@ -99,6 +103,16 @@ def _word_count_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
+    """Run word count handler.
+
+    Args:
+        input_dict: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     del request_id, dependencies
     text = get_str(input_dict, "text")
     words = [word for word in text.split() if word]
@@ -117,6 +131,19 @@ def _extract_json_tool_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
+    """Run extract json tool handler.
+
+    Args:
+        input_dict: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+
+    Returns:
+        The resulting value.
+
+    Raises:
+        Exception: Raised when execution fails.
+    """
     del request_id, dependencies
     text = get_str(input_dict, "text")
     stripped = text.strip()
@@ -143,6 +170,16 @@ def _diff_tool_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
+    """Run diff tool handler.
+
+    Args:
+        input_dict: Parameter value.
+        request_id: Parameter value.
+        dependencies: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     del request_id, dependencies
     a_text = get_str(input_dict, "a")
     b_text = get_str(input_dict, "b")
@@ -156,6 +193,14 @@ def _diff_tool_handler(
 
 
 def _extract_object_candidates(text: str) -> list[str]:
+    """Run extract object candidates.
+
+    Args:
+        text: Parameter value.
+
+    Returns:
+        The resulting value.
+    """
     candidates: list[str] = []
     depth = 0
     start_index: int | None = None

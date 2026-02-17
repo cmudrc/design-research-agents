@@ -100,6 +100,9 @@ class SingleStepCodeToolCallingAgent(Agent):
             user_prompt_template: Optional user prompt template override.
             alternatives_prompt_target: Prompt target for allowed tools block.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         if max_tool_calls < 1:
             raise ValueError("max_tool_calls must be >= 1.")
@@ -151,6 +154,9 @@ class SingleStepCodeToolCallingAgent(Agent):
 
         Returns:
             Final agent result payload.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
@@ -374,6 +380,9 @@ class SingleStepCodeToolCallingAgent(Agent):
 
         Returns:
             LLM response containing the generated code.
+
+        Raises:
+            Exception: Raised when execution fails.
         """
         tool_lines: list[str] = []
         for allowed_tool in allowed_tools:
