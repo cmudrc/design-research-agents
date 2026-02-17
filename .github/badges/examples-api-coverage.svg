@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="170" 
-    height="20" role="img" aria-label="Example API Coverage: 27/29">
+    height="20" role="img" aria-label="Example API Coverage: 27/27">
   <linearGradient id="g" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
     <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
@@ -18,7 +18,7 @@
   font-size="11">
     <text x="65.0" y="15" fill="#010101" fill-opacity=".3">Example API Coverage</text>
     <text x="65.0" y="14">Example API Coverage</text>
-    <text x="150.0" y="15" fill="#010101" fill-opacity=".3">27/29</text>
-    <text x="150.0" y="14">27/29</text>
+    <text x="150.0" y="15" fill="#010101" fill-opacity=".3">27/27</text>
+    <text x="150.0" y="14">27/27</text>
   </g>
 </svg>
