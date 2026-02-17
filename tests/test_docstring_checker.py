@@ -17,7 +17,12 @@ def _write_file(repo_root: Path, relative_path: str, content: str) -> None:
     path.write_text(textwrap.dedent(content).lstrip("\n"), encoding="utf-8")
 
 
-def _run_checker(repo_root: Path, *, baseline_path: Path | None = None) -> tuple[int, list[str]]:
+def _run_checker(
+    repo_root: Path,
+    *,
+    baseline_path: Path | None = None,
+    changed_files_path: Path | None = None,
+) -> tuple[int, list[str]]:
     command = [
         sys.executable,
         str(SCRIPT_PATH),
@@ -26,6 +31,8 @@ def _run_checker(repo_root: Path, *, baseline_path: Path | None = None) -> tuple
     ]
     if baseline_path is not None:
         command.extend(["--baseline", str(baseline_path)])
+    if changed_files_path is not None:
+        command.extend(["--changed-files-file", str(changed_files_path)])
     completed = subprocess.run(
         command,
         check=False,
@@ -302,3 +309,106 @@ def test_baseline_suppresses_known_violations() -> None:
 
     assert exit_code == 0
     assert lines == ["Google-style docstring checks passed."]
+
+
+def test_changed_file_with_baseline_entry_reports_dgs013_and_unsuppressed_violations() -> None:
+    source = """
+    def undocumented(value: int) -> int:
+        return value
+    """
+    repo_root = Path("artifacts/tests/docstring_checker_changed_file_baseline_blocked")
+    if repo_root.exists():
+        shutil.rmtree(repo_root)
+    _write_file(repo_root, "src/pkg/blocked_example.py", source)
+
+    baseline_path = repo_root / "baseline.txt"
+    baseline_path.write_text(
+        "src/pkg/blocked_example.py:1: DGS001 Missing module docstring.\n"
+        "src/pkg/blocked_example.py:1: DGS005 Missing callable docstring.\n",
+        encoding="utf-8",
+    )
+
+    changed_files_path = repo_root / "changed_files.txt"
+    changed_files_path.write_text("src/pkg/blocked_example.py\n", encoding="utf-8")
+
+    exit_code, lines = _run_checker(
+        repo_root,
+        baseline_path=baseline_path,
+        changed_files_path=changed_files_path,
+    )
+
+    assert exit_code == 1
+    assert {"DGS001", "DGS005", "DGS013"} <= _error_codes(lines)
+    assert (
+        "src/pkg/blocked_example.py:1: DGS013 "
+        "Changed file cannot rely on baseline suppressions; remove matching baseline entries."
+    ) in lines
+
+
+def test_unchanged_file_can_still_use_baseline_suppression() -> None:
+    source = """
+    def undocumented(value: int) -> int:
+        return value
+    """
+    repo_root = Path("artifacts/tests/docstring_checker_unchanged_file_baseline")
+    if repo_root.exists():
+        shutil.rmtree(repo_root)
+    _write_file(repo_root, "src/pkg/unchanged_example.py", source)
+
+    baseline_path = repo_root / "baseline.txt"
+    baseline_path.write_text(
+        "src/pkg/unchanged_example.py:1: DGS001 Missing module docstring.\n"
+        "src/pkg/unchanged_example.py:1: DGS005 Missing callable docstring.\n",
+        encoding="utf-8",
+    )
+
+    changed_files_path = repo_root / "changed_files.txt"
+    changed_files_path.write_text("src/pkg/another_file.py\n", encoding="utf-8")
+
+    exit_code, lines = _run_checker(
+        repo_root,
+        baseline_path=baseline_path,
+        changed_files_path=changed_files_path,
+    )
+
+    assert exit_code == 0
+    assert lines == ["Google-style docstring checks passed."]
+
+
+def test_changed_file_with_stale_baseline_entry_reports_dgs013() -> None:
+    source = """
+    \"\"\"Module summary.\"\"\"
+
+    def documented(value: int) -> int:
+        \"\"\"Return input value.
+
+        Args:
+            value: Input value.
+
+        Returns:
+            Input value.
+        \"\"\"
+        return value
+    """
+    repo_root = Path("artifacts/tests/docstring_checker_stale_baseline")
+    if repo_root.exists():
+        shutil.rmtree(repo_root)
+    _write_file(repo_root, "src/pkg/stale_example.py", source)
+
+    baseline_path = repo_root / "baseline.txt"
+    baseline_path.write_text(
+        "src/pkg/stale_example.py:1: DGS005 Missing callable docstring.\n",
+        encoding="utf-8",
+    )
+
+    changed_files_path = repo_root / "changed_files.txt"
+    changed_files_path.write_text("src/pkg/stale_example.py\n", encoding="utf-8")
+
+    exit_code, lines = _run_checker(
+        repo_root,
+        baseline_path=baseline_path,
+        changed_files_path=changed_files_path,
+    )
+
+    assert exit_code == 1
+    assert _error_codes(lines) == {"DGS013"}

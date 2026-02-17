@@ -99,6 +99,31 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         '{"action":"STOP","final_output":{"result":60.0},"reason":"Task complete."}',
     ),
+    "examples/optimization/multi_step_tool_router_1d_optimization.py": (
+        (
+            '{"action":"TOOL_CALL","tool_names":["optimizer.decrease_x"],'
+            '"tool_input":{"step":1},"reason":"Decrease x toward zero."}'
+        ),
+        (
+            '{"action":"TOOL_CALL","tool_names":["optimizer.decrease_x"],'
+            '"tool_input":{"step":1},"reason":"Still positive, keep decreasing."}'
+        ),
+        (
+            '{"action":"TOOL_CALL","tool_names":["optimizer.decrease_x"],'
+            '"tool_input":{"step":1},"reason":"One more step reaches x=0."}'
+        ),
+        (
+            '{"action":"STOP","final_output":{"best_x":0.0,"best_objective":0.0,'
+            '"converged":true},"reason":"No one-step improvement remains."}'
+        ),
+    ),
+    "examples/optimization/single_step_optimizer_tool_agent.py": (
+        (
+            '{"tool_name":"optimizer.search_1d","tool_input":{"initial_guess":7,'
+            '"step_size":1,"max_iterations":20},'
+            '"reason":"Run the optimizer from the provided initial guess."}'
+        ),
+    ),
     "examples/agents/basic/multi_step_direct_llm_agent.py": (
         (
             '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.",'

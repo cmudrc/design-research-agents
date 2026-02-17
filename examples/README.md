@@ -17,6 +17,9 @@ surfaces: agents, clients, orchestration workflows, model selection, and tool ru
 - `examples/model_selection`
   - Local-vs-remote model selection policy behavior.
   - See `examples/model_selection/README.md`.
+- `examples/optimization`
+  - One-dimensional optimization examples using ToolRouting and tool-calling agents.
+  - See `examples/optimization/README.md`.
 - `examples/tools`
   - Unified tool runtime examples (core + script + MCP), including script-tool wrappers.
   - See `examples/tools/README.md`.

@@ -12,6 +12,9 @@ from pathlib import Path
 SCAN_ROOTS = ("src", "examples", "scripts")
 SECTION_HEADER_PATTERN = re.compile(r"^([A-Za-z][A-Za-z ]+):\s*$")
 ARGS_ENTRY_PATTERN = re.compile(r"^\s*(\*{0,2}[A-Za-z_][A-Za-z0-9_]*)\s*(?:\([^)]*\))?:\s+.+$")
+BASELINE_ENTRY_PATTERN = re.compile(
+    r"^(?P<path>.+?):(?P<line>\d+):\s+(?P<code>DGS\d+)\s+(?P<message>.+)$"
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -626,6 +629,110 @@ def _load_baseline_entries(baseline_path: Path | None) -> set[str]:
     return entries
 
 
+def _normalize_repo_relative_path(path_text: str, repo_root: Path) -> str:
+    """Normalize one path string into repository-relative POSIX style when possible.
+
+    Args:
+        path_text: Raw path text from CLI input files.
+        repo_root: Repository root path for absolute-path normalization.
+
+    Returns:
+        Normalized path text.
+    """
+    path = Path(path_text)
+    if path.is_absolute():
+        try:
+            resolved = path.resolve().relative_to(repo_root)
+            return resolved.as_posix()
+        except ValueError:
+            return path.as_posix()
+    normalized = path.as_posix()
+    if normalized.startswith("./"):
+        return normalized[2:]
+    return normalized
+
+
+def _load_changed_files(changed_files_path: Path | None, repo_root: Path) -> set[str]:
+    """Load changed file paths from one optional newline-delimited file.
+
+    Args:
+        changed_files_path: Optional path containing changed repo file paths.
+        repo_root: Repository root path used for path normalization.
+
+    Returns:
+        Set of normalized repository-relative paths.
+    """
+    if changed_files_path is None:
+        return set()
+    if not changed_files_path.exists():
+        return set()
+
+    changed_files: set[str] = set()
+    for raw_line in changed_files_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        changed_files.add(_normalize_repo_relative_path(line, repo_root))
+    return changed_files
+
+
+def _baseline_entry_path(entry: str, repo_root: Path) -> str | None:
+    """Extract normalized path from one formatted baseline entry line.
+
+    Args:
+        entry: Baseline violation line.
+        repo_root: Repository root path used for path normalization.
+
+    Returns:
+        Parsed normalized path, or ``None`` for unparsable entries.
+    """
+    match = BASELINE_ENTRY_PATTERN.match(entry)
+    if match is None:
+        return None
+    return _normalize_repo_relative_path(match.group("path"), repo_root)
+
+
+def _collect_changed_file_baseline_violations(
+    baseline_entries: set[str], changed_files: set[str], repo_root: Path
+) -> tuple[list[Violation], set[str]]:
+    """Collect guard violations for changed files that appear in baseline suppressions.
+
+    Args:
+        baseline_entries: Set of baseline suppression lines.
+        changed_files: Set of changed repository-relative file paths.
+        repo_root: Repository root path used for baseline path normalization.
+
+    Returns:
+        Tuple containing:
+        - guard violations for changed files that rely on baseline suppressions
+        - changed-file paths that should not receive baseline suppression
+    """
+    if not changed_files:
+        return [], set()
+
+    baselined_paths: set[str] = set()
+    for entry in baseline_entries:
+        entry_path = _baseline_entry_path(entry, repo_root)
+        if entry_path is None:
+            continue
+        baselined_paths.add(entry_path)
+
+    blocked_paths = sorted(path for path in changed_files if path in baselined_paths)
+    violations = [
+        Violation(
+            path=path,
+            line=1,
+            code="DGS013",
+            message=(
+                "Changed file cannot rely on baseline suppressions; "
+                "remove matching baseline entries."
+            ),
+        )
+        for path in blocked_paths
+    ]
+    return violations, set(blocked_paths)
+
+
 def main() -> int:
     """Run docstring checks and return process status.
 
@@ -643,14 +750,47 @@ def main() -> int:
         default=None,
         help="Optional newline-delimited baseline file of known violations to suppress.",
     )
+    parser.add_argument(
+        "--changed-files-file",
+        default=None,
+        help=(
+            "Optional newline-delimited file of changed repo-relative paths. "
+            "Changed files are not allowed to rely on baseline suppressions."
+        ),
+    )
     args = parser.parse_args()
     repo_root = Path(args.repo_root).resolve()
     baseline_path = Path(args.baseline).resolve() if args.baseline is not None else None
+    changed_files_path = (
+        Path(args.changed_files_file).resolve() if args.changed_files_file is not None else None
+    )
     violations = _collect_violations(repo_root)
     baseline_entries = _load_baseline_entries(baseline_path)
-    unexpected = [
-        violation for violation in violations if violation.format() not in baseline_entries
-    ]
+    changed_files = _load_changed_files(changed_files_path, repo_root)
+    baseline_guard_violations, blocked_paths = _collect_changed_file_baseline_violations(
+        baseline_entries=baseline_entries,
+        changed_files=changed_files,
+        repo_root=repo_root,
+    )
+
+    effective_baseline_entries: set[str] = set()
+    for entry in baseline_entries:
+        entry_path = _baseline_entry_path(entry, repo_root)
+        if entry_path is not None and entry_path in blocked_paths:
+            continue
+        effective_baseline_entries.add(entry)
+
+    unexpected = sorted(
+        [
+            *baseline_guard_violations,
+            *[
+                violation
+                for violation in violations
+                if violation.format() not in effective_baseline_entries
+            ],
+        ],
+        key=lambda item: (item.path, item.line, item.code, item.message),
+    )
     if not unexpected:
         print("Google-style docstring checks passed.")
         return 0

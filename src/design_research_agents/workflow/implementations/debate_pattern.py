@@ -95,7 +95,28 @@ class DebatePattern(Agent):
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and initialize prompt defaults."""
+        """Store dependencies and initialize prompt defaults.
+
+        Args:
+            llm_client: Client used for affirmative, negative, and judge model calls.
+            tool_runtime: Tool runtime dependency for ``Agent`` interface compatibility.
+            controls: Runtime controls that define iteration and streaming behavior.
+            debate_affirmative_system_prompt: Optional override for affirmative system prompt text.
+            debate_affirmative_user_prompt_template: Optional override for affirmative template.
+            debate_negative_system_prompt: Optional override for negative system prompt text.
+            debate_negative_user_prompt_template: Optional override for negative user template.
+            debate_judge_system_prompt: Optional override for judge system prompt text.
+            debate_judge_user_prompt_template: Optional override for judge user prompt template.
+            default_request_id_prefix: Optional prefix used when auto-generating request IDs.
+            default_dependencies: Optional default dependency mapping merged into run calls.
+            tracer: Optional tracer used by internal single-step agents.
+
+        Returns:
+            None.
+
+        Raises:
+            ValueError: Raised when prompt overrides or request ID prefix are invalid.
+        """
         del tool_runtime
         self._llm_client = llm_client
         self._controls = controls or RuntimeControls()
@@ -140,7 +161,20 @@ class DebatePattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> AgentResult:
-        """Run the debate pattern and return one final judged result."""
+        """Run the debate pattern and return one final judged result.
+
+        Args:
+            prompt: Task prompt debated by affirmative and negative agents.
+            request_id: Optional request ID override for trace and metadata correlation.
+            dependencies: Optional run-scoped dependencies merged over default dependencies.
+
+        Returns:
+            Final ``AgentResult`` containing rounds, verdict payload, and synthesis output.
+
+        Raises:
+            ValueError: Raised when configured prompt templates are invalid
+                or missing required variables.
+        """
         resolved_request_id = _resolve_request_id(
             request_id=request_id,
             default_prefix=self._default_request_id_prefix,
@@ -298,7 +332,20 @@ class DebatePattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> Iterator[AgentStreamEvent]:
-        """Run one debate and emit stream events."""
+        """Run one debate and emit stream events.
+
+        Args:
+            prompt: Task prompt debated by affirmative and negative agents.
+            request_id: Optional request ID override for trace and metadata correlation.
+            dependencies: Optional run-scoped dependencies merged over default dependencies.
+
+        Yields:
+            ``AgentStreamEvent`` values containing optional delta text followed by completion.
+
+        Raises:
+            ValueError: Raised when configured prompt templates are invalid
+                or missing required variables.
+        """
         result = self.run(prompt, request_id=request_id, dependencies=dependencies)
         if self._controls.streaming_enabled:
             delta_text = result.model_response.text if result.model_response is not None else ""
@@ -311,6 +358,15 @@ def _merge_dependencies(
     default_dependencies: Mapping[str, object],
     run_dependencies: Mapping[str, object] | None,
 ) -> dict[str, object]:
+    """Merge default dependencies with optional run-level dependency overrides.
+
+    Args:
+        default_dependencies: Default dependency mapping configured on the workflow instance.
+        run_dependencies: Optional run-scoped dependency overrides.
+
+    Returns:
+        Merged dependency mapping where run-level values override defaults.
+    """
     merged = dict(default_dependencies)
     if run_dependencies is not None:
         merged.update(run_dependencies)
@@ -318,6 +374,17 @@ def _merge_dependencies(
 
 
 def _normalize_request_id_prefix(default_request_id_prefix: str | None) -> str | None:
+    """Validate and normalize the default request ID prefix.
+
+    Args:
+        default_request_id_prefix: Optional request ID prefix configured by callers.
+
+    Returns:
+        Stripped non-empty prefix, or ``None`` when no prefix is configured.
+
+    Raises:
+        ValueError: Raised when a provided prefix is empty after stripping whitespace.
+    """
     if default_request_id_prefix is None:
         return None
     normalized = default_request_id_prefix.strip()
@@ -327,6 +394,16 @@ def _normalize_request_id_prefix(default_request_id_prefix: str | None) -> str |
 
 
 def _resolve_request_id(*, request_id: str | None, default_prefix: str | None) -> str | None:
+    """Resolve request ID using an explicit value or configured default prefix.
+
+    Args:
+        request_id: Optional explicit request ID supplied for one run.
+        default_prefix: Optional default prefix used to auto-generate a request ID.
+
+    Returns:
+        Explicit request ID when non-empty, generated ID when prefix
+        is configured, otherwise ``None``.
+    """
     if request_id is not None and request_id.strip():
         return request_id
     if default_prefix is None:
@@ -340,6 +417,19 @@ def _resolve_prompt_override(
     default_value: str,
     field_name: str,
 ) -> str:
+    """Resolve prompt text from override-or-default and validate it.
+
+    Args:
+        override: Optional override prompt text.
+        default_value: Default prompt text used when no override is provided.
+        field_name: Configuration field name used in validation error messages.
+
+    Returns:
+        Validated prompt text.
+
+    Raises:
+        ValueError: Raised when resolved prompt text is invalid.
+    """
     if override is None:
         return validate_prompt_text(value=default_value, field_name=field_name)
     return validate_prompt_text(value=override, field_name=field_name)
@@ -351,6 +441,19 @@ def _render_prompt_template(
     variables: Mapping[str, object],
     field_name: str,
 ) -> str:
+    """Validate and render one prompt template using string substitution variables.
+
+    Args:
+        template_text: Prompt template text that may reference ``$``-prefixed variables.
+        variables: Mapping of variable names to values converted to strings before substitution.
+        field_name: Configuration field name used in validation and substitution errors.
+
+    Returns:
+        Rendered prompt string.
+
+    Raises:
+        ValueError: Raised when template text is invalid or references missing variables.
+    """
     normalized_template = validate_prompt_text(value=template_text, field_name=field_name)
     template = Template(normalized_template)
     rendered_variables = {key: str(value) for key, value in variables.items()}

@@ -47,13 +47,3 @@ src/design_research_agents/agent/internal/response_schemas.py:134: DGS009 Callab
 src/design_research_agents/agent/internal/router_agent_helpers.py:366: DGS005 Missing callable docstring.
 src/design_research_agents/agent/internal/router_agent_helpers.py:384: DGS005 Missing callable docstring.
 src/design_research_agents/workflow/implementations/agent_routing.py:468: DGS005 Missing callable docstring.
-src/design_research_agents/workflow/implementations/debate_pattern.py:82: DGS006 Callable with parameters must include an Args section.
-src/design_research_agents/workflow/implementations/debate_pattern.py:136: DGS006 Callable with parameters must include an Args section.
-src/design_research_agents/workflow/implementations/debate_pattern.py:136: DGS009 Callable must include a Returns section for non-None return annotations.
-src/design_research_agents/workflow/implementations/debate_pattern.py:294: DGS006 Callable with parameters must include an Args section.
-src/design_research_agents/workflow/implementations/debate_pattern.py:294: DGS008 Generator callable must include a Yields section.
-src/design_research_agents/workflow/implementations/debate_pattern.py:309: DGS005 Missing callable docstring.
-src/design_research_agents/workflow/implementations/debate_pattern.py:320: DGS005 Missing callable docstring.
-src/design_research_agents/workflow/implementations/debate_pattern.py:329: DGS005 Missing callable docstring.
-src/design_research_agents/workflow/implementations/debate_pattern.py:337: DGS005 Missing callable docstring.
-src/design_research_agents/workflow/implementations/debate_pattern.py:348: DGS005 Missing callable docstring.

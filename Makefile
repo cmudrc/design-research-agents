@@ -80,7 +80,16 @@ structure-check: check-python
 
 # Enforce complete Google-style docstrings for src/examples/scripts.
 docstrings-check: check-python
-	$(PYTHON) scripts/check_google_docstrings.py --baseline scripts/google_docstrings_baseline.txt
+	@mkdir -p artifacts
+	@if [ -n "$(DOCSTRING_CHANGED_FILES_FILE)" ]; then \
+		CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_FILE)"; \
+	else \
+		CHANGED_FILES_FILE="artifacts/docstrings_changed_files.txt"; \
+		git diff --name-only --cached --diff-filter=ACMR > "$${CHANGED_FILES_FILE}"; \
+	fi; \
+	$(PYTHON) scripts/check_google_docstrings.py \
+		--baseline scripts/google_docstrings_baseline.txt \
+		--changed-files-file "$${CHANGED_FILES_FILE}"
 
 # Estimate line coverage for the stable unit-suite baseline.
 coverage: check-python
