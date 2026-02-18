@@ -10,6 +10,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_ROOT = REPO_ROOT / "examples"
 EXAMPLE_MONKEYPATCH_ROOT = REPO_ROOT / "tests" / "example_monkeypatch"
+pytestmark = pytest.mark.examples_full
 
 
 def _discover_non_streaming_examples() -> tuple[str, ...]:

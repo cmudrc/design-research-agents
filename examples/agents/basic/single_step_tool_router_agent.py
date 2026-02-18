@@ -5,7 +5,7 @@ from design_research_agents.agent import SingleStepToolRouterAgent
 
 
 def main() -> None:
-    """Execute one tool-router run and print structured ``AgentResult`` output."""
+    """Execute one tool-router run and print structured ``ExecutionResult`` output."""
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     agent = SingleStepToolRouterAgent(

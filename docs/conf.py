@@ -53,9 +53,9 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
 }
 nitpick_ignore = [
-    ("py:class", "AgentResult"),
+    ("py:class", "ExecutionResult"),
     ("py:class", "LlamaCppServerBackend"),
-    ("py:class", "design_research_agents.contracts.agent.AgentResult"),
+    ("py:class", "design_research_agents.contracts.agent.ExecutionResult"),
     ("py:class", "design_research_agents.contracts.llm.LLMResponse"),
     ("py:class", "design_research_agents.contracts.tools.ToolCostHints"),
     ("py:class", "design_research_agents.contracts.tools.ToolMetadata"),
@@ -65,7 +65,10 @@ nitpick_ignore = [
     ("py:class", "design_research_agents.model_selection.types.ModelLatencyHint"),
     ("py:class", "design_research_agents.model_selection.types.ModelMemoryHint"),
     ("py:class", "design_research_agents.model_selection.types.ModelSafetyConstraints"),
-    ("py:class", "design_research_agents.model_selection.types.ModelSelectionPolicyConfig"),
+    (
+        "py:class",
+        "design_research_agents.model_selection.types.ModelSelectionPolicyConfig",
+    ),
     ("py:class", "design_research_agents.model_selection.types.ModelSpec"),
     ("py:exc", "SchemaValidationError"),
 ]

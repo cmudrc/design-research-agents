@@ -10,7 +10,9 @@ import pytest
 from design_research_agents.model_selection import hardware as hw
 
 
-def test_bytes_to_gib_and_load_average_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_bytes_to_gib_and_load_average_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert hw._bytes_to_gib(None) is None
     assert hw._bytes_to_gib(1024**3) == 1.0
 
@@ -18,7 +20,9 @@ def test_bytes_to_gib_and_load_average_fallback(monkeypatch: pytest.MonkeyPatch)
     assert hw._detect_load_average() is None
 
 
-def test_read_proc_meminfo_absent_or_unreadable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_proc_meminfo_absent_or_unreadable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(hw.os.path, "exists", lambda _: False)
     assert hw._read_proc_meminfo() is None
 
@@ -32,7 +36,9 @@ def test_read_proc_meminfo_absent_or_unreadable(monkeypatch: pytest.MonkeyPatch)
     assert hw._read_proc_meminfo() is None
 
 
-def test_read_proc_meminfo_parses_expected_lines(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_proc_meminfo_parses_expected_lines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     content = "\n".join(
         [
             "MemTotal:       16384 kB",
@@ -90,7 +96,9 @@ def test_detect_total_ram_bytes_prefers_platform_probes(
     monkeypatch.setattr(hw, "_detect_macos_total_ram_bytes", lambda: 222)
     monkeypatch.setattr(hw, "_detect_sysconf_total_ram_bytes", lambda: 444)
     monkeypatch.setattr(
-        hw, "_read_proc_meminfo", lambda: {"MemTotal": 333} if system == "Linux" else None
+        hw,
+        "_read_proc_meminfo",
+        lambda: {"MemTotal": 333} if system == "Linux" else None,
     )
 
     assert hw._detect_total_ram_bytes() == expected
@@ -142,7 +150,9 @@ def test_detect_available_ram_bytes_linux_falls_back_to_sysconf(
     assert hw._detect_available_ram_bytes() == 8765
 
 
-def test_run_command_success_failure_and_exceptions(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_command_success_failure_and_exceptions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         hw.subprocess,
         "run",
@@ -274,7 +284,9 @@ def test_windows_memory_status_non_windows_and_windows_without_windll(
     assert hw._windows_memory_status() is None
 
 
-def test_hardware_profile_detect_aggregates_sources(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_hardware_profile_detect_aggregates_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(hw, "_detect_total_ram_bytes", lambda: 16 * 1024**3)
     monkeypatch.setattr(hw, "_detect_available_ram_bytes", lambda: 6 * 1024**3)
     monkeypatch.setattr(hw, "_detect_gpu_info", lambda: (True, 8 * 1024**3, "GPU-X"))

@@ -3,16 +3,20 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
 import pytest
 
-from design_research_agents.contracts.agent import Agent, AgentResult
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.memory import MemorySearchQuery, MemoryWriteRecord
 from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 from design_research_agents.workflow import RagReasoningPattern, TreeSearchPattern
-from design_research_agents.workflow.implementations import rag_reasoning as rag_reasoning_impl
-from design_research_agents.workflow.implementations import tree_search as tree_search_impl
+from design_research_agents.workflow.implementations import (
+    rag_reasoning as rag_reasoning_impl,
+)
+from design_research_agents.workflow.implementations import (
+    tree_search as tree_search_impl,
+)
 
 
 class _CaptureReasoningAgent(Agent):
@@ -27,10 +31,10 @@ class _CaptureReasoningAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del request_id, dependencies
         self.last_prompt = prompt
-        return AgentResult(
+        return ExecutionResult(
             output={
                 "answer": "reasoned",
                 "prompt_seen": prompt,
@@ -40,16 +44,6 @@ class _CaptureReasoningAgent(Agent):
             model_response=None,
             metadata={"delegate": "capture"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 class _StaticGeneratorAgent(Agent):
@@ -65,25 +59,15 @@ class _StaticGeneratorAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id, dependencies
-        return AgentResult(
+        return ExecutionResult(
             output=dict(self._output),
             success=self._success,
             tool_results=[],
             model_response=None,
             metadata={"role": "generator"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 class _StaticEvaluatorAgent(Agent):
@@ -99,25 +83,15 @@ class _StaticEvaluatorAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id, dependencies
-        return AgentResult(
+        return ExecutionResult(
             output=dict(self._output),
             success=self._success,
             tool_results=[],
             model_response=None,
             metadata={"role": "evaluator"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 def test_tree_search_pattern_expands_scores_and_returns_best_candidate() -> None:
@@ -158,7 +132,7 @@ def test_tree_search_pattern_expands_scores_and_returns_best_candidate() -> None
     assert len(result.output["frontier_trace"]) == 2
 
 
-def test_tree_search_pattern_supports_agent_delegates_and_streaming() -> None:
+def test_tree_search_pattern_supports_agent_delegates() -> None:
     generator_agent = _StaticGeneratorAgent(
         output={
             "model_text": json.dumps(
@@ -180,13 +154,11 @@ def test_tree_search_pattern_supports_agent_delegates_and_streaming() -> None:
         beam_width=2,
     )
 
-    events = list(pattern.run_stream("Rank concept options."))
+    result = pattern.run("Rank concept options.")
 
-    assert [event.kind for event in events] == ["delta", "completed"]
-    assert events[1].result is not None
-    assert events[1].result.success
-    assert events[1].result.output["explored_nodes"] == 2
-    assert events[1].result.output["best_score"] == 0.75
+    assert result.success
+    assert result.output["explored_nodes"] == 2
+    assert result.output["best_score"] == 0.75
 
 
 def test_tree_search_helpers_cover_candidate_score_and_conversion_branches() -> None:
@@ -268,7 +240,9 @@ def test_tree_search_handles_delegate_failures_and_invalid_config() -> None:
     assert evaluator_result.output["best_score"] == 0.0
 
 
-def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(tmp_path) -> None:
+def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(
+    tmp_path,
+) -> None:
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     store.write(
         [
@@ -311,7 +285,7 @@ def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(tmp_pat
     assert len(write_back_matches) >= 1
 
 
-def test_rag_reasoning_helpers_and_stream_cover_edge_cases(tmp_path) -> None:
+def test_rag_reasoning_helpers_cover_edge_cases(tmp_path) -> None:
     with pytest.raises(ValueError, match="memory_top_k"):
         RagReasoningPattern(
             reasoning_delegate=_CaptureReasoningAgent(),
@@ -370,9 +344,7 @@ def test_rag_reasoning_helpers_and_stream_cover_edge_cases(tmp_path) -> None:
         memory_namespace="ns",
         write_back=False,
     )
-    events = list(pattern.run_stream("Use context."))
+    result = pattern.run("Use context.")
     store.close()
 
-    assert [event.kind for event in events] == ["delta", "completed"]
-    assert events[1].result is not None
-    assert events[1].result.success
+    assert result.success

@@ -8,7 +8,7 @@ from typing import Final
 
 from .validation import SchemaValidationError, validate_payload_against_schema
 
-SCHEMA_NAMES: Final[tuple[str, ...]] = ("tool_spec", "tool_result", "agent_result")
+SCHEMA_NAMES: Final[tuple[str, ...]] = ("tool_spec", "tool_result", "execution_result")
 
 
 def load_schema(name: str) -> dict[str, object]:

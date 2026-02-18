@@ -7,14 +7,14 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-# Thresholds are pinned to the current stable baseline to keep CI deterministic
-# during pre-alpha refactors.
-GLOBAL_THRESHOLD = 83.0
+# Release-blocking line coverage targets.
+GLOBAL_THRESHOLD = 90.0
 PACKAGE_THRESHOLDS = {
-    "workflow": 86.0,
-    "agent": 76.0,
-    "tools": 85.0,
-    "llm": 74.0,
+    "workflow": 90.0,
+    "agent": 88.0,
+    "tools": 89.0,
+    "llm": 84.0,
+    "memory": 82.0,
 }
 
 

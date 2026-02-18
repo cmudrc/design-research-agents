@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://design-research-agents.dev/schemas/agent_result.schema.json",
-  "title": "AgentResult",
+  "$id": "https://design-research-agents.dev/schemas/execution_result.schema.json",
+  "title": "ExecutionResult",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,6 +27,15 @@
         "object",
         "null"
       ]
+    },
+    "step_results": {
+      "type": "object"
+    },
+    "execution_order": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "metadata": {
       "type": "object"

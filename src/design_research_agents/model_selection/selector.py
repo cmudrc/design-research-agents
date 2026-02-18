@@ -183,12 +183,18 @@ class ModelSelector:
         elif provider == "transformers_local":
             default_config = {
                 "client_class": "TransformersLocalLLMClient",
-                "kwargs": {"model_id": decision.model_id, "default_model": decision.model_id},
+                "kwargs": {
+                    "model_id": decision.model_id,
+                    "default_model": decision.model_id,
+                },
             }
         elif provider == "mlx_local":
             default_config = {
                 "client_class": "MlxLocalLLMClient",
-                "kwargs": {"model_id": decision.model_id, "default_model": decision.model_id},
+                "kwargs": {
+                    "model_id": decision.model_id,
+                    "default_model": decision.model_id,
+                },
             }
 
         resolved_config: dict[str, object]

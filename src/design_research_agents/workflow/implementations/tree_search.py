@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import cast
 
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 
 GeneratorValue = Mapping[str, object] | str | int | float
@@ -64,7 +64,7 @@ class TreeSearchPattern(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Execute tree search and return the highest-scoring candidate.
 
         Args:
@@ -106,44 +106,13 @@ class TreeSearchPattern(Agent):
         finish_trace_run(trace_scope, result=result)
         return result
 
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Stream wrapper around ``run`` with one compact delta.
-
-        Args:
-            prompt: Task prompt.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Yields:
-            One delta event followed by one completed event.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        yield AgentStreamEvent(
-            kind="delta",
-            delta_text=json.dumps(
-                {
-                    "best_candidate": result.output.get("best_candidate"),
-                    "best_score": result.output.get("best_score"),
-                },
-                ensure_ascii=True,
-                sort_keys=True,
-            ),
-        )
-        yield AgentStreamEvent(kind="completed", result=result)
-
     def _run_tree_search(
         self,
         *,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Run beam-style expansion and scoring.
 
         Args:
@@ -239,7 +208,7 @@ class TreeSearchPattern(Agent):
             "explored_nodes": explored_nodes,
             "frontier_trace": frontier_trace,
         }
-        return AgentResult(
+        return ExecutionResult(
             output=output,
             success=True,
             tool_results=[],
@@ -422,7 +391,9 @@ def _extract_score(output: Mapping[str, object]) -> float:
     return 0.0
 
 
-def _normalize_candidate(candidate: Mapping[str, object] | str | int | float) -> dict[str, object]:
+def _normalize_candidate(
+    candidate: Mapping[str, object] | str | int | float,
+) -> dict[str, object]:
     """Normalize one candidate payload to a mapping.
 
     Args:

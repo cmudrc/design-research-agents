@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
-from design_research_agents.contracts.agent import Agent, AgentResult
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.workflow import BlackboardPattern
 
 
@@ -27,7 +27,7 @@ class FixedPeerAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Return one fixed peer contribution.
 
         Args:
@@ -39,7 +39,7 @@ class FixedPeerAgent(Agent):
             Deterministic peer contribution.
         """
         del prompt, request_id, dependencies
-        return AgentResult(
+        return ExecutionResult(
             output={
                 "messages": [self._message],
                 "proposals": {},
@@ -51,29 +51,6 @@ class FixedPeerAgent(Agent):
             model_response=None,
             metadata={"peer": self._message},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        """Raise because streaming is not implemented for this stub.
-
-        Args:
-            prompt: Peer prompt payload.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Returns:
-            Iterator of stream events.
-
-        Raises:
-            NotImplementedError: Always raised for this deterministic stub.
-        """
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 def main() -> None:

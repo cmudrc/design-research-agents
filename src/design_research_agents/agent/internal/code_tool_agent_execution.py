@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from types import CodeType
 
 from design_research_agents.agent.internal.result_builders import build_failure_result
-from design_research_agents.contracts.agent import AgentResult
+from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime
 from design_research_agents.tracing import emit_guardrail_decision
@@ -191,7 +191,213 @@ class _FinalOutputProxy(dict[str, object]):
         super().update(*args, **kwargs)
 
 
-def execute_compiled_code(  # noqa: C901
+def _normalize_tool_name(
+    *,
+    tool_name: str,
+    allowed_tools_map: Mapping[str, AllowedTool],
+) -> str:
+    """Validate and normalize one requested tool name.
+
+    Args:
+        tool_name: Raw tool name argument passed to ``call_tool``.
+        allowed_tools_map: Allowed tool mapping keyed by tool name.
+
+    Returns:
+        Normalized tool name.
+
+    Raises:
+        ValueError: If the tool name is missing or not allowed.
+    """
+    if not isinstance(tool_name, str):
+        emit_guardrail_decision(
+            guardrail="tool_call_name",
+            decision="reject",
+            reason="call_tool tool_name must be a string.",
+            details={"tool_name": tool_name},
+        )
+        raise ValueError("call_tool tool_name must be a string.")
+
+    normalized_tool_name = tool_name.strip()
+    if normalized_tool_name in allowed_tools_map:
+        return normalized_tool_name
+
+    emit_guardrail_decision(
+        guardrail="tool_call_allowed",
+        decision="reject",
+        reason="tool not in allowed tool list",
+        details={"tool_name": normalized_tool_name},
+    )
+    raise ValueError(f"Tool '{normalized_tool_name}' is not in the allowed tool list.")
+
+
+def _enforce_tool_call_budget(*, tool_call_count: int, max_tool_calls: int) -> None:
+    """Enforce per-step maximum tool call count.
+
+    Args:
+        tool_call_count: Number of tool calls executed so far.
+        max_tool_calls: Maximum allowed tool calls for this execution.
+
+    Raises:
+        RuntimeError: If the call budget is exhausted.
+    """
+    if tool_call_count < max_tool_calls:
+        return
+    emit_guardrail_decision(
+        guardrail="tool_call_limit",
+        decision="reject",
+        reason="tool call limit exceeded",
+        details={"max_tool_calls": max_tool_calls},
+    )
+    raise RuntimeError(f"Tool call limit exceeded ({max_tool_calls}).")
+
+
+def _normalize_tool_input(
+    *,
+    tool_input: object,
+    allowed_tool: AllowedTool,
+    validate_tool_input_schema: bool,
+) -> dict[str, object]:
+    """Validate and normalize ``call_tool`` input payload.
+
+    Args:
+        tool_input: Raw tool input payload provided by sandbox code.
+        allowed_tool: Allowed-tool descriptor for the selected tool.
+        validate_tool_input_schema: Whether to enforce input schema validation.
+
+    Returns:
+        Normalized tool input mapping.
+
+    Raises:
+        ValueError: If input payload type or schema validation is invalid.
+    """
+    if not isinstance(tool_input, Mapping):
+        emit_guardrail_decision(
+            guardrail="tool_call_input_type",
+            decision="reject",
+            reason="call_tool tool_input must be a mapping/object.",
+        )
+        raise ValueError("call_tool tool_input must be a mapping/object.")
+
+    normalized_tool_input = dict(tool_input)
+    if not normalized_tool_input and allowed_tool.default_tool_input is not None:
+        normalized_tool_input = dict(allowed_tool.default_tool_input)
+    if not validate_tool_input_schema:
+        return normalized_tool_input
+
+    try:
+        validate_input_against_schema(
+            input_payload=normalized_tool_input,
+            input_schema=allowed_tool.input_schema,
+        )
+    except Exception as exc:
+        emit_guardrail_decision(
+            guardrail="tool_input_schema",
+            decision="reject",
+            reason=str(exc),
+            details={"tool_name": allowed_tool.tool_name},
+        )
+        raise
+    return normalized_tool_input
+
+
+def _invoke_tool_runtime(
+    *,
+    tool_runtime: ToolRuntime,
+    tool_name: str,
+    tool_input: Mapping[str, object],
+    request_id: str,
+    dependencies: Mapping[str, object],
+    tool_results: list[ToolResult],
+) -> dict[str, object]:
+    """Invoke one runtime tool and normalize result payload.
+
+    Args:
+        tool_runtime: Tool runtime dependency.
+        tool_name: Normalized tool name to invoke.
+        tool_input: Normalized tool input mapping.
+        request_id: Request id for runtime invocation.
+        dependencies: Dependency mapping for runtime invocation.
+        tool_results: Mutable tool result collector for this execution.
+
+    Returns:
+        Normalized tool result mapping.
+
+    Raises:
+        RuntimeError: If the tool fails or returns a non-mapping payload.
+    """
+    tool_result = tool_runtime.invoke(
+        tool_name,
+        dict(tool_input),
+        request_id=request_id,
+        dependencies=dependencies,
+    )
+    tool_results.append(tool_result)
+    if not tool_result.ok:
+        if tool_result.error is not None:
+            error_message = tool_result.error.message
+        else:
+            error_message = "Unknown tool runtime error."
+        raise RuntimeError(f"Tool '{tool_name}' failed: {error_message}")
+
+    if isinstance(tool_result.result, Mapping):
+        return dict(tool_result.result)
+    raise RuntimeError(
+        f"Tool '{tool_name}' returned a non-object payload: {type(tool_result.result).__name__}."
+    )
+
+
+def _serialize_final_output(
+    *,
+    sandbox_locals: Mapping[str, object],
+    tool_results: Sequence[ToolResult],
+) -> dict[str, object]:
+    """Resolve and serialize the final output mapping from sandbox locals.
+
+    Args:
+        sandbox_locals: Sandbox local variable mapping after code execution.
+        tool_results: Tool results collected during execution.
+
+    Returns:
+        JSON-serializable final output mapping.
+
+    Raises:
+        ValueError: If final output is missing or not object-serializable.
+    """
+    raw_final_output = sandbox_locals.get("final_output")
+    if isinstance(raw_final_output, _FinalOutputProxy):
+        final_output: object | None
+        final_output = dict(raw_final_output) if raw_final_output.was_mutated else None
+    else:
+        final_output = raw_final_output
+
+    if final_output is None:
+        if not tool_results:
+            raise ValueError("Generated code must call at least one tool.")
+        if not isinstance(tool_results[-1].result, Mapping):
+            raise ValueError("final_output fallback requires the last tool result to be an object.")
+        final_output = dict(tool_results[-1].result)
+
+    if not isinstance(final_output, Mapping):
+        emit_guardrail_decision(
+            guardrail="final_output_type",
+            decision="reject",
+            reason="final_output must be a dict/object",
+        )
+        raise ValueError("Generated code must assign `final_output` to a dict/object.")
+
+    serialized = json.loads(json.dumps(dict(final_output)))
+    if isinstance(serialized, dict):
+        return serialized
+
+    emit_guardrail_decision(
+        guardrail="final_output_json",
+        decision="reject",
+        reason="final_output must serialize to a JSON object",
+    )
+    raise ValueError("final_output must serialize to a JSON object.")
+
+
+def execute_compiled_code(
     *,
     compiled_code: CodeType,
     prompt: str,
@@ -229,7 +435,7 @@ def execute_compiled_code(  # noqa: C901
     allowed_tools_map = {tool.tool_name: tool for tool in allowed_tools}
     tool_call_count = 0
 
-    def call_tool(tool_name: str, tool_input: Mapping[str, object]) -> dict[str, object]:
+    def call_tool(tool_name: str, tool_input: object) -> dict[str, object]:
         """Run call tool.
 
         Args:
@@ -243,78 +449,30 @@ def execute_compiled_code(  # noqa: C901
             Exception: Raised when execution fails.
         """
         nonlocal tool_call_count
-        if not isinstance(tool_name, str):
-            emit_guardrail_decision(
-                guardrail="tool_call_name",
-                decision="reject",
-                reason="call_tool tool_name must be a string.",
-                details={"tool_name": tool_name},
-            )
-            raise ValueError("call_tool tool_name must be a string.")
-        normalized_tool_name = tool_name.strip()
-        if normalized_tool_name not in allowed_tools_map:
-            emit_guardrail_decision(
-                guardrail="tool_call_allowed",
-                decision="reject",
-                reason="tool not in allowed tool list",
-                details={"tool_name": normalized_tool_name},
-            )
-            raise ValueError(f"Tool '{normalized_tool_name}' is not in the allowed tool list.")
-        if tool_call_count >= max_tool_calls:
-            emit_guardrail_decision(
-                guardrail="tool_call_limit",
-                decision="reject",
-                reason="tool call limit exceeded",
-                details={"max_tool_calls": max_tool_calls},
-            )
-            raise RuntimeError(f"Tool call limit exceeded ({max_tool_calls}).")
-
-        if not isinstance(tool_input, Mapping):
-            emit_guardrail_decision(
-                guardrail="tool_call_input_type",
-                decision="reject",
-                reason="call_tool tool_input must be a mapping/object.",
-            )
-            raise ValueError("call_tool tool_input must be a mapping/object.")
+        normalized_tool_name = _normalize_tool_name(
+            tool_name=tool_name,
+            allowed_tools_map=allowed_tools_map,
+        )
+        _enforce_tool_call_budget(
+            tool_call_count=tool_call_count,
+            max_tool_calls=max_tool_calls,
+        )
         allowed_tool = allowed_tools_map[normalized_tool_name]
-        normalized_tool_input = dict(tool_input)
-        if not normalized_tool_input and allowed_tool.default_tool_input is not None:
-            normalized_tool_input = dict(allowed_tool.default_tool_input)
-        if validate_tool_input_schema:
-            try:
-                validate_input_against_schema(
-                    input_payload=normalized_tool_input,
-                    input_schema=allowed_tool.input_schema,
-                )
-            except Exception as exc:
-                emit_guardrail_decision(
-                    guardrail="tool_input_schema",
-                    decision="reject",
-                    reason=str(exc),
-                    details={"tool_name": normalized_tool_name},
-                )
-                raise
+        normalized_tool_input = _normalize_tool_input(
+            tool_input=tool_input,
+            allowed_tool=allowed_tool,
+            validate_tool_input_schema=validate_tool_input_schema,
+        )
 
         tool_call_count += 1
-        tool_result = tool_runtime.invoke(
-            normalized_tool_name,
-            normalized_tool_input,
+        return _invoke_tool_runtime(
+            tool_runtime=tool_runtime,
+            tool_name=normalized_tool_name,
+            tool_input=normalized_tool_input,
             request_id=request_id,
             dependencies=dependencies,
+            tool_results=tool_results,
         )
-        tool_results.append(tool_result)
-        if not tool_result.ok:
-            if tool_result.error is not None:
-                error = tool_result.error.message
-            else:
-                error = "Unknown tool runtime error."
-            raise RuntimeError(f"Tool '{normalized_tool_name}' failed: {error}")
-        if not isinstance(tool_result.result, Mapping):
-            raise RuntimeError(
-                f"Tool '{normalized_tool_name}' returned a non-object payload: "
-                f"{type(tool_result.result).__name__}."
-            )
-        return dict(tool_result.result)
 
     sandbox_globals = {
         "__builtins__": {
@@ -359,36 +517,7 @@ def execute_compiled_code(  # noqa: C901
         )
         raise ValueError("Generated code must call at least one tool.")
 
-    raw_final_output = sandbox_locals.get("final_output")
-    final_output: object | None
-    if isinstance(raw_final_output, _FinalOutputProxy):
-        final_output = dict(raw_final_output) if raw_final_output.was_mutated else None
-    else:
-        final_output = raw_final_output
-    if final_output is None:
-        # Local models occasionally omit the required assignment.
-        # Fall back to the last successful tool output to keep execution usable.
-        if not isinstance(tool_results[-1].result, Mapping):
-            raise ValueError("final_output fallback requires the last tool result to be an object.")
-        final_output = dict(tool_results[-1].result)
-    if not isinstance(final_output, Mapping):
-        emit_guardrail_decision(
-            guardrail="final_output_type",
-            decision="reject",
-            reason="final_output must be a dict/object",
-        )
-        raise ValueError("Generated code must assign `final_output` to a dict/object.")
-
-    # Force JSON-serializable dict-like result.
-    serialized = json.loads(json.dumps(dict(final_output)))
-    if not isinstance(serialized, dict):
-        emit_guardrail_decision(
-            guardrail="final_output_json",
-            decision="reject",
-            reason="final_output must serialize to a JSON object",
-        )
-        raise ValueError("final_output must serialize to a JSON object.")
-    return serialized
+    return _serialize_final_output(sandbox_locals=sandbox_locals, tool_results=tool_results)
 
 
 @contextmanager
@@ -526,7 +655,7 @@ def failure_result(
     metadata: Mapping[str, object],
     generated_code: str,
     raw_generated_code: str | None = None,
-) -> AgentResult:
+) -> ExecutionResult:
     """Build a structured failure result for predictable error handling.
 
     Args:

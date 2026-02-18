@@ -5,7 +5,12 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.tools import ToolMetadata, ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.contracts.tools import (
+    ToolMetadata,
+    ToolResult,
+    ToolRuntime,
+    ToolSpec,
+)
 
 from .config import (
     CallableTool,

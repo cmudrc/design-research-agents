@@ -9,7 +9,7 @@ from design_research_agents.agent import MultiStepCodeToolCallingAgent
 
 
 def main() -> None:
-    """Execute one multi-step run and print the resulting ``AgentResult``.
+    """Execute one multi-step run and print the resulting ``ExecutionResult``.
 
     Demonstrates iterative planning/execution behavior with a bounded step count.
     """

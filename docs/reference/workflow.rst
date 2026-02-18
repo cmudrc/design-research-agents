@@ -8,17 +8,7 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.workflow.implementations.plan_execute
-   :members:
-   :undoc-members:
-   :no-index:
-
 .. automodule:: design_research_agents.workflow.implementations.networked_blackboard
-   :members:
-   :undoc-members:
-   :no-index:
-
-.. automodule:: design_research_agents.workflow.implementations.propose_critic
    :members:
    :undoc-members:
    :no-index:
@@ -33,12 +23,12 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.workflow.implementations.workflow
+.. automodule:: design_research_agents.workflow.internal.workflow
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.workflow.implementations.workflow_runtime
+.. automodule:: design_research_agents.workflow.internal.workflow_runtime
    :members:
    :undoc-members:
    :no-index:
@@ -53,12 +43,12 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.workflow.internal.planner_executor_pattern
+.. automodule:: design_research_agents.workflow.implementations.planner_executor_pattern
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.workflow.internal.reflexion_pattern
+.. automodule:: design_research_agents.workflow.implementations.reflexion_pattern
    :members:
    :undoc-members:
    :no-index:

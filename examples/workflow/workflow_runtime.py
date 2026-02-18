@@ -1,7 +1,7 @@
 """Runnable entrypoint demonstrating the core ``WorkflowRuntime`` implementation."""
 
 from design_research_agents.contracts.workflow import LogicStep
-from design_research_agents.workflow import WorkflowRuntime
+from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
 
 
 def main() -> None:

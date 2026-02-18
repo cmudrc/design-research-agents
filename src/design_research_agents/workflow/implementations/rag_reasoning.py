@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.workflow import (
     AgentStep,
@@ -18,7 +18,7 @@ from design_research_agents.contracts.workflow import (
     WorkflowStep,
 )
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
-from design_research_agents.workflow.implementations.workflow_runtime import WorkflowRuntime
+from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
 
 
 class RagReasoningPattern(Agent):
@@ -67,7 +67,7 @@ class RagReasoningPattern(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Execute memory retrieval, delegated reasoning, and optional write-back.
 
         Args:
@@ -109,50 +109,13 @@ class RagReasoningPattern(Agent):
         finish_trace_run(trace_scope, result=result)
         return result
 
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Stream wrapper around ``run`` with one reasoning summary delta.
-
-        Args:
-            prompt: Task prompt.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Yields:
-            One delta event followed by one completed event.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        retrieval_payload = result.output.get("retrieval")
-        retrieved_count = (
-            _safe_int(retrieval_payload.get("count"))
-            if isinstance(retrieval_payload, Mapping)
-            else 0
-        )
-        yield AgentStreamEvent(
-            kind="delta",
-            delta_text=json.dumps(
-                {
-                    "retrieved_count": retrieved_count,
-                    "success": result.success,
-                },
-                ensure_ascii=True,
-                sort_keys=True,
-            ),
-        )
-        yield AgentStreamEvent(kind="completed", result=result)
-
     def _run_rag_reasoning(
         self,
         *,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Execute underlying workflow for read/reason/write orchestration.
 
         Args:
@@ -224,7 +187,12 @@ class RagReasoningPattern(Agent):
         retrieval_output = (
             dict(memory_read_result.output)
             if memory_read_result is not None
-            else {"query": {}, "matches": [], "count": 0, "namespace": self._memory_namespace}
+            else {
+                "query": {},
+                "matches": [],
+                "count": 0,
+                "namespace": self._memory_namespace,
+            }
         )
         reasoning_output = dict(reason_result.output) if reason_result is not None else {}
         write_back_output = (
@@ -236,7 +204,7 @@ class RagReasoningPattern(Agent):
         result_success = workflow_result.success
         terminated_reason = "completed" if result_success else "workflow_failure"
 
-        return AgentResult(
+        return ExecutionResult(
             output={
                 "retrieval": retrieval_output,
                 "reasoning": reasoning_output,

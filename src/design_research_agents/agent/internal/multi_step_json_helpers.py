@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 
 from design_research_agents.agent.internal.result_builders import build_failure_result
-from design_research_agents.contracts.agent import AgentResult
+from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
 from design_research_agents.contracts.tools import ToolResult, ToolSpec
 
@@ -34,7 +34,7 @@ def build_step_tools_text(*, tool_specs: Mapping[str, ToolSpec]) -> str:
     return "\n".join(tool_lines)
 
 
-def resolve_step_error(step_result: AgentResult) -> str:
+def resolve_step_error(step_result: ExecutionResult) -> str:
     """Extract a stable step error message from one step result.
 
     Args:
@@ -77,7 +77,7 @@ def failure_result(
     dependencies: Mapping[str, object],
     metadata: Mapping[str, object],
     output: Mapping[str, object],
-) -> AgentResult:
+) -> ExecutionResult:
     """Build normalized multi-step failure result payload.
 
     Args:

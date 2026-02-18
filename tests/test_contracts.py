@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import subprocess
 from collections.abc import Sequence
+from types import SimpleNamespace
+from urllib.error import HTTPError
 
 import pytest
 
@@ -128,6 +131,115 @@ def test_llama_cpp_wait_until_ready_timeout_error_becomes_runtime_error(
 
     with pytest.raises(RuntimeError, match="Timed out waiting for llama-cpp server readiness"):
         backend._wait_until_ready()
+
+
+def test_llama_cpp_server_requires_non_empty_model_and_api_model() -> None:
+    with pytest.raises(ValueError, match="model must not be empty"):
+        llama_cpp_server.LlamaCppServerBackend(model="   ")
+
+    with pytest.raises(ValueError, match="api_model must not be empty"):
+        llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf", api_model="   ")
+
+
+def test_llama_cpp_server_dependency_validation_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf")
+    monkeypatch.setattr(llama_cpp_server, "find_spec", lambda _name: None)
+    with pytest.raises(RuntimeError, match="llama-cpp server dependency is missing"):
+        backend._ensure_server_dependency()
+
+    def _find_spec(name: str) -> object | None:
+        if name == "llama_cpp.server":
+            return object()
+        return None
+
+    backend_hf = llama_cpp_server.LlamaCppServerBackend(
+        model="tiny.Q4_K_M.gguf", hf_model_repo_id="repo/id"
+    )
+    monkeypatch.setattr(llama_cpp_server, "find_spec", _find_spec)
+    with pytest.raises(RuntimeError, match="huggingface-hub is required"):
+        backend_hf._ensure_server_dependency()
+
+
+def test_llama_cpp_server_resolve_hf_model_name_prefers_unique_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = llama_cpp_server.LlamaCppServerBackend(
+        model="Q4_K_M.gguf",
+        hf_model_repo_id="repo/id",
+    )
+
+    fake_hf = SimpleNamespace(
+        list_repo_files=lambda _repo: [
+            "model-A.Q4_K_M.gguf",
+            "model-A.Q8_0.gguf",
+        ]
+    )
+    monkeypatch.setattr(llama_cpp_server.importlib, "import_module", lambda _name: fake_hf)
+
+    backend._resolve_hf_model_name()
+    assert backend.model == "model-A.Q4_K_M.gguf"
+
+
+def test_llama_cpp_wait_until_ready_accepts_auth_challenge(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = llama_cpp_server.LlamaCppServerBackend(
+        model="/tmp/model.gguf",
+        startup_timeout_seconds=1.0,
+        poll_interval_seconds=0.0,
+    )
+
+    class _AliveProcess:
+        def poll(self) -> int | None:
+            return None
+
+        def terminate(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            return None
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            return 0
+
+    backend._process = _AliveProcess()  # type: ignore[assignment]
+
+    def _auth_probe(_url: str, timeout: float) -> object:
+        del timeout
+        raise HTTPError(url="http://x", code=401, msg="Unauthorized", hdrs=None, fp=None)
+
+    monkeypatch.setattr(llama_cpp_server, "urlopen", _auth_probe)
+    backend._wait_until_ready()
+
+
+def test_llama_cpp_close_forces_kill_when_terminate_stalls() -> None:
+    backend = llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf")
+
+    class _StubbornProcess:
+        def __init__(self) -> None:
+            self.killed = False
+            self.wait_calls = 0
+
+        def poll(self) -> int | None:
+            return None
+
+        def terminate(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def wait(self, timeout: float | None = None) -> int:
+            del timeout
+            self.wait_calls += 1
+            if self.wait_calls == 1:
+                raise subprocess.TimeoutExpired(cmd="llama", timeout=5)
+            return 0
+
+    process = _StubbornProcess()
+    backend._process = process  # type: ignore[assignment]
+    backend.close()
+    assert process.killed is True
+    assert backend._process is None
 
 
 def test_llama_cpp_client_constructor_propagates_settings() -> None:

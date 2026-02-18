@@ -5,7 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 
 from design_research_agents.contracts.tools import ToolResult, ToolSpec
-from design_research_agents.tracing import fail_tool_call, finish_tool_call, start_tool_call
+from design_research_agents.tracing import (
+    fail_tool_call,
+    finish_tool_call,
+    start_tool_call,
+)
 
 ToolHandler = Callable[[Mapping[str, object], str, Mapping[str, object]], object]
 

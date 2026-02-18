@@ -16,7 +16,7 @@ from design_research_agents.contracts.workflow import (
     ToolStep,
 )
 from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
-from design_research_agents.workflow import WorkflowRuntime
+from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
 from tests.helpers.workflow_stubs import (
     StaticMarkerAgent,
     StaticWorkflowDelegateRunner,
@@ -303,7 +303,11 @@ def test_workflow_runtime_route_branching_skips_non_selected_branch() -> None:
             handler=lambda ctx: {"route": "left"},
             route_map={"left": ("left_step",), "right": ("right_step",)},
         ),
-        LogicStep(step_id="left_step", dependencies=("router",), handler=lambda ctx: {"value": 1}),
+        LogicStep(
+            step_id="left_step",
+            dependencies=("router",),
+            handler=lambda ctx: {"value": 1},
+        ),
         LogicStep(
             step_id="right_step",
             dependencies=("router",),
@@ -477,7 +481,9 @@ def test_workflow_runtime_memory_steps_fail_without_memory_store_binding() -> No
     assert result.step_results["write_memory"].metadata["stage"] == "memory_binding"
 
 
-def test_workflow_runtime_memory_steps_succeed_and_emit_standardized_outputs(tmp_path) -> None:
+def test_workflow_runtime_memory_steps_succeed_and_emit_standardized_outputs(
+    tmp_path,
+) -> None:
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     workflow = WorkflowRuntime(memory_store=store)
     steps = [
@@ -516,7 +522,9 @@ def test_workflow_runtime_memory_steps_succeed_and_emit_standardized_outputs(tmp
     assert read_output["query"]["namespace"] == "research"
 
 
-def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(tmp_path) -> None:
+def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(
+    tmp_path,
+) -> None:
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     store.write(
         [MemoryWriteRecord(content="preloaded design context", metadata={"kind": "context"})],

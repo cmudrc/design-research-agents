@@ -110,7 +110,11 @@ def test_generate_json_success_retry_and_failure() -> None:
     result = generate_json(
         generate_fn=_generate,
         request=_request(),
-        schema={"type": "object", "required": ["ok"], "properties": {"ok": {"type": "boolean"}}},
+        schema={
+            "type": "object",
+            "required": ["ok"],
+            "properties": {"ok": {"type": "boolean"}},
+        },
         max_retries=1,
     )
     assert isinstance(result, StructuredOutputResult)

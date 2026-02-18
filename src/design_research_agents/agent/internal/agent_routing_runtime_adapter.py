@@ -1,4 +1,4 @@
-"""Tool runtime adapter used by ``AgentRuntime`` agent-routing mode."""
+"""Tool runtime adapter used by workflow-native agent routing."""
 
 from __future__ import annotations
 

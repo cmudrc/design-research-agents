@@ -7,6 +7,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 
 from .agent import Agent
+from .execution import ExecutionResult
 from .memory import MemoryWriteRecord
 
 WorkflowExecutionMode = Literal["sequential", "dag"]
@@ -23,7 +24,7 @@ MemoryWriteRecordsBuilder: TypeAlias = Callable[
 ]
 LoopStepContinuePredicate: TypeAlias = Callable[[int, Mapping[str, object]], bool]
 LoopStepStateReducer: TypeAlias = Callable[
-    [Mapping[str, object], "WorkflowResult", int],
+    [Mapping[str, object], ExecutionResult, int],
     Mapping[str, object],
 ]
 LoopStepTerminationReason = Literal[
@@ -166,28 +167,6 @@ class WorkflowStepResult:
         return asdict(self)
 
 
-@dataclass(slots=True, frozen=True)
-class WorkflowResult:
-    """Top-level result payload for one workflow run."""
-
-    success: bool
-    """True when the overall workflow run is successful."""
-    step_results: dict[str, WorkflowStepResult]
-    """Per-step results keyed by step id."""
-    execution_order: list[str]
-    """Step ids in the order they were executed."""
-    metadata: dict[str, object] = field(default_factory=dict)
-    """Workflow-level metadata for diagnostics and orchestration context."""
-
-    def asdict(self) -> dict[str, Any]:
-        """Return a JSON-serializable dictionary representation.
-
-        Returns:
-            Dictionary representation of this workflow result.
-        """
-        return asdict(self)
-
-
 class WorkflowRunner(Protocol):
     """Protocol implemented by workflow runtime implementations."""
 
@@ -200,7 +179,7 @@ class WorkflowRunner(Protocol):
         failure_policy: WorkflowFailurePolicy = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> WorkflowResult:
+    ) -> ExecutionResult:
         """Execute a workflow definition and return aggregated results.
 
         Args:
@@ -228,7 +207,7 @@ class WorkflowDelegateRunner(Protocol):
         failure_policy: WorkflowFailurePolicy = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> WorkflowResult:
+    ) -> ExecutionResult:
         """Execute the configured orchestration and return aggregated results.
 
         Args:

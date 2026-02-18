@@ -8,8 +8,8 @@ SPHINX ?= $(PYTHON) -m sphinx
 
 .PHONY: help \
 	install install-dev install-all check-python \
-	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check \
-	examples-test examples-deterministic examples-metrics run-example \
+	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check \
+	examples-smoke examples-test examples-deterministic examples-metrics run-example \
 	docs docs-build docs-open docs-linkcheck docs-check \
 	ci pre-commit \
 	clean distclean purge-ignored-junk \
@@ -22,6 +22,9 @@ help:
 	@echo "  install-all       Install contributor + local backend extras."
 	@echo "  qa                Fast local checks: lint, fmt-check, type, unit."
 	@echo "  qa-full           Full gate: qa + structure/docstrings + coverage."
+	@echo "  examples-smoke    Deterministic smoke checks for key examples."
+	@echo "  legacy-check      Fail on removed legacy/fallback/C901 patterns in src."
+	@echo "  baseline-integrity-check  Validate baseline entries reference existing files."
 	@echo "  docs-build        Build strict Sphinx HTML docs."
 	@echo "  docs-open         Open docs index in your browser."
 	@echo "  docs              Build docs and open index locally."
@@ -69,7 +72,7 @@ type: check-python
 
 # Run the unit test suite.
 unit: check-python
-	PYTHONPATH=src $(PYTEST)
+	PYTHONPATH=src $(PYTEST) -m "not examples_full"
 
 # Fast local quality checks.
 qa: lint fmt-check type unit
@@ -91,19 +94,31 @@ docstrings-check: check-python
 		--baseline scripts/google_docstrings_baseline.txt \
 		--changed-files-file "$${CHANGED_FILES_FILE}"
 
+# Fail when removed legacy/fallback paths or C901 suppressions reappear in src.
+legacy-check: check-python
+	$(PYTHON) scripts/check_no_legacy_paths.py
+
+# Ensure baseline entries do not reference files that no longer exist.
+baseline-integrity-check: check-python
+	$(PYTHON) scripts/check_baseline_integrity.py
+
 # Estimate line coverage for the stable unit-suite baseline.
 coverage: check-python
 	mkdir -p artifacts/coverage
-	PYTHONPATH=src $(PYTEST) --ignore=tests/test_examples_non_streaming.py --ignore=tests/test_examples_streaming.py --ignore=tests/test_examples_script_shell.py --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	PYTHONPATH=src $(PYTEST) -m "not examples_full" --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
 	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json
 
 # Full quality gate used by CI and release checks.
 qa-full: qa structure-check docstrings-check coverage
 
+# Run deterministic smoke checks for representative examples in main CI.
+examples-smoke: check-python
+	PYTHONPATH=src $(PYTEST) -m examples_smoke -q
+
 # Run deterministic example tests and emit junit XML for metrics/badge generation.
 examples-test: check-python
 	mkdir -p artifacts/examples
-	PYTHONPATH=src $(PYTEST) tests/test_examples_non_streaming.py tests/test_examples_streaming.py tests/test_examples_script_shell.py --junitxml=artifacts/examples/examples-deterministic.junit.xml -q
+	PYTHONPATH=src $(PYTEST) -m examples_full --junitxml=artifacts/examples/examples-deterministic.junit.xml -q
 
 # Generate deterministic examples metrics and corresponding badges.
 examples-metrics: check-python examples-test
@@ -149,7 +164,7 @@ clean: purge-ignored-junk
 distclean: clean
 
 # Aggregate checks used by CI.
-ci: qa-full
+ci: qa-full examples-smoke legacy-check baseline-integrity-check docs-check
 
 # Check set used by local pre-commit hook.
 pre-commit: lint fmt-check type structure-check docstrings-check unit docs-build

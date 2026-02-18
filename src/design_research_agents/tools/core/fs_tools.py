@@ -6,7 +6,11 @@ import fnmatch
 import hashlib
 from collections.abc import Mapping
 
-from design_research_agents.contracts.tools import ToolMetadata, ToolSideEffects, ToolSpec
+from design_research_agents.contracts.tools import (
+    ToolMetadata,
+    ToolSideEffects,
+    ToolSpec,
+)
 from design_research_agents.tools.policy import ToolPolicy
 from design_research_agents.tools.sources.inprocess_source import InProcessToolSource
 
@@ -242,7 +246,12 @@ def _glob(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[st
     root = policy.resolve_read_path(get_str(input_dict, "path"))
     pattern = get_str(input_dict, "pattern")
     matches = sorted(str(path) for path in root.rglob(pattern))
-    return {"root": str(root), "pattern": pattern, "matches": matches, "count": len(matches)}
+    return {
+        "root": str(root),
+        "pattern": pattern,
+        "matches": matches,
+        "count": len(matches),
+    }
 
 
 def _stat(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:

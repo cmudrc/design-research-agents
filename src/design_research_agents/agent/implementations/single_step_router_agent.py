@@ -2,12 +2,12 @@
 
 The router asks the model to choose a route from runtime-backed alternatives,
 requires a structured route payload, executes the selected tool, and returns
-both model and tool artifacts in a single ``AgentResult``.
+both model and tool artifacts in a single ``ExecutionResult``.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
@@ -37,7 +37,7 @@ from design_research_agents.agent.internal.run_options import (
     resolve_request_id,
 )
 from design_research_agents.agent.internal.tool_input import extract_prompt
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -124,7 +124,7 @@ class SingleStepToolRouterAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Run one model route-selection call and one routed tool invocation.
 
         Invalid model routing output is treated as a hard failure result instead
@@ -190,7 +190,10 @@ class SingleStepToolRouterAgent(Agent):
         ]
         llm_params = LLMChatParams(
             response_schema=clone_response_schema(self._default_route_response_schema),
-            provider_options={"agent": "SingleStepToolRouterAgent", "phase": "route_select"},
+            provider_options={
+                "agent": "SingleStepToolRouterAgent",
+                "phase": "route_select",
+            },
         )
         model_span_id = start_model_call(
             model=resolved_model,
@@ -227,7 +230,6 @@ class SingleStepToolRouterAgent(Agent):
                 parsed_route=(
                     {
                         "tool_names": list(parsed_route.tool_names),
-                        "selection": parsed_route.selection,
                         "reason": parsed_route.reason,
                     }
                     if parsed_route is not None
@@ -237,8 +239,7 @@ class SingleStepToolRouterAgent(Agent):
             result = routing_failure_result(
                 error=(
                     "Router model output was invalid. "
-                    "Expected JSON with `tool_names` (non-empty list) or one valid "
-                    "legacy `selection`."
+                    "Expected JSON with `tool_names` (non-empty list)."
                 ),
                 llm_response=llm_response,
                 request_id=resolved_request_id,
@@ -263,7 +264,6 @@ class SingleStepToolRouterAgent(Agent):
             parsed_route=(
                 {
                     "tool_names": list(parsed_route.tool_names),
-                    "selection": parsed_route.selection,
                     "reason": parsed_route.reason,
                 }
                 if parsed_route is not None
@@ -286,17 +286,15 @@ class SingleStepToolRouterAgent(Agent):
         output: dict[str, object] = {
             "model_text": model_text,
             "model_response": {
-                "tool_names": list(parsed_route.tool_names) if parsed_route is not None else [],
-                "selection": (parsed_route.selection if parsed_route is not None else None),
+                "tool_names": (list(parsed_route.tool_names) if parsed_route is not None else []),
                 "reason": parsed_route.reason if parsed_route is not None else None,
             },
             "tool_name": selected_alternative.tool_name,
             "tool_names": selected_tool_names,
-            "selected_alternative_index": selected_index,
             "tool_input": tool_input,
             "tool_output": tool_result.result,
         }
-        result = AgentResult(
+        result = ExecutionResult(
             output=output,
             success=tool_result.ok,
             tool_results=[tool_result],
@@ -309,12 +307,11 @@ class SingleStepToolRouterAgent(Agent):
                     "alternatives": [candidate.tool_name for candidate in alternatives],
                     "selected_tool_name": selected_alternative.tool_name,
                     "selected_tool_names": selected_tool_names,
-                    "selected_alternative_index": selected_index,
+                    "selected_index": selected_index,
                     "selected_reason": selected_reason,
                     "parsed_route": (
                         {
                             "tool_names": list(parsed_route.tool_names),
-                            "selection": parsed_route.selection,
                             "reason": parsed_route.reason,
                         }
                         if parsed_route is not None
@@ -325,33 +322,3 @@ class SingleStepToolRouterAgent(Agent):
         )
         finish_trace_run(trace_scope, result=result)
         return result
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Emit a deterministic stream wrapper around ``run``.
-
-        The wrapper currently emits one full-text delta event followed by a
-        completion event that carries the full ``AgentResult`` payload.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Yields:
-            Streaming events through completion.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        delta_text = result.model_response.text if result.model_response is not None else ""
-        yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
-
-
-__all__ = [
-    "SingleStepToolRouterAgent",
-]

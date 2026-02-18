@@ -6,7 +6,7 @@ surfaces: agents, clients, orchestration workflows, model selection, and tool ru
 ## Directory Guide
 
 - `examples/agents`
-  - Core agent patterns (single-step, multi-step, streaming).
+  - Core agent patterns (single-step and multi-step).
   - See `examples/agents/README.md`.
 - `examples/clients`
   - Purposeful client-configuration examples for each supported LLM client type.
@@ -34,9 +34,7 @@ PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
 
 ## Expected Outputs
 
-- Most examples print JSON-like result payloads (`AgentResult`, workflow result,
-  or tool runtime report).
-- Streaming examples print incremental events (`delta`) followed by completion.
+- Most examples print JSON-like result payloads (`ExecutionResult` or tool runtime report).
 - Tool and script-tool examples also write artifacts under `artifacts/`.
 
 ## Troubleshooting

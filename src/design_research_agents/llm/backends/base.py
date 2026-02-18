@@ -431,7 +431,11 @@ def _parse_tool_calls(parsed: object, tools: Sequence[ToolSpec]) -> list[ToolCal
         if not isinstance(call_id, str) or not call_id:
             call_id = f"call_{index + 1}"
         tool_calls.append(
-            ToolCall(name=name, arguments_json=_normalize_json_text(arguments), call_id=call_id)
+            ToolCall(
+                name=name,
+                arguments_json=_normalize_json_text(arguments),
+                call_id=call_id,
+            )
         )
     return tool_calls
 

@@ -197,7 +197,9 @@ def test_handle_script_unknown_command(capsys: pytest.CaptureFixture[str]) -> No
     assert "Unknown script command" in capsys.readouterr().out
 
 
-def test_build_runtime_parse_json_object_and_server_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_runtime_parse_json_object_and_server_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class _RuntimeFactory:
         def __init__(self, **kwargs):
             self.kwargs = kwargs

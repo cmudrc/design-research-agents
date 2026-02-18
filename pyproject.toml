@@ -67,6 +67,11 @@ design_research_agents = ["py.typed", "schemas/*.json", "prompts/*.md"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = [
+    "examples_full: deterministic end-to-end example execution suite",
+    "examples_smoke: small deterministic example smoke checks for main CI",
+    "contract: contract-focused behavior tests for runtime boundaries",
+]
 
 # Ruff settings for lint/format targets.
 [tool.ruff]

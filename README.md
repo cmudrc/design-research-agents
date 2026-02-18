@@ -16,7 +16,7 @@ This project focuses on composable agent systems you can run, inspect, and test:
 - Reusable workflow surfaces: `Workflow`, `DebatePattern`, `PlannerExecutorPattern`, `ReflexionPattern`, and `RouterPattern`
 - Workflow orchestration runtime is available via `design_research_agents.workflow` for advanced usage
 - Provider-specific LLM clients with constructor-first defaults
-- Tracing and structured outputs: consistent metadata, streaming events, and schema-driven payloads
+- Tracing and structured outputs: consistent metadata and schema-driven payloads
 
 ## Public API 
 ```python

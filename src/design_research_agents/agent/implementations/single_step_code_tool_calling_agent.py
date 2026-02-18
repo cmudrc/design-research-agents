@@ -8,7 +8,7 @@ and final-output artifacts.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from design_research_agents.agent.internal.code_tool_agent_execution import (
     compile_sandboxed_code,
@@ -25,8 +25,6 @@ from design_research_agents.agent.internal.code_tool_agent_parsing import (
     extract_positive_int,
     extract_prompt,
     extract_python_code,
-    match_fenced_code_block,
-    normalize_allowed_tools,
 )
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_alternatives import (
@@ -44,7 +42,7 @@ from design_research_agents.agent.internal.run_options import (
     normalize_input_payload,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
@@ -141,7 +139,7 @@ class SingleStepCodeToolCallingAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Run one LLM generation and one sandboxed code execution pass.
 
         The method resolves runtime options, generates code, validates AST safety,
@@ -311,7 +309,7 @@ class SingleStepCodeToolCallingAgent(Agent):
         }
         if raw_generated_code is not None:
             output["raw_generated_code"] = raw_generated_code
-        result = AgentResult(
+        result = ExecutionResult(
             output=output,
             success=all(tool_result.ok for tool_result in tool_results),
             tool_results=tool_results,
@@ -333,31 +331,6 @@ class SingleStepCodeToolCallingAgent(Agent):
         )
         finish_trace_run(trace_scope, result=result)
         return result
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Emit a deterministic stream wrapper around ``run``.
-
-        The wrapper emits one full delta and then a completion event containing
-        the final ``AgentResult``.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Yields:
-            Streaming events through completion.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        delta_text = result.model_response.text if result.model_response is not None else ""
-        yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
 
     def _generate_code(
         self,
@@ -437,16 +410,6 @@ class SingleStepCodeToolCallingAgent(Agent):
         finish_model_call(model_span_id, response=response)
         return response
 
-
-# Backward-compatible helper aliases used by internal tests.
-_AllowedTool = AllowedTool
-_compile_default_allowed_tools = compile_default_allowed_tools
-_extract_allowed_tools = extract_allowed_tools
-_extract_boolean = extract_boolean
-_extract_positive_int = extract_positive_int
-_extract_python_code = extract_python_code
-_match_fenced_code_block = match_fenced_code_block
-_normalize_allowed_tools = normalize_allowed_tools
 
 __all__ = [
     "SingleStepCodeToolCallingAgent",

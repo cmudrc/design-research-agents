@@ -8,7 +8,11 @@ from collections.abc import Mapping
 from pathlib import Path
 from shutil import which
 
-from design_research_agents.contracts.tools import ToolMetadata, ToolSideEffects, ToolSpec
+from design_research_agents.contracts.tools import (
+    ToolMetadata,
+    ToolSideEffects,
+    ToolSpec,
+)
 from design_research_agents.tools.policy import ToolPolicy
 from design_research_agents.tools.sources.inprocess_source import InProcessToolSource
 

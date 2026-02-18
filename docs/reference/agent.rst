@@ -78,7 +78,17 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.agent.internal.multi_step_code_agent
+.. automodule:: design_research_agents.agent.internal.multi_step_code_runtime_helpers
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.agent.internal.multi_step_continuation
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.agent.internal.multi_step_loop_state
    :members:
    :undoc-members:
    :no-index:
@@ -89,6 +99,16 @@ This page lists all modules in this package area, including internal modules.
    :no-index:
 
 .. automodule:: design_research_agents.agent.internal.multi_step_json_helpers
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.agent.internal.multi_step_json_runtime_helpers
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. automodule:: design_research_agents.agent.internal.multi_step_router_runtime_helpers
    :members:
    :undoc-members:
    :no-index:
@@ -123,22 +143,7 @@ This page lists all modules in this package area, including internal modules.
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.agent.internal.streaming
-   :members:
-   :undoc-members:
-   :no-index:
-
 .. automodule:: design_research_agents.agent.internal.tool_input
-   :members:
-   :undoc-members:
-   :no-index:
-
-.. automodule:: design_research_agents.agent.runtime
-   :members:
-   :undoc-members:
-   :no-index:
-
-.. automodule:: design_research_agents.agent.runtime_controls
    :members:
    :undoc-members:
    :no-index:

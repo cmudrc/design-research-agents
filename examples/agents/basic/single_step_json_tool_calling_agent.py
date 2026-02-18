@@ -9,7 +9,7 @@ from design_research_agents.agent import SingleStepJsonToolCallingAgent
 
 
 def main() -> None:
-    """Execute one tool-calling run and print structured ``AgentResult`` output.
+    """Execute one tool-calling run and print structured ``ExecutionResult`` output.
 
     This entrypoint shows model-guided tool selection in a single step.
     """

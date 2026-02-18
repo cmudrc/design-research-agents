@@ -8,9 +8,9 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
 ## What Each Example Demonstrates
 
 - `workflow_runtime.py`
-  - Direct `WorkflowRuntime` orchestration with composed steps.
+  - Advanced/internal `WorkflowRuntime` orchestration with composed steps.
 - `workflow_runtime_loop_step.py`
-  - Direct `WorkflowRuntime` orchestration with a composable top-level `LoopStep`.
+  - Advanced/internal `WorkflowRuntime` orchestration with a composable top-level `LoopStep`.
 - `plan_execute.py`
   - Planner + executor pattern using runtime tools.
 - `propose_critic.py`
@@ -50,7 +50,7 @@ PYTHONPATH=src python3 examples/workflow/rag_reasoning.py
 
 ## Implementation Mapping
 
-- `workflow_runtime.py` (`WorkflowRuntime`) -> `examples/workflow/workflow_runtime.py`
+- `workflow_runtime.py` (internal `WorkflowRuntime`) -> `examples/workflow/workflow_runtime.py`
 - `workflow_runtime_loop_step.py` (`LoopStep`) -> `examples/workflow/workflow_runtime_loop_step.py`
 - `plan_execute.py` (`PlannerExecutorPattern`) -> `examples/workflow/plan_execute.py`
 - `propose_critic.py` (`ReflexionPattern`) -> `examples/workflow/propose_critic.py`

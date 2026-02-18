@@ -8,15 +8,14 @@ from string import Template
 
 from design_research_agents.agent.internal.prompt_overrides import validate_prompt_text
 from design_research_agents.agent.internal.result_builders import build_failure_result
-from design_research_agents.agent.runtime_controls import RuntimeControls
-from design_research_agents.contracts.agent import AgentResult
+from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
 from design_research_agents.contracts.tools import ToolResult, ToolSpec
 
 
 @dataclass(slots=True)
 class WorkflowBudgetTracker:
-    """Soft-budget accumulator for workflow-native orchestration patterns."""
+    """Observed-metrics accumulator for workflow-native orchestration patterns."""
 
     observed_latency_ms: int = 0
     """Accumulated model latency across observed calls."""
@@ -60,32 +59,17 @@ class WorkflowBudgetTracker:
             if isinstance(estimated_cost, (int, float)):
                 self.observed_estimated_usd += float(estimated_cost)
 
-    def as_metadata(self, *, controls: RuntimeControls) -> dict[str, object]:
-        """Return normalized soft-budget metadata payload.
-
-        Args:
-            controls: Runtime control thresholds used for exceedance flags.
+    def as_metadata(self) -> dict[str, object]:
+        """Return normalized observed-metrics metadata payload.
 
         Returns:
-            Budget summary payload suitable for runtime metadata.
+            Observed metrics payload suitable for runtime metadata.
         """
-        latency_exceeded = (
-            controls.soft_max_latency_ms is not None
-            and self.observed_latency_ms > controls.soft_max_latency_ms
-        )
-        usd_exceeded = (
-            controls.soft_max_usd is not None
-            and self.observed_estimated_usd > controls.soft_max_usd
-        )
         return {
             "observed_latency_ms": self.observed_latency_ms,
             "observed_model_calls": self.observed_model_calls,
             "observed_tool_calls": self.observed_tool_calls,
             "observed_estimated_usd": round(self.observed_estimated_usd, 6),
-            "soft_max_latency_ms": controls.soft_max_latency_ms,
-            "soft_max_usd": controls.soft_max_usd,
-            "latency_exceeded": latency_exceeded,
-            "usd_exceeded": usd_exceeded,
         }
 
 
@@ -141,21 +125,19 @@ def render_prompt_template(
 
 def attach_runtime_metadata(
     *,
-    agent_result: AgentResult,
+    agent_result: ExecutionResult,
     requested_mode: str,
     resolved_mode: str,
-    controls: RuntimeControls,
     budget_metadata: Mapping[str, object],
     extra_metadata: Mapping[str, object] | None,
-) -> AgentResult:
+) -> ExecutionResult:
     """Attach standardized runtime metadata to an agent-style result payload.
 
     Args:
         agent_result: Base agent result to augment.
         requested_mode: Requested runtime mode name.
         resolved_mode: Effective runtime mode name.
-        controls: Runtime controls snapshot for metadata export.
-        budget_metadata: Aggregated soft-budget metrics.
+        budget_metadata: Aggregated observed runtime metrics.
         extra_metadata: Optional additional runtime metadata sections.
 
     Returns:
@@ -165,13 +147,12 @@ def attach_runtime_metadata(
     runtime_metadata: dict[str, object] = {
         "requested_mode": requested_mode,
         "resolved_mode": resolved_mode,
-        "controls": controls.asdict(),
-        "soft_budget": dict(budget_metadata),
+        "observed_metrics": dict(budget_metadata),
     }
     if extra_metadata is not None:
         runtime_metadata.update(extra_metadata)
     metadata["runtime"] = runtime_metadata
-    return AgentResult(
+    return ExecutionResult(
         output=dict(agent_result.output),
         success=agent_result.success,
         tool_results=list(agent_result.tool_results),
@@ -189,7 +170,7 @@ def build_pattern_failure_result(
     metadata: Mapping[str, object],
     output: Mapping[str, object],
     tool_results: list[ToolResult] | None = None,
-) -> AgentResult:
+) -> ExecutionResult:
     """Build one normalized orchestration failure result.
 
     Args:
@@ -202,7 +183,7 @@ def build_pattern_failure_result(
         tool_results: Optional tool results already produced before failure.
 
     Returns:
-        Failure ``AgentResult`` with consistent metadata/output shape.
+        Failure ``ExecutionResult`` with consistent metadata/output shape.
     """
     return build_failure_result(
         error=error,

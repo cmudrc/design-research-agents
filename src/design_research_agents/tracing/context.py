@@ -146,7 +146,7 @@ def finish_trace_run(
 
     if scope.is_root:
         attributes = {
-            "success": bool(getattr(result, "success", False)) if result is not None else False,
+            "success": (bool(getattr(result, "success", False)) if result is not None else False),
             "error": error,
             "result": _normalize_value(result),
         }
@@ -160,7 +160,7 @@ def finish_trace_run(
             _CURRENT_TRACE.reset(scope.trace_token)
     else:
         attributes = {
-            "success": bool(getattr(result, "success", False)) if result is not None else False,
+            "success": (bool(getattr(result, "success", False)) if result is not None else False),
             "error": error,
             "agent": scope.agent_name,
         }

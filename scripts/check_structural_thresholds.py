@@ -110,7 +110,7 @@ def _classify(path: Path) -> tuple[int, str]:
     parts = path.as_posix().split("/")
     for segment in IMPLEMENTATION_SEGMENTS:
         if tuple(parts[: len(segment)]) == segment:
-            return 500, "implementation"
+            return 450, "implementation"
     if parts and parts[0] == "tests":
         return 500, "tests"
     return 650, "general"

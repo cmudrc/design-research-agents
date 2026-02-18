@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
@@ -13,7 +12,9 @@ from design_research_agents.agent.internal.input_parsing import (
     parse_json_mapping,
 )
 from design_research_agents.agent.internal.prompt_overrides import render_template_text
-from design_research_agents.agent.internal.response_schemas import build_tool_call_response_schema
+from design_research_agents.agent.internal.response_schemas import (
+    build_tool_call_response_schema,
+)
 from design_research_agents.agent.internal.tool_input import resolve_known_tool_input
 from design_research_agents.contracts.llm import LLMClient, LLMRequest, LLMResponse
 from design_research_agents.contracts.tools import ToolSpec
@@ -21,7 +22,7 @@ from design_research_agents.contracts.tools import ToolSpec
 
 @dataclass(slots=True, frozen=True)
 class ToolChoice:
-    """Normalized tool option used by planning, validation, and fallback logic."""
+    """Normalized tool option used by planning and validation logic."""
 
     tool_name: str
     """Field value for ``tool_name``."""
@@ -191,7 +192,9 @@ def tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, 
     )
 
 
-def parse_tool_call_from_response(llm_response: LLMResponse) -> dict[str, object] | None:
+def parse_tool_call_from_response(
+    llm_response: LLMResponse,
+) -> dict[str, object] | None:
     """Extract first structured tool call payload from provider tool-call metadata.
 
     Args:
@@ -229,32 +232,30 @@ def parse_tool_call(raw_text: str) -> dict[str, object] | None:
 def select_tool_choice(
     *,
     parsed_tool_call: Mapping[str, object] | None,
-    prompt: str,
     choices: Sequence[ToolChoice],
-) -> tuple[ToolChoice, str, str]:
-    """Select validated tool choice from model output or fallback routing.
+) -> tuple[ToolChoice, str, str] | None:
+    """Select a validated tool choice from structured model output.
 
     Args:
         parsed_tool_call: Parameter value.
-        prompt: Parameter value.
         choices: Parameter value.
 
     Returns:
         The resulting value.
     """
-    allowed_names = {choice.tool_name for choice in choices}
-    if parsed_tool_call is not None:
-        raw_tool_name = parsed_tool_call.get("tool_name", parsed_tool_call.get("name"))
-        if isinstance(raw_tool_name, str):
-            selected_name = raw_tool_name.strip()
-            if selected_name in allowed_names:
-                selected_choice = next(
-                    choice for choice in choices if choice.tool_name == selected_name
-                )
-                return selected_choice, "model", "validated model tool_name"
+    if parsed_tool_call is None:
+        return None
 
-    fallback_choice, fallback_reason = fallback_select_tool_choice(prompt=prompt, choices=choices)
-    return fallback_choice, "fallback", fallback_reason
+    allowed_names = {choice.tool_name for choice in choices}
+    raw_tool_name = parsed_tool_call.get("tool_name")
+    if not isinstance(raw_tool_name, str):
+        return None
+
+    selected_name = raw_tool_name.strip()
+    if selected_name not in allowed_names:
+        return None
+    selected_choice = next(choice for choice in choices if choice.tool_name == selected_name)
+    return selected_choice, "model", "validated model tool_name"
 
 
 def resolve_tool_input(
@@ -262,7 +263,6 @@ def resolve_tool_input(
     selected_choice: ToolChoice,
     parsed_tool_call: Mapping[str, object] | None,
     input_payload: Mapping[str, object],
-    llm_response_text: str,
 ) -> dict[str, object]:
     """Resolve final tool input from model payload, run input, or heuristics.
 
@@ -270,7 +270,6 @@ def resolve_tool_input(
         selected_choice: Parameter value.
         parsed_tool_call: Parameter value.
         input_payload: Parameter value.
-        llm_response_text: Parameter value.
 
     Returns:
         The resulting value.
@@ -292,7 +291,6 @@ def resolve_tool_input(
     known_tool_input = resolve_known_tool_input(
         tool_name=selected_choice.tool_name,
         input_payload=input_payload,
-        text_fallback=llm_response_text,
     )
     if known_tool_input is not None:
         return known_tool_input
@@ -316,160 +314,6 @@ def coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
         if parsed is not None:
             return parsed
     return None
-
-
-def fallback_select_tool_choice(
-    *,
-    prompt: str,
-    choices: Sequence[ToolChoice],
-) -> tuple[ToolChoice, str]:
-    """Select fallback tool choice using deterministic lexical-signal scoring.
-
-    Args:
-        prompt: Parameter value.
-        choices: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    prompt_text = prompt.lower()
-    prompt_tokens = tokenize(prompt_text)
-    prompt_looks_math = looks_like_arithmetic_request(prompt_text)
-    prompt_looks_text = looks_like_text_analysis_request(prompt_text)
-
-    selected_choice = choices[0]
-    selected_score = -1
-    selected_reason = "fallback-first-choice"
-    for choice in choices:
-        searchable = " ".join([choice.tool_name, choice.description]).lower()
-        route_tokens = tokenize(searchable)
-        score = len(prompt_tokens.intersection(route_tokens))
-        reason_parts: list[str] = []
-        if score > 0:
-            reason_parts.append(f"token-overlap:{score}")
-        if prompt_looks_math and looks_like_arithmetic_tool(searchable):
-            score += 5
-            reason_parts.append("math-signal")
-        if prompt_looks_text and looks_like_text_tool(searchable):
-            score += 5
-            reason_parts.append("text-signal")
-
-        if score > selected_score:
-            selected_choice = choice
-            selected_score = score
-            selected_reason = ", ".join(reason_parts) if reason_parts else "fallback-first-choice"
-
-    return selected_choice, selected_reason
-
-
-def tokenize(text: str) -> set[str]:
-    """Tokenize text into normalized alphanumeric words for lexical matching.
-
-    Args:
-        text: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    return {token for token in re.findall(r"[a-z0-9_]+", text) if token}
-
-
-def looks_like_arithmetic_request(text: str) -> bool:
-    """Return whether prompt text appears to request arithmetic computation.
-
-    Args:
-        text: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    if re.search(r"\d+\s*[\+\-\*\/%]\s*\d+", text):
-        return True
-    math_keywords = {
-        "calculate",
-        "calculator",
-        "arithmetic",
-        "equation",
-        "expression",
-        "math",
-        "solve",
-        "sum",
-        "multiply",
-        "divide",
-        "compute",
-    }
-    return any(keyword in text for keyword in math_keywords)
-
-
-def looks_like_text_analysis_request(text: str) -> bool:
-    """Return whether prompt text appears to request text analysis.
-
-    Args:
-        text: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    text_keywords = {
-        "text",
-        "word",
-        "words",
-        "line",
-        "lines",
-        "character",
-        "characters",
-        "count",
-        "stats",
-        "statistics",
-        "summary",
-        "summarize",
-    }
-    return any(keyword in text for keyword in text_keywords)
-
-
-def looks_like_arithmetic_tool(text: str) -> bool:
-    """Return whether tool description text appears arithmetic-focused.
-
-    Args:
-        text: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    arithmetic_tool_keywords = {
-        "calc",
-        "calculator",
-        "math",
-        "arithmetic",
-        "expression",
-        "equation",
-        "compute",
-    }
-    return any(keyword in text for keyword in arithmetic_tool_keywords)
-
-
-def looks_like_text_tool(text: str) -> bool:
-    """Return whether tool description text appears text-analysis-focused.
-
-    Args:
-        text: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    text_tool_keywords = {
-        "text",
-        "word",
-        "line",
-        "character",
-        "stats",
-        "statistics",
-        "summary",
-        "summarize",
-        "analy",
-        "count",
-    }
-    return any(keyword in text for keyword in text_tool_keywords)
 
 
 __all__ = [

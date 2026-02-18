@@ -27,7 +27,11 @@ from design_research_agents.contracts.workflow import (
     WorkflowStepResult,
 )
 
-from .step_context import build_invocation_dependencies, resolve_agent_prompt, resolve_tool_input
+from .step_context import (
+    build_invocation_dependencies,
+    resolve_agent_prompt,
+    resolve_tool_input,
+)
 
 
 def run_tool_step(

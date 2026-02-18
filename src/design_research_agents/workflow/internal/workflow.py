@@ -8,10 +8,10 @@ from typing import Literal
 from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
+    ExecutionResult,
     WorkflowDelegate,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowResult,
     WorkflowStep,
 )
 from design_research_agents.schemas import validate_payload_against_schema
@@ -154,7 +154,7 @@ class Workflow:
         failure_policy: WorkflowFailurePolicy | None = None,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> WorkflowResult:
+    ) -> ExecutionResult:
         """Execute one workflow run with input interpreted by ``input_mode``.
 
         Args:

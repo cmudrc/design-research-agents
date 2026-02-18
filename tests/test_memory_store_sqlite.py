@@ -99,7 +99,9 @@ def test_sqlite_memory_store_applies_metadata_filters(tmp_path: Path) -> None:
     assert matches[0].metadata["kind"] == "decision"
 
 
-def test_sqlite_memory_store_lexical_ranking_orders_more_relevant_first(tmp_path: Path) -> None:
+def test_sqlite_memory_store_lexical_ranking_orders_more_relevant_first(
+    tmp_path: Path,
+) -> None:
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     store.write(
         [
@@ -120,7 +122,9 @@ def test_sqlite_memory_store_lexical_ranking_orders_more_relevant_first(tmp_path
     assert matches[0].score >= matches[1].score
 
 
-def test_sqlite_memory_store_uses_vector_weighting_when_embeddings_present(tmp_path: Path) -> None:
+def test_sqlite_memory_store_uses_vector_weighting_when_embeddings_present(
+    tmp_path: Path,
+) -> None:
     provider = _StaticEmbeddingProvider(
         vectors_by_text={
             "query": [1.0, 0.0],

@@ -44,7 +44,7 @@ PYTHONPATH=src python3 examples/tools/script_tools/bash/single_step_json_script_
 ## Expected Outputs
 
 - Direct tools print one JSON envelope with `ok`, `result`, `artifacts`, `warnings`, `error`.
-- Agent wrappers print an `AgentResult` where:
+- Agent wrappers print an `ExecutionResult` where:
   - `output.tool_name` is the expected script tool name.
   - `tool_results[0].ok` is `true`.
   - `tool_results[0].artifacts` includes the expected artifact path.

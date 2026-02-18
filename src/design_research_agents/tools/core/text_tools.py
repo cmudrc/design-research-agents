@@ -6,7 +6,11 @@ import difflib
 import json
 from collections.abc import Mapping
 
-from design_research_agents.contracts.tools import ToolMetadata, ToolSideEffects, ToolSpec
+from design_research_agents.contracts.tools import (
+    ToolMetadata,
+    ToolSideEffects,
+    ToolSpec,
+)
 from design_research_agents.tools.sources.inprocess_source import InProcessToolSource
 
 from ._helpers import get_str
@@ -45,7 +49,12 @@ def register_text_tools(source: InProcessToolSource) -> None:
                     "line_count": {"type": "integer"},
                     "unique_word_count": {"type": "integer"},
                 },
-                "required": ["char_count", "word_count", "line_count", "unique_word_count"],
+                "required": [
+                    "char_count",
+                    "word_count",
+                    "line_count",
+                    "unique_word_count",
+                ],
             },
             metadata=metadata,
         ),

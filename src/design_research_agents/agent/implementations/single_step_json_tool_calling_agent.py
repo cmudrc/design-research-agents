@@ -1,32 +1,24 @@
 """Tool-calling agent that chooses a tool and arguments from model output.
 
 The agent prompts the model with runtime-backed tool options, validates the
-structured response, and executes one tool call with deterministic fallbacks.
+structured response, and executes one tool call.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from design_research_agents.agent.internal.json_tool_agent_helpers import (
-    ToolChoice,
     build_tool_call_prompt,
     build_tool_choices_text,
     clone_tool_choice,
-    coerce_tool_input,
     extract_tool_choices,
-    fallback_select_tool_choice,
-    looks_like_arithmetic_request,
-    looks_like_arithmetic_tool,
-    looks_like_text_analysis_request,
-    looks_like_text_tool,
     parse_tool_call,
     parse_tool_call_from_response,
     request_tool_call_response,
     resolve_allowed_tool_names,
     resolve_tool_input,
     select_tool_choice,
-    tokenize,
     tool_call_response_schema,
 )
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
@@ -39,17 +31,19 @@ from design_research_agents.agent.internal.prompt_alternatives import (
 from design_research_agents.agent.internal.prompt_overrides import (
     resolve_prompt_text,
 )
+from design_research_agents.agent.internal.result_builders import build_failure_result
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     normalize_input_payload,
     resolve_request_id,
 )
 from design_research_agents.agent.internal.tool_input import extract_prompt
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMMessage, LLMRequest
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.tracing import (
     Tracer,
+    emit_guardrail_decision,
     emit_tool_selection_decision,
     finish_model_call,
     finish_trace_run,
@@ -122,7 +116,7 @@ class SingleStepJsonToolCallingAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Run one tool-calling step from planning through tool execution.
 
         The run prompts for a structured tool call, validates selection, resolves
@@ -214,11 +208,52 @@ class SingleStepJsonToolCallingAgent(Agent):
         parsed_tool_call = parse_tool_call_from_response(llm_response)
         if parsed_tool_call is None:
             parsed_tool_call = parse_tool_call(llm_response.text)
-        selected_choice, tool_call_source, tool_call_reason = select_tool_choice(
+        tool_selection = select_tool_choice(
             parsed_tool_call=parsed_tool_call,
-            prompt=prompt,
             choices=choices,
         )
+        if tool_selection is None:
+            emit_guardrail_decision(
+                guardrail="tool_selection_output",
+                decision="reject",
+                reason="invalid model tool selection",
+                details={"stage": "tool_selection"},
+            )
+            emit_tool_selection_decision(
+                source="model_invalid",
+                tool_name="",
+                reason="invalid model tool selection",
+                parsed_tool_call=parsed_tool_call,
+            )
+            result = build_failure_result(
+                error=(
+                    "Model tool selection was invalid. Expected one allowed "
+                    "`tool_name` in structured output."
+                ),
+                model_response=llm_response,
+                tool_results=[],
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
+                metadata={
+                    "stage": "tool_selection",
+                    "tool_call": {
+                        "source": "model_invalid",
+                        "reason": "invalid model tool selection",
+                        "available_tools": [choice.tool_name for choice in choices],
+                        "parsed_tool_call": parsed_tool_call,
+                    },
+                },
+                output={
+                    "model_text": llm_response.text,
+                    "tool_name": None,
+                    "tool_input": {},
+                    "tool_output": {},
+                },
+            )
+            finish_trace_run(trace_scope, result=result)
+            return result
+
+        selected_choice, tool_call_source, tool_call_reason = tool_selection
         emit_tool_selection_decision(
             source=tool_call_source,
             tool_name=selected_choice.tool_name,
@@ -229,7 +264,6 @@ class SingleStepJsonToolCallingAgent(Agent):
             selected_choice=selected_choice,
             parsed_tool_call=parsed_tool_call,
             input_payload=normalized_input,
-            llm_response_text=llm_response.text,
         )
 
         tool_result = self._tool_runtime.invoke(
@@ -244,7 +278,7 @@ class SingleStepJsonToolCallingAgent(Agent):
             "tool_input": tool_input,
             "tool_output": tool_result.result,
         }
-        result = AgentResult(
+        result = ExecutionResult(
             output=output,
             success=tool_result.ok,
             tool_results=[tool_result],
@@ -262,47 +296,6 @@ class SingleStepJsonToolCallingAgent(Agent):
         )
         finish_trace_run(trace_scope, result=result)
         return result
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Emit a deterministic stream wrapper around ``run``.
-
-        The wrapper emits one delta containing full model text, followed by a
-        completion event with the final ``AgentResult``.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Yields:
-            Streaming events through completion.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        delta_text = result.model_response.text if result.model_response is not None else ""
-        yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
-
-
-# Backward-compatible helper aliases used by internal tests.
-_build_tool_choices_text = build_tool_choices_text
-_coerce_tool_input = coerce_tool_input
-_fallback_select_tool_choice = fallback_select_tool_choice
-_looks_like_arithmetic_request = looks_like_arithmetic_request
-_looks_like_arithmetic_tool = looks_like_arithmetic_tool
-_looks_like_text_analysis_request = looks_like_text_analysis_request
-_looks_like_text_tool = looks_like_text_tool
-_parse_tool_call = parse_tool_call
-_parse_tool_call_from_response = parse_tool_call_from_response
-_resolve_tool_input = resolve_tool_input
-_select_tool_choice = select_tool_choice
-_tokenize = tokenize
-_ToolChoice = ToolChoice
 
 
 __all__ = [

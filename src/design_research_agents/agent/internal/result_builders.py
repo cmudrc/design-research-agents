@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.agent import AgentResult
+from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
 from design_research_agents.contracts.tools import ToolResult
 
@@ -18,7 +18,7 @@ def build_failure_result(
     dependencies: Mapping[str, object],
     metadata: Mapping[str, object],
     output: Mapping[str, object],
-) -> AgentResult:
+) -> ExecutionResult:
     """Build a structured failure result with stable metadata fields.
 
     Args:
@@ -33,7 +33,7 @@ def build_failure_result(
     Returns:
         The resulting value.
     """
-    return AgentResult(
+    return ExecutionResult(
         output={"error": error, **dict(output)},
         success=False,
         tool_results=list(tool_results),

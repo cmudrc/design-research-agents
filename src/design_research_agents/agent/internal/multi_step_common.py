@@ -93,40 +93,6 @@ def extract_continuation_thought(parsed: Mapping[str, object]) -> str:
     return "model decision"
 
 
-def fallback_should_continue(
-    *,
-    memory: Sequence[Mapping[str, object]],
-    step_index: int,
-    max_steps: int,
-) -> bool:
-    """Fallback continuation policy used when model output is invalid JSON.
-
-    Args:
-        memory: Parameter value.
-        step_index: Parameter value.
-        max_steps: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
-    if step_index >= max_steps:
-        return False
-
-    # On parse failure, guarantee one first step, then stop by default.
-    if step_index == 0:
-        return True
-
-    # If the last observation failed, stop.
-    for entry in reversed(memory):
-        if entry.get("kind") != "observation":
-            continue
-        if entry.get("success") is False:
-            return False
-        break
-
-    return False
-
-
 def has_observation(memory: Sequence[Mapping[str, object]]) -> bool:
     """Return whether memory includes at least one observation entry.
 

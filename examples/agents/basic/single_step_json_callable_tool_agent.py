@@ -79,7 +79,7 @@ def main() -> None:
         "selected_tool": result.output.get("tool_name"),
         "tool_input": result.output.get("tool_input"),
         "tool_result": tool_result,
-        "model_text": result.model_response.text if result.model_response is not None else "",
+        "model_text": (result.model_response.text if result.model_response is not None else ""),
     }
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 

@@ -13,6 +13,7 @@ from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
     AgentStep,
+    ExecutionResult,
     LogicStep,
     LoopStep,
     MemoryReadStep,
@@ -20,7 +21,6 @@ from design_research_agents.contracts.workflow import (
     WorkflowDelegate,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowResult,
     WorkflowRunner,
     WorkflowStep,
     WorkflowStepResult,
@@ -83,7 +83,7 @@ class WorkflowRuntime(WorkflowRunner):
         failure_policy: WorkflowFailurePolicy = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> WorkflowResult:
+    ) -> ExecutionResult:
         """Execute one workflow definition and return aggregated results.
 
         Args:
@@ -150,7 +150,7 @@ class WorkflowRuntime(WorkflowRunner):
             result.success or result.error == "skipped_branch_not_selected"
             for result in step_results.values()
         )
-        workflow_result = WorkflowResult(
+        workflow_result = ExecutionResult(
             success=success,
             step_results=step_results,
             execution_order=execution_order,
@@ -430,7 +430,7 @@ class WorkflowRuntime(WorkflowRunner):
             )
 
         current_state = dict(step.initial_state or {})
-        iteration_results: list[WorkflowResult] = []
+        iteration_results: list[ExecutionResult] = []
         terminated_reason = "max_iterations_reached"
         parent_dependency_results = step_context.get("dependency_results")
         parent_dependency_snapshot = (
