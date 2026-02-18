@@ -71,19 +71,6 @@ Workflow run signatures in the reusable ``Workflow`` class:
   are present in the graph.
 - Step topology and any scenario-specific behavior are caller-owned.
 
-Run additional streaming examples:
-
-.. code-block:: bash
-
-   PYTHONPATH=src python3 examples/agents/streaming/single_step_direct_llm_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/single_step_tool_router_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/single_step_json_tool_calling_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/single_step_code_tool_calling_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/multi_step_direct_llm_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/multi_step_tool_router_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py
-   PYTHONPATH=src python3 examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py
-
 Agent/workflow examples default to a local llama-cpp server via
 ``LlamaCppServerLLMClient()``.
 

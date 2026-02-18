@@ -10,7 +10,7 @@ import pytest
 
 import design_research_agents
 from design_research_agents.contracts import (
-    AgentResult,
+    ExecutionResult,
     LLMResponse,
     ToolCostHints,
     ToolResult,
@@ -64,7 +64,7 @@ def test_tool_result_and_agent_result_serialize_and_deserialize_cleanly() -> Non
         result={"expression": "6*7", "result": 42},
         metadata={"source": "unit-test"},
     )
-    agent_result = AgentResult(
+    agent_result = ExecutionResult(
         output={"final": "hello"},
         success=True,
         tool_results=[tool_result],

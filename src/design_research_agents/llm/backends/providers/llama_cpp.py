@@ -12,7 +12,9 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
 )
 from design_research_agents.llm.backends.base import BaseLLMBackend
-from design_research_agents.llm.backends.providers.llama_cpp_server import LlamaCppServerBackend
+from design_research_agents.llm.backends.providers.llama_cpp_server import (
+    LlamaCppServerBackend,
+)
 from design_research_agents.llm.backends.providers.openai_compatible_http import (
     OpenAICompatibleHTTPBackend,
 )

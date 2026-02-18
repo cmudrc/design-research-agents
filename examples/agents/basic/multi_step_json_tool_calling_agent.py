@@ -9,7 +9,7 @@ from design_research_agents.agent import MultiStepJsonToolCallingAgent
 
 
 def main() -> None:
-    """Execute one multi-step JSON run and print the resulting ``AgentResult``."""
+    """Execute one multi-step JSON run and print the resulting ``ExecutionResult``."""
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     agent = MultiStepJsonToolCallingAgent(

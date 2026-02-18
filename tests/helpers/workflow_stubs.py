@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 
-from design_research_agents.contracts.agent import Agent, AgentResult
+from design_research_agents.contracts.agent import Agent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMDelta,
@@ -15,7 +15,10 @@ from design_research_agents.contracts.llm import (
     LLMStreamEvent,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.contracts.workflow import WorkflowResult, WorkflowStepResult
+from design_research_agents.contracts.workflow import (
+    ExecutionResult,
+    WorkflowStepResult,
+)
 
 
 class SequenceLLMClient:
@@ -118,25 +121,15 @@ class StaticMarkerAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id, dependencies
-        return AgentResult(
+        return ExecutionResult(
             output={"agent_marker": self._marker},
             success=True,
             tool_results=[],
             model_response=None,
             metadata={"agent": self._marker},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 class StaticJsonDraftAgent(Agent):
@@ -152,26 +145,16 @@ class StaticJsonDraftAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id, dependencies
         self.run_count += 1
-        return AgentResult(
+        return ExecutionResult(
             output={"model_text": json.dumps(self._payload, ensure_ascii=True)},
             success=True,
             tool_results=[],
             model_response=None,
             metadata={"agent": "static-json-draft"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 class CaptureDependenciesAgent(Agent):
@@ -186,26 +169,16 @@ class CaptureDependenciesAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id
         self.last_dependencies = dict(dependencies or {})
-        return AgentResult(
+        return ExecutionResult(
             output={"model_text": "{}"},
             success=True,
             tool_results=[],
             model_response=None,
             metadata={"agent": "capture-deps"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 class StubToolRuntime(ToolRuntime):
@@ -272,7 +245,7 @@ class StaticWorkflowDelegateRunner:
         failure_policy: str = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> WorkflowResult:
+    ) -> ExecutionResult:
         del execution_mode, failure_policy, request_id, dependencies
         prompt = str((context or {}).get("prompt", ""))
         nested_step = WorkflowStepResult(
@@ -282,7 +255,7 @@ class StaticWorkflowDelegateRunner:
             output={"prompt_echo": prompt},
             metadata={"stage": "execution"},
         )
-        return WorkflowResult(
+        return ExecutionResult(
             success=True,
             step_results={"nested_logic": nested_step},
             execution_order=["nested_logic"],

@@ -1,7 +1,7 @@
 """Runnable example showing one ``SingleStepDirectLLMAgent`` execution.
 
 The script calls a local llama-cpp server by default, runs one prompt directly
-through the model, and prints the resulting ``AgentResult`` payload.
+through the model, and prints the resulting ``ExecutionResult`` payload.
 """
 
 from design_research_agents import LlamaCppServerLLMClient

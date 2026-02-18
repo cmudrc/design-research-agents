@@ -9,7 +9,7 @@ from design_research_agents.agent import SingleStepCodeToolCallingAgent
 
 
 def main() -> None:
-    """Execute one single-step code-agent run and print ``AgentResult`` data.
+    """Execute one single-step code-agent run and print ``ExecutionResult`` data.
 
     Demonstrates generated-code execution with default sandbox constraints.
     """

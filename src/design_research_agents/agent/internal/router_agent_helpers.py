@@ -15,7 +15,7 @@ from design_research_agents.agent.internal.tool_input import (
     extract_prompt,
     resolve_known_tool_input,
 )
-from design_research_agents.contracts.agent import AgentResult
+from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
 from design_research_agents.contracts.tools import ToolSpec
 
@@ -38,8 +38,6 @@ class ParsedRoute:
 
     tool_names: tuple[str, ...]
     """Field value for ``tool_names``."""
-    selection: int | str | None
-    """Field value for legacy ``selection``."""
     reason: str | None
     """Field value for ``reason``."""
 
@@ -52,7 +50,7 @@ def routing_failure_result(
     dependencies: Mapping[str, object],
     alternatives: Sequence[ToolAlternative],
     parsed_route: ParsedRoute | None,
-) -> AgentResult:
+) -> ExecutionResult:
     """Build a structured failure result for invalid/incomplete model routing.
 
     Args:
@@ -72,11 +70,10 @@ def routing_failure_result(
         "model_response": {},
         "tool_name": None,
         "tool_names": [],
-        "selected_alternative_index": None,
         "tool_input": {},
         "tool_output": {},
     }
-    return AgentResult(
+    return ExecutionResult(
         output=output,
         success=False,
         tool_results=[],
@@ -91,7 +88,6 @@ def routing_failure_result(
                 "parsed_route": (
                     {
                         "tool_names": list(parsed_route.tool_names),
-                        "selection": parsed_route.selection,
                         "reason": parsed_route.reason,
                     }
                     if parsed_route is not None
@@ -285,20 +281,11 @@ def parse_route_response(raw_text: str) -> ParsedRoute | None:
         return None
 
     tool_names = _parse_tool_names(parsed)
-    raw_selection = parsed.get(
-        "selection",
-        parsed.get(
-            "selected_alternative_index",
-            parsed.get("tool_name", parsed.get("name")),
-        ),
-    )
-    selection = _parse_selection(raw_selection)
-    if not tool_names and selection is None:
+    if not tool_names:
         return None
 
     return ParsedRoute(
         tool_names=tool_names,
-        selection=selection,
         reason=(
             str(parsed["reason"]) if "reason" in parsed and parsed["reason"] is not None else None
         ),
@@ -322,49 +309,29 @@ def resolve_model_route(
     if parsed_route is None:
         return None
 
-    if parsed_route.tool_names:
-        for candidate_name in parsed_route.tool_names:
-            for index, alternative in enumerate(alternatives):
-                if alternative.tool_name != candidate_name:
-                    continue
-                return (
-                    alternative,
-                    index,
-                    (parsed_route.reason or "validated model tool_names list"),
-                    list(parsed_route.tool_names),
-                )
-        return None
-
-    if isinstance(parsed_route.selection, int):
-        selected_index = parsed_route.selection
-        if 0 <= selected_index < len(alternatives):
-            selected_alternative = alternatives[selected_index]
+    for candidate_name in parsed_route.tool_names:
+        for index, alternative in enumerate(alternatives):
+            if alternative.tool_name != candidate_name:
+                continue
             return (
-                selected_alternative,
-                selected_index,
-                parsed_route.reason or "validated model selection index",
-                [selected_alternative.tool_name],
+                alternative,
+                index,
+                (parsed_route.reason or "validated model tool_names list"),
+                list(parsed_route.tool_names),
             )
-        return None
-
-    if not isinstance(parsed_route.selection, str):
-        return None
-    selected_identifier = parsed_route.selection
-    for index, alternative in enumerate(alternatives):
-        if alternative.tool_name != selected_identifier:
-            continue
-        return (
-            alternative,
-            index,
-            (parsed_route.reason or "validated model selection identifier"),
-            [selected_identifier],
-        )
-
     return None
 
 
 def _parse_tool_names(parsed: Mapping[str, object]) -> tuple[str, ...]:
-    raw_tool_names = parsed.get("tool_names", parsed.get("selected_tool_names"))
+    """Parse ordered, deduplicated tool names from a route payload.
+
+    Args:
+        parsed: Parsed model response mapping.
+
+    Returns:
+        Tuple of normalized tool names or an empty tuple when invalid.
+    """
+    raw_tool_names = parsed.get("tool_names")
     if not isinstance(raw_tool_names, Sequence) or isinstance(raw_tool_names, (str, bytes)):
         return ()
 
@@ -379,17 +346,6 @@ def _parse_tool_names(parsed: Mapping[str, object]) -> tuple[str, ...]:
     if not parsed_names:
         return ()
     return tuple(dict.fromkeys(parsed_names))
-
-
-def _parse_selection(raw_selection: object) -> int | str | None:
-    if isinstance(raw_selection, int):
-        return raw_selection
-    if not isinstance(raw_selection, str):
-        return None
-    normalized_selection = raw_selection.strip()
-    if not normalized_selection:
-        return None
-    return normalized_selection
 
 
 def resolve_tool_input(
@@ -413,7 +369,6 @@ def resolve_tool_input(
     known_tool_input = resolve_known_tool_input(
         tool_name=tool_name,
         input_payload=input_payload,
-        text_fallback=extract_prompt(input_payload),
     )
     if known_tool_input is not None:
         return known_tool_input

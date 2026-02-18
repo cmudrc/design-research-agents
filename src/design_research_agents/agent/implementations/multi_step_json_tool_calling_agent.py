@@ -7,11 +7,14 @@ results across steps.
 
 from __future__ import annotations
 
-import json
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping
 
 from design_research_agents.agent.implementations.single_step_json_tool_calling_agent import (
     SingleStepJsonToolCallingAgent,
+)
+from design_research_agents.agent.internal.execution_context import (
+    finish_agent_execution,
+    prepare_agent_execution,
 )
 from design_research_agents.agent.internal.input_parsing import (
     extract_boolean as _extract_boolean,
@@ -19,25 +22,40 @@ from design_research_agents.agent.internal.input_parsing import (
 from design_research_agents.agent.internal.input_parsing import (
     extract_positive_int as _extract_positive_int,
 )
-from design_research_agents.agent.internal.input_parsing import (
-    extract_prompt as _extract_prompt,
-)
-from design_research_agents.agent.internal.input_parsing import (
-    parse_json_mapping as _parse_json_mapping,
-)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
-from design_research_agents.agent.internal.multi_step_common import (
-    build_continue_prompt,
-    build_step_prompt,
-    extract_continuation_thought,
-    fallback_should_continue,
-    has_observation,
+from design_research_agents.agent.internal.multi_step_common import build_step_prompt
+from design_research_agents.agent.internal.multi_step_continuation import (
+    llm_should_continue as _llm_should_continue,
 )
 from design_research_agents.agent.internal.multi_step_json_helpers import (
     build_step_tools_text,
-    failure_result,
     normalize_step_final_output,
     resolve_step_error,
+)
+from design_research_agents.agent.internal.multi_step_json_runtime_helpers import (
+    build_json_final_result,
+)
+from design_research_agents.agent.internal.multi_step_json_runtime_helpers import (
+    summarize_observation as _summarize_observation,
+)
+from design_research_agents.agent.internal.multi_step_json_runtime_helpers import (
+    summarize_tool_action as _summarize_tool_action,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    build_loop_initial_state,
+    continue_loop,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    coerce_mapping as _coerce_mapping,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    coerce_state_records as _coerce_state_records,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    coerce_string_list as _coerce_string_list,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    coerce_tool_results as _coerce_tool_results,
 )
 from design_research_agents.agent.internal.multi_step_memory import (
     retrieve_memory_context,
@@ -45,37 +63,27 @@ from design_research_agents.agent.internal.multi_step_memory import (
 )
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
-    inject_alternatives_into_prompt_pair,
     normalize_alternatives_prompt_target,
 )
 from design_research_agents.agent.internal.prompt_overrides import resolve_prompt_text
 from design_research_agents.agent.internal.response_schemas import (
     build_continuation_response_schema,
-    clone_response_schema,
 )
-from design_research_agents.agent.internal.run_options import (
-    normalize_dependencies,
-    normalize_input_payload,
-    resolve_request_id,
+from design_research_agents.agent.internal.workflow_loop_orchestration import (
+    run_workflow_loop,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
-from design_research_agents.contracts.llm import (
-    LLMChatParams,
-    LLMClient,
-    LLMMessage,
-    LLMResponse,
-)
+from design_research_agents.contracts.agent import Agent, ExecutionResult
+from design_research_agents.contracts.llm import LLMClient, LLMResponse
 from design_research_agents.contracts.memory import MemoryStore
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime
-from design_research_agents.tracing import (
-    Tracer,
-    emit_continuation_decision,
-    emit_guardrail_decision,
-    finish_model_call,
-    finish_trace_run,
-    start_model_call,
-    start_trace_run,
+from design_research_agents.contracts.termination import (
+    SOURCE_INVALID_PAYLOAD,
+    TERMINATED_CONTINUATION_INVALID_PAYLOAD,
+    TERMINATED_MAX_STEPS_REACHED,
+    TERMINATED_STEP_FAILURE,
+    continuation_stopped_reason,
 )
+from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.tracing import Tracer
 
 
 class MultiStepJsonToolCallingAgent(Agent):
@@ -173,7 +181,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Run the multi-step action-observation loop and return aggregated results.
 
         The run collects continuation decisions, per-step outputs, and all tool
@@ -190,24 +198,23 @@ class MultiStepJsonToolCallingAgent(Agent):
         Raises:
             Exception: Raised when execution fails.
         """
-        resolved_request_id = resolve_request_id(request_id)
-        resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(prompt)
-        trace_scope = start_trace_run(
+        execution_context = prepare_agent_execution(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
             agent_name="MultiStepJsonToolCallingAgent",
-            request_id=resolved_request_id,
-            input_payload=normalized_input,
-            dependencies=resolved_dependencies,
             tracer=self._tracer,
         )
-        prompt = _extract_prompt(normalized_input)
+        resolved_request_id = execution_context.request_id
+        resolved_dependencies = execution_context.dependencies
+        prompt = execution_context.prompt
         max_steps = _extract_positive_int(
-            input_payload=normalized_input,
+            input_payload=execution_context.normalized_input,
             key="max_steps",
             default_value=self._max_steps,
         )
         stop_on_step_failure = _extract_boolean(
-            input_payload=normalized_input,
+            input_payload=execution_context.normalized_input,
             key="stop_on_step_failure",
             default_value=self._stop_on_step_failure,
         )
@@ -226,99 +233,208 @@ class MultiStepJsonToolCallingAgent(Agent):
             tracer=self._tracer,
         )
 
-        memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]
-        continuation_trace: list[dict[str, object]] = []
-        retrieval_trace: list[dict[str, object]] = []
-        memory_errors: list[str] = []
-        step_outputs: list[dict[str, object]] = []
-        tool_results: list[ToolResult] = []
-        final_output: dict[str, object] = {}
-        last_model_response: LLMResponse | None = None
-        terminated_reason = "max_steps_reached"
-
-        for step_index in range(max_steps):
-            retrieved_context, retrieved_matches, retrieval_error = retrieve_memory_context(
-                memory_store=self._memory_store,
-                namespace=self._memory_namespace,
-                top_k=self._memory_read_top_k,
-                task_prompt=prompt,
-                memory=memory,
-                memory_tail_items=self._continuation_memory_tail_items,
-            )
-            if retrieval_error is not None:
-                memory_errors.append(f"read(step {step_index + 1}): {retrieval_error}")
-            retrieval_trace.append(
-                {
-                    "step": step_index + 1,
-                    "count": len(retrieved_matches),
-                    "namespace": self._memory_namespace,
-                }
-            )
-
-            try:
-                should_continue, continue_reason, continue_source, continue_response = (
-                    self._llm_should_continue(
-                        prompt=prompt,
-                        memory=memory,
-                        step_index=step_index,
-                        max_steps=max_steps,
-                        model=resolved_model,
-                        alternatives_prompt_target=alternatives_prompt_target,
-                        alternatives_text=step_tools_text,
-                        retrieved_context=retrieved_context,
-                    )
-                )
-            except Exception as exc:
-                finish_trace_run(trace_scope, error=str(exc))
-                raise
-            if continue_response is not None:
-                last_model_response = continue_response
-            continuation_trace.append(
-                {
-                    "step": step_index + 1,
-                    "continue": should_continue,
-                    "thought": continue_reason,
-                    "reason": continue_reason,
-                    "source": continue_source,
-                }
-            )
-            memory.append(
-                {
-                    "kind": "thought",
-                    "step": step_index + 1,
-                    "continue": should_continue,
-                    "text": continue_reason,
-                    "source": continue_source,
-                }
-            )
-            if not should_continue:
-                terminated_reason = f"continuation_stopped:{continue_source}"
-                break
-
-            step_prompt = build_step_prompt(
-                prompt=prompt,
-                memory=memory,
-                step_number=step_index + 1,
-                prompt_template=self._step_user_prompt_template,
-                memory_tail_items=self._step_memory_tail_items,
-                retrieved_context=retrieved_context,
-            )
-            step_request_id = f"{resolved_request_id}:step-{step_index + 1}"
-
-            step_result = step_agent.run(
-                step_prompt,
-                request_id=step_request_id,
+        try:
+            loop_result = run_workflow_loop(
+                max_iterations=max_steps,
+                initial_state=build_loop_initial_state(
+                    prompt=prompt,
+                    include_continuation=True,
+                ),
+                continue_predicate=continue_loop,
+                iteration_handler=lambda iteration, state: self._run_loop_iteration(
+                    iteration=iteration,
+                    state=state,
+                    prompt=prompt,
+                    max_steps=max_steps,
+                    resolved_model=resolved_model,
+                    alternatives_prompt_target=alternatives_prompt_target,
+                    step_tools_text=step_tools_text,
+                    step_agent=step_agent,
+                    request_id=resolved_request_id,
+                    dependencies=resolved_dependencies,
+                    stop_on_step_failure=stop_on_step_failure,
+                ),
+                request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
+                tracer=self._tracer,
             )
-            if step_result.model_response is not None:
-                last_model_response = step_result.model_response
+        except Exception as exc:
+            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
+            raise
+        result = build_json_final_result(
+            final_state=loop_result.final_state,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
+            max_steps=max_steps,
+            stop_on_step_failure=stop_on_step_failure,
+            alternatives_prompt_target=alternatives_prompt_target,
+            continuation_memory_tail_items=self._continuation_memory_tail_items,
+            step_memory_tail_items=self._step_memory_tail_items,
+            memory_namespace=self._memory_namespace,
+            memory_read_top_k=self._memory_read_top_k,
+            memory_write_observations=self._memory_write_observations,
+            memory_store_enabled=self._memory_store is not None,
+        )
+        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
+        return result
 
-            tool_results.extend(step_result.tool_results)
-            raw_tool_output = step_result.output.get("tool_output")
-            step_final_output = normalize_step_final_output(raw_tool_output)
-            step_error = resolve_step_error(step_result)
-            step_output = {
-                "step": step_index + 1,
+    def _run_loop_iteration(
+        self,
+        *,
+        iteration: int,
+        state: Mapping[str, object],
+        prompt: str,
+        max_steps: int,
+        resolved_model: str,
+        alternatives_prompt_target: AlternativesPromptTarget,
+        step_tools_text: str,
+        step_agent: SingleStepJsonToolCallingAgent,
+        request_id: str,
+        dependencies: Mapping[str, object],
+        stop_on_step_failure: bool,
+    ) -> Mapping[str, object]:
+        """Execute one JSON tool loop iteration and produce next loop state.
+
+        Args:
+            iteration: One-based loop iteration number.
+            state: Current loop-state mapping.
+            prompt: User prompt text.
+            max_steps: Effective max-step limit.
+            resolved_model: Resolved model identifier.
+            alternatives_prompt_target: Prompt target for alternatives injection.
+            step_tools_text: Alternatives/tool block text.
+            step_agent: Step-level JSON tool agent instance.
+            request_id: Resolved request identifier.
+            dependencies: Normalized dependency payload mapping.
+            stop_on_step_failure: Effective stop-on-failure setting.
+
+        Returns:
+            Next loop-state mapping.
+        """
+        step_number = iteration
+        step_index = iteration - 1
+        memory = _coerce_state_records(state.get("memory"))
+        continuation_trace = _coerce_state_records(state.get("continuation_trace"))
+        retrieval_trace = _coerce_state_records(state.get("retrieval_trace"))
+        memory_errors = _coerce_string_list(state.get("memory_errors"))
+        step_outputs = _coerce_state_records(state.get("step_outputs"))
+        tool_results = _coerce_tool_results(state.get("tool_results"))
+        final_output = _coerce_mapping(state.get("final_output"))
+        maybe_model_response = state.get("last_model_response")
+        last_model_response = (
+            maybe_model_response if isinstance(maybe_model_response, LLMResponse) else None
+        )
+
+        retrieved_context, retrieved_matches, retrieval_error = retrieve_memory_context(
+            memory_store=self._memory_store,
+            namespace=self._memory_namespace,
+            top_k=self._memory_read_top_k,
+            task_prompt=prompt,
+            memory=memory,
+            memory_tail_items=self._continuation_memory_tail_items,
+        )
+        if retrieval_error is not None:
+            memory_errors.append(f"read(step {step_number}): {retrieval_error}")
+        retrieval_trace.append(
+            {
+                "step": step_number,
+                "count": len(retrieved_matches),
+                "namespace": self._memory_namespace,
+            }
+        )
+
+        should_continue, continue_reason, continue_source, continue_response = _llm_should_continue(
+            llm_client=self._llm_client,
+            prompt=prompt,
+            memory=memory,
+            step_index=step_index,
+            max_steps=max_steps,
+            model=resolved_model,
+            alternatives_prompt_target=alternatives_prompt_target,
+            alternatives_text=step_tools_text,
+            retrieved_context=retrieved_context,
+            continuation_system_prompt=self._continuation_system_prompt,
+            continuation_user_prompt_template=self._continuation_user_prompt_template,
+            continuation_response_schema=self._continuation_response_schema,
+            continuation_memory_tail_items=self._continuation_memory_tail_items,
+            alternatives_section_label="Available tools for action steps",
+            agent_name="MultiStepJsonToolCallingAgent",
+        )
+        if continue_response is not None:
+            last_model_response = continue_response
+        continuation_trace.append(
+            {
+                "step": step_number,
+                "continue": should_continue,
+                "thought": continue_reason,
+                "reason": continue_reason,
+                "source": continue_source,
+            }
+        )
+        memory.append(
+            {
+                "kind": "thought",
+                "step": step_number,
+                "continue": should_continue,
+                "text": continue_reason,
+                "source": continue_source,
+            }
+        )
+        if not should_continue:
+            terminated_reason = (
+                TERMINATED_CONTINUATION_INVALID_PAYLOAD
+                if continue_source == SOURCE_INVALID_PAYLOAD
+                else continuation_stopped_reason(continue_source)
+            )
+            continuation_fatal_error: str | None = None
+            continuation_fatal_metadata: dict[str, object] = {}
+            if continue_source == SOURCE_INVALID_PAYLOAD:
+                continuation_fatal_error = (
+                    "Continuation output was invalid. Expected JSON payload with "
+                    "boolean `continue`."
+                )
+                continuation_fatal_metadata = {
+                    "stage": "continuation",
+                    "terminated_reason": terminated_reason,
+                }
+            return {
+                "memory": memory,
+                "continuation_trace": continuation_trace,
+                "retrieval_trace": retrieval_trace,
+                "memory_errors": memory_errors,
+                "step_outputs": step_outputs,
+                "tool_results": tool_results,
+                "final_output": final_output,
+                "last_model_response": last_model_response,
+                "terminated_reason": terminated_reason,
+                "should_continue": False,
+                "fatal_error": continuation_fatal_error,
+                "fatal_metadata": continuation_fatal_metadata,
+            }
+
+        step_prompt = build_step_prompt(
+            prompt=prompt,
+            memory=memory,
+            step_number=step_number,
+            prompt_template=self._step_user_prompt_template,
+            memory_tail_items=self._step_memory_tail_items,
+            retrieved_context=retrieved_context,
+        )
+        step_result = step_agent.run(
+            step_prompt,
+            request_id=f"{request_id}:step-{step_number}",
+            dependencies=dependencies,
+        )
+        if step_result.model_response is not None:
+            last_model_response = step_result.model_response
+
+        tool_results.extend(step_result.tool_results)
+        raw_tool_output = step_result.output.get("tool_output")
+        step_final_output = normalize_step_final_output(raw_tool_output)
+        step_error = resolve_step_error(step_result)
+        step_outputs.append(
+            {
+                "step": step_number,
                 "success": step_result.success,
                 "final_output": step_final_output,
                 "tool_name": step_result.output.get("tool_name"),
@@ -326,301 +442,83 @@ class MultiStepJsonToolCallingAgent(Agent):
                 "error": step_error,
                 "tool_results_count": len(step_result.tool_results),
             }
-            step_outputs.append(step_output)
-            memory.extend(
-                [
-                    {
-                        "kind": "action",
-                        "step": step_index + 1,
-                        "tool_name": step_result.output.get("tool_name"),
-                        "tool_input": step_result.output.get("tool_input", {}),
-                    },
-                    {
-                        "kind": "observation",
-                        "step": step_index + 1,
-                        "success": step_result.success,
-                        "final_output": step_final_output,
-                        "error": step_error,
-                    },
-                ]
+        )
+        memory.extend(
+            [
+                {
+                    "kind": "action",
+                    "step": step_number,
+                    "tool_name": step_result.output.get("tool_name"),
+                    "tool_input": step_result.output.get("tool_input", {}),
+                },
+                {
+                    "kind": "observation",
+                    "step": step_number,
+                    "success": step_result.success,
+                    "final_output": step_final_output,
+                    "error": step_error,
+                },
+            ]
+        )
+
+        if self._memory_write_observations:
+            memory_write_error = write_memory_observation(
+                memory_store=self._memory_store,
+                namespace=self._memory_namespace,
+                payload={
+                    "task": prompt,
+                    "step": step_number,
+                    "thought": continue_reason,
+                    "selected_action": _summarize_tool_action(
+                        tool_name=step_result.output.get("tool_name"),
+                        tool_input=step_result.output.get("tool_input"),
+                    ),
+                    "observation_summary": _summarize_observation(
+                        final_output=step_final_output,
+                        error=step_error,
+                    ),
+                    "success": step_result.success,
+                },
+                metadata={
+                    "kind": "multi_step_observation",
+                    "agent": "MultiStepJsonToolCallingAgent",
+                    "step": step_number,
+                    "success": step_result.success,
+                },
             )
+            if memory_write_error is not None:
+                memory_errors.append(f"write(step {step_number}): {memory_write_error}")
 
-            if self._memory_write_observations:
-                memory_write_error = write_memory_observation(
-                    memory_store=self._memory_store,
-                    namespace=self._memory_namespace,
-                    payload={
-                        "task": prompt,
-                        "step": step_index + 1,
-                        "thought": continue_reason,
-                        "selected_action": _summarize_tool_action(
-                            tool_name=step_result.output.get("tool_name"),
-                            tool_input=step_result.output.get("tool_input"),
-                        ),
-                        "observation_summary": _summarize_observation(
-                            final_output=step_final_output,
-                            error=step_error,
-                        ),
-                        "success": step_result.success,
-                    },
-                    metadata={
-                        "kind": "multi_step_observation",
-                        "agent": "MultiStepJsonToolCallingAgent",
-                        "step": step_index + 1,
-                        "success": step_result.success,
-                    },
-                )
-                if memory_write_error is not None:
-                    memory_errors.append(f"write(step {step_index + 1}): {memory_write_error}")
-
-            if step_result.success:
-                final_output = step_final_output
-                continue
-
-            terminated_reason = "step_failure"
+        terminated_reason = TERMINATED_MAX_STEPS_REACHED
+        should_continue_next = True
+        fatal_error: str | None = None
+        fatal_metadata: dict[str, object] = {}
+        if step_result.success:
+            final_output = step_final_output
+        else:
+            terminated_reason = TERMINATED_STEP_FAILURE
             if stop_on_step_failure:
-                result = failure_result(
-                    error=step_error,
-                    model_response=last_model_response,
-                    tool_results=tool_results,
-                    request_id=resolved_request_id,
-                    dependencies=resolved_dependencies,
-                    metadata={
-                        "stage": "step_execution",
-                        "terminated_reason": terminated_reason,
-                        "continuation": continuation_trace,
-                    },
-                    output={
-                        "final_output": final_output,
-                        "steps_executed": len(step_outputs),
-                        "step_outputs": step_outputs,
-                        "memory": memory,
-                        "terminated_reason": terminated_reason,
-                    },
-                )
-                finish_trace_run(trace_scope, result=result)
-                return result
+                should_continue_next = False
+                fatal_error = step_error
+                fatal_metadata = {
+                    "stage": "step_execution",
+                    "terminated_reason": terminated_reason,
+                }
 
-        success = all(step_output["success"] is True for step_output in step_outputs)
-        output: dict[str, object] = {
-            "final_output": final_output,
-            "steps_executed": len(step_outputs),
-            "step_outputs": step_outputs,
+        return {
             "memory": memory,
+            "continuation_trace": continuation_trace,
+            "retrieval_trace": retrieval_trace,
+            "memory_errors": memory_errors,
+            "step_outputs": step_outputs,
+            "tool_results": tool_results,
+            "final_output": final_output,
+            "last_model_response": last_model_response,
             "terminated_reason": terminated_reason,
+            "should_continue": should_continue_next,
+            "fatal_error": fatal_error,
+            "fatal_metadata": fatal_metadata,
         }
-        result = AgentResult(
-            output=output,
-            success=success,
-            tool_results=tool_results,
-            model_response=last_model_response,
-            metadata={
-                "request_id": resolved_request_id,
-                "dependency_keys": sorted(resolved_dependencies.keys()),
-                "continuation": continuation_trace,
-                "config": {
-                    "max_steps": max_steps,
-                    "stop_on_step_failure": stop_on_step_failure,
-                    "alternatives_prompt_target": alternatives_prompt_target,
-                    "continuation_memory_tail_items": self._continuation_memory_tail_items,
-                    "step_memory_tail_items": self._step_memory_tail_items,
-                    "memory_namespace": self._memory_namespace,
-                    "memory_read_top_k": self._memory_read_top_k,
-                    "memory_write_observations": self._memory_write_observations,
-                },
-                "memory": {
-                    "enabled": self._memory_store is not None,
-                    "retrieval_trace": retrieval_trace,
-                    "errors": memory_errors,
-                },
-            },
-        )
-        finish_trace_run(trace_scope, result=result)
-        return result
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Emit a deterministic stream wrapper around ``run``.
-
-        The current implementation emits exactly one full-text delta followed by
-        a completion event containing the full ``AgentResult`` payload.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Yields:
-            Streaming events through completion.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        delta_text = result.model_response.text if result.model_response is not None else ""
-        yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
-
-    def _llm_should_continue(
-        self,
-        *,
-        prompt: str,
-        memory: Sequence[Mapping[str, object]],
-        step_index: int,
-        max_steps: int,
-        model: str,
-        alternatives_prompt_target: AlternativesPromptTarget,
-        alternatives_text: str,
-        retrieved_context: str,
-    ) -> tuple[bool, str, str, LLMResponse | None]:
-        """Ask the model whether execution should continue to the next step.
-
-        When model output is invalid JSON, the method falls back to deterministic
-        continuation heuristics so loop behavior remains predictable.
-
-        Args:
-            prompt: User prompt text.
-            memory: Current memory trace entries.
-            step_index: Zero-based step index.
-            max_steps: Maximum number of steps allowed.
-            model: Model identifier for the call.
-            alternatives_prompt_target: Prompt target for alternatives injection.
-            alternatives_text: Alternatives block text for prompt injection.
-            retrieved_context: Retrieved memory context block for this step.
-
-        Returns:
-            Tuple of continuation decision, reason, source, and model response.
-
-        Raises:
-            Exception: Raised when execution fails.
-        """
-        system_prompt = self._continuation_system_prompt
-        user_prompt = build_continue_prompt(
-            prompt=prompt,
-            memory=memory,
-            step_number=step_index + 1,
-            prompt_template=self._continuation_user_prompt_template,
-            memory_tail_items=self._continuation_memory_tail_items,
-            retrieved_context=retrieved_context,
-        )
-        system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            section_label="Available tools for action steps",
-            alternatives_text=alternatives_text,
-            target=alternatives_prompt_target,
-        )
-        messages = [
-            LLMMessage(
-                role="system",
-                content=system_prompt,
-            ),
-            LLMMessage(
-                role="user",
-                content=user_prompt,
-            ),
-        ]
-        llm_params = LLMChatParams(
-            response_schema=clone_response_schema(self._continuation_response_schema),
-            provider_options={"agent": "MultiStepJsonToolCallingAgent", "phase": "continuation"},
-        )
-        model_span_id = start_model_call(
-            model=model,
-            messages=messages,
-            params=llm_params,
-            metadata={"agent": "MultiStepJsonToolCallingAgent", "phase": "continuation"},
-        )
-        try:
-            response = self._llm_client.chat(messages, model=model, params=llm_params)
-        except Exception as exc:
-            finish_model_call(model_span_id, error=str(exc), model=model)
-            raise
-        finish_model_call(model_span_id, response=response)
-        parsed = _parse_json_mapping(response.text)
-        if parsed is not None and isinstance(parsed.get("continue"), bool):
-            # Ensure at least one action-observation cycle runs before stopping.
-            if step_index == 0 and not bool(parsed["continue"]) and not has_observation(memory):
-                emit_guardrail_decision(
-                    guardrail="continuation_first_step",
-                    decision="override_continue",
-                    reason="first-step guardrail",
-                    details={"step": step_index + 1},
-                )
-                emit_continuation_decision(
-                    step=step_index + 1,
-                    should_continue=True,
-                    reason="first-step guardrail",
-                    source="guardrail",
-                )
-                return True, "first-step guardrail", "guardrail", response
-            thought = extract_continuation_thought(parsed)
-            emit_continuation_decision(
-                step=step_index + 1,
-                should_continue=bool(parsed["continue"]),
-                reason=thought,
-                source="model",
-            )
-            return bool(parsed["continue"]), thought, "model", response
-
-        fallback_decision = fallback_should_continue(
-            memory=memory,
-            step_index=step_index,
-            max_steps=max_steps,
-        )
-        emit_continuation_decision(
-            step=step_index + 1,
-            should_continue=fallback_decision,
-            reason="fallback heuristic",
-            source="fallback",
-        )
-        return fallback_decision, "fallback heuristic", "fallback", response
-
-
-def _summarize_tool_action(*, tool_name: object, tool_input: object) -> str:
-    """Return compact tool action summary for memory write-back.
-
-    Args:
-        tool_name: Tool name payload.
-        tool_input: Tool input payload.
-
-    Returns:
-        Compact tool action summary.
-    """
-    normalized_name = str(tool_name or "").strip()
-    if not normalized_name:
-        return ""
-    if isinstance(tool_input, Mapping):
-        serialized_input = json.dumps(dict(tool_input), ensure_ascii=True, sort_keys=True)
-    else:
-        serialized_input = str(tool_input)
-    summary = f"{normalized_name} {serialized_input}".strip()
-    if len(summary) > 320:
-        return summary[:317] + "..."
-    return summary
-
-
-def _summarize_observation(*, final_output: object, error: object) -> str:
-    """Return compact observation summary for memory write-back.
-
-    Args:
-        final_output: Final output payload.
-        error: Optional error payload.
-
-    Returns:
-        Compact observation summary.
-    """
-    if isinstance(error, str) and error.strip():
-        return f"error: {error.strip()}"
-    if isinstance(final_output, Mapping):
-        serialized = json.dumps(dict(final_output), ensure_ascii=True, sort_keys=True)
-    else:
-        serialized = str(final_output)
-    normalized = serialized.strip()
-    if len(normalized) > 320:
-        return normalized[:317] + "..."
-    return normalized
 
 
 __all__ = [

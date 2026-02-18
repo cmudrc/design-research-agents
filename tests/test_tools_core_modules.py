@@ -5,7 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.tools.core import fs_tools, git_tools, search_tools, text_tools
+from design_research_agents.tools.core import (
+    fs_tools,
+    git_tools,
+    search_tools,
+    text_tools,
+)
 from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
 
 

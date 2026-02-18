@@ -6,7 +6,6 @@ from collections.abc import Iterator
 import pytest
 
 from design_research_agents.agent import (
-    AgentRuntime,
     MultiStepCodeToolCallingAgent,
     MultiStepDirectLLMAgent,
     MultiStepJsonToolCallingAgent,
@@ -16,8 +15,14 @@ from design_research_agents.agent import (
     SingleStepJsonToolCallingAgent,
     SingleStepToolRouterAgent,
 )
-from design_research_agents.contracts.llm import LLMChatParams, LLMDelta, LLMMessage, LLMRequest
+from design_research_agents.contracts.llm import (
+    LLMChatParams,
+    LLMDelta,
+    LLMMessage,
+    LLMRequest,
+)
 from design_research_agents.tools import Toolbox
+from design_research_agents.workflow import PlannerExecutorPattern, ReflexionPattern
 
 
 class _EmptyDefaultModelClient:
@@ -64,50 +69,23 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
         MultiStepToolRouterAgent,
         MultiStepJsonToolCallingAgent,
         MultiStepCodeToolCallingAgent,
-        AgentRuntime,
+        PlannerExecutorPattern,
+        ReflexionPattern,
     )
     for cls in classes:
         assert "model" not in inspect.signature(cls.__init__).parameters
 
 
-def test_agent_constructor_signatures_expose_new_prompt_kwargs() -> None:
-    direct_params = inspect.signature(SingleStepDirectLLMAgent.__init__).parameters
-    assert "system_prompt" in direct_params
-    assert "default_system_prompt" not in direct_params
-
-    router_params = inspect.signature(SingleStepToolRouterAgent.__init__).parameters
-    assert "user_prompt_template" in router_params
-    assert "allowed_routes" in router_params
-
-    json_params = inspect.signature(SingleStepJsonToolCallingAgent.__init__).parameters
-    assert "allowed_tools" in json_params
-
-    code_params = inspect.signature(SingleStepCodeToolCallingAgent.__init__).parameters
-    assert "alternatives_prompt_target" in code_params
-
-    multi_json_params = inspect.signature(MultiStepJsonToolCallingAgent.__init__).parameters
-    assert "continuation_user_prompt_template" in multi_json_params
-    assert "step_memory_tail_items" in multi_json_params
-
-    multi_direct_params = inspect.signature(MultiStepDirectLLMAgent.__init__).parameters
-    assert "controller_user_prompt_template" in multi_direct_params
-    assert "step_memory_tail_items" in multi_direct_params
-
-    multi_router_params = inspect.signature(MultiStepToolRouterAgent.__init__).parameters
-    assert "user_prompt_template" in multi_router_params
-    assert "stop_on_step_failure" in multi_router_params
-
+def test_agent_constructor_signatures_expose_supported_kwargs() -> None:
     multi_code_params = inspect.signature(MultiStepCodeToolCallingAgent.__init__).parameters
-    assert "continuation_system_prompt" in multi_code_params
-    assert "continuation_memory_tail_items" in multi_code_params
+    assert "execution_timeout_seconds" in multi_code_params
 
-    runtime_params = inspect.signature(AgentRuntime.__init__).parameters
-    assert "mode" in runtime_params
-    assert "controls" in runtime_params
-    assert "tracer" in runtime_params
-    assert "plan_execute_planner_system_prompt" not in runtime_params
-    assert "propose_critic_critic_user_prompt_template" not in runtime_params
-    assert "agent_routing_router_user_prompt_template" not in runtime_params
+    planner_params = inspect.signature(PlannerExecutorPattern.__init__).parameters
+    assert "max_iterations" in planner_params
+    assert "max_tool_calls_per_step" in planner_params
+
+    reflexion_params = inspect.signature(ReflexionPattern.__init__).parameters
+    assert "max_iterations" in reflexion_params
 
 
 def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:
@@ -115,19 +93,16 @@ def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:
         SingleStepDirectLLMAgent(llm_client=_EmptyDefaultModelClient()).run("Hello")
 
 
-def test_agent_runtime_fails_when_llm_default_model_is_empty() -> None:
+def test_workflow_patterns_fail_when_llm_default_model_is_empty() -> None:
+    empty_client = _EmptyDefaultModelClient()
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        AgentRuntime(
-            llm_client=_EmptyDefaultModelClient(),
+        PlannerExecutorPattern(
+            llm_client=empty_client,
             tool_runtime=Toolbox(),
-            mode="react",
         ).run("Compute 1 + 1")
 
-
-def test_agent_runtime_rejects_non_react_mode() -> None:
-    with pytest.raises(ValueError, match="mode='react' only"):
-        AgentRuntime(
-            llm_client=_EmptyDefaultModelClient(),
+    with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
+        ReflexionPattern(
+            llm_client=empty_client,
             tool_runtime=Toolbox(),
-            mode="plan_execute",
-        )
+        ).run("Draft")

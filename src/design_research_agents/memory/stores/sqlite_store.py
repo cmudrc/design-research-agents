@@ -249,7 +249,7 @@ class SQLiteMemoryStore(MemoryStore):
                     updated_at=str(row["updated_at"]),
                     score=round(final_score, 8),
                     lexical_score=round(lexical_score, 8),
-                    vector_score=None if vector_score is None else round(vector_score, 8),
+                    vector_score=(None if vector_score is None else round(vector_score, 8)),
                 )
             )
 
@@ -303,8 +303,7 @@ class SQLiteMemoryStore(MemoryStore):
     def _initialize_schema(self) -> None:
         """Create required tables and indexes if they are missing."""
         with self._connection:
-            self._connection.execute(
-                """
+            self._connection.execute("""
                 CREATE TABLE IF NOT EXISTS memory_items (
                     id TEXT PRIMARY KEY,
                     namespace TEXT NOT NULL,
@@ -313,24 +312,19 @@ class SQLiteMemoryStore(MemoryStore):
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
-                """
-            )
-            self._connection.execute(
-                """
+                """)
+            self._connection.execute("""
                 CREATE TABLE IF NOT EXISTS memory_embeddings (
                     item_id TEXT NOT NULL,
                     model TEXT NOT NULL,
                     vector_json TEXT NOT NULL,
                     PRIMARY KEY(item_id, model)
                 )
-                """
-            )
-            self._connection.execute(
-                """
+                """)
+            self._connection.execute("""
                 CREATE INDEX IF NOT EXISTS idx_memory_items_namespace
                 ON memory_items(namespace)
-                """
-            )
+                """)
 
 
 def _metadata_matches(*, metadata: Mapping[str, object], filters: Mapping[str, object]) -> bool:

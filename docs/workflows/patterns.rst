@@ -14,8 +14,9 @@ Available reusable workflow patterns:
 
 These workflow patterns are reference implementations built on first-class
 workflow primitives: ``LogicStep``, ``ToolStep``, ``AgentStep``, and
-``LoopStep``. You can reproduce and customize these
-patterns directly with ``WorkflowRuntime`` rather than relying on hidden modes.
+``LoopStep``. You can reproduce and customize these patterns with ``Workflow``
+plus step primitives rather than relying on hidden modes. ``WorkflowRuntime``
+remains an internal engine for advanced/internal extension work.
 
 All workflow customization is constructor-first. Helper factory functions were
 removed from ``design_research_agents.workflow.implementations``.

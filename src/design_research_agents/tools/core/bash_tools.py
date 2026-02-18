@@ -5,7 +5,11 @@ from __future__ import annotations
 import shlex
 from collections.abc import Mapping
 
-from design_research_agents.contracts.tools import ToolMetadata, ToolSideEffects, ToolSpec
+from design_research_agents.contracts.tools import (
+    ToolMetadata,
+    ToolSideEffects,
+    ToolSpec,
+)
 from design_research_agents.tools.sources.inprocess_source import InProcessToolSource
 
 from ._helpers import get_int, get_str

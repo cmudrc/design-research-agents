@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
-from design_research_agents.contracts.agent import Agent, AgentResult
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.memory import MemoryWriteRecord
 from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 from design_research_agents.workflow import RagReasoningPattern
@@ -19,7 +19,7 @@ class EchoReasoningAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Return a deterministic reasoning payload for the given prompt.
 
         Args:
@@ -31,36 +31,16 @@ class EchoReasoningAgent(Agent):
             Deterministic reasoning result.
         """
         del request_id, dependencies
-        return AgentResult(
-            output={"summary": "Reasoned with retrieved context.", "prompt_seen": prompt},
+        return ExecutionResult(
+            output={
+                "summary": "Reasoned with retrieved context.",
+                "prompt_seen": prompt,
+            },
             success=True,
             tool_results=[],
             model_response=None,
             metadata={"delegate": "echo"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        """Raise because streaming is not implemented for this stub.
-
-        Args:
-            prompt: Reasoning prompt payload.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Returns:
-            Iterator of stream events.
-
-        Raises:
-            NotImplementedError: Always raised for this deterministic stub.
-        """
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 def main() -> None:

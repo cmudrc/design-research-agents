@@ -73,8 +73,10 @@ def test_removed_namespace_facades_are_not_available() -> None:
         assert symbol_name not in dra.__all__
 
 
-def test_agent_runtime_remains_internal() -> None:
-    assert "AgentRuntime" not in dra.__all__
+def test_agent_module_exports_are_curated() -> None:
+    hidden_symbols = ("WorkflowRuntime",)
+    for symbol_name in hidden_symbols:
+        assert symbol_name not in dra.__all__
 
 
 def test_workflow_runtime_remains_internal() -> None:

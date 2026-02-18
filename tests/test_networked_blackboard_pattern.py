@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 
-from design_research_agents.contracts.agent import Agent, AgentResult
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.workflow import BlackboardPattern, NetworkedPattern
 
 
@@ -22,26 +22,16 @@ class _RecordingPeerAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id, dependencies
         self._recorder.append(self._peer_id)
-        return AgentResult(
+        return ExecutionResult(
             output=dict(self._payload),
             success=True,
             tool_results=[],
             model_response=None,
             metadata={"peer_id": self._peer_id},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 class _FailingPeerAgent(Agent):
@@ -53,25 +43,15 @@ class _FailingPeerAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         del prompt, request_id, dependencies
-        return AgentResult(
+        return ExecutionResult(
             output={"error": "peer failed"},
             success=False,
             tool_results=[],
             model_response=None,
             metadata={"peer": "failing"},
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[object]:
-        del prompt, request_id, dependencies
-        raise NotImplementedError
 
 
 def test_networked_pattern_uses_deterministic_sorted_peer_order_each_round() -> None:

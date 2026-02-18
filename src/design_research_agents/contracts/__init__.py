@@ -5,7 +5,8 @@ agent outputs/events, provider-neutral LLM payloads, tool runtime
 specifications/results, and workflow orchestration contracts.
 """
 
-from .agent import Agent, AgentResult
+from .agent import Agent
+from .execution import ExecutionResult
 from .llm import (
     BackendCapabilities,
     BackendStatus,
@@ -31,6 +32,24 @@ from .llm import (
     Usage,
 )
 from .memory import MemoryRecord, MemorySearchQuery, MemoryStore, MemoryWriteRecord
+from .termination import (
+    SOURCE_GUARDRAIL,
+    SOURCE_INVALID_PAYLOAD,
+    SOURCE_MODEL,
+    TERMINATED_APPROVED,
+    TERMINATED_COMPLETED,
+    TERMINATED_CONTINUATION_INVALID_PAYLOAD,
+    TERMINATED_CONTROLLER_INVALID_PAYLOAD,
+    TERMINATED_INVALID_ROUTE_SELECTION,
+    TERMINATED_INVALID_STEP_OUTPUT,
+    TERMINATED_MAX_ITERATIONS_REACHED,
+    TERMINATED_MAX_STEPS_REACHED,
+    TERMINATED_ROUTING_FAILURE,
+    TERMINATED_STEP_FAILURE,
+    TERMINATED_UNKNOWN_ALTERNATIVE,
+    continuation_stopped_reason,
+    stop_reason,
+)
 from .tools import (
     ToolArtifact,
     ToolCostHints,
@@ -59,7 +78,6 @@ from .workflow import (
     WorkflowDelegateRunner,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowResult,
     WorkflowRunner,
     WorkflowStep,
     WorkflowStepResult,
@@ -67,13 +85,27 @@ from .workflow import (
 )
 
 __all__ = [
+    "SOURCE_GUARDRAIL",
+    "SOURCE_INVALID_PAYLOAD",
+    "SOURCE_MODEL",
+    "TERMINATED_APPROVED",
+    "TERMINATED_COMPLETED",
+    "TERMINATED_CONTINUATION_INVALID_PAYLOAD",
+    "TERMINATED_CONTROLLER_INVALID_PAYLOAD",
+    "TERMINATED_INVALID_ROUTE_SELECTION",
+    "TERMINATED_INVALID_STEP_OUTPUT",
+    "TERMINATED_MAX_ITERATIONS_REACHED",
+    "TERMINATED_MAX_STEPS_REACHED",
+    "TERMINATED_ROUTING_FAILURE",
+    "TERMINATED_STEP_FAILURE",
+    "TERMINATED_UNKNOWN_ALTERNATIVE",
     "Agent",
-    "AgentResult",
     "AgentStep",
     "AgentStepPromptBuilder",
     "BackendCapabilities",
     "BackendStatus",
     "EmbeddingResult",
+    "ExecutionResult",
     "LLMAuthError",
     "LLMBadResponseError",
     "LLMCapabilityError",
@@ -120,9 +152,10 @@ __all__ = [
     "WorkflowDelegateRunner",
     "WorkflowExecutionMode",
     "WorkflowFailurePolicy",
-    "WorkflowResult",
     "WorkflowRunner",
     "WorkflowStep",
     "WorkflowStepResult",
     "WorkflowStepStatus",
+    "continuation_stopped_reason",
+    "stop_reason",
 ]

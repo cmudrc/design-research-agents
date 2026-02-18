@@ -57,7 +57,12 @@ def test_console_sink_streaming_and_event_formatting() -> None:
     sink.emit({"event_type": "ModelCallToken", "attributes": {"delta_text": "abc"}})
     sink.emit({"event_type": "ModelCallFinished", "attributes": {"model": "m"}})
     sink.emit({"event_type": "RunStarted", "run_id": "r1", "attributes": {"agent": "A"}})
-    sink.emit({"event_type": "ToolCallFailed", "attributes": {"tool_name": "t", "error": "boom"}})
+    sink.emit(
+        {
+            "event_type": "ToolCallFailed",
+            "attributes": {"tool_name": "t", "error": "boom"},
+        }
+    )
     sink.emit({"event_type": "UnknownType", "attributes": []})
     sink.close()
 

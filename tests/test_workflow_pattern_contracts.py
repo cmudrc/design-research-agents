@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 import json
 
-from design_research_agents.agent import RuntimeControls
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import Workflow
 from design_research_agents.workflow.implementations.agent_routing import RouterPattern
@@ -13,10 +12,18 @@ from design_research_agents.workflow.implementations.networked_blackboard import
     BlackboardPattern,
     NetworkedPattern,
 )
-from design_research_agents.workflow.implementations.plan_execute import PlannerExecutorPattern
-from design_research_agents.workflow.implementations.propose_critic import ReflexionPattern
-from design_research_agents.workflow.implementations.rag_reasoning import RagReasoningPattern
-from design_research_agents.workflow.implementations.tree_search import TreeSearchPattern
+from design_research_agents.workflow.implementations.planner_executor_pattern import (
+    PlannerExecutorPattern,
+)
+from design_research_agents.workflow.implementations.rag_reasoning import (
+    RagReasoningPattern,
+)
+from design_research_agents.workflow.implementations.reflexion_pattern import (
+    ReflexionPattern,
+)
+from design_research_agents.workflow.implementations.tree_search import (
+    TreeSearchPattern,
+)
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
 
 
@@ -44,7 +51,7 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
             ]
         ),
         tool_runtime=Toolbox(),
-        controls=RuntimeControls(max_iterations=2),
+        max_iterations=2,
     )
     success_result = success_workflow.run("Compute 6 * 7.")
     assert success_result.success
@@ -79,7 +86,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
             ]
         ),
         tool_runtime=Toolbox(),
-        controls=RuntimeControls(max_iterations=2),
+        max_iterations=2,
     )
     success_result = success_workflow.run("Write a short design summary.")
     assert success_result.success
@@ -105,7 +112,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
 def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> None:
     success_workflow = RouterPattern(
         llm_client=SequenceLLMClient(
-            response_texts=['{"selection":"alt_two","reason":"best fit"}']
+            response_texts=['{"tool_names":["alt_two"],"reason":"best fit"}']
         ),
         tool_runtime=Toolbox(),
         alternatives={
@@ -121,7 +128,7 @@ def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> N
 
     failure_workflow = RouterPattern(
         llm_client=SequenceLLMClient(
-            response_texts=['{"selection":"unknown_alt","reason":"best fit"}']
+            response_texts=['{"tool_names":["unknown_alt"],"reason":"best fit"}']
         ),
         tool_runtime=Toolbox(),
         alternatives={"alt_one": StaticMarkerAgent(marker="one")},

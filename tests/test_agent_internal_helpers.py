@@ -10,7 +10,6 @@ from design_research_agents.agent.internal.input_parsing import (
     parse_json_mapping,
 )
 from design_research_agents.agent.internal.multi_step_common import (
-    fallback_should_continue,
     has_observation,
 )
 from design_research_agents.agent.internal.result_builders import build_failure_result
@@ -43,15 +42,12 @@ def test_json_mapping_helpers_parse_direct_and_embedded_objects() -> None:
     }
 
 
-def test_multi_step_fallback_policy_behaves_deterministically() -> None:
+def test_multi_step_observation_detection() -> None:
     memory = [{"kind": "task", "prompt": "hello"}]
-    assert fallback_should_continue(memory=memory, step_index=0, max_steps=3) is True
-    assert fallback_should_continue(memory=memory, step_index=1, max_steps=3) is False
     failed_memory = [
         *memory,
         {"kind": "observation", "success": False},
     ]
-    assert fallback_should_continue(memory=failed_memory, step_index=1, max_steps=3) is False
     assert has_observation(memory) is False
     assert has_observation(failed_memory) is True
 

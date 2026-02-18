@@ -1,7 +1,6 @@
 """Runnable example for the reusable ``DebatePattern`` orchestration chunk."""
 
 from design_research_agents import DebatePattern, LlamaCppServerLLMClient, Toolbox
-from design_research_agents.agent import RuntimeControls
 
 
 def main() -> None:
@@ -11,7 +10,7 @@ def main() -> None:
     workflow = DebatePattern(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
-        controls=RuntimeControls(max_iterations=1),
+        max_rounds=1,
     )
     result = workflow.run(
         prompt="Should a research team prioritize local models over hosted APIs?",

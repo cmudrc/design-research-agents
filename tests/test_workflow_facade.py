@@ -8,17 +8,20 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.agent import RuntimeControls
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMMessage,
     LLMResponse,
 )
-from design_research_agents.contracts.workflow import AgentStep, LogicStep, LoopStep, ToolStep
+from design_research_agents.contracts.workflow import (
+    AgentStep,
+    LogicStep,
+    LoopStep,
+    ToolStep,
+)
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import DebatePattern
-from design_research_agents.workflow.implementations.workflow import Workflow
+from design_research_agents.workflow import DebatePattern, Workflow
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 
@@ -135,7 +138,10 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
                     else "agent_path"
                 )
             },
-            route_map={"agent_path": ("draft_agent",), "template_path": ("draft_template",)},
+            route_map={
+                "agent_path": ("draft_agent",),
+                "template_path": ("draft_template",),
+            },
         ),
         AgentStep(
             step_id="draft_agent",
@@ -441,7 +447,7 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
             ]
         ),
         tool_runtime=Toolbox(),
-        controls=RuntimeControls(max_iterations=1),
+        max_rounds=1,
     )
 
     result = workflow.run("Should the team launch this product now?")

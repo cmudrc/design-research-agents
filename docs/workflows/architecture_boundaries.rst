@@ -6,8 +6,7 @@ This page captures the intended separation of concerns for workflow orchestratio
 Primary boundaries
 ------------------
 
-- ``AgentRuntime``: react-only execution runtime for agent model APIs.
-- ``WorkflowRuntime``: deterministic typed-step orchestration executor.
+- ``WorkflowRuntime``: internal deterministic typed-step orchestration executor.
 - ``Workflow``: user-facing reusable facade for constructor-first step graphs with
   explicit input contracts.
 - Patterns:
@@ -29,12 +28,11 @@ Allowed composition patterns
 - Use ``Workflow`` to define reusable topology once and run repeatedly.
 - Use ``LoopStep`` when iteration is a first-class part of orchestration.
 - Keep prompt/model/tool policy concerns inside pattern classes or delegates, not in
-  ``WorkflowRuntime`` scheduling internals.
+  internal ``WorkflowRuntime`` scheduling internals.
 
 Anti-patterns to avoid
 ----------------------
 
-- Reintroducing orchestration modes directly into ``AgentRuntime``.
 - Adding duplicate request-id/dependency helper functions in each pattern module.
 - Encoding loop-state schema assumptions ad hoc inside multiple modules.
 - Treating pattern classes as hidden internals; they are reusable strategy

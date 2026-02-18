@@ -2,30 +2,44 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
+from design_research_agents.agent.internal.execution_context import (
+    finish_agent_execution,
+    prepare_agent_execution,
+)
 from design_research_agents.agent.internal.input_parsing import (
     extract_boolean as _extract_boolean,
 )
 from design_research_agents.agent.internal.input_parsing import (
     extract_positive_int as _extract_positive_int,
 )
-from design_research_agents.agent.internal.input_parsing import (
-    extract_prompt as _extract_prompt,
-)
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.multi_step_common import build_step_prompt
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    build_loop_initial_state,
+    continue_loop,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    coerce_state_records as _coerce_state_records,
+)
+from design_research_agents.agent.internal.multi_step_loop_state import (
+    coerce_tool_results as _coerce_tool_results,
+)
+from design_research_agents.agent.internal.multi_step_router_runtime_helpers import (
+    build_router_final_result,
+)
+from design_research_agents.agent.internal.multi_step_router_runtime_helpers import (
+    run_tool_call_step as _run_tool_call_step,
+)
 from design_research_agents.agent.internal.multi_step_tool_router_helpers import (
-    failure_result as _failure_result,
+    ToolRouterStepDecision,
 )
 from design_research_agents.agent.internal.multi_step_tool_router_helpers import (
     normalize_output_dict as _normalize_output_dict,
 )
 from design_research_agents.agent.internal.multi_step_tool_router_helpers import (
     parse_tool_router_step_decision as _parse_tool_router_step_decision,
-)
-from design_research_agents.agent.internal.multi_step_tool_router_helpers import (
-    resolve_selected_tool as _resolve_selected_tool,
 )
 from design_research_agents.agent.internal.prompt_alternatives import (
     AlternativesPromptTarget,
@@ -38,34 +52,32 @@ from design_research_agents.agent.internal.response_schemas import (
     clone_response_schema,
 )
 from design_research_agents.agent.internal.router_agent_helpers import (
+    ToolAlternative,
     build_routes_text,
     compile_runtime_alternatives,
     extract_alternatives,
     resolve_allowed_route_names,
-    resolve_tool_input,
 )
-from design_research_agents.agent.internal.run_options import (
-    normalize_dependencies,
-    normalize_input_payload,
-    resolve_request_id,
+from design_research_agents.agent.internal.workflow_loop_orchestration import (
+    run_workflow_loop,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
     LLMMessage,
     LLMResponse,
 )
+from design_research_agents.contracts.termination import (
+    TERMINATED_INVALID_STEP_OUTPUT,
+    stop_reason,
+)
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime
 from design_research_agents.tracing import (
     Tracer,
     emit_continuation_decision,
-    emit_guardrail_decision,
-    emit_router_decision,
     finish_model_call,
-    finish_trace_run,
     start_model_call,
-    start_trace_run,
 )
 
 
@@ -99,6 +111,9 @@ class MultiStepToolRouterAgent(Agent):
             allowed_routes: Optional route/tool allowlist.
             step_memory_tail_items: Memory tail size for step prompts.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            ValueError: Raised when constructor limits or route filters are invalid.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -147,316 +162,297 @@ class MultiStepToolRouterAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        """Run a multi-step TOOL_CALL/STOP loop and return aggregated output."""
-        resolved_request_id = resolve_request_id(request_id)
-        resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(prompt)
-        trace_scope = start_trace_run(
+    ) -> ExecutionResult:
+        """Run a multi-step TOOL_CALL/STOP loop and return aggregated output.
+
+        Args:
+            prompt: Prompt text for the run.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final normalized execution result for the run.
+
+        Raises:
+            Exception: Propagates execution failures from nested workflow/LLM/tool calls.
+        """
+        execution_context = prepare_agent_execution(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
             agent_name="MultiStepToolRouterAgent",
-            request_id=resolved_request_id,
-            input_payload=normalized_input,
-            dependencies=resolved_dependencies,
             tracer=self._tracer,
         )
-        prompt = _extract_prompt(normalized_input)
+        resolved_request_id = execution_context.request_id
+        resolved_dependencies = execution_context.dependencies
+        prompt = execution_context.prompt
         max_steps = _extract_positive_int(
-            input_payload=normalized_input,
+            input_payload=execution_context.normalized_input,
             key="max_steps",
             default_value=self._max_steps,
         )
         stop_on_step_failure = _extract_boolean(
-            input_payload=normalized_input,
+            input_payload=execution_context.normalized_input,
             key="stop_on_step_failure",
             default_value=self._stop_on_step_failure,
         )
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
-        alternatives = [dict_alternative for dict_alternative in self._default_alternatives]
+        alternatives: list[ToolAlternative] = [
+            dict_alternative for dict_alternative in self._default_alternatives
+        ]
         routes_text = build_routes_text(alternatives=alternatives)
 
-        memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]
-        step_outputs: list[dict[str, object]] = []
-        tool_results: list[ToolResult] = []
-        final_output: dict[str, object] = {}
-        last_model_response: LLMResponse | None = None
-        terminated_reason = "max_steps_reached"
-
-        for step_index in range(max_steps):
-            step_number = step_index + 1
-            user_prompt = build_step_prompt(
-                prompt=prompt,
-                memory=memory,
-                step_number=step_number,
-                prompt_template=self._user_prompt_template,
-                memory_tail_items=self._step_memory_tail_items,
-            )
-            system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
-                system_prompt=self._system_prompt,
-                user_prompt=user_prompt,
-                section_label="Available routes",
-                alternatives_text=routes_text,
-                target=self._alternatives_prompt_target,
-            )
-            messages = [
-                LLMMessage(role="system", content=system_prompt),
-                LLMMessage(role="user", content=user_prompt),
-            ]
-            llm_params = LLMChatParams(
-                response_schema=clone_response_schema(self._step_response_schema),
-                provider_options={
-                    "agent": "MultiStepToolRouterAgent",
-                    "phase": "step_controller",
-                },
-            )
-            model_span_id = start_model_call(
-                model=resolved_model,
-                messages=messages,
-                params=llm_params,
-                metadata={
-                    "agent": "MultiStepToolRouterAgent",
-                    "phase": "step_controller",
-                },
-            )
-            try:
-                llm_response = self._llm_client.chat(
-                    messages,
-                    model=resolved_model,
-                    params=llm_params,
-                )
-            except Exception as exc:
-                finish_model_call(model_span_id, error=str(exc), model=resolved_model)
-                finish_trace_run(trace_scope, error=str(exc))
-                raise
-            finish_model_call(model_span_id, response=llm_response)
-            last_model_response = llm_response
-
-            parsed_step = _parse_tool_router_step_decision(llm_response.text)
-            if parsed_step is None:
-                result = _failure_result(
-                    error=(
-                        "Multi-step tool router step output was invalid. "
-                        "Expected TOOL_CALL or STOP JSON."
-                    ),
-                    model_response=last_model_response,
-                    tool_results=tool_results,
+        try:
+            loop_result = run_workflow_loop(
+                max_iterations=max_steps,
+                initial_state=build_loop_initial_state(
+                    prompt=prompt,
+                    include_continuation=False,
+                ),
+                continue_predicate=continue_loop,
+                iteration_handler=lambda iteration, state: self._run_loop_iteration(
+                    iteration=iteration,
+                    state=state,
+                    prompt=prompt,
+                    resolved_model=resolved_model,
+                    routes_text=routes_text,
+                    alternatives=alternatives,
+                    normalized_input=execution_context.normalized_input,
                     request_id=resolved_request_id,
                     dependencies=resolved_dependencies,
-                    metadata={
-                        "stage": "step_decision",
-                        "terminated_reason": "invalid_step_output",
-                    },
-                    output={
-                        "final_output": final_output,
-                        "steps_executed": len(step_outputs),
-                        "step_outputs": step_outputs,
-                        "memory": memory,
-                        "terminated_reason": "invalid_step_output",
-                    },
-                )
-                finish_trace_run(trace_scope, result=result)
-                return result
-
-            if parsed_step.action == "STOP":
-                final_output = parsed_step.final_output or final_output
-                terminated_reason = f"stop:{parsed_step.source}"
-                emit_continuation_decision(
-                    step=step_number,
-                    should_continue=False,
-                    reason=parsed_step.reason,
-                    source=parsed_step.source,
-                )
-                step_outputs.append(
-                    {
-                        "step": step_number,
-                        "action": "STOP",
-                        "reason": parsed_step.reason,
-                        "source": parsed_step.source,
-                        "final_output": final_output,
-                        "success": True,
-                    }
-                )
-                memory.append(
-                    {
-                        "kind": "stop",
-                        "step": step_number,
-                        "final_output": final_output,
-                        "reason": parsed_step.reason,
-                        "source": parsed_step.source,
-                    }
-                )
-                break
-
-            tool_resolution = _resolve_selected_tool(
-                alternatives=alternatives,
-                tool_names=parsed_step.tool_names,
-            )
-            if tool_resolution is None:
-                emit_guardrail_decision(
-                    guardrail="route_validation",
-                    decision="reject",
-                    reason="invalid selected tool_names",
-                    details={"step": step_number},
-                )
-                result = _failure_result(
-                    error="Step selected no valid tool route.",
-                    model_response=last_model_response,
-                    tool_results=tool_results,
-                    request_id=resolved_request_id,
-                    dependencies=resolved_dependencies,
-                    metadata={
-                        "stage": "step_decision",
-                        "terminated_reason": "invalid_route_selection",
-                    },
-                    output={
-                        "final_output": final_output,
-                        "steps_executed": len(step_outputs),
-                        "step_outputs": step_outputs,
-                        "memory": memory,
-                        "terminated_reason": "invalid_route_selection",
-                    },
-                )
-                finish_trace_run(trace_scope, result=result)
-                return result
-            selected_tool_name, selected_tool_index = tool_resolution
-            emit_router_decision(
-                source=parsed_step.source,
-                alternatives=[alternative.tool_name for alternative in alternatives],
-                selected_tool_name=selected_tool_name,
-                selected_index=selected_tool_index,
-                reason=parsed_step.reason,
-                parsed_route={
-                    "action": "TOOL_CALL",
-                    "tool_names": list(parsed_step.tool_names),
-                    "reason": parsed_step.reason,
-                },
-            )
-
-            tool_input = (
-                parsed_step.tool_input
-                if parsed_step.tool_input is not None
-                else resolve_tool_input(
-                    tool_name=selected_tool_name,
-                    input_payload=normalized_input,
-                )
-            )
-            tool_result = self._tool_runtime.invoke(
-                selected_tool_name,
-                tool_input,
-                request_id=f"{resolved_request_id}:step-{step_number}",
+                    stop_on_step_failure=stop_on_step_failure,
+                ),
+                request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
+                tracer=self._tracer,
             )
-            tool_results.append(tool_result)
+        except Exception as exc:
+            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
+            raise
+        result = build_router_final_result(
+            final_state=loop_result.final_state,
+            request_id=resolved_request_id,
+            dependencies=resolved_dependencies,
+            max_steps=max_steps,
+            stop_on_step_failure=stop_on_step_failure,
+            alternatives_prompt_target=str(self._alternatives_prompt_target),
+            step_memory_tail_items=self._step_memory_tail_items,
+        )
+        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
+        return result
+
+    def _run_loop_iteration(
+        self,
+        *,
+        iteration: int,
+        state: Mapping[str, object],
+        prompt: str,
+        resolved_model: str,
+        routes_text: str,
+        alternatives: Sequence[ToolAlternative],
+        normalized_input: Mapping[str, object],
+        request_id: str,
+        dependencies: Mapping[str, object],
+        stop_on_step_failure: bool,
+    ) -> Mapping[str, object]:
+        """Execute one router loop iteration and produce next loop state.
+
+        Args:
+            iteration: One-based loop iteration number.
+            state: Current loop-state mapping.
+            prompt: User prompt text.
+            resolved_model: Resolved model identifier.
+            routes_text: Rendered route alternatives text block.
+            alternatives: Normalized routing alternatives.
+            normalized_input: Normalized run input payload.
+            request_id: Resolved request identifier.
+            dependencies: Normalized dependency payload mapping.
+            stop_on_step_failure: Effective stop-on-failure setting.
+
+        Returns:
+            Next loop-state mapping.
+
+        Raises:
+            Exception: Propagates model call failures.
+        """
+        step_number = iteration
+        memory = _coerce_state_records(state.get("memory"))
+        step_outputs = _coerce_state_records(state.get("step_outputs"))
+        tool_results = _coerce_tool_results(state.get("tool_results"))
+        final_output = _normalize_output_dict(state.get("final_output"))
+        maybe_model_response = state.get("last_model_response")
+        last_model_response = (
+            maybe_model_response if isinstance(maybe_model_response, LLMResponse) else None
+        )
+
+        user_prompt = build_step_prompt(
+            prompt=prompt,
+            memory=memory,
+            step_number=step_number,
+            prompt_template=self._user_prompt_template,
+            memory_tail_items=self._step_memory_tail_items,
+        )
+        system_prompt, user_prompt = inject_alternatives_into_prompt_pair(
+            system_prompt=self._system_prompt,
+            user_prompt=user_prompt,
+            section_label="Available routes",
+            alternatives_text=routes_text,
+            target=self._alternatives_prompt_target,
+        )
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt),
+        ]
+        llm_params = LLMChatParams(
+            response_schema=clone_response_schema(self._step_response_schema),
+            provider_options={
+                "agent": "MultiStepToolRouterAgent",
+                "phase": "step_controller",
+            },
+        )
+        model_span_id = start_model_call(
+            model=resolved_model,
+            messages=messages,
+            params=llm_params,
+            metadata={
+                "agent": "MultiStepToolRouterAgent",
+                "phase": "step_controller",
+            },
+        )
+        try:
+            llm_response = self._llm_client.chat(
+                messages,
+                model=resolved_model,
+                params=llm_params,
+            )
+        except Exception as exc:
+            finish_model_call(model_span_id, error=str(exc), model=resolved_model)
+            raise
+        finish_model_call(model_span_id, response=llm_response)
+        last_model_response = llm_response
+
+        parsed_step = _parse_tool_router_step_decision(llm_response.text)
+        if parsed_step is None:
+            return {
+                "memory": memory,
+                "step_outputs": step_outputs,
+                "tool_results": tool_results,
+                "final_output": final_output,
+                "last_model_response": last_model_response,
+                "terminated_reason": TERMINATED_INVALID_STEP_OUTPUT,
+                "should_continue": False,
+                "fatal_error": (
+                    "Multi-step tool router step output was invalid. "
+                    "Expected TOOL_CALL or STOP JSON."
+                ),
+                "fatal_metadata": {
+                    "stage": "step_decision",
+                    "terminated_reason": TERMINATED_INVALID_STEP_OUTPUT,
+                },
+            }
+
+        if parsed_step.action == "STOP":
+            final_output = _normalize_output_dict(parsed_step.final_output) or final_output
+            terminated_reason = stop_reason(parsed_step.source)
             emit_continuation_decision(
                 step=step_number,
-                should_continue=True,
+                should_continue=False,
                 reason=parsed_step.reason,
                 source=parsed_step.source,
             )
-
-            step_final_output = _normalize_output_dict(tool_result.result)
-            if tool_result.ok:
-                final_output = step_final_output
             step_outputs.append(
                 {
                     "step": step_number,
-                    "action": "TOOL_CALL",
-                    "tool_name": selected_tool_name,
-                    "tool_names": list(parsed_step.tool_names),
-                    "tool_input": tool_input,
-                    "tool_output": tool_result.result,
+                    "action": "STOP",
                     "reason": parsed_step.reason,
                     "source": parsed_step.source,
-                    "success": tool_result.ok,
-                    "error": tool_result.error,
+                    "final_output": final_output,
+                    "success": True,
                 }
             )
-            memory.extend(
-                [
-                    {
-                        "kind": "action",
-                        "step": step_number,
-                        "tool_name": selected_tool_name,
-                        "tool_names": list(parsed_step.tool_names),
-                        "tool_input": tool_input,
-                    },
-                    {
-                        "kind": "observation",
-                        "step": step_number,
-                        "success": tool_result.ok,
-                        "final_output": step_final_output,
-                        "error": tool_result.error,
-                    },
-                ]
+            memory.append(
+                {
+                    "kind": "stop",
+                    "step": step_number,
+                    "final_output": final_output,
+                    "reason": parsed_step.reason,
+                    "source": parsed_step.source,
+                }
             )
-
-            if tool_result.ok:
-                continue
-            terminated_reason = "step_failure"
-            if stop_on_step_failure:
-                result = _failure_result(
-                    error=(
-                        tool_result.error.message
-                        if tool_result.error is not None
-                        else "Step tool execution failed."
-                    ),
-                    model_response=last_model_response,
-                    tool_results=tool_results,
-                    request_id=resolved_request_id,
-                    dependencies=resolved_dependencies,
-                    metadata={
-                        "stage": "step_execution",
-                        "terminated_reason": terminated_reason,
-                    },
-                    output={
-                        "final_output": final_output,
-                        "steps_executed": len(step_outputs),
-                        "step_outputs": step_outputs,
-                        "memory": memory,
-                        "terminated_reason": terminated_reason,
-                    },
-                )
-                finish_trace_run(trace_scope, result=result)
-                return result
-
-        success = all(
-            step_output.get("success") is True
-            for step_output in step_outputs
-            if step_output.get("action") == "TOOL_CALL"
-        )
-        result = AgentResult(
-            output={
-                "final_output": final_output,
-                "steps_executed": len(step_outputs),
-                "step_outputs": step_outputs,
+            return {
                 "memory": memory,
+                "step_outputs": step_outputs,
+                "tool_results": tool_results,
+                "final_output": final_output,
+                "last_model_response": last_model_response,
                 "terminated_reason": terminated_reason,
-            },
-            success=success,
-            tool_results=tool_results,
-            model_response=last_model_response,
-            metadata={
-                "request_id": resolved_request_id,
-                "dependency_keys": sorted(resolved_dependencies.keys()),
-                "config": {
-                    "max_steps": max_steps,
-                    "stop_on_step_failure": stop_on_step_failure,
-                    "alternatives_prompt_target": self._alternatives_prompt_target,
-                    "step_memory_tail_items": self._step_memory_tail_items,
-                },
-            },
-        )
-        finish_trace_run(trace_scope, result=result)
-        return result
+                "should_continue": False,
+                "fatal_error": None,
+                "fatal_metadata": {},
+            }
 
-    def run_stream(
+        return self._run_tool_call_step(
+            step_number=step_number,
+            parsed_step=parsed_step,
+            alternatives=alternatives,
+            normalized_input=normalized_input,
+            request_id=request_id,
+            dependencies=dependencies,
+            memory=memory,
+            step_outputs=step_outputs,
+            tool_results=tool_results,
+            final_output=final_output,
+            last_model_response=last_model_response,
+            stop_on_step_failure=stop_on_step_failure,
+        )
+
+    def _run_tool_call_step(
         self,
-        prompt: str,
         *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Emit a deterministic stream wrapper around ``run``."""
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        delta_text = result.model_response.text if result.model_response is not None else ""
-        yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
+        step_number: int,
+        parsed_step: ToolRouterStepDecision,
+        alternatives: Sequence[ToolAlternative],
+        normalized_input: Mapping[str, object],
+        request_id: str,
+        dependencies: Mapping[str, object],
+        memory: list[dict[str, object]],
+        step_outputs: list[dict[str, object]],
+        tool_results: list[ToolResult],
+        final_output: dict[str, object],
+        last_model_response: LLMResponse | None,
+        stop_on_step_failure: bool,
+    ) -> Mapping[str, object]:
+        """Delegate TOOL_CALL step handling to shared runtime helpers.
+
+        Args:
+            step_number: One-based step number.
+            parsed_step: Parsed router controller decision.
+            alternatives: Normalized routing alternatives.
+            normalized_input: Normalized run input payload.
+            request_id: Resolved request identifier.
+            dependencies: Normalized dependency payload mapping.
+            memory: Mutable memory record list.
+            step_outputs: Mutable step output list.
+            tool_results: Mutable tool result list.
+            final_output: Current run-level final output mapping.
+            last_model_response: Most recent model response.
+            stop_on_step_failure: Effective stop-on-failure setting.
+
+        Returns:
+            Next loop-state mapping.
+        """
+        return _run_tool_call_step(
+            tool_runtime=self._tool_runtime,
+            step_number=step_number,
+            parsed_step=parsed_step,
+            alternatives=list(alternatives),
+            normalized_input=normalized_input,
+            request_id=request_id,
+            dependencies=dependencies,
+            memory=memory,
+            step_outputs=step_outputs,
+            tool_results=tool_results,
+            final_output=final_output,
+            last_model_response=last_model_response,
+            stop_on_step_failure=stop_on_step_failure,
+        )

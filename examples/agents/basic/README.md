@@ -1,7 +1,7 @@
 ## Basic Agent Examples
 
 These examples run one complete non-streaming call per script and print an
-`AgentResult`.
+`ExecutionResult`.
 
 ## What Each Example Demonstrates
 
@@ -45,14 +45,14 @@ PYTHONPATH=src python3 examples/agents/basic/multi_step_direct_llm_agent.py
 
 ## Expected Outputs
 
-- Each script prints one `AgentResult` payload.
+- Each script prints one `ExecutionResult` payload.
 - For tool-calling examples, `tool_results` should contain at least one tool invocation.
 - For multi-step examples, metadata should show continuation/iteration behavior.
 
 ## Notes
 
 - Most examples default to a live local `llama-cpp-server` endpoint.
-- They print `AgentResult` payloads directly for quick inspection.
+- They print `ExecutionResult` payloads directly for quick inspection.
 
 ## Troubleshooting
 

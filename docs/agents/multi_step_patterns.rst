@@ -39,7 +39,7 @@ Continuation and limits
 -----------------------
 
 All multi-step agents rely on continuation decisions and runtime limits
-(step/tool-call/time constraints) to bound execution.
+(step/tool-call constraints) to bound execution.
 
 Examples
 --------
@@ -48,9 +48,4 @@ Examples
 - ``examples/agents/basic/multi_step_tool_router_agent.py``
 - ``examples/agents/basic/multi_step_json_tool_calling_agent.py``
 - ``examples/agents/basic/multi_step_code_tool_calling_agent.py``
-- ``examples/agents/streaming/multi_step_direct_llm_agent_stream.py``
-- ``examples/agents/streaming/multi_step_tool_router_agent_stream.py``
-- ``examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py``
-- ``examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py``
 - ``examples/agents/basic/README.md``
-- ``examples/agents/streaming/README.md``

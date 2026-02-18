@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from hashlib import sha256
 
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 
 
@@ -23,7 +23,7 @@ class NetworkedPattern(Agent):
         peers: Mapping[str, Agent],
         max_rounds: int = 4,
         initial_state: Mapping[str, object] | None = None,
-        peer_prompt_builder: Callable[[str, Mapping[str, object], str, int], str] | None = None,
+        peer_prompt_builder: (Callable[[str, Mapping[str, object], str, int], str] | None) = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize peer-only networked orchestration.
@@ -60,7 +60,7 @@ class NetworkedPattern(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Execute peer-only networked coordination rounds.
 
         Args:
@@ -97,37 +97,13 @@ class NetworkedPattern(Agent):
         finish_trace_run(trace_scope, result=result)
         return result
 
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Stream wrapper around ``run`` with one summary delta.
-
-        Args:
-            prompt: Task prompt shared across peers.
-            request_id: Optional request id.
-            dependencies: Optional dependency mapping.
-
-        Yields:
-            One delta event followed by one completed event.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        yield AgentStreamEvent(
-            kind="delta",
-            delta_text=json.dumps(result.output, ensure_ascii=True, sort_keys=True),
-        )
-        yield AgentStreamEvent(kind="completed", result=result)
-
     def _run_network(
         self,
         *,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Execute the core peer coordination loop.
 
         Args:
@@ -169,7 +145,7 @@ class NetworkedPattern(Agent):
                 )
                 if not peer_result.success:
                     terminated_reason = "peer_failure"
-                    return AgentResult(
+                    return ExecutionResult(
                         output={
                             "blackboard": _json_ready(blackboard),
                             "round_summaries": round_summaries,
@@ -225,7 +201,7 @@ class NetworkedPattern(Agent):
                 terminated_reason = "converged"
                 break
 
-        return AgentResult(
+        return ExecutionResult(
             output={
                 "blackboard": _json_ready(blackboard),
                 "round_summaries": round_summaries,
@@ -321,7 +297,7 @@ class BlackboardPattern(NetworkedPattern):
         max_rounds: int = 6,
         stability_rounds: int = 2,
         initial_state: Mapping[str, object] | None = None,
-        peer_prompt_builder: Callable[[str, Mapping[str, object], str, int], str] | None = None,
+        peer_prompt_builder: (Callable[[str, Mapping[str, object], str, int], str] | None) = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize blackboard specialization with convergence controls.

@@ -1,22 +1,22 @@
 from __future__ import annotations
 
-from design_research_agents.agent.implementations.single_step_direct_llm_agent import (
-    _coerce_provider_options,
-    _extract_max_tokens,
-    _extract_messages,
-    _extract_response_schema,
-    _extract_system_prompt,
-    _extract_temperature,
-    _inject_alternatives_into_system_message,
-    _inject_alternatives_into_user_message,
-    _merge_provider_options,
-    _normalize_messages,
+from design_research_agents.agent.internal.direct_llm_agent_helpers import (
+    coerce_provider_options,
+    extract_max_tokens,
+    extract_messages,
+    extract_response_schema,
+    extract_system_prompt,
+    extract_temperature,
+    inject_alternatives_into_system_message,
+    inject_alternatives_into_user_message,
+    merge_provider_options,
+    normalize_messages,
 )
 from design_research_agents.contracts.llm import LLMMessage
 
 
 def test_normalize_messages_filters_invalid_entries() -> None:
-    normalized = _normalize_messages(
+    normalized = normalize_messages(
         [
             {"role": "user", "content": "hi"},
             {"role": "system", "content": "rules", "name": "   planner  "},
@@ -32,16 +32,16 @@ def test_normalize_messages_filters_invalid_entries() -> None:
 
 
 def test_extract_system_prompt_and_messages_paths() -> None:
-    assert _extract_system_prompt(input_payload={}, default_system_prompt=None) is None
+    assert extract_system_prompt(input_payload={}, default_system_prompt=None) is None
     assert (
-        _extract_system_prompt(
+        extract_system_prompt(
             input_payload={"system_prompt": "  custom  "},
             default_system_prompt="fallback",
         )
         == "custom"
     )
 
-    messages, source = _extract_messages(
+    messages, source = extract_messages(
         input_payload={"prompt": "hello", "system_prompt": "sys"},
         default_system_prompt=None,
     )
@@ -51,7 +51,7 @@ def test_extract_system_prompt_and_messages_paths() -> None:
 
 
 def test_extract_messages_prefers_explicit_messages_and_alternatives() -> None:
-    messages, source = _extract_messages(
+    messages, source = extract_messages(
         input_payload={
             "messages": [
                 {"role": "user", "content": "pick"},
@@ -67,14 +67,14 @@ def test_extract_messages_prefers_explicit_messages_and_alternatives() -> None:
 
 
 def test_inject_alternatives_into_user_and_system_messages() -> None:
-    system_injected = _inject_alternatives_into_system_message(
+    system_injected = inject_alternatives_into_system_message(
         messages=[LLMMessage(role="user", content="hi")],
         alternatives_text="- option: one",
     )
     assert system_injected[0].role == "system"
     assert "Available alternatives" in system_injected[0].content
 
-    user_injected = _inject_alternatives_into_user_message(
+    user_injected = inject_alternatives_into_user_message(
         messages=[LLMMessage(role="assistant", content="x")],
         alternatives_text="- option: one",
     )
@@ -83,17 +83,21 @@ def test_inject_alternatives_into_user_and_system_messages() -> None:
 
 
 def test_extract_numeric_and_provider_options_helpers() -> None:
-    payload = {"temperature": "0.3", "max_tokens": "64", "provider_options": {"seed": 9}}
-    assert _extract_temperature(input_payload=payload, default_value=0.7) == 0.3
-    assert _extract_temperature(input_payload={"temperature": "bad"}, default_value=0.7) == 0.7
-    assert _extract_max_tokens(input_payload=payload, default_value=10) == 64
-    assert _extract_max_tokens(input_payload={"max_tokens": 0}, default_value=10) == 10
-    assert _extract_response_schema({"response_schema": {"type": "object"}}) == {"type": "object"}
-    assert _extract_response_schema({"response_schema": "x"}) is None
+    payload = {
+        "temperature": "0.3",
+        "max_tokens": "64",
+        "provider_options": {"seed": 9},
+    }
+    assert extract_temperature(input_payload=payload, default_value=0.7) == 0.3
+    assert extract_temperature(input_payload={"temperature": "bad"}, default_value=0.7) == 0.7
+    assert extract_max_tokens(input_payload=payload, default_value=10) == 64
+    assert extract_max_tokens(input_payload={"max_tokens": 0}, default_value=10) == 10
+    assert extract_response_schema({"response_schema": {"type": "object"}}) == {"type": "object"}
+    assert extract_response_schema({"response_schema": "x"}) is None
 
-    assert _coerce_provider_options({"a": 1, 2: 3}) == {"a": 1}
-    assert _coerce_provider_options("bad") == {}
-    merged = _merge_provider_options(
+    assert coerce_provider_options({"a": 1, 2: 3}) == {"a": 1}
+    assert coerce_provider_options("bad") == {}
+    merged = merge_provider_options(
         default_provider_options={"x": 1},
         raw_provider_options={"y": 2},
     )

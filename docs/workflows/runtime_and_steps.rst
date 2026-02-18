@@ -1,7 +1,9 @@
 Workflow Runtime and Steps
 ==========================
 
-``WorkflowRuntime`` executes typed steps with deterministic orchestration.
+``Workflow`` is the public orchestration facade for typed step execution.
+``WorkflowRuntime`` remains the internal engine that powers ``Workflow`` and
+pattern implementations.
 
 Top-level step exports
 ----------------------
@@ -47,7 +49,7 @@ Loop primitive
 
 - ``LoopStep`` executes a fixed nested step sequence for up to ``max_iterations``.
 - ``continue_predicate`` can stop early based on iteration index and loop state.
-- ``state_reducer`` updates loop state from each iteration ``WorkflowResult``.
+- ``state_reducer`` updates loop state from each iteration ``ExecutionResult``.
 - Loop step outputs include explicit termination reason and serialized
   per-iteration results.
 
@@ -79,7 +81,7 @@ Input mode contracts
   It optionally validates payloads against ``input_schema``.
   Schema input is provided to step context under ``inputs``.
 - Both modes support constructor-level run defaults and per-run overrides.
-  They return ``AgentResult`` with serialized ``WorkflowResult`` metadata.
+  They return ``ExecutionResult`` with consistent workflow metadata.
 
 Examples
 --------

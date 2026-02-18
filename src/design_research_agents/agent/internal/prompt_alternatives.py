@@ -13,7 +13,9 @@ from typing import Literal, cast
 AlternativesPromptTarget = Literal["user", "system"]
 
 
-def normalize_alternatives_prompt_target(raw_target: object) -> AlternativesPromptTarget:
+def normalize_alternatives_prompt_target(
+    raw_target: object,
+) -> AlternativesPromptTarget:
     """Normalize and validate one alternatives prompt target value.
 
     Args:

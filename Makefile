@@ -8,7 +8,7 @@ SPHINX ?= $(PYTHON) -m sphinx
 
 .PHONY: help \
 	install install-dev install-all check-python \
-	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check \
+	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check \
 	examples-test examples-deterministic examples-metrics run-example \
 	docs docs-build docs-open docs-linkcheck docs-check \
 	ci pre-commit \
@@ -22,6 +22,8 @@ help:
 	@echo "  install-all       Install contributor + local backend extras."
 	@echo "  qa                Fast local checks: lint, fmt-check, type, unit."
 	@echo "  qa-full           Full gate: qa + structure/docstrings + coverage."
+	@echo "  legacy-check      Fail on removed legacy/fallback/C901 patterns in src."
+	@echo "  baseline-integrity-check  Validate baseline entries reference existing files."
 	@echo "  docs-build        Build strict Sphinx HTML docs."
 	@echo "  docs-open         Open docs index in your browser."
 	@echo "  docs              Build docs and open index locally."
@@ -91,6 +93,14 @@ docstrings-check: check-python
 		--baseline scripts/google_docstrings_baseline.txt \
 		--changed-files-file "$${CHANGED_FILES_FILE}"
 
+# Fail when removed legacy/fallback paths or C901 suppressions reappear in src.
+legacy-check: check-python
+	$(PYTHON) scripts/check_no_legacy_paths.py
+
+# Ensure baseline entries do not reference files that no longer exist.
+baseline-integrity-check: check-python
+	$(PYTHON) scripts/check_baseline_integrity.py
+
 # Estimate line coverage for the stable unit-suite baseline.
 coverage: check-python
 	mkdir -p artifacts/coverage
@@ -149,7 +159,7 @@ clean: purge-ignored-junk
 distclean: clean
 
 # Aggregate checks used by CI.
-ci: qa-full
+ci: qa-full legacy-check baseline-integrity-check docs-check
 
 # Check set used by local pre-commit hook.
 pre-commit: lint fmt-check type structure-check docstrings-check unit docs-build

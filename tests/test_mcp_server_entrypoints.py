@@ -123,7 +123,9 @@ def test_mcp_adapters_preserve_structured_result() -> None:
     assert result_payload["content"][0]["type"] == "text"
 
 
-def test_mcp_server_serve_stdio_uses_default_streams(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mcp_server_serve_stdio_uses_default_streams(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     captured: dict[str, object] = {}
 
     class _FakeServer:

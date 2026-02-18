@@ -167,7 +167,8 @@ def _is_documented_parameter(parameter: str, documented_names: set[str]) -> bool
 
 
 def _contains_node_type(
-    node: ast.FunctionDef | ast.AsyncFunctionDef, target_types: tuple[type[ast.AST], ...]
+    node: ast.FunctionDef | ast.AsyncFunctionDef,
+    target_types: tuple[type[ast.AST], ...],
 ) -> bool:
     """Check whether callable body contains one of the requested node types.
 
@@ -268,7 +269,12 @@ def _validate_module_docstring(tree: ast.Module, relative_path: str) -> list[Vio
         return violations
     if not _extract_summary(module_docstring):
         violations.append(
-            Violation(relative_path, 1, "DGS002", "Module docstring must include a summary line.")
+            Violation(
+                relative_path,
+                1,
+                "DGS002",
+                "Module docstring must include a summary line.",
+            )
         )
     return violations
 
@@ -563,13 +569,21 @@ def _walk_node_body(
             if _is_dataclass_class(statement, decorator_names, module_aliases):
                 violations.extend(_validate_dataclass_field_docstrings(statement, relative_path))
             _walk_node_body(
-                statement.body, relative_path, violations, decorator_names, module_aliases
+                statement.body,
+                relative_path,
+                violations,
+                decorator_names,
+                module_aliases,
             )
             continue
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             violations.extend(_validate_callable_docstring(statement, relative_path))
             _walk_node_body(
-                statement.body, relative_path, violations, decorator_names, module_aliases
+                statement.body,
+                relative_path,
+                violations,
+                decorator_names,
+                module_aliases,
             )
 
 

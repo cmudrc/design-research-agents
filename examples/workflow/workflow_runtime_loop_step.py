@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowResult
-from design_research_agents.workflow import WorkflowRuntime
+from design_research_agents.contracts.execution import ExecutionResult
+from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
 
 
 def main() -> None:
@@ -80,7 +81,7 @@ def _snapshot_handler(context: Mapping[str, object]) -> Mapping[str, object]:
 
 def _state_reducer(
     state: Mapping[str, object],
-    iteration_result: WorkflowResult,
+    iteration_result: ExecutionResult,
     iteration: int,
 ) -> Mapping[str, object]:
     """Carry the latest counter value into the next iteration.

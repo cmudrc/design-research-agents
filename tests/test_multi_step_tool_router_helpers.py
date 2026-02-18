@@ -18,6 +18,7 @@ from design_research_agents.contracts.llm import LLMResponse
 def test_parse_tool_router_step_decision_normalizes_tool_call_payload() -> None:
     raw_text = json.dumps(
         {
+            "action": "TOOL_CALL",
             "tool_names": ["search", "search", "fetch"],
             "tool_input": {"query": "hello"},
             "final_output": "done",
@@ -38,7 +39,7 @@ def test_parse_tool_router_step_decision_normalizes_tool_call_payload() -> None:
 
 def test_parse_tool_router_helpers_cover_stop_and_selection_resolution() -> None:
     stop_decision = parse_tool_router_step_decision(
-        json.dumps({"stop": True, "reason": "finished"})
+        json.dumps({"action": "STOP", "reason": "finished"})
     )
     assert stop_decision is not None
     assert stop_decision.action == "STOP"
@@ -48,13 +49,17 @@ def test_parse_tool_router_helpers_cover_stop_and_selection_resolution() -> None
         ToolAlternative(tool_name="fetch", description="Fetch", input_schema={}),
         ToolAlternative(tool_name="search", description="Search", input_schema={}),
     ]
-    assert resolve_selected_tool(alternatives=alternatives, tool_names=("search",)) == ("search", 1)
+    assert resolve_selected_tool(alternatives=alternatives, tool_names=("search",)) == (
+        "search",
+        1,
+    )
     assert resolve_selected_tool(alternatives=alternatives, tool_names=("unknown",)) is None
 
 
 def test_parse_tool_names_normalize_output_and_failure_result() -> None:
-    parsed = {"tool_name": "lookup"}
+    parsed = {"tool_names": ["lookup"]}
     assert parse_tool_names(parsed) == ("lookup",)
+    assert parse_tool_names({"tool_name": "lookup"}) == ()
     assert normalize_output_dict({"ok": True}) == {"ok": True}
     assert normalize_output_dict(None) == {}
     assert normalize_output_dict(3) == {"value": 3}

@@ -14,4 +14,3 @@ Related examples
 ----------------
 
 - ``examples/agents/basic/README.md``
-- ``examples/agents/streaming/README.md``

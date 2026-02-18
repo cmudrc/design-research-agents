@@ -27,7 +27,9 @@ def test_transformers_quantization_and_prompt_fallback() -> None:
     assert "user: hello" in prompt
 
 
-def test_transformers_resolve_dtype_success_and_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_transformers_resolve_dtype_success_and_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake_torch = SimpleNamespace(float16="f16", bfloat16="bf16", float32="f32")
     monkeypatch.setitem(sys.modules, "torch", fake_torch)
     assert transformers_local._resolve_dtype("float16") == "f16"
@@ -37,7 +39,9 @@ def test_transformers_resolve_dtype_success_and_error(monkeypatch: pytest.Monkey
         transformers_local._resolve_dtype("int8")
 
 
-def test_transformers_resolve_dtype_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_transformers_resolve_dtype_import_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     real_import = builtins.__import__
 
     def _fake_import(name: str, *args: object, **kwargs: object):
@@ -50,7 +54,9 @@ def test_transformers_resolve_dtype_import_error(monkeypatch: pytest.MonkeyPatch
         transformers_local._resolve_dtype("float16")
 
 
-def test_transformers_streaming_available_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_transformers_streaming_available_detection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake = ModuleType("transformers")
     fake.TextIteratorStreamer = object
     monkeypatch.setitem(sys.modules, "transformers", fake)
@@ -67,7 +73,9 @@ def test_transformers_streaming_available_detection(monkeypatch: pytest.MonkeyPa
     assert transformers_local._streaming_available() is False
 
 
-def test_mlx_prompt_fallback_and_streaming_support(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mlx_prompt_fallback_and_streaming_support(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class _BadTokenizer:
         def apply_chat_template(self, *_args: object, **_kwargs: object) -> str:
             raise RuntimeError("boom")
@@ -92,7 +100,9 @@ def test_mlx_prompt_fallback_and_streaming_support(monkeypatch: pytest.MonkeyPat
     assert mlx_local._mlx_supports_streaming() is True
 
 
-def test_mlx_generate_stream_kwarg_and_import_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_mlx_generate_stream_kwarg_and_import_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake_module = ModuleType("mlx_lm")
     calls: list[dict[str, object]] = []
 

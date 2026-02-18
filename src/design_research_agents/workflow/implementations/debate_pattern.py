@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from string import Template
 from uuid import uuid4
 
@@ -16,11 +16,13 @@ from design_research_agents.agent.internal.input_parsing import (
 from design_research_agents.agent.internal.model_resolution import resolve_agent_model
 from design_research_agents.agent.internal.prompt_overrides import validate_prompt_text
 from design_research_agents.agent.internal.result_builders import build_failure_result
-from design_research_agents.agent.runtime_controls import RuntimeControls
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.schemas import SchemaValidationError, validate_payload_against_schema
+from design_research_agents.schemas import (
+    SchemaValidationError,
+    validate_payload_against_schema,
+)
 from design_research_agents.tracing import Tracer
 
 _VERDICT_SCHEMA: dict[str, object] = {
@@ -84,7 +86,7 @@ class DebatePattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        controls: RuntimeControls | None = None,
+        max_rounds: int = 3,
         debate_affirmative_system_prompt: str | None = None,
         debate_affirmative_user_prompt_template: str | None = None,
         debate_negative_system_prompt: str | None = None,
@@ -100,7 +102,7 @@ class DebatePattern(Agent):
         Args:
             llm_client: Client used for affirmative, negative, and judge model calls.
             tool_runtime: Tool runtime dependency for ``Agent`` interface compatibility.
-            controls: Runtime controls that define iteration and streaming behavior.
+            max_rounds: Maximum number of debate rounds before judgment.
             debate_affirmative_system_prompt: Optional override for affirmative system prompt text.
             debate_affirmative_user_prompt_template: Optional override for affirmative template.
             debate_negative_system_prompt: Optional override for negative system prompt text.
@@ -117,9 +119,12 @@ class DebatePattern(Agent):
         Raises:
             ValueError: Raised when prompt overrides or request ID prefix are invalid.
         """
+        if max_rounds < 1:
+            raise ValueError("max_rounds must be >= 1.")
+
         del tool_runtime
         self._llm_client = llm_client
-        self._controls = controls or RuntimeControls()
+        self._max_rounds = max_rounds
         self._default_request_id_prefix = _normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._tracer = tracer
@@ -160,7 +165,7 @@ class DebatePattern(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
+    ) -> ExecutionResult:
         """Run the debate pattern and return one final judged result.
 
         Args:
@@ -169,7 +174,7 @@ class DebatePattern(Agent):
             dependencies: Optional run-scoped dependencies merged over default dependencies.
 
         Returns:
-            Final ``AgentResult`` containing rounds, verdict payload, and synthesis output.
+            Final ``ExecutionResult`` containing rounds, verdict payload, and synthesis output.
 
         Raises:
             ValueError: Raised when configured prompt templates are invalid
@@ -200,7 +205,7 @@ class DebatePattern(Agent):
         rounds: list[dict[str, object]] = []
         prior_negative_argument = "(none)"
         last_model_response = None
-        for round_index in range(self._controls.max_iterations):
+        for round_index in range(self._max_rounds):
             affirmative_prompt = _render_prompt_template(
                 template_text=self._affirmative_user_prompt_template,
                 variables={
@@ -306,7 +311,7 @@ class DebatePattern(Agent):
             )
 
         synthesis = str(parsed_verdict.get("synthesis", "")).strip()
-        return AgentResult(
+        return ExecutionResult(
             output={
                 "rounds": rounds,
                 "verdict": parsed_verdict,
@@ -324,33 +329,6 @@ class DebatePattern(Agent):
                 "rounds": len(rounds),
             },
         )
-
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Run one debate and emit stream events.
-
-        Args:
-            prompt: Task prompt debated by affirmative and negative agents.
-            request_id: Optional request ID override for trace and metadata correlation.
-            dependencies: Optional run-scoped dependencies merged over default dependencies.
-
-        Yields:
-            ``AgentStreamEvent`` values containing optional delta text followed by completion.
-
-        Raises:
-            ValueError: Raised when configured prompt templates are invalid
-                or missing required variables.
-        """
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        if self._controls.streaming_enabled:
-            delta_text = result.model_response.text if result.model_response is not None else ""
-            yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
 
 
 def _merge_dependencies(

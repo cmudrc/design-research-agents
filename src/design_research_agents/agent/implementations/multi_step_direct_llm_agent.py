@@ -8,14 +8,15 @@ an internal action:
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 
-from design_research_agents.agent.internal.input_parsing import (
-    extract_positive_int as _extract_positive_int,
+from design_research_agents.agent.internal.execution_context import (
+    finish_agent_execution,
+    prepare_agent_execution,
 )
 from design_research_agents.agent.internal.input_parsing import (
-    extract_prompt as _extract_prompt,
+    extract_positive_int as _extract_positive_int,
 )
 from design_research_agents.agent.internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
@@ -27,26 +28,29 @@ from design_research_agents.agent.internal.response_schemas import (
     build_multi_step_direct_controller_response_schema,
     clone_response_schema,
 )
-from design_research_agents.agent.internal.run_options import (
-    normalize_dependencies,
-    normalize_input_payload,
-    resolve_request_id,
+from design_research_agents.agent.internal.result_builders import build_failure_result
+from design_research_agents.agent.internal.workflow_loop_orchestration import (
+    run_workflow_loop,
 )
-from design_research_agents.contracts.agent import Agent, AgentResult, AgentStreamEvent
+from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
     LLMMessage,
     LLMResponse,
 )
+from design_research_agents.contracts.termination import (
+    SOURCE_MODEL,
+    TERMINATED_CONTROLLER_INVALID_PAYLOAD,
+    TERMINATED_MAX_STEPS_REACHED,
+    stop_reason,
+)
 from design_research_agents.tracing import (
     Tracer,
     emit_continuation_decision,
     emit_guardrail_decision,
     finish_model_call,
-    finish_trace_run,
     start_model_call,
-    start_trace_run,
 )
 
 
@@ -55,10 +59,15 @@ class _ControllerDecision:
     """One parsed controller action for a direct-response step."""
 
     decision: str
+    """Normalized controller decision (``CONTINUE`` or ``STOP``)."""
     content: str
+    """Controller content for intermediate reasoning output."""
     final_output: str | None
+    """Optional explicit final output payload when stopping."""
     reason: str
+    """Decision rationale used for tracing and memory entries."""
     source: str
+    """Decision source label."""
 
 
 class MultiStepDirectLLMAgent(Agent):
@@ -83,6 +92,9 @@ class MultiStepDirectLLMAgent(Agent):
             controller_user_prompt_template: Optional controller user prompt template override.
             step_memory_tail_items: Memory tail size rendered into each controller step prompt.
             tracer: Optional explicit tracer dependency.
+
+        Raises:
+            ValueError: Raised when constructor bounds are invalid.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -111,36 +123,81 @@ class MultiStepDirectLLMAgent(Agent):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> AgentResult:
-        """Run iterative CONTINUE/STOP controller steps until termination."""
-        resolved_request_id = resolve_request_id(request_id)
-        resolved_dependencies = normalize_dependencies(dependencies)
-        normalized_input = normalize_input_payload(prompt)
-        trace_scope = start_trace_run(
+    ) -> ExecutionResult:
+        """Run iterative CONTINUE/STOP controller steps until termination.
+
+        Args:
+            prompt: Prompt text for the run.
+            request_id: Optional request id for tracing and correlation.
+            dependencies: Optional dependency payload mapping.
+
+        Returns:
+            Final normalized execution result for the run.
+
+        Raises:
+            Exception: Propagates execution failures from nested workflow/LLM calls.
+        """
+        execution_context = prepare_agent_execution(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
             agent_name="MultiStepDirectLLMAgent",
-            request_id=resolved_request_id,
-            input_payload=normalized_input,
-            dependencies=resolved_dependencies,
             tracer=self._tracer,
         )
-        prompt = _extract_prompt(normalized_input)
+        resolved_request_id = execution_context.request_id
+        resolved_dependencies = execution_context.dependencies
+        prompt = execution_context.prompt
         max_steps = _extract_positive_int(
-            input_payload=normalized_input,
+            input_payload=execution_context.normalized_input,
             key="max_steps",
             default_value=self._max_steps,
         )
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
         )
+        initial_state: dict[str, object] = {
+            "memory": [{"kind": "task", "prompt": prompt}],
+            "step_outputs": [],
+            "final_output": "",
+            "terminated_reason": TERMINATED_MAX_STEPS_REACHED,
+            "last_model_response": None,
+            "should_continue": True,
+            "fatal_error": None,
+            "fatal_metadata": {},
+        }
 
-        memory: list[dict[str, object]] = [{"kind": "task", "prompt": prompt}]
-        step_outputs: list[dict[str, object]] = []
-        final_output = ""
-        terminated_reason = "max_steps_reached"
-        last_model_response: LLMResponse | None = None
+        def _continue_predicate(iteration: int, state: Mapping[str, object]) -> bool:
+            """Return whether another controller iteration should execute.
 
-        for step_index in range(max_steps):
-            step_number = step_index + 1
+            Args:
+                iteration: One-based loop iteration number.
+                state: Current loop-state mapping.
+
+            Returns:
+                ``True`` when the controller should execute another step.
+            """
+            del iteration
+            return bool(state.get("should_continue", True))
+
+        def _run_iteration(iteration: int, state: Mapping[str, object]) -> Mapping[str, object]:
+            """Execute one controller iteration and return next loop state.
+
+            Args:
+                iteration: One-based loop iteration number.
+                state: Current loop-state mapping.
+
+            Returns:
+                Next loop-state mapping.
+
+            Raises:
+                Exception: Propagates model call failures.
+            """
+            step_number = iteration
+            memory = _coerce_state_records(state.get("memory"))
+            step_outputs = _coerce_state_records(state.get("step_outputs"))
+            final_output = str(state.get("final_output", ""))
+            last_model_response = state.get("last_model_response")
+
             user_prompt = build_step_prompt(
                 prompt=prompt,
                 memory=memory,
@@ -176,7 +233,6 @@ class MultiStepDirectLLMAgent(Agent):
                 )
             except Exception as exc:
                 finish_model_call(model_span_id, error=str(exc), model=resolved_model)
-                finish_trace_run(trace_scope, error=str(exc))
                 raise
             finish_model_call(model_span_id, response=llm_response)
             last_model_response = llm_response
@@ -185,15 +241,26 @@ class MultiStepDirectLLMAgent(Agent):
             if parsed_decision is None:
                 emit_guardrail_decision(
                     guardrail="direct_controller_output",
-                    decision="fallback",
+                    decision="reject",
                     reason="invalid controller JSON",
                     details={"step": step_number},
                 )
-                parsed_decision = _fallback_controller_decision(
-                    raw_text=llm_response.text,
-                    step_index=step_index,
-                    max_steps=max_steps,
-                )
+                return {
+                    "memory": memory,
+                    "step_outputs": step_outputs,
+                    "final_output": final_output,
+                    "terminated_reason": TERMINATED_CONTROLLER_INVALID_PAYLOAD,
+                    "last_model_response": last_model_response,
+                    "should_continue": False,
+                    "fatal_error": (
+                        "Controller output was invalid. Expected JSON with "
+                        "`decision` and `content`."
+                    ),
+                    "fatal_metadata": {
+                        "stage": "controller_step",
+                        "terminated_reason": TERMINATED_CONTROLLER_INVALID_PAYLOAD,
+                    },
+                }
 
             if parsed_decision.decision == "CONTINUE":
                 final_output = parsed_decision.content
@@ -221,10 +288,19 @@ class MultiStepDirectLLMAgent(Agent):
                         "source": parsed_decision.source,
                     }
                 )
-                continue
+                return {
+                    "memory": memory,
+                    "step_outputs": step_outputs,
+                    "final_output": final_output,
+                    "terminated_reason": TERMINATED_MAX_STEPS_REACHED,
+                    "last_model_response": last_model_response,
+                    "should_continue": True,
+                    "fatal_error": None,
+                    "fatal_metadata": {},
+                }
 
             final_output = parsed_decision.final_output or parsed_decision.content
-            terminated_reason = f"stop:{parsed_decision.source}"
+            terminated_reason = stop_reason(parsed_decision.source)
             emit_continuation_decision(
                 step=step_number,
                 should_continue=False,
@@ -249,9 +325,64 @@ class MultiStepDirectLLMAgent(Agent):
                     "source": parsed_decision.source,
                 }
             )
-            break
+            return {
+                "memory": memory,
+                "step_outputs": step_outputs,
+                "final_output": final_output,
+                "terminated_reason": terminated_reason,
+                "last_model_response": last_model_response,
+                "should_continue": False,
+                "fatal_error": None,
+                "fatal_metadata": {},
+            }
 
-        result = AgentResult(
+        try:
+            loop_result = run_workflow_loop(
+                max_iterations=max_steps,
+                initial_state=initial_state,
+                continue_predicate=_continue_predicate,
+                iteration_handler=_run_iteration,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
+                tracer=self._tracer,
+            )
+        except Exception as exc:
+            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
+            raise
+
+        final_state = loop_result.final_state
+        step_outputs = _coerce_state_records(final_state.get("step_outputs"))
+        memory = _coerce_state_records(final_state.get("memory"))
+        terminated_reason = str(final_state.get("terminated_reason", TERMINATED_MAX_STEPS_REACHED))
+        final_output = str(final_state.get("final_output", ""))
+        maybe_model_response = final_state.get("last_model_response")
+        last_model_response = (
+            maybe_model_response if isinstance(maybe_model_response, LLMResponse) else None
+        )
+        fatal_error = final_state.get("fatal_error")
+        fatal_metadata_raw = final_state.get("fatal_metadata")
+        fatal_metadata = dict(fatal_metadata_raw) if isinstance(fatal_metadata_raw, Mapping) else {}
+
+        if isinstance(fatal_error, str) and fatal_error:
+            result = build_failure_result(
+                error=fatal_error,
+                model_response=last_model_response,
+                tool_results=[],
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
+                metadata=fatal_metadata,
+                output={
+                    "final_output": final_output,
+                    "steps_executed": len(step_outputs),
+                    "step_outputs": step_outputs,
+                    "memory": memory,
+                    "terminated_reason": terminated_reason,
+                },
+            )
+            finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
+            return result
+
+        result = ExecutionResult(
             output={
                 "final_output": final_output,
                 "steps_executed": len(step_outputs),
@@ -272,102 +403,51 @@ class MultiStepDirectLLMAgent(Agent):
                 },
             },
         )
-        finish_trace_run(trace_scope, result=result)
+        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
         return result
 
-    def run_stream(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> Iterator[AgentStreamEvent]:
-        """Emit a deterministic stream wrapper around ``run``."""
-        result = self.run(prompt, request_id=request_id, dependencies=dependencies)
-        delta_text = result.model_response.text if result.model_response is not None else ""
-        yield AgentStreamEvent(kind="delta", delta_text=delta_text)
-        yield AgentStreamEvent(kind="completed", result=result)
+
+def _coerce_state_records(raw_records: object) -> list[dict[str, object]]:
+    """Coerce raw controller records into normalized mapping lists.
+
+    Args:
+        raw_records: Raw record payload.
+
+    Returns:
+        Normalized list of record mappings.
+    """
+    if not isinstance(raw_records, list):
+        return []
+    return [dict(record) for record in raw_records if isinstance(record, Mapping)]
 
 
 def _parse_controller_decision(raw_text: str) -> _ControllerDecision | None:
+    """Parse one controller decision from raw model output text.
+
+    Args:
+        raw_text: Raw model output produced by the controller step.
+
+    Returns:
+        Parsed controller decision, or ``None`` when parsing fails.
+    """
     parsed = _parse_json_mapping(raw_text)
-    if parsed is not None:
-        raw_decision = parsed.get("decision")
-        if isinstance(raw_decision, str):
-            normalized_decision = raw_decision.strip().upper()
-            if normalized_decision in {"CONTINUE", "STOP"}:
-                content = str(parsed.get("content", "")).strip()
-                final_output = parsed.get("final_output")
-                return _ControllerDecision(
-                    decision=normalized_decision,
-                    content=content,
-                    final_output=(str(final_output).strip() if final_output is not None else None),
-                    reason=str(parsed.get("reason", content or "model decision")),
-                    source="model",
-                )
+    if parsed is None:
+        return None
 
-        raw_continue = parsed.get("continue")
-        if isinstance(raw_continue, bool):
-            content = str(parsed.get("thought", parsed.get("content", ""))).strip()
-            return _ControllerDecision(
-                decision="CONTINUE" if raw_continue else "STOP",
-                content=content,
-                final_output=(
-                    str(parsed.get("final_output")).strip()
-                    if parsed.get("final_output") is not None
-                    else None
-                ),
-                reason=content or "model decision",
-                source="model_legacy",
-            )
+    raw_decision = parsed.get("decision")
+    if not isinstance(raw_decision, str):
+        return None
 
-    normalized_text = raw_text.strip()
-    upper_text = normalized_text.upper()
-    if upper_text.startswith("CONTINUE"):
-        return _ControllerDecision(
-            decision="CONTINUE",
-            content=_strip_action_prefix(normalized_text, "CONTINUE"),
-            final_output=None,
-            reason="text action prefix",
-            source="text_fallback",
-        )
-    if upper_text.startswith("STOP"):
-        stripped = _strip_action_prefix(normalized_text, "STOP")
-        return _ControllerDecision(
-            decision="STOP",
-            content=stripped,
-            final_output=stripped,
-            reason="text action prefix",
-            source="text_fallback",
-        )
-    return None
+    normalized_decision = raw_decision.strip().upper()
+    if normalized_decision not in {"CONTINUE", "STOP"}:
+        return None
 
-
-def _fallback_controller_decision(
-    *,
-    raw_text: str,
-    step_index: int,
-    max_steps: int,
-) -> _ControllerDecision:
-    if step_index + 1 >= max_steps:
-        return _ControllerDecision(
-            decision="STOP",
-            content=raw_text,
-            final_output=raw_text,
-            reason="fallback max-steps stop",
-            source="fallback",
-        )
+    content = str(parsed.get("content", "")).strip()
+    final_output = parsed.get("final_output")
     return _ControllerDecision(
-        decision="CONTINUE",
-        content=raw_text,
-        final_output=None,
-        reason="fallback continue",
-        source="fallback",
+        decision=normalized_decision,
+        content=content,
+        final_output=(str(final_output).strip() if final_output is not None else None),
+        reason=str(parsed.get("reason", content or "model decision")),
+        source=SOURCE_MODEL,
     )
-
-
-def _strip_action_prefix(text: str, action: str) -> str:
-    raw_value = text[len(action) :].strip()
-    if raw_value.startswith(":"):
-        raw_value = raw_value[1:].strip()
-    return raw_value

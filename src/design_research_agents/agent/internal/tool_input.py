@@ -44,14 +44,12 @@ def resolve_known_tool_input(
     *,
     tool_name: str,
     input_payload: Mapping[str, object],
-    text_fallback: str,
 ) -> dict[str, object] | None:
     """Build heuristic input payloads for known core tool families.
 
     Args:
         tool_name: Parameter value.
         input_payload: Parameter value.
-        text_fallback: Parameter value.
 
     Returns:
         The resulting value.
@@ -68,7 +66,7 @@ def resolve_known_tool_input(
         analysis_text = input_payload.get("analysis_text")
         if analysis_text is not None:
             return {"text": str(analysis_text)}
-        return {"text": text_fallback}
+        return {"text": extract_prompt(input_payload)}
 
     return None
 

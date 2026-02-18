@@ -32,6 +32,10 @@ The supported top-level API is the curated export list from
     - ``PlannerExecutorPattern``
     - ``ReflexionPattern``
     - ``RouterPattern``
+    - ``NetworkedPattern``
+    - ``BlackboardPattern``
+    - ``TreeSearchPattern``
+    - ``RagReasoningPattern``
 - Workflows
     - ``LogicStep``
     - ``ToolStep``
@@ -40,10 +44,6 @@ The supported top-level API is the curated export list from
     - ``MemoryReadStep``
     - ``MemoryWriteStep``
     - ``Workflow``
-    - ``NetworkedPattern``
-    - ``BlackboardPattern``
-    - ``TreeSearchPattern``
-    - ``RagReasoningPattern``
 
 The API is constructor-first: agents and workflows expose customization through
 ``__init__`` kwargs (prompt overrides, routing/tool allowlists, and workflow

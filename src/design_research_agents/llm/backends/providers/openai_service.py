@@ -165,7 +165,9 @@ class OpenAIServiceBackend(BaseLLMBackend):
                         tool_call_delta=ToolCallDelta(
                             call_id=str(call_id) if call_id else None,
                             name=str(name) if name else None,
-                            arguments_json_delta=str(arguments_delta) if arguments_delta else None,
+                            arguments_json_delta=(
+                                str(arguments_delta) if arguments_delta else None
+                            ),
                         )
                     )
             usage = getattr(chunk, "usage", None)

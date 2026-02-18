@@ -30,9 +30,8 @@ def build_router_selection_response_schema(
 ) -> dict[str, object]:
     """Build schema for router route-selection output.
 
-    The schema accepts either:
-    - ``tool_names`` as a non-empty ordered list of route identifiers, or
-    - legacy ``selection`` as one discrete index/identifier.
+    The schema requires ``tool_names`` as a non-empty ordered list of route
+    identifiers.
 
     Args:
         alternative_identifiers: Ordered route identifiers available to the router.
@@ -40,14 +39,10 @@ def build_router_selection_response_schema(
     Returns:
         JSON-schema-like mapping describing the router selection payload.
     """
-    max_index = max(0, len(alternative_identifiers) - 1)
     return {
         "type": "object",
         "additionalProperties": False,
-        "anyOf": [
-            {"required": ["tool_names"]},
-            {"required": ["selection"]},
-        ],
+        "required": ["tool_names"],
         "properties": {
             "tool_names": {
                 "type": "array",
@@ -56,19 +51,6 @@ def build_router_selection_response_schema(
                     "type": "string",
                     "enum": list(alternative_identifiers),
                 },
-            },
-            "selection": {
-                "anyOf": [
-                    {
-                        "type": "integer",
-                        "minimum": 0,
-                        "maximum": max_index,
-                    },
-                    {
-                        "type": "string",
-                        "enum": list(alternative_identifiers),
-                    },
-                ]
             },
             "reason": {"type": "string"},
         },
@@ -117,7 +99,11 @@ def build_continuation_response_schema() -> dict[str, object]:
 
 
 def build_multi_step_direct_controller_response_schema() -> dict[str, object]:
-    """Build schema for direct-LLM multi-step controller decisions."""
+    """Build schema for direct-LLM multi-step controller decisions.
+
+    Returns:
+        JSON-schema-like mapping for structured continue/stop controller output.
+    """
     return {
         "type": "object",
         "additionalProperties": False,
@@ -135,7 +121,14 @@ def build_multi_step_tool_router_response_schema(
     *,
     tool_names: Sequence[str],
 ) -> dict[str, object]:
-    """Build schema for one multi-step tool-router decision."""
+    """Build schema for one multi-step tool-router decision.
+
+    Args:
+        tool_names: Allowed tool identifiers for controller-selected tool calls.
+
+    Returns:
+        JSON-schema-like mapping describing one router decision payload.
+    """
     return {
         "type": "object",
         "additionalProperties": False,

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from design_research_agents.contracts.llm import BackendCapabilities, LLMMessage, LLMRequest
+from design_research_agents.contracts.llm import (
+    BackendCapabilities,
+    LLMMessage,
+    LLMRequest,
+)
 from design_research_agents.contracts.tools import ToolSpec
 
 

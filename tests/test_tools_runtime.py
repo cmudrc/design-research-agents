@@ -88,7 +88,9 @@ def test_bash_exec_enforces_invocation_allowlist() -> None:
     not _bashkit_available(),
     reason="bashkit dependency is not available in this environment",
 )
-def test_bash_exec_returns_structured_result_and_stays_sandboxed(tmp_path: Path) -> None:
+def test_bash_exec_returns_structured_result_and_stays_sandboxed(
+    tmp_path: Path,
+) -> None:
     runtime = Toolbox(workspace_root=str(tmp_path))
 
     unique_host_path = tmp_path / "host_should_not_exist.txt"

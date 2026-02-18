@@ -7,7 +7,6 @@ from collections.abc import Sequence
 
 import pytest
 
-from design_research_agents.agent.runtime_controls import RuntimeControls
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents.tools.runtime import Toolbox
 from design_research_agents.workflow.implementations.debate_pattern import (
@@ -40,7 +39,7 @@ class _SequenceLLMClient:
         return "noop-model"
 
 
-def test_debate_run_stream_emits_delta_when_streaming_enabled() -> None:
+def test_debate_run_returns_expected_payload() -> None:
     workflow = DebatePattern(
         llm_client=_SequenceLLMClient(
             [
@@ -56,13 +55,12 @@ def test_debate_run_stream_emits_delta_when_streaming_enabled() -> None:
             ]
         ),
         tool_runtime=Toolbox(),
-        controls=RuntimeControls(max_iterations=1, streaming_enabled=True),
+        max_rounds=1,
     )
 
-    events = list(workflow.run_stream("Should we launch now?"))
-
-    assert events[0].kind == "delta"
-    assert events[1].kind == "completed"
+    result = workflow.run("Should we launch now?")
+    assert result.success
+    assert result.output["winner"] == "affirmative"
 
 
 def test_debate_helper_request_id_and_dependency_paths() -> None:
