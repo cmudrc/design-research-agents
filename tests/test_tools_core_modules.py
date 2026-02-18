@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import builtins
+import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
 from design_research_agents.tools.core import (
+    bash_tools,
     fs_tools,
     git_tools,
     search_tools,
@@ -254,3 +257,99 @@ def test_run_git_merges_stderr_and_appends_truncated_marker(
     monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
     output = git_tools._run_git(policy=policy, repo=str(repo), args=["status"])
     assert output.endswith("[truncated]")
+
+
+def test_bash_allowed_commands_validation_and_normalization() -> None:
+    assert bash_tools._get_allowed_commands(None) is None
+    assert bash_tools._get_allowed_commands([" git ", "/usr/bin/rg"]) == {"git", "rg"}
+
+    with pytest.raises(ValueError, match="list of command names"):
+        bash_tools._get_allowed_commands("git")  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="list of command names"):
+        bash_tools._get_allowed_commands([1])  # type: ignore[list-item]
+
+    with pytest.raises(ValueError, match="non-empty strings"):
+        bash_tools._get_allowed_commands(["   "])
+
+
+def test_bash_extract_command_names_skips_control_words_and_env_assignments() -> None:
+    script = "\n".join(
+        [
+            "FOO=bar",
+            "if true; then",
+            "  /usr/bin/git status > out.txt",
+            "fi",
+            "env PATH=/tmp rg hello .",
+            "time python3 -V",
+        ]
+    )
+    commands = bash_tools._extract_command_names(script)
+    assert commands == ("true", "git", "rg", "python3")
+
+
+def test_bash_exec_handler_blocks_disallowed_commands() -> None:
+    with pytest.raises(ValueError, match="blocked commands"):
+        bash_tools._bash_exec_handler(
+            {"script": "git status\nrm -rf /tmp/x", "allowed_commands": ["git"]},
+            request_id="req",
+            dependencies={},
+        )
+
+
+def test_bash_exec_handler_import_error_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    real_import = builtins.__import__
+
+    def _fake_import(name: str, *args: object, **kwargs: object):
+        if name == "bashkit":
+            raise ImportError("missing bashkit")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _fake_import)
+    with pytest.raises(RuntimeError, match="bashkit is required"):
+        bash_tools._bash_exec_handler({"script": "echo hi"}, request_id="req", dependencies={})
+
+
+def test_bash_exec_handler_success_with_fake_bashkit(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_module = ModuleType("bashkit")
+
+    class _FakeExecResult:
+        stdout = "ok"
+        stderr = ""
+        exit_code = 0
+        success = True
+        error = None
+
+    class _FakeBashTool:
+        def __init__(
+            self,
+            *,
+            username: str | None = None,
+            hostname: str | None = None,
+            max_commands: int = 0,
+            max_loop_iterations: int = 0,
+        ) -> None:
+            self.username = username
+            self.hostname = hostname
+            self.max_commands = max_commands
+            self.max_loop_iterations = max_loop_iterations
+
+        def execute_sync(self, _script: str) -> _FakeExecResult:
+            return _FakeExecResult()
+
+    fake_module.BashTool = _FakeBashTool
+    monkeypatch.setitem(sys.modules, "bashkit", fake_module)
+
+    output = bash_tools._bash_exec_handler(
+        {
+            "script": "echo hi",
+            "username": "unit",
+            "hostname": "local",
+            "max_commands": 7,
+            "max_loop_iterations": 11,
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert output["stdout"] == "ok"
+    assert output["success"] is True

@@ -9,6 +9,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_MONKEYPATCH_ROOT = REPO_ROOT / "tests" / "example_monkeypatch"
+pytestmark = pytest.mark.examples_full
 
 
 def test_script_shell_example_runs(monkeypatch: pytest.MonkeyPatch) -> None:

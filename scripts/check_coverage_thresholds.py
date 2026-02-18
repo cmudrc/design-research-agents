@@ -7,13 +7,14 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-# Pre-alpha burn-down targets for sustained quality progress.
-GLOBAL_THRESHOLD = 85.0
+# Release-blocking line coverage targets.
+GLOBAL_THRESHOLD = 90.0
 PACKAGE_THRESHOLDS = {
-    "workflow": 88.0,
-    "agent": 80.0,
-    "tools": 86.0,
-    "llm": 75.0,
+    "workflow": 90.0,
+    "agent": 88.0,
+    "tools": 89.0,
+    "llm": 84.0,
+    "memory": 82.0,
 }
 
 
