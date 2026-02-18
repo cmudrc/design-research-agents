@@ -67,8 +67,8 @@ Workflow run signatures in the reusable ``Workflow`` class:
 - ``Workflow(input_mode='prompt')``: initialize once, then call ``run(\"...\")``.
 - ``Workflow(input_mode='schema')``: initialize once, then call
   ``run({...})`` with optional ``input_schema`` validation.
-- Supply ``steps`` at init and optionally ``agents`` when ``AgentStep`` entries
-  are present in the graph.
+- Supply ``steps`` at init. ``AgentStep`` entries bind direct ``delegate``
+  objects.
 - Step topology and any scenario-specific behavior are caller-owned.
 
 Agent/workflow examples default to a local llama-cpp server via

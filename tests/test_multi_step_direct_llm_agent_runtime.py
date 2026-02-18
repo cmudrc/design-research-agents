@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from design_research_agents.agent.implementations.multi_step_direct_llm_agent import (
-    MultiStepDirectLLMAgent,
-    _coerce_state_records,
-    _parse_controller_decision,
-)
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents.contracts.termination import (
     TERMINATED_CONTROLLER_INVALID_PAYLOAD,
     TERMINATED_MAX_STEPS_REACHED,
+)
+from design_research_agents.implementations.agents.multi_step_direct_llm_agent import (
+    MultiStepDirectLLMAgent,
+    _coerce_state_records,
+    _parse_controller_decision,
 )
 
 
@@ -60,7 +60,10 @@ def test_multi_step_direct_llm_agent_continue_then_stop() -> None:
     )
 
     assert result.success is True
+    assert agent.workflow is not None
     assert result.output["final_output"] == "42"
+    assert isinstance(result.output["workflow"], dict)
+    assert isinstance(result.output["artifacts"], list)
     assert result.output["steps_executed"] == 2
     assert result.output["terminated_reason"] == "stop:model"
     assert result.output["step_outputs"][0]["decision"] == "CONTINUE"

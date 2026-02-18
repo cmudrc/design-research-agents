@@ -3,15 +3,17 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from design_research_agents.agent.internal.multi_step_continuation import llm_should_continue
-from design_research_agents.agent.internal.response_schemas import (
-    build_continuation_response_schema,
-)
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents.contracts.termination import (
     SOURCE_GUARDRAIL,
     SOURCE_INVALID_PAYLOAD,
     SOURCE_MODEL,
+)
+from design_research_agents.implementations.shared.agent_internal.multi_step_continuation import (
+    llm_should_continue,
+)
+from design_research_agents.implementations.shared.agent_internal.response_schemas import (
+    build_continuation_response_schema,
 )
 
 

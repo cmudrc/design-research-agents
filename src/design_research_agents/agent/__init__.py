@@ -1,30 +1,69 @@
-"""Concrete agent runtime implementations exported by the package.
+"""Public agent facade exports with lazy loading."""
 
-The classes re-exported here cover the core execution styles supported by the
-project:
-- direct model invocation without tools,
-- single-step structured tool invocation,
-- tool-calling with JSON plan selection,
-- explicit request routing, and
-- multi-step iterative planning/execution loops.
-"""
+from __future__ import annotations
 
-from .implementations.multi_step_code_tool_calling_agent import MultiStepCodeToolCallingAgent
-from .implementations.multi_step_direct_llm_agent import MultiStepDirectLLMAgent
-from .implementations.multi_step_json_tool_calling_agent import MultiStepJsonToolCallingAgent
-from .implementations.multi_step_tool_router_agent import MultiStepToolRouterAgent
-from .implementations.single_step_code_tool_calling_agent import SingleStepCodeToolCallingAgent
-from .implementations.single_step_direct_llm_agent import SingleStepDirectLLMAgent
-from .implementations.single_step_json_tool_calling_agent import SingleStepJsonToolCallingAgent
-from .implementations.single_step_router_agent import SingleStepToolRouterAgent
+from importlib import import_module
+from typing import Final
 
-__all__ = [
-    "MultiStepCodeToolCallingAgent",
-    "MultiStepDirectLLMAgent",
-    "MultiStepJsonToolCallingAgent",
-    "MultiStepToolRouterAgent",
-    "SingleStepCodeToolCallingAgent",
-    "SingleStepDirectLLMAgent",
-    "SingleStepJsonToolCallingAgent",
-    "SingleStepToolRouterAgent",
-]
+_EXPORTS: Final[dict[str, str]] = {
+    "MultiStepCodeToolCallingAgent": (
+        "design_research_agents.implementations.agents:MultiStepCodeToolCallingAgent"
+    ),
+    "MultiStepDirectLLMAgent": (
+        "design_research_agents.implementations.agents:MultiStepDirectLLMAgent"
+    ),
+    "MultiStepJsonToolCallingAgent": (
+        "design_research_agents.implementations.agents:MultiStepJsonToolCallingAgent"
+    ),
+    "MultiStepToolRouterAgent": (
+        "design_research_agents.implementations.agents:MultiStepToolRouterAgent"
+    ),
+    "SingleStepCodeToolCallingAgent": (
+        "design_research_agents.agent.implementations.single_step_code_tool_calling_agent"
+        ":SingleStepCodeToolCallingAgent"
+    ),
+    "SingleStepDirectLLMAgent": (
+        "design_research_agents.agent.implementations.single_step_direct_llm_agent"
+        ":SingleStepDirectLLMAgent"
+    ),
+    "SingleStepJsonToolCallingAgent": (
+        "design_research_agents.agent.implementations.single_step_json_tool_calling_agent"
+        ":SingleStepJsonToolCallingAgent"
+    ),
+    "SingleStepToolRouterAgent": (
+        "design_research_agents.agent.implementations.single_step_router_agent"
+        ":SingleStepToolRouterAgent"
+    ),
+}
+
+__all__ = list(_EXPORTS.keys())
+
+
+def __getattr__(name: str) -> object:
+    """Lazily resolve exported agent symbols.
+
+    Args:
+        name: Exported symbol name requested by the caller.
+
+    Returns:
+        Resolved exported symbol object.
+
+    Raises:
+        AttributeError: Raised when ``name`` is not part of the public exports.
+    """
+    export_ref = _EXPORTS.get(name)
+    if export_ref is None:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    module_name, attr_name = export_ref.split(":")
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Return module attributes including lazy exports.
+
+    Returns:
+        Sorted attribute names visible on this module.
+    """
+    return sorted(set(globals()) | set(__all__))

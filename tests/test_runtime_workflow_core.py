@@ -346,9 +346,13 @@ def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
 
 
 def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
-    workflow = WorkflowRuntime(agents={"math_agent": StaticMarkerAgent(marker="math")})
+    workflow = WorkflowRuntime()
     steps = [
-        AgentStep(step_id="delegate", agent_name="math_agent", prompt="Solve this."),
+        AgentStep(
+            step_id="delegate",
+            delegate=StaticMarkerAgent(marker="math"),
+            prompt="Solve this.",
+        ),
     ]
 
     result = workflow.run(steps, execution_mode="sequential")
@@ -360,9 +364,13 @@ def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
 
 
 def test_workflow_runtime_agent_step_accepts_nested_workflow_delegate() -> None:
-    workflow = WorkflowRuntime(agents={"nested_flow": StaticWorkflowDelegateRunner()})
+    workflow = WorkflowRuntime()
     steps = [
-        AgentStep(step_id="delegate", agent_name="nested_flow", prompt="Route this prompt."),
+        AgentStep(
+            step_id="delegate",
+            delegate=StaticWorkflowDelegateRunner(),
+            prompt="Route this prompt.",
+        ),
     ]
 
     result = workflow.run(steps, execution_mode="sequential")
@@ -384,10 +392,7 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
             }
         }
     )
-    workflow = WorkflowRuntime(
-        tool_runtime=tool_runtime,
-        agents={"writer_agent": StaticMarkerAgent(marker="proposal")},
-    )
+    workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
         LogicStep(
             step_id="router",
@@ -396,7 +401,7 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
         ),
         AgentStep(
             step_id="delegate",
-            agent_name="writer_agent",
+            delegate=StaticMarkerAgent(marker="proposal"),
             dependencies=("router",),
             prompt_builder=lambda ctx: "Write a proposal.",
         ),
@@ -432,13 +437,10 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
 
 def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
     tool_runtime = StubToolRuntime(handlers={"known_tool": lambda payload: {"ok": True}})
-    workflow = WorkflowRuntime(
-        tool_runtime=tool_runtime,
-        agents={"known_agent": StaticMarkerAgent(marker="ok")},
-    )
+    workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
         ToolStep(step_id="missing_tool", tool_name="unknown_tool"),
-        AgentStep(step_id="missing_agent", agent_name="unknown_agent", prompt="Do work."),
+        AgentStep(step_id="missing_agent", delegate=object(), prompt="Do work."),
     ]
 
     result = workflow.run(
@@ -451,7 +453,7 @@ def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
     assert result.step_results["missing_tool"].status == "failed"
     assert result.step_results["missing_tool"].metadata["stage"] == "tool_binding"
     assert result.step_results["missing_agent"].status == "failed"
-    assert result.step_results["missing_agent"].metadata["stage"] == "agent_binding"
+    assert result.step_results["missing_agent"].metadata["stage"] == "execution"
 
 
 def test_workflow_runtime_memory_steps_fail_without_memory_store_binding() -> None:

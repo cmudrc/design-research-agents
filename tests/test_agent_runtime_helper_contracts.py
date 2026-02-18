@@ -5,7 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.agent.internal.direct_llm_agent_helpers import (
+from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse, ToolCall
+from design_research_agents.contracts.tools import ToolSpec
+from design_research_agents.implementations.shared.agent_internal.direct_llm_agent_helpers import (
     build_success_result,
     extract_max_tokens,
     extract_messages,
@@ -14,7 +16,7 @@ from design_research_agents.agent.internal.direct_llm_agent_helpers import (
     generate_response,
     merge_provider_options,
 )
-from design_research_agents.agent.internal.json_tool_agent_helpers import (
+from design_research_agents.implementations.shared.agent_internal.json_tool_agent_helpers import (
     ToolChoice,
     build_tool_call_prompt,
     build_tool_choices_text,
@@ -29,7 +31,7 @@ from design_research_agents.agent.internal.json_tool_agent_helpers import (
     select_tool_choice,
     tool_call_response_schema,
 )
-from design_research_agents.agent.internal.prompt_alternatives import (
+from design_research_agents.implementations.shared.agent_internal.prompt_alternatives import (
     append_alternatives_block,
     build_alternatives_block,
     build_user_prompt_alternatives_block,
@@ -38,12 +40,10 @@ from design_research_agents.agent.internal.prompt_alternatives import (
     normalize_alternatives_prompt_target,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.agent.internal.tool_input import (
+from design_research_agents.implementations.shared.agent_internal.tool_input import (
     infer_expression,
     resolve_known_tool_input,
 )
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse, ToolCall
-from design_research_agents.contracts.tools import ToolSpec
 
 pytestmark = pytest.mark.contract
 

@@ -1,22 +1,54 @@
-"""Workflow orchestration implementation exports."""
+"""Workflow facade exports with lazy pattern loading."""
 
-from .implementations.agent_routing import RouterPattern
-from .implementations.debate_pattern import DebatePattern
-from .implementations.networked_blackboard import BlackboardPattern, NetworkedPattern
-from .implementations.planner_executor_pattern import PlannerExecutorPattern
-from .implementations.rag_reasoning import RagReasoningPattern
-from .implementations.reflexion_pattern import ReflexionPattern
-from .implementations.tree_search import TreeSearchPattern
-from .internal.workflow import Workflow
+from __future__ import annotations
 
-__all__ = [
-    "BlackboardPattern",
-    "DebatePattern",
-    "NetworkedPattern",
-    "PlannerExecutorPattern",
-    "RagReasoningPattern",
-    "ReflexionPattern",
-    "RouterPattern",
-    "TreeSearchPattern",
-    "Workflow",
-]
+from importlib import import_module
+from typing import Final
+
+from .workflow import Workflow
+
+_EXPORTS: Final[dict[str, str]] = {
+    "BlackboardPattern": "design_research_agents.implementations.patterns:BlackboardPattern",
+    "DebatePattern": "design_research_agents.implementations.patterns:DebatePattern",
+    "NetworkedPattern": "design_research_agents.implementations.patterns:NetworkedPattern",
+    "PlannerExecutorPattern": (
+        "design_research_agents.implementations.patterns:PlannerExecutorPattern"
+    ),
+    "RagReasoningPattern": "design_research_agents.implementations.patterns:RagReasoningPattern",
+    "ReflexionPattern": "design_research_agents.implementations.patterns:ReflexionPattern",
+    "RouterPattern": "design_research_agents.implementations.patterns:RouterPattern",
+    "TreeSearchPattern": "design_research_agents.implementations.patterns:TreeSearchPattern",
+}
+
+__all__ = ["Workflow", *_EXPORTS.keys()]
+
+
+def __getattr__(name: str) -> object:
+    """Lazily resolve exported workflow symbols.
+
+    Args:
+        name: Exported symbol name requested by the caller.
+
+    Returns:
+        Resolved exported symbol object.
+
+    Raises:
+        AttributeError: Raised when ``name`` is not part of the public exports.
+    """
+    export_ref = _EXPORTS.get(name)
+    if export_ref is None:
+        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+    module_name, attr_name = export_ref.split(":")
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    """Return workflow module attributes including lazy exports.
+
+    Returns:
+        Sorted attribute names visible on this module.
+    """
+    return sorted(set(globals()) | set(__all__))

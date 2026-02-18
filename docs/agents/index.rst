@@ -6,8 +6,7 @@ execution pattern first, then by control requirements.
 
 Multi-agent orchestration patterns (``PlannerExecutorPattern``,
 ``ReflexionPattern``, ``RouterPattern``) live in the workflow module and are
-implemented with workflow step primitives via the internal
-``WorkflowRuntime`` engine.
+implemented with the same public workflow step primitives available to users.
 
 Overview
 --------

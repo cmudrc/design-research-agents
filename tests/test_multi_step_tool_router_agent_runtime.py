@@ -3,13 +3,6 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.agent.implementations.multi_step_tool_router_agent import (
-    MultiStepToolRouterAgent,
-)
-from design_research_agents.agent.internal.multi_step_tool_router_helpers import (
-    ToolRouterStepDecision,
-)
-from design_research_agents.agent.internal.router_agent_helpers import ToolAlternative
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents.contracts.termination import (
     TERMINATED_INVALID_ROUTE_SELECTION,
@@ -17,6 +10,15 @@ from design_research_agents.contracts.termination import (
     TERMINATED_STEP_FAILURE,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.implementations.agents.multi_step_tool_router_agent import (
+    MultiStepToolRouterAgent,
+)
+from design_research_agents.implementations.shared.agent_internal import (
+    multi_step_tool_router_helpers as router_helpers,
+)
+from design_research_agents.implementations.shared.agent_internal.router_agent_helpers import (
+    ToolAlternative,
+)
 
 
 class _SequenceLLMClient:
@@ -107,8 +109,11 @@ def test_multi_step_tool_router_tool_call_then_stop() -> None:
     result = agent.run("Compute 2+3", request_id="req-router-success")
 
     assert result.success is True
+    assert agent.workflow is not None
     assert result.output["steps_executed"] == 2
     assert result.output["final_output"] == {"answer": 5}
+    assert isinstance(result.output["workflow"], dict)
+    assert isinstance(result.output["artifacts"], list)
     assert result.output["terminated_reason"] == "stop:model"
     assert len(result.tool_results) == 1
     assert len(tool_runtime.calls) == 1
@@ -172,7 +177,7 @@ def test_multi_step_tool_router_internal_step_failure_can_continue_when_disabled
     )
     state = agent._run_tool_call_step(
         step_number=1,
-        parsed_step=ToolRouterStepDecision(
+        parsed_step=router_helpers.ToolRouterStepDecision(
             action="TOOL_CALL",
             tool_names=("fail",),
             tool_input={"x": 1},

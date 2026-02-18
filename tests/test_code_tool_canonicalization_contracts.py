@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.agent.internal.code_tool_agent_parsing import (
+from design_research_agents.contracts.tools import ToolSpec
+from design_research_agents.implementations.shared.agent_internal.code_tool_agent_parsing import (
     AllowedTool,
     canonicalize_generated_code,
     compile_default_allowed_tools,
@@ -10,7 +11,6 @@ from design_research_agents.agent.internal.code_tool_agent_parsing import (
     match_fenced_code_block,
     normalize_allowed_tools,
 )
-from design_research_agents.contracts.tools import ToolSpec
 
 pytestmark = pytest.mark.contract
 

@@ -14,6 +14,83 @@ WorkflowExecutionMode = Literal["sequential", "dag"]
 WorkflowFailurePolicy = Literal["skip_dependents", "propagate_failed_state"]
 WorkflowStepStatus = Literal["completed", "failed", "skipped"]
 
+
+@runtime_checkable
+class WorkflowDelegateRunner(Protocol):
+    """Protocol for configured orchestration chunks with fixed step topology."""
+
+    def run(
+        self,
+        *,
+        context: Mapping[str, object] | None = None,
+        execution_mode: WorkflowExecutionMode = "dag",
+        failure_policy: WorkflowFailurePolicy = "skip_dependents",
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        """Execute the configured orchestration and return aggregated results.
+
+        Args:
+            context: Optional shared context mapping available to step builders.
+            execution_mode: Runtime scheduling mode (for example ``dag``).
+            failure_policy: Failure behavior when a step fails.
+            request_id: Optional request id used for tracing and downstream calls.
+            dependencies: Optional dependency payload mapping exposed to steps.
+
+        Returns:
+            Aggregated workflow execution result.
+        """
+
+
+WorkflowDelegate: TypeAlias = Agent | WorkflowDelegateRunner
+
+
+@dataclass(slots=True, frozen=True)
+class WorkflowArtifactSource:
+    """Provenance entry describing one artifact source edge."""
+
+    step_id: str
+    """Step id that contributed to this artifact."""
+    field: str | None = None
+    """Optional output field or source label within the step payload."""
+    note: str | None = None
+    """Optional human-readable provenance note."""
+
+
+@dataclass(slots=True, frozen=True)
+class WorkflowArtifact:
+    """User-facing workflow artifact manifest entry."""
+
+    path: str
+    """Filesystem path to the artifact."""
+    mime: str
+    """MIME type for artifact consumers."""
+    title: str | None = None
+    """Optional short artifact title for UIs."""
+    summary: str | None = None
+    """Optional artifact summary for user-facing rendering."""
+    audience: str | None = None
+    """Optional target audience label (for example ``user``)."""
+    producer_step_id: str | None = None
+    """Step id that produced the artifact when known."""
+    sources: tuple[WorkflowArtifactSource, ...] = ()
+    """Provenance entries describing source steps/fields."""
+    metadata: dict[str, object] = field(default_factory=dict)
+    """Supplemental artifact metadata."""
+
+    def asdict(self) -> dict[str, Any]:
+        """Return a JSON-serializable dictionary representation.
+
+        Returns:
+            Dictionary representation of this artifact entry.
+        """
+        return asdict(self)
+
+
+WorkflowArtifactsBuilder: TypeAlias = Callable[
+    [Mapping[str, object]],
+    Sequence[WorkflowArtifact | Mapping[str, object]],
+]
 ToolStepInputBuilder: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
 AgentStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
 LogicStepHandler: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
@@ -48,22 +125,26 @@ class ToolStep:
     """Static input payload used when ``input_builder`` is not provided."""
     input_builder: ToolStepInputBuilder | None = None
     """Optional callback that derives input payload from runtime step context."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
 @dataclass(slots=True, frozen=True)
 class AgentStep:
-    """Workflow step that invokes one registered agent-like delegate."""
+    """Workflow step that invokes one direct delegate."""
 
     step_id: str
     """Unique step identifier used for dependency wiring and result lookup."""
-    agent_name: str
-    """Registered agent/delegate name to invoke for this step."""
+    delegate: WorkflowDelegate
+    """Direct delegate object (agent, pattern, or workflow-like runner)."""
     dependencies: tuple[str, ...] = ()
     """Step ids that must complete before this step can run."""
     prompt: str | None = None
     """Static prompt passed to the delegate when ``prompt_builder`` is absent."""
     prompt_builder: AgentStepPromptBuilder | None = None
     """Optional callback that derives a prompt string from runtime step context."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -78,6 +159,8 @@ class LogicStep:
     """Step ids that must complete before this step can run."""
     route_map: Mapping[str, tuple[str, ...]] | None = None
     """Optional route key to downstream-target mapping for conditional activation."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -102,6 +185,8 @@ class LoopStep:
     """Execution mode used for nested loop-body workflow runs."""
     failure_policy: WorkflowFailurePolicy = "skip_dependents"
     """Failure handling policy applied within each loop iteration run."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -120,6 +205,8 @@ class MemoryReadStep:
     """Maximum number of records to return."""
     min_score: float | None = None
     """Optional minimum score threshold for returned records."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -134,6 +221,8 @@ class MemoryWriteStep:
     """Step ids that must complete before this step can run."""
     namespace: str = "default"
     """Namespace partition to write into."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
 WorkflowStep: TypeAlias = (
@@ -157,6 +246,8 @@ class WorkflowStepResult:
     """Human-readable error message when step fails."""
     metadata: dict[str, object] = field(default_factory=dict)
     """Supplemental runtime metadata for diagnostics or tracing."""
+    artifacts: tuple[WorkflowArtifact, ...] = ()
+    """User-facing artifact manifests produced by this step."""
 
     def asdict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
@@ -193,33 +284,3 @@ class WorkflowRunner(Protocol):
         Returns:
             Aggregated workflow execution result.
         """
-
-
-@runtime_checkable
-class WorkflowDelegateRunner(Protocol):
-    """Protocol for configured orchestration chunks with fixed step topology."""
-
-    def run(
-        self,
-        *,
-        context: Mapping[str, object] | None = None,
-        execution_mode: WorkflowExecutionMode = "dag",
-        failure_policy: WorkflowFailurePolicy = "skip_dependents",
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> ExecutionResult:
-        """Execute the configured orchestration and return aggregated results.
-
-        Args:
-            context: Optional shared context mapping available to step builders.
-            execution_mode: Runtime scheduling mode (for example ``dag``).
-            failure_policy: Failure behavior when a step fails.
-            request_id: Optional request id used for tracing and downstream calls.
-            dependencies: Optional dependency payload mapping exposed to steps.
-
-        Returns:
-            Aggregated workflow execution result.
-        """
-
-
-WorkflowDelegate: TypeAlias = Agent | WorkflowDelegateRunner

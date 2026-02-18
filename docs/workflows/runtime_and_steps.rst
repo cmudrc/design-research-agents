@@ -31,7 +31,7 @@ Step types
   Key fields: ``step_id``, ``tool_name``, ``input_builder``, ``dependencies``.
   Use it for explicit tool boundary calls through ``Toolbox``.
 - ``AgentStep``: delegated agent/workflow execution.
-  Key fields: ``step_id``, ``agent_name``, ``prompt_builder``, ``dependencies``.
+  Key fields: ``step_id``, ``delegate``, ``prompt_builder``, ``dependencies``.
   Use it when nested agents/patterns should own their own prompting or tool usage.
 - ``LoopStep``: iterative nested workflow body with loop state callbacks.
   Key fields: ``step_id``, ``steps``, ``max_iterations``, ``initial_state``,
@@ -69,7 +69,7 @@ Reusable facade
 
 - ``Workflow(input_mode='prompt')`` for string prompt input.
 - ``Workflow(input_mode='schema')`` for mapping input with optional schema validation.
-- Supports optional ``agents`` registration for ``AgentStep`` delegates.
+- ``AgentStep`` delegates are provided directly on each step object.
 
 Input mode contracts
 --------------------

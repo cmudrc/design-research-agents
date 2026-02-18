@@ -284,25 +284,10 @@ def test_run_tool_step_covers_failure_and_success_paths() -> None:
 
 
 def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
-    step = AgentStep(step_id="agent", agent_name="worker", prompt="hello")
-
-    unknown = run_agent_step(
-        agents={},
-        step=step,
-        step_id="agent",
-        step_context=_common_context(),
-        request_id="req",
-        execution_mode="sequential",
-        failure_policy="skip_dependents",
-        dependencies={},
-    )
-    assert unknown.success is False
-
     bad_prompt = run_agent_step(
-        agents={"worker": _AgentSuccess()},
         step=AgentStep(
             step_id="agent",
-            agent_name="worker",
+            delegate=_AgentSuccess(),
             prompt_builder=lambda _ctx: (_ for _ in ()).throw(ValueError("bad prompt")),
         ),
         step_id="agent",
@@ -315,8 +300,7 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     assert bad_prompt.metadata["stage"] == "input_build"
 
     nested_raises = run_agent_step(
-        agents={"worker": _WorkflowDelegateRaises()},
-        step=step,
+        step=AgentStep(step_id="agent", delegate=_WorkflowDelegateRaises(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -327,8 +311,7 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     assert nested_raises.success is False
 
     nested_failure = run_agent_step(
-        agents={"worker": _WorkflowDelegateFailure()},
-        step=step,
+        step=AgentStep(step_id="agent", delegate=_WorkflowDelegateFailure(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -339,8 +322,7 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     assert nested_failure.error == "Nested workflow execution failed."
 
     nested_success = run_agent_step(
-        agents={"worker": _WorkflowDelegateSuccess()},
-        step=step,
+        step=AgentStep(step_id="agent", delegate=_WorkflowDelegateSuccess(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -351,8 +333,7 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     assert nested_success.success is True
 
     agent_raises = run_agent_step(
-        agents={"worker": _AgentRaises()},
-        step=step,
+        step=AgentStep(step_id="agent", delegate=_AgentRaises(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -363,8 +344,7 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     assert agent_raises.success is False
 
     agent_failure = run_agent_step(
-        agents={"worker": _AgentFailure()},
-        step=step,
+        step=AgentStep(step_id="agent", delegate=_AgentFailure(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -375,8 +355,7 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     assert agent_failure.error == "agent failed"
 
     agent_success = run_agent_step(
-        agents={"worker": _AgentSuccess()},
-        step=step,
+        step=AgentStep(step_id="agent", delegate=_AgentSuccess(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",

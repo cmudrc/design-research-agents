@@ -9,14 +9,14 @@ import pytest
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.memory import MemorySearchQuery, MemoryWriteRecord
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
-from design_research_agents.workflow import RagReasoningPattern, TreeSearchPattern
-from design_research_agents.workflow.implementations import (
+from design_research_agents.implementations.patterns import (
     rag_reasoning as rag_reasoning_impl,
 )
-from design_research_agents.workflow.implementations import (
+from design_research_agents.implementations.patterns import (
     tree_search as tree_search_impl,
 )
+from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
+from design_research_agents.workflow import RagReasoningPattern, TreeSearchPattern
 
 
 class _CaptureReasoningAgent(Agent):
@@ -126,6 +126,7 @@ def test_tree_search_pattern_expands_scores_and_returns_best_candidate() -> None
     result = pattern.run("Find the best concept.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["best_candidate"]["name"] == "beta_refined"
     assert result.output["best_score"] == 0.9
     assert result.output["explored_nodes"] == 4
@@ -157,6 +158,7 @@ def test_tree_search_pattern_supports_agent_delegates() -> None:
     result = pattern.run("Rank concept options.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["explored_nodes"] == 2
     assert result.output["best_score"] == 0.75
 
@@ -266,6 +268,7 @@ def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(
     result = pattern.run("Draft a design brief.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["retrieval"]["count"] >= 1
     assert result.output["write_back"]["written"] == 1
     assert reasoning_agent.last_prompt is not None

@@ -19,7 +19,7 @@ plus step primitives rather than relying on hidden modes. ``WorkflowRuntime``
 remains an internal engine for advanced/internal extension work.
 
 All workflow customization is constructor-first. Helper factory functions were
-removed from ``design_research_agents.workflow.implementations``.
+removed in favor of the public ``Workflow`` + step-object composition model.
 
 Workflows also support constructor-level run defaults (for request-id prefix,
 base dependencies, and execution/failure policies where applicable).

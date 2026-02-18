@@ -127,7 +127,7 @@ def _pure_input_schema() -> dict[str, object]:
     }
 
 
-def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | ToolStep]:
+def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | AgentStep | ToolStep]:
     return [
         LogicStep(
             step_id="router",
@@ -145,7 +145,7 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
         ),
         AgentStep(
             step_id="draft_agent",
-            agent_name=agent_name,
+            delegate=delegate,
             dependencies=("router",),
             prompt_builder=lambda context: str(context["prompt"]),
         ),
@@ -268,8 +268,7 @@ def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
     )
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"writer_agent": writer_agent},
-        steps=_mixed_branching_steps(agent_name="writer_agent"),
+        steps=_mixed_branching_steps(delegate=writer_agent),
         input_mode="prompt",
         base_context={"audience": "research"},
     )
@@ -292,7 +291,7 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
     custom_steps = [
         AgentStep(
             step_id="delegate",
-            agent_name="analyst_agent",
+            delegate=writer_agent,
             prompt_builder=lambda context: f"{context['base_tag']}::{context['prompt']}",
         ),
         LogicStep(
@@ -309,7 +308,6 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
     ]
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"analyst_agent": writer_agent},
         steps=custom_steps,
         input_mode="prompt",
         base_context={"base_tag": "custom"},
@@ -331,7 +329,6 @@ def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
     writer_agent = StaticJsonDraftAgent(payload={"title": "loop title"})
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"writer_agent": writer_agent},
         input_mode="prompt",
         steps=[
             LoopStep(
@@ -339,7 +336,7 @@ def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
                 steps=(
                     AgentStep(
                         step_id="delegate",
-                        agent_name="writer_agent",
+                        delegate=writer_agent,
                         prompt_builder=lambda context: str(context["prompt"]),
                     ),
                 ),
@@ -359,10 +356,9 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
     capture_agent = CaptureDependenciesAgent()
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"capture": capture_agent},
         input_mode="prompt",
         steps=[
-            AgentStep(step_id="delegate", agent_name="capture", prompt="Run"),
+            AgentStep(step_id="delegate", delegate=capture_agent, prompt="Run"),
             LogicStep(
                 step_id="finalize",
                 dependencies=("delegate",),
@@ -372,7 +368,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
             ),
         ],
         default_execution_mode="sequential",
-        default_failure_policy="fail_fast",
+        default_failure_policy="propagate_failed_state",
         default_request_id_prefix="mixed-default",
         default_dependencies={"from_default": "yes"},
     )
@@ -384,7 +380,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
     workflow_meta = result.step_results["finalize"].output["workflow"]
     assert str(workflow_meta["request_id"]).startswith("mixed-default:")
     assert workflow_meta["execution_mode"] == "sequential"
-    assert workflow_meta["failure_policy"] == "fail_fast"
+    assert workflow_meta["failure_policy"] == "propagate_failed_state"
     assert capture_agent.last_dependencies is not None
     assert capture_agent.last_dependencies["from_default"] == "yes"
     assert capture_agent.last_dependencies["from_run"] == "yes"
@@ -401,7 +397,7 @@ def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
             )
         ],
         default_execution_mode="dag",
-        default_failure_policy="fail_fast",
+        default_failure_policy="propagate_failed_state",
         default_request_id_prefix="pure-default",
     )
 
@@ -409,7 +405,7 @@ def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
     workflow_meta = result.step_results["inspect"].output["workflow"]
     assert str(workflow_meta["request_id"]).startswith("pure-default:")
     assert workflow_meta["execution_mode"] == "dag"
-    assert workflow_meta["failure_policy"] == "fail_fast"
+    assert workflow_meta["failure_policy"] == "propagate_failed_state"
 
 
 def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
@@ -453,6 +449,7 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
     result = workflow.run("Should the team launch this product now?")
 
     assert result.success
+    assert workflow.workflow is not None
     assert result.output["winner"] == "affirmative"
     assert result.output["terminated_reason"] == "completed"
     assert result.output["verdict"]["synthesis"].startswith("Adopt a phased rollout")

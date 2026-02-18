@@ -4,16 +4,20 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-import design_research_agents.agent.internal.code_tool_agent_execution as code_exec
-from design_research_agents.agent.internal.code_tool_agent_execution import (
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.implementations.shared.agent_internal import (
+    code_tool_agent_execution as code_exec,
+)
+from design_research_agents.implementations.shared.agent_internal.code_tool_agent_execution import (
     compile_sandboxed_code,
     execute_compiled_code,
     failure_result,
     validate_field_type,
     validate_input_against_schema,
 )
-from design_research_agents.agent.internal.code_tool_agent_parsing import AllowedTool
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.implementations.shared.agent_internal.code_tool_agent_parsing import (
+    AllowedTool,
+)
 
 pytestmark = pytest.mark.contract
 

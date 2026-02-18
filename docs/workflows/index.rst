@@ -9,9 +9,8 @@ Quick chooser
 
 - Need reusable constructor-first step orchestration: start with ``Workflow``.
 - Need iterative orchestration loops: use ``LoopStep`` within ``Workflow``.
-- Need low-level runtime execution control: use the internal
-  ``design_research_agents.workflow.internal.workflow_runtime.WorkflowRuntime``
-  engine only for advanced/internal extension work.
+- Need low-level runtime execution control: compose a dedicated ``Workflow`` and
+  use ``execution_mode`` / ``failure_policy`` run controls.
 - Need planner + executor: use ``PlannerExecutorPattern``.
 - Need proposal and critique loop: use ``ReflexionPattern``.
 - Need intent-based delegate routing: use ``RouterPattern``.

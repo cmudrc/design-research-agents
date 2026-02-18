@@ -6,14 +6,14 @@ from collections.abc import Mapping
 
 from design_research_agents.contracts.execution import ExecutionResult
 from design_research_agents.contracts.workflow import LogicStep, LoopStep
-from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
+from design_research_agents.workflow import Workflow
 
 
 def main() -> None:
     """Run a small loop that increments a counter until a stop condition is met."""
-    runtime = WorkflowRuntime()
-
-    workflow_result = runtime.run(
+    workflow = Workflow(
+        tool_runtime=None,
+        input_mode="schema",
         steps=[
             LoopStep(
                 step_id="counter_loop",
@@ -36,6 +36,10 @@ def main() -> None:
                 failure_policy="skip_dependents",
             )
         ],
+    )
+
+    workflow_result = workflow.run(
+        {},
         execution_mode="sequential",
     )
     print(workflow_result.asdict())

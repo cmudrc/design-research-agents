@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import heapq
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict
 
 from design_research_agents.agent.internal.run_options import (
     normalize_dependencies,
@@ -18,7 +19,8 @@ from design_research_agents.contracts.workflow import (
     LoopStep,
     MemoryReadStep,
     MemoryWriteStep,
-    WorkflowDelegate,
+    WorkflowArtifact,
+    WorkflowArtifactSource,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
     WorkflowRunner,
@@ -54,7 +56,6 @@ class WorkflowRuntime(WorkflowRunner):
         *,
         tool_runtime: ToolRuntime | None = None,
         memory_store: MemoryStore | None = None,
-        agents: Mapping[str, WorkflowDelegate] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize workflow runtime dependencies for tool and delegate steps.
@@ -62,17 +63,11 @@ class WorkflowRuntime(WorkflowRunner):
         Args:
             tool_runtime: Optional tool runtime used for ``ToolStep`` execution.
             memory_store: Optional memory store used for memory step execution.
-            agents: Optional mapping of delegate names to runnable agents/workflows.
             tracer: Optional tracer used for workflow and step span emission.
         """
         self._tool_runtime = tool_runtime
         self._memory_store = memory_store
         self._tracer = tracer
-        self._agents = {
-            name.strip(): agent
-            for name, agent in (agents or {}).items()
-            if isinstance(name, str) and name.strip()
-        }
 
     def run(
         self,
@@ -150,8 +145,27 @@ class WorkflowRuntime(WorkflowRunner):
             result.success or result.error == "skipped_branch_not_selected"
             for result in step_results.values()
         )
+        artifact_records = self._collect_artifacts(
+            step_results=step_results,
+            execution_order=execution_order,
+        )
+        output: dict[str, object] = {
+            "workflow": {
+                "success": success,
+                "execution_order": list(execution_order),
+                "step_results": {
+                    step_id: result.asdict() for step_id, result in step_results.items()
+                },
+            },
+            "final_output": self._resolve_final_output(
+                step_results=step_results,
+                execution_order=execution_order,
+            ),
+            "artifacts": [asdict(record) for record in artifact_records],
+        }
         workflow_result = ExecutionResult(
             success=success,
+            output=output,
             step_results=step_results,
             execution_order=execution_order,
             metadata={
@@ -162,6 +176,7 @@ class WorkflowRuntime(WorkflowRunner):
                 "dependency_keys": sorted(resolved_dependencies.keys()),
                 "step_count": len(steps),
                 "memory_enabled": self._memory_store is not None,
+                "artifact_count": len(artifact_records),
             },
         )
         finish_trace_run(trace_scope, result=workflow_result)
@@ -337,7 +352,6 @@ class WorkflowRuntime(WorkflowRunner):
                 result = run_logic_step(step=step, step_id=step_id, step_context=step_context)
             elif isinstance(step, AgentStep):
                 result = run_agent_step(
-                    agents=self._agents,
                     step=step,
                     step_id=step_id,
                     step_context=step_context,
@@ -574,6 +588,11 @@ class WorkflowRuntime(WorkflowRunner):
             failure_policy=failure_policy,
             dependencies=dependencies,
         )
+        step_result = self._apply_step_artifacts(
+            step=step,
+            step_result=step_result,
+            step_context=step_context,
+        )
 
         if not step_result.success or not isinstance(step, LogicStep):
             return step_result
@@ -612,3 +631,236 @@ class WorkflowRuntime(WorkflowRunner):
             output={},
             error=reason,
         )
+
+    def _apply_step_artifacts(
+        self,
+        *,
+        step: WorkflowStep,
+        step_result: WorkflowStepResult,
+        step_context: Mapping[str, object],
+    ) -> WorkflowStepResult:
+        """Attach normalized artifacts to a step result.
+
+        Args:
+            step: Step definition used for optional artifact extraction callback.
+            step_result: Step execution result to augment.
+            step_context: Runtime context used for callback-based extraction.
+
+        Returns:
+            Step result with normalized artifact manifests attached.
+        """
+        artifacts: list[WorkflowArtifact] = list(step_result.artifacts)
+        artifacts.extend(
+            self._coerce_artifacts_from_output(
+                step_id=step_result.step_id,
+                step_output=step_result.output,
+            )
+        )
+
+        artifacts_builder = getattr(step, "artifacts_builder", None)
+        if callable(artifacts_builder):
+            callback_context = dict(step_context)
+            callback_context["step_output"] = dict(step_result.output)
+            callback_context["step_id"] = step_result.step_id
+            try:
+                built_artifacts = artifacts_builder(callback_context)
+            except Exception as exc:
+                return WorkflowStepResult(
+                    step_id=step_result.step_id,
+                    status="failed",
+                    success=False,
+                    output=dict(step_result.output),
+                    error=f"Artifact builder failed: {exc}",
+                    metadata={"stage": "artifact_builder"},
+                    artifacts=tuple(artifacts),
+                )
+            artifacts.extend(
+                self._normalize_artifact_entries(
+                    step_id=step_result.step_id,
+                    entries=built_artifacts,
+                )
+            )
+
+        if not artifacts:
+            return step_result
+
+        unique_artifacts = _dedupe_artifacts(artifacts)
+        return WorkflowStepResult(
+            step_id=step_result.step_id,
+            status=step_result.status,
+            success=step_result.success,
+            output=dict(step_result.output),
+            error=step_result.error,
+            metadata=dict(step_result.metadata),
+            artifacts=tuple(unique_artifacts),
+        )
+
+    def _coerce_artifacts_from_output(
+        self,
+        *,
+        step_id: str,
+        step_output: Mapping[str, object],
+    ) -> list[WorkflowArtifact]:
+        """Extract artifact manifests from normalized step output payload.
+
+        Args:
+            step_id: Owning step id.
+            step_output: Step output mapping.
+
+        Returns:
+            Normalized artifact records discovered in payload.
+        """
+        candidates: list[object] = []
+        tool_artifacts = step_output.get("artifacts")
+        if isinstance(tool_artifacts, list):
+            candidates.extend(tool_artifacts)
+
+        result_payload = step_output.get("result")
+        if isinstance(result_payload, Mapping):
+            nested_artifacts = result_payload.get("artifacts")
+            if isinstance(nested_artifacts, list):
+                candidates.extend(nested_artifacts)
+
+        output_artifacts = step_output.get("output")
+        if isinstance(output_artifacts, Mapping):
+            nested = output_artifacts.get("artifacts")
+            if isinstance(nested, list):
+                candidates.extend(nested)
+
+        return self._normalize_artifact_entries(step_id=step_id, entries=candidates)
+
+    def _normalize_artifact_entries(
+        self,
+        *,
+        step_id: str,
+        entries: Sequence[object],
+    ) -> list[WorkflowArtifact]:
+        """Normalize arbitrary artifact entries into typed records.
+
+        Args:
+            step_id: Owning step id.
+            entries: Raw artifact entries from a step payload.
+
+        Returns:
+            Normalized artifact list.
+        """
+        normalized: list[WorkflowArtifact] = []
+        for entry in entries:
+            if isinstance(entry, WorkflowArtifact):
+                if not entry.producer_step_id:
+                    normalized.append(
+                        WorkflowArtifact(
+                            path=entry.path,
+                            mime=entry.mime,
+                            title=entry.title,
+                            summary=entry.summary,
+                            audience=entry.audience,
+                            producer_step_id=step_id,
+                            sources=entry.sources
+                            or (WorkflowArtifactSource(step_id=step_id, field="artifacts"),),
+                            metadata=dict(entry.metadata),
+                        )
+                    )
+                else:
+                    normalized.append(entry)
+                continue
+            if not isinstance(entry, Mapping):
+                continue
+            path = str(entry.get("path", "")).strip()
+            if not path:
+                continue
+            mime = str(entry.get("mime", "application/octet-stream"))
+            metadata_raw = entry.get("metadata")
+            metadata = dict(metadata_raw) if isinstance(metadata_raw, Mapping) else {}
+            source_step_raw = entry.get("producer_step_id")
+            source_step = (
+                str(source_step_raw).strip()
+                if isinstance(source_step_raw, str) and source_step_raw.strip()
+                else step_id
+            )
+            source_field = entry.get("source_field")
+            normalized.append(
+                WorkflowArtifact(
+                    path=path,
+                    mime=mime,
+                    title=str(entry["title"]) if "title" in entry else None,
+                    summary=str(entry["summary"]) if "summary" in entry else None,
+                    audience=str(entry["audience"]) if "audience" in entry else None,
+                    producer_step_id=source_step,
+                    sources=(
+                        WorkflowArtifactSource(
+                            step_id=source_step,
+                            field=str(source_field) if isinstance(source_field, str) else None,
+                        ),
+                    ),
+                    metadata=metadata,
+                )
+            )
+        return normalized
+
+    def _collect_artifacts(
+        self,
+        *,
+        step_results: Mapping[str, WorkflowStepResult],
+        execution_order: Sequence[str],
+    ) -> list[WorkflowArtifact]:
+        """Collect ordered unique artifacts across all step results.
+
+        Args:
+            step_results: Step results keyed by step id.
+            execution_order: Step execution order.
+
+        Returns:
+            Ordered unique artifact list.
+        """
+        artifacts: list[WorkflowArtifact] = []
+        for step_id in execution_order:
+            step_result = step_results.get(step_id)
+            if step_result is None:
+                continue
+            artifacts.extend(step_result.artifacts)
+        return _dedupe_artifacts(artifacts)
+
+    def _resolve_final_output(
+        self,
+        *,
+        step_results: Mapping[str, WorkflowStepResult],
+        execution_order: Sequence[str],
+    ) -> dict[str, object]:
+        """Select one canonical final output payload from step results.
+
+        Args:
+            step_results: Step results keyed by step id.
+            execution_order: Step execution order.
+
+        Returns:
+            Output payload from the last successful completed step, when available.
+        """
+        for step_id in reversed(execution_order):
+            step_result = step_results.get(step_id)
+            if step_result is None:
+                continue
+            if step_result.status == "completed" and step_result.success:
+                return dict(step_result.output)
+        return {}
+
+
+def _dedupe_artifacts(artifacts: Sequence[WorkflowArtifact]) -> list[WorkflowArtifact]:
+    """Deduplicate artifacts while preserving first-seen order.
+
+    Args:
+        artifacts: Raw artifact sequence.
+
+    Returns:
+        Deduplicated artifact list.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    unique: list[WorkflowArtifact] = []
+    for artifact in artifacts:
+        producer = artifact.producer_step_id or ""
+        key = (artifact.path, artifact.mime, producer)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(artifact)
+    return unique

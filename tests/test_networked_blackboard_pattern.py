@@ -75,6 +75,7 @@ def test_networked_pattern_uses_deterministic_sorted_peer_order_each_round() -> 
     result = pattern.run("Coordinate this task.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["terminated_reason"] == "max_rounds_reached"
     assert result.output["rounds_executed"] == 2
     assert call_order == ["peer_a", "peer_b", "peer_a", "peer_b"]
@@ -101,6 +102,7 @@ def test_blackboard_pattern_converges_after_stable_state_hash_rounds() -> None:
     result = pattern.run("Need stable convergence.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["terminated_reason"] == "converged"
     assert result.output["rounds_executed"] == 2
     round_summaries = result.output["round_summaries"]
@@ -122,6 +124,7 @@ def test_blackboard_pattern_honors_explicit_stop_signal() -> None:
     result = pattern.run("Stop after one round.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["terminated_reason"] == "explicit_stop"
     assert result.output["rounds_executed"] == 1
 

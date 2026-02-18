@@ -2,28 +2,31 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import json
 
-from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import Workflow
-from design_research_agents.workflow.implementations.agent_routing import RouterPattern
-from design_research_agents.workflow.implementations.networked_blackboard import (
+import pytest
+
+from design_research_agents.implementations.patterns.agent_routing import RouterPattern
+from design_research_agents.implementations.patterns.networked_blackboard import (
     BlackboardPattern,
     NetworkedPattern,
 )
-from design_research_agents.workflow.implementations.planner_executor_pattern import (
+from design_research_agents.implementations.patterns.planner_executor_pattern import (
     PlannerExecutorPattern,
 )
-from design_research_agents.workflow.implementations.rag_reasoning import (
+from design_research_agents.implementations.patterns.rag_reasoning import (
     RagReasoningPattern,
 )
-from design_research_agents.workflow.implementations.reflexion_pattern import (
+from design_research_agents.implementations.patterns.reflexion_pattern import (
     ReflexionPattern,
 )
-from design_research_agents.workflow.implementations.tree_search import (
+from design_research_agents.implementations.patterns.tree_search import (
     TreeSearchPattern,
 )
+from design_research_agents.tools import Toolbox
+from design_research_agents.workflow import Workflow
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
 
 
@@ -55,6 +58,7 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
     )
     success_result = success_workflow.run("Compute 6 * 7.")
     assert success_result.success
+    assert success_workflow.workflow is not None
     assert success_result.output["steps_executed"] == 1
     assert success_result.output["final_output"]["result"] == 42.0
     assert success_result.output["terminated_reason"] == "completed"
@@ -90,6 +94,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
     )
     success_result = success_workflow.run("Write a short design summary.")
     assert success_result.success
+    assert success_workflow.workflow is not None
     assert success_result.output["approved"] is True
     assert success_result.output["terminated_reason"] == "approved"
     assert len(success_result.output["critique_iterations"]) == 1
@@ -122,6 +127,7 @@ def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> N
     )
     success_result = success_workflow.run("Route this request.")
     assert success_result.success
+    assert success_workflow.workflow is not None
     assert success_result.output["agent_marker"] == "two"
     assert success_result.output["agent_routing_selected_alternative"] == "alt_two"
     assert success_result.metadata["agent_routing"]["selected_alternative"] == "alt_two"
@@ -161,17 +167,8 @@ def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
 
 
 def test_workflow_factory_functions_are_removed() -> None:
-    from design_research_agents.workflow import implementations as workflow_impl
-
-    removed_symbols = (
-        "plan_execute_workflow",
-        "propose_and_critique_workflow",
-        "agent_routing_workflow",
-        "mixed_agent_workflow",
-        "pure_tool_workflow",
-    )
-    for symbol in removed_symbols:
-        assert symbol not in workflow_impl.__all__
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("design_research_agents.workflow.implementations")
 
 
 def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:

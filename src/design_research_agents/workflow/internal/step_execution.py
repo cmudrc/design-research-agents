@@ -131,7 +131,6 @@ def run_tool_step(
 
 def run_agent_step(
     *,
-    agents: Mapping[str, WorkflowDelegate],
     step: AgentStep,
     step_id: str,
     step_context: Mapping[str, object],
@@ -143,7 +142,6 @@ def run_agent_step(
     """Execute one agent-like step and return normalized workflow step result.
 
     Args:
-        agents: Delegate registry for ``AgentStep`` resolution.
         step: Agent step definition to execute.
         step_id: Step identifier for result metadata.
         step_context: Step execution context with dependency outputs.
@@ -155,13 +153,7 @@ def run_agent_step(
     Returns:
         Normalized workflow step result for this agent step.
     """
-    selected_delegate = agents.get(step.agent_name)
-    if selected_delegate is None:
-        return _failed_step_result(
-            step_id=step_id,
-            error=f"Unknown agent '{step.agent_name}'.",
-            metadata={"stage": "agent_binding", "agent_name": step.agent_name},
-        )
+    selected_delegate = step.delegate
 
     try:
         prompt = resolve_agent_prompt(step=step, step_context=step_context)
@@ -169,7 +161,7 @@ def run_agent_step(
         return _failed_step_result(
             step_id=step_id,
             error=str(exc),
-            metadata={"stage": "input_build", "agent_name": step.agent_name},
+            metadata={"stage": "input_build", "delegate_class": type(selected_delegate).__name__},
         )
 
     invocation_dependencies = build_invocation_dependencies(
@@ -200,7 +192,7 @@ def run_agent_step(
                 error=str(exc),
                 metadata={
                     "stage": "execution",
-                    "agent_name": step.agent_name,
+                    "delegate_class": type(selected_delegate).__name__,
                     "delegate_type": "workflow",
                 },
             )
@@ -213,7 +205,7 @@ def run_agent_step(
                 error="Nested workflow execution failed.",
                 metadata={
                     "stage": "execution",
-                    "agent_name": step.agent_name,
+                    "delegate_class": type(selected_delegate).__name__,
                     "delegate_type": "workflow",
                 },
             )
@@ -225,7 +217,7 @@ def run_agent_step(
             output=serialized_output,
             metadata={
                 "stage": "execution",
-                "agent_name": step.agent_name,
+                "delegate_class": type(selected_delegate).__name__,
                 "delegate_type": "workflow",
             },
         )
@@ -243,7 +235,7 @@ def run_agent_step(
             error=str(exc),
             metadata={
                 "stage": "execution",
-                "agent_name": step.agent_name,
+                "delegate_class": type(selected_delegate).__name__,
                 "delegate_type": "agent",
             },
         )
@@ -256,7 +248,7 @@ def run_agent_step(
             error=str(agent_result.output.get("error", "Agent execution failed.")),
             metadata={
                 "stage": "execution",
-                "agent_name": step.agent_name,
+                "delegate_class": type(selected_delegate).__name__,
                 "delegate_type": "agent",
             },
         )
@@ -268,7 +260,7 @@ def run_agent_step(
         output=serialized_output,
         metadata={
             "stage": "execution",
-            "agent_name": step.agent_name,
+            "delegate_class": type(selected_delegate).__name__,
             "delegate_type": "agent",
         },
     )

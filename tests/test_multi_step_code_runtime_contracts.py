@@ -4,12 +4,14 @@ from collections.abc import Sequence
 
 import pytest
 
-import design_research_agents.agent.internal.multi_step_code_runtime_helpers as code_runtime
 from design_research_agents.contracts.execution import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
 from design_research_agents.contracts.memory import MemoryRecord, MemoryWriteRecord
 from design_research_agents.contracts.termination import SOURCE_INVALID_PAYLOAD
 from design_research_agents.contracts.tools import ToolResult, ToolSpec
+from design_research_agents.implementations.shared.agent_internal import (
+    multi_step_code_runtime_helpers as code_runtime,
+)
 
 pytestmark = pytest.mark.contract
 

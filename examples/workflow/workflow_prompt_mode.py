@@ -30,7 +30,7 @@ def main() -> None:
         ),
         AgentStep(
             step_id="draft_agent",
-            agent_name="writer_agent",
+            delegate=writer_agent,
             dependencies=("router",),
             prompt_builder=lambda context: (
                 "Write one JSON object with keys title and summary for this request: "
@@ -81,7 +81,6 @@ def main() -> None:
 
     workflow = Workflow(
         tool_runtime=tool_runtime,
-        agents={"writer_agent": writer_agent},
         steps=workflow_steps,
         input_mode="prompt",
     )
