@@ -7,13 +7,13 @@ from collections.abc import Mapping
 from string import Template
 from uuid import uuid4
 
-from design_research_agents.agent.implementations.single_step_direct_llm_agent import (
-    SingleStepDirectLLMAgent,
-)
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage, LLMResponse
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.implementations.agents.single_step_direct_llm_agent import (
+    SingleStepDirectLLMAgent,
+)
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )

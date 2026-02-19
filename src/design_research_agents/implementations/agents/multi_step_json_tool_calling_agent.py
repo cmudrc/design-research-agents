@@ -9,9 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.agent.implementations.single_step_json_tool_calling_agent import (
-    SingleStepJsonToolCallingAgent,
-)
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
 from design_research_agents.contracts.memory import MemoryStore
@@ -23,6 +20,9 @@ from design_research_agents.contracts.termination import (
     continuation_stopped_reason,
 )
 from design_research_agents.contracts.tools import ToolRuntime
+from design_research_agents.implementations.agents.single_step_json_tool_calling_agent import (
+    SingleStepJsonToolCallingAgent,
+)
 from design_research_agents.tracing import Tracer
 
 from ..shared.agent_internal.execution_context import (

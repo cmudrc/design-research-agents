@@ -5,9 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from design_research_agents.agent.implementations.single_step_router_agent import (
-    SingleStepToolRouterAgent,
-)
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.termination import (
@@ -16,6 +13,9 @@ from design_research_agents.contracts.termination import (
 )
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.contracts.workflow import LogicStep
+from design_research_agents.implementations.agents.single_step_router_agent import (
+    SingleStepToolRouterAgent,
+)
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow.workflow import Workflow
 

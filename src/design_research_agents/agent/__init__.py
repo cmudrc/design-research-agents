@@ -19,20 +19,16 @@ _EXPORTS: Final[dict[str, str]] = {
         "design_research_agents.implementations.agents:MultiStepToolRouterAgent"
     ),
     "SingleStepCodeToolCallingAgent": (
-        "design_research_agents.agent.implementations.single_step_code_tool_calling_agent"
-        ":SingleStepCodeToolCallingAgent"
+        "design_research_agents.implementations.agents:SingleStepCodeToolCallingAgent"
     ),
     "SingleStepDirectLLMAgent": (
-        "design_research_agents.agent.implementations.single_step_direct_llm_agent"
-        ":SingleStepDirectLLMAgent"
+        "design_research_agents.implementations.agents:SingleStepDirectLLMAgent"
     ),
     "SingleStepJsonToolCallingAgent": (
-        "design_research_agents.agent.implementations.single_step_json_tool_calling_agent"
-        ":SingleStepJsonToolCallingAgent"
+        "design_research_agents.implementations.agents:SingleStepJsonToolCallingAgent"
     ),
     "SingleStepToolRouterAgent": (
-        "design_research_agents.agent.implementations.single_step_router_agent"
-        ":SingleStepToolRouterAgent"
+        "design_research_agents.implementations.agents:SingleStepToolRouterAgent"
     ),
 }
 

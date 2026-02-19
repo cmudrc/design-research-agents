@@ -28,22 +28,22 @@ This page lists user-facing agent modules and shared workflow-first implementati
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.agent.implementations.single_step_code_tool_calling_agent
+.. automodule:: design_research_agents.implementations.agents.single_step_code_tool_calling_agent
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.agent.implementations.single_step_direct_llm_agent
+.. automodule:: design_research_agents.implementations.agents.single_step_direct_llm_agent
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.agent.implementations.single_step_json_tool_calling_agent
+.. automodule:: design_research_agents.implementations.agents.single_step_json_tool_calling_agent
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.agent.implementations.single_step_router_agent
+.. automodule:: design_research_agents.implementations.agents.single_step_router_agent
    :members:
    :undoc-members:
    :no-index:

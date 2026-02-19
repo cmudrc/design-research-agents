@@ -62,14 +62,17 @@ def main() -> None:
         ),
     )
     llm_client = LlamaCppServerLLMClient()
-    try:
-        agent = SingleStepJsonToolCallingAgent(llm_client=llm_client, tool_runtime=tools)
-        result = agent.run(
-            prompt="Call optimizer.search_1d with initial_guess=7 to minimize f(x)=x^2.",
-            request_id="example-single-step-optimizer-tool-agent-001",
-        )
-    finally:
-        llm_client.close()
+    # try:
+    agent = SingleStepJsonToolCallingAgent(llm_client=llm_client, tool_runtime=tools)
+    result = agent.run(
+        prompt=(
+            "Call optimizer.search_1d with a good initial gues to minimize "
+            "the function f of x equals x squared."
+        ),
+        request_id="example-single-step-optimizer-tool-agent-001",
+    )
+    # finally:
+    #     llm_client.close()
 
     payload = {
         "agent": "SingleStepJsonToolCallingAgent",

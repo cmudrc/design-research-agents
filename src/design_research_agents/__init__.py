@@ -26,6 +26,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "MemoryReadStep": "design_research_agents.contracts:MemoryReadStep",
     "MemoryWriteStep": "design_research_agents.contracts:MemoryWriteStep",
     "Workflow": "design_research_agents.workflow:Workflow",
+    "ConversationPattern": "design_research_agents.workflow:ConversationPattern",
     "DebatePattern": "design_research_agents.workflow:DebatePattern",
     "PlannerExecutorPattern": "design_research_agents.workflow:PlannerExecutorPattern",
     "ReflexionPattern": "design_research_agents.workflow:ReflexionPattern",
@@ -109,6 +110,7 @@ if TYPE_CHECKING:
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
     from .workflow import BlackboardPattern as BlackboardPattern
+    from .workflow import ConversationPattern as ConversationPattern
     from .workflow import DebatePattern as DebatePattern
     from .workflow import NetworkedPattern as NetworkedPattern
     from .workflow import PlannerExecutorPattern as PlannerExecutorPattern

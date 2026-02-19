@@ -28,6 +28,7 @@ The supported top-level API is the curated export list from
     - ``MultiStepJsonToolCallingAgent``
     - ``MultiStepCodeToolCallingAgent``
 - Patterns
+    - ``ConversationPattern``
     - ``DebatePattern``
     - ``PlannerExecutorPattern``
     - ``ReflexionPattern``
@@ -141,6 +142,10 @@ Agents
 
 Patterns
 --------
+
+.. autoclass:: design_research_agents.ConversationPattern
+   :members:
+   :undoc-members:
 
 .. autoclass:: design_research_agents.DebatePattern
    :members:

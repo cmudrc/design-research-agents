@@ -22,7 +22,11 @@ from design_research_agents.contracts.llm import (
     LLMRequest,
 )
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import PlannerExecutorPattern, ReflexionPattern
+from design_research_agents.workflow import (
+    ConversationPattern,
+    PlannerExecutorPattern,
+    ReflexionPattern,
+)
 
 
 class _EmptyDefaultModelClient:
@@ -69,6 +73,7 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
         MultiStepToolRouterAgent,
         MultiStepJsonToolCallingAgent,
         MultiStepCodeToolCallingAgent,
+        ConversationPattern,
         PlannerExecutorPattern,
         ReflexionPattern,
     )
@@ -106,3 +111,9 @@ def test_workflow_patterns_fail_when_llm_default_model_is_empty() -> None:
             llm_client=empty_client,
             tool_runtime=Toolbox(),
         ).run("Draft")
+
+    with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
+        ConversationPattern(
+            llm_client_a=empty_client,
+            max_turns=1,
+        ).run("Discuss this briefly.")

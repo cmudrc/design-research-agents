@@ -6,10 +6,6 @@ import heapq
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 
-from design_research_agents.agent.internal.run_options import (
-    normalize_dependencies,
-    resolve_request_id,
-)
 from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
@@ -45,6 +41,10 @@ from design_research_agents.workflow.internal import (
     run_tool_step,
     start_step_span,
     validate_no_cycles,
+)
+from design_research_agents.workflow.internal.runtime_options import (
+    normalize_dependencies,
+    resolve_request_id,
 )
 
 

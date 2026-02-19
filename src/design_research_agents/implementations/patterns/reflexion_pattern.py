@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.agent.implementations.single_step_direct_llm_agent import (
-    SingleStepDirectLLMAgent,
-)
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.implementations.agents.single_step_direct_llm_agent import (
+    SingleStepDirectLLMAgent,
+)
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     extract_prompt as _extract_prompt,
 )

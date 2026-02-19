@@ -18,6 +18,11 @@ This page lists user-facing workflow modules and shared workflow-first implement
    :undoc-members:
    :no-index:
 
+.. automodule:: design_research_agents.implementations.patterns.conversation_pattern
+   :members:
+   :undoc-members:
+   :no-index:
+
 .. automodule:: design_research_agents.implementations.patterns.debate_pattern
    :members:
    :undoc-members:

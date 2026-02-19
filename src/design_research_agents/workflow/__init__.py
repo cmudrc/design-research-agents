@@ -9,6 +9,7 @@ from .workflow import Workflow
 
 _EXPORTS: Final[dict[str, str]] = {
     "BlackboardPattern": "design_research_agents.implementations.patterns:BlackboardPattern",
+    "ConversationPattern": "design_research_agents.implementations.patterns:ConversationPattern",
     "DebatePattern": "design_research_agents.implementations.patterns:DebatePattern",
     "NetworkedPattern": "design_research_agents.implementations.patterns:NetworkedPattern",
     "PlannerExecutorPattern": (

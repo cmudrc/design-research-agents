@@ -9,6 +9,9 @@ import json
 import pytest
 
 from design_research_agents.implementations.patterns.agent_routing import RouterPattern
+from design_research_agents.implementations.patterns.conversation_pattern import (
+    ConversationPattern,
+)
 from design_research_agents.implementations.patterns.networked_blackboard import (
     BlackboardPattern,
     NetworkedPattern,
@@ -172,6 +175,12 @@ def test_workflow_factory_functions_are_removed() -> None:
 
 
 def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
+    conversation_params = inspect.signature(ConversationPattern.__init__).parameters
+    assert "llm_client_a" in conversation_params
+    assert "llm_client_b" in conversation_params
+    assert "max_turns" in conversation_params
+    assert "conversation_speaker_a_user_prompt_template" in conversation_params
+
     networked_params = inspect.signature(NetworkedPattern.__init__).parameters
     assert "peers" in networked_params
     assert "max_rounds" in networked_params

@@ -7,6 +7,8 @@ execution pattern first, then by control requirements.
 Multi-agent orchestration patterns (``PlannerExecutorPattern``,
 ``ReflexionPattern``, ``RouterPattern``) live in the workflow module and are
 implemented with the same public workflow step primitives available to users.
+Single-step agents are now dogfooded the same way: each single-step class is
+implemented as a public ``Workflow`` composed from public step objects.
 
 Overview
 --------

@@ -2,6 +2,7 @@ Workflow Patterns
 =================
 
 Available reusable workflow patterns:
+- ``ConversationPattern``: two-speaker LLM conversation loops with per-speaker prompts and clients.
 - ``DebatePattern``: multi-round affirmative/negative debate with a judging pass
 - ``PlannerExecutorPattern``: planner + executor decomposition for complex tasks.
 - ``ReflexionPattern``: iterative proposal/revision loops.

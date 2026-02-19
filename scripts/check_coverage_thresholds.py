@@ -10,11 +10,15 @@ from pathlib import Path
 # Release-blocking line coverage targets.
 GLOBAL_THRESHOLD = 90.0
 PACKAGE_THRESHOLDS = {
-    "workflow": 90.0,
-    "agent": 88.0,
-    "tools": 89.0,
-    "llm": 84.0,
-    "memory": 82.0,
+    "contracts": 98.0,
+    "implementations": 90.0,
+    "llm": 90.0,
+    "memory": 90.0,
+    "model_selection": 90.0,
+    "schemas": 90.0,
+    "tools": 92.0,
+    "tracing": 93.5,
+    "workflow": 90.2,
 }
 
 

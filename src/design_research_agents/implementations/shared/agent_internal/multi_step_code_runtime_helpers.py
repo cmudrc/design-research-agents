@@ -6,9 +6,6 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from design_research_agents.agent.implementations.single_step_code_tool_calling_agent import (
-    SingleStepCodeToolCallingAgent,
-)
 from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
 from design_research_agents.contracts.memory import MemoryStore
@@ -20,6 +17,9 @@ from design_research_agents.contracts.termination import (
     continuation_stopped_reason,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.implementations.agents.single_step_code_tool_calling_agent import (
+    SingleStepCodeToolCallingAgent,
+)
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     extract_boolean,
     extract_positive_int,

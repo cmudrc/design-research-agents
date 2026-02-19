@@ -5,9 +5,14 @@ from .agents import (
     MultiStepDirectLLMAgent,
     MultiStepJsonToolCallingAgent,
     MultiStepToolRouterAgent,
+    SingleStepCodeToolCallingAgent,
+    SingleStepDirectLLMAgent,
+    SingleStepJsonToolCallingAgent,
+    SingleStepToolRouterAgent,
 )
 from .patterns import (
     BlackboardPattern,
+    ConversationPattern,
     DebatePattern,
     NetworkedPattern,
     PlannerExecutorPattern,
@@ -19,6 +24,7 @@ from .patterns import (
 
 __all__ = [
     "BlackboardPattern",
+    "ConversationPattern",
     "DebatePattern",
     "MultiStepCodeToolCallingAgent",
     "MultiStepDirectLLMAgent",
@@ -29,5 +35,9 @@ __all__ = [
     "RagReasoningPattern",
     "ReflexionPattern",
     "RouterPattern",
+    "SingleStepCodeToolCallingAgent",
+    "SingleStepDirectLLMAgent",
+    "SingleStepJsonToolCallingAgent",
+    "SingleStepToolRouterAgent",
     "TreeSearchPattern",
 ]

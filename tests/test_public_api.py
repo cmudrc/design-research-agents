@@ -30,6 +30,7 @@ EXPECTED_PUBLIC_API = [
     "MemoryReadStep",
     "MemoryWriteStep",
     "Workflow",
+    "ConversationPattern",
     "DebatePattern",
     "PlannerExecutorPattern",
     "ReflexionPattern",
