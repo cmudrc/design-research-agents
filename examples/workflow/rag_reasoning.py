@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents.contracts.agent import Agent, ExecutionResult
-from design_research_agents.contracts.memory import MemoryWriteRecord
+from design_research_agents.contracts import Agent, ExecutionResult, MemoryWriteRecord
 from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 from design_research_agents.workflow import RagReasoningPattern
 

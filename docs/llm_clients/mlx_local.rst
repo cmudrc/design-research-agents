@@ -16,7 +16,7 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import MlxLocalLLMClient
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents.contracts import LLMChatParams, LLMMessage
 
    client = MlxLocalLLMClient()
    response = client.chat(

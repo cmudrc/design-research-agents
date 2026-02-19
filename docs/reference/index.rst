@@ -1,7 +1,7 @@
 Module Reference
 ================
 
-This section provides module-level API documentation for all source modules.
+This section provides module-level documentation for stable public modules.
 Public usage should prefer the curated top-level exports in :doc:`/api`.
 
 .. toctree::

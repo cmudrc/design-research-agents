@@ -1,6 +1,6 @@
 """Runnable entrypoint demonstrating the public ``Workflow`` facade."""
 
-from design_research_agents.contracts.workflow import LogicStep
+from design_research_agents.contracts import LogicStep
 from design_research_agents.workflow import Workflow
 
 

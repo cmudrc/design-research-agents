@@ -6,15 +6,15 @@ import json
 from collections.abc import Iterator, Sequence
 
 from design_research_agents import MultiStepJsonToolCallingAgent, Toolbox
-from design_research_agents.contracts.llm import (
+from design_research_agents.contracts import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
     LLMRequest,
     LLMResponse,
     LLMStreamEvent,
+    MemoryWriteRecord,
 )
-from design_research_agents.contracts.memory import MemoryWriteRecord
 from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 
 

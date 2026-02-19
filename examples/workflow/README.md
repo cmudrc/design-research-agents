@@ -1,7 +1,7 @@
 ## Workflow Runtime Examples
 
 These entrypoints exercise orchestration-level flows, including reusable
-workflow patterns in `src/design_research_agents/workflow/implementations/`.
+workflow patterns exposed through `design_research_agents.workflow`.
 Most pattern classes follow agent-like reuse semantics:
 initialize once, then call `.run(...)` repeatedly with per-run input.
 

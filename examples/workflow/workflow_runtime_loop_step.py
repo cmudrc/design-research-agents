@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.contracts import ExecutionResult, LogicStep, LoopStep
 from design_research_agents.workflow import Workflow
 
 

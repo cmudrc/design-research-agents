@@ -8,7 +8,7 @@ SPHINX ?= $(PYTHON) -m sphinx
 
 .PHONY: help \
 	install install-dev install-all check-python \
-	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check \
+	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check \
 	examples-smoke examples-test examples-deterministic examples-metrics run-example \
 	docs docs-build docs-open docs-linkcheck docs-check \
 	ci pre-commit \
@@ -25,6 +25,7 @@ help:
 	@echo "  examples-smoke    Deterministic smoke checks for key examples."
 	@echo "  legacy-check      Fail on removed legacy/fallback/C901 patterns in src."
 	@echo "  baseline-integrity-check  Validate baseline entries reference existing files."
+	@echo "  junk-check        Fail if tracked .DS_Store or __pycache__ artifacts exist."
 	@echo "  docs-build        Build strict Sphinx HTML docs."
 	@echo "  docs-open         Open docs index in your browser."
 	@echo "  docs              Build docs and open index locally."
@@ -102,6 +103,10 @@ legacy-check: check-python
 baseline-integrity-check: check-python
 	$(PYTHON) scripts/check_baseline_integrity.py
 
+# Fail when tracked junk artifacts are committed.
+junk-check: check-python
+	$(PYTHON) scripts/check_no_tracked_junk.py
+
 # Estimate line coverage for the stable unit-suite baseline.
 coverage: check-python
 	mkdir -p artifacts/coverage
@@ -164,10 +169,10 @@ clean: purge-ignored-junk
 distclean: clean
 
 # Aggregate checks used by CI.
-ci: qa-full examples-smoke legacy-check baseline-integrity-check docs-check
+ci: qa-full examples-smoke legacy-check baseline-integrity-check junk-check docs-check
 
 # Check set used by local pre-commit hook.
-pre-commit: lint fmt-check type structure-check docstrings-check unit docs-build
+pre-commit: lint fmt-check type structure-check docstrings-check unit junk-check docs-build
 
 # Compatibility aliases.
 format: fmt

@@ -8,6 +8,7 @@ import pytest
 
 import design_research_agents as dra
 import design_research_agents.tools as dra_tools
+from design_research_agents import contracts as dra_contracts
 
 EXPECTED_PUBLIC_API = [
     "__version__",
@@ -45,39 +46,6 @@ EXPECTED_PUBLIC_API = [
     "TransformersLocalLLMClient",
     "MlxLocalLLMClient",
     "ModelSelector",
-    "Agent",
-    "ExecutionResult",
-    "LLMClient",
-    "LLMMessage",
-    "LLMRole",
-    "LLMChatParams",
-    "LLMRequest",
-    "TaskProfile",
-    "ToolRuntime",
-    "ToolSpec",
-    "ToolMetadata",
-    "ToolSideEffects",
-    "ToolCostHints",
-    "MemoryStore",
-    "MemorySearchQuery",
-    "MemoryWriteRecord",
-    "WorkflowDelegate",
-    "WorkflowDelegateRunner",
-    "WorkflowExecutionMode",
-    "WorkflowFailurePolicy",
-    "WorkflowStep",
-    "WorkflowInputMode",
-    "WorkflowArtifact",
-    "WorkflowArtifactSource",
-    "WorkflowArtifactsBuilder",
-    "ToolStepInputBuilder",
-    "AgentStepPromptBuilder",
-    "LogicStepHandler",
-    "MemoryReadQueryBuilder",
-    "MemoryWriteRecordsBuilder",
-    "LoopStepContinuePredicate",
-    "LoopStepStateReducer",
-    "LoopStepTerminationReason",
     "Tracer",
 ]
 
@@ -103,3 +71,13 @@ def test_tools_module_exports_match_curated_contract() -> None:
 def test_internal_public_api_module_is_removed() -> None:
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("design_research_agents._public_api")
+
+
+def test_removed_contract_symbol_is_not_top_level() -> None:
+    assert "LLMMessage" not in dra.__all__
+    with pytest.raises(ImportError):
+        exec("from design_research_agents import LLMMessage", {}, {})
+
+
+def test_contract_symbol_is_available_from_contracts_namespace() -> None:
+    assert dra_contracts.LLMMessage.__name__ == "LLMMessage"

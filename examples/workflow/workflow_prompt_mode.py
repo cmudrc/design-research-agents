@@ -2,9 +2,13 @@
 
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, Toolbox, Workflow
-from design_research_agents.agent import SingleStepDirectLLMAgent
-from design_research_agents.contracts.workflow import AgentStep, LogicStep, ToolStep
+from design_research_agents import (
+    LlamaCppServerLLMClient,
+    SingleStepDirectLLMAgent,
+    Toolbox,
+    Workflow,
+)
+from design_research_agents.contracts import AgentStep, LogicStep, ToolStep
 
 
 def main() -> None:

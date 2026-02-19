@@ -16,7 +16,7 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import OpenAICompatibleHTTPLLMClient
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents.contracts import LLMChatParams, LLMMessage
 
    client = OpenAICompatibleHTTPLLMClient(base_url="http://127.0.0.1:8001/v1")
    response = client.chat(

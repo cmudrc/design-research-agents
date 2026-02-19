@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from design_research_agents import Toolbox, Workflow
-from design_research_agents.contracts.workflow import LogicStep, ToolStep
+from design_research_agents.contracts import LogicStep, ToolStep
 
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",

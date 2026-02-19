@@ -2,7 +2,8 @@ Workflows
 =========
 
 Workflow utilities provide reusable orchestration structures around tools and
-agents.
+agents. Pattern classes in this section are reusable agent-like orchestrators
+built from the same public workflow primitives.
 
 Quick chooser
 -------------
