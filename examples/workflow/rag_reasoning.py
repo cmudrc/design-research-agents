@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.memory import MemoryWriteRecord
@@ -34,7 +35,10 @@ class EchoReasoningAgent(Agent):
         return ExecutionResult(
             output={
                 "summary": "Reasoned with retrieved context.",
-                "prompt_seen": prompt,
+                "recommendation": (
+                    "Prefer graceful shutdown hooks and explicit runtime monitoring signals."
+                ),
+                "prompt_chars": len(prompt),
             },
             success=True,
             tool_results=[],
@@ -45,7 +49,11 @@ class EchoReasoningAgent(Agent):
 
 def main() -> None:
     """Run one local RAG workflow and print result."""
-    store = SQLiteMemoryStore()
+    db_path = Path.cwd() / "artifacts" / "examples" / "rag_reasoning_example.sqlite3"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if db_path.exists():
+        db_path.unlink()
+    store = SQLiteMemoryStore(db_path=db_path)
     store.write(
         [
             MemoryWriteRecord(
@@ -61,7 +69,7 @@ def main() -> None:
         memory_store=store,
         memory_namespace="examples",
         memory_top_k=3,
-        write_back=True,
+        write_back=False,
     )
     result = pattern.run("Draft a concise architecture recommendation.")
     print(result.asdict())

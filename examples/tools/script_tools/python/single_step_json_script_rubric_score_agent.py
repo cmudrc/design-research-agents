@@ -4,6 +4,7 @@ This script configures one script tool for the Python example and
 asks the model to execute ``script::rubric_score`` in one step.
 """
 
+import json
 from pathlib import Path
 
 from design_research_agents import LlamaCppServerLLMClient, Toolbox
@@ -44,15 +45,27 @@ def main() -> None:
         tool_runtime=tool_runtime,
     )
 
-    result = agent.run(
-        prompt=(
-            "Call script::rubric_score with text 'Agents can quickly score this sample summary.' "
-            "and max_score 12."
-        ),
-        request_id="example-script-rubric-agent-001",
-    )
+    try:
+        result = agent.run(
+            prompt=(
+                "Call script::rubric_score with text 'Agents can quickly score this sample "
+                "summary.' and max_score 12."
+            ),
+            request_id="example-script-rubric-agent-001",
+        )
+    finally:
+        llm_client.close()
 
-    print(result)
+    output = result.output if isinstance(result.output, dict) else {}
+    payload = {
+        "success": result.success,
+        "selected_tool": output.get("tool_name"),
+        "tool_input": output.get("tool_input"),
+        "tool_output": output.get("tool_output"),
+        "tool_results_count": len(result.tool_results),
+        "error": output.get("error"),
+    }
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

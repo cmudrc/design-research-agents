@@ -389,16 +389,7 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         Returns:
             The resulting value.
         """
-        if not isinstance(statement, ast.Import):
-            return False
-        if not statement.names:
-            return False
-        for alias in statement.names:
-            if alias.asname is not None:
-                return False
-            if alias.name not in self._allowed_tool_names:
-                return False
-        return True
+        return isinstance(statement, (ast.Import, ast.ImportFrom))
 
     def _resolve_rewrite_target(
         self,

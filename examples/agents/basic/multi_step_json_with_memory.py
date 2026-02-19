@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator, Sequence
 
 from design_research_agents import MultiStepJsonToolCallingAgent, Toolbox
@@ -135,7 +136,21 @@ def main() -> None:
         memory_write_observations=True,
     )
     result = agent.run("Compute 12 * (4 + 1).")
-    print(result.asdict())
+    output = result.output if isinstance(result.output, dict) else {}
+    payload = {
+        "success": result.success,
+        "terminated_reason": output.get("terminated_reason"),
+        "steps_executed": output.get("steps_executed"),
+        "step_outputs_count": len(output.get("step_outputs", []))
+        if isinstance(output.get("step_outputs"), list)
+        else 0,
+        "memory_items": len(output.get("memory", []))
+        if isinstance(output.get("memory"), list)
+        else 0,
+        "final_output": output.get("final_output"),
+        "error": output.get("error"),
+    }
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
     store.close()
 
 

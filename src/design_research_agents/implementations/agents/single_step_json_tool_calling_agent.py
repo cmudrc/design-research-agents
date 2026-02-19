@@ -29,7 +29,6 @@ from design_research_agents.implementations.shared.agent_internal.json_tool_agen
     resolve_allowed_tool_names,
     resolve_tool_input,
     select_tool_choice,
-    tool_call_response_schema,
 )
 from design_research_agents.implementations.shared.agent_internal.model_resolution import (
     resolve_agent_model,
@@ -109,9 +108,6 @@ class SingleStepJsonToolCallingAgent(Agent):
         self._compiled_tool_choices = extract_tool_choices(
             tool_specs=self._runtime_specs,
             allowed_tool_names=self._allowed_tool_names,
-        )
-        self._default_tool_call_response_schema = tool_call_response_schema(
-            [choice.tool_name for choice in self._compiled_tool_choices]
         )
         self._tool_step_ids = {
             choice.tool_name: _tool_step_id(choice.tool_name)
@@ -273,7 +269,6 @@ class SingleStepJsonToolCallingAgent(Agent):
             messages=model_messages,
             model=resolved_model,
             tools=list(self._runtime_specs.values()),
-            response_schema=dict(self._default_tool_call_response_schema),
             metadata={
                 "request_id": resolved_request_id,
                 "agent": "SingleStepJsonToolCallingAgent",

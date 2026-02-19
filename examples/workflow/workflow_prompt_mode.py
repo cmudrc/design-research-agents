@@ -94,11 +94,39 @@ def main() -> None:
         request_id="example-mixed-workflow-template-branch",
     )
 
+    def _summarize_run(result: object) -> dict[str, object]:
+        """Return compact summary for one workflow run.
+
+        Args:
+            result: Workflow execution result object.
+
+        Returns:
+            Compact summary payload.
+        """
+        if not hasattr(result, "success") or not hasattr(result, "output"):
+            return {"success": False, "error": "unexpected result type"}
+        output = result.output if isinstance(result.output, dict) else {}
+        final_output = output.get("final_output")
+        if isinstance(final_output, dict):
+            compact_final_output = {
+                "branch": final_output.get("branch"),
+                "title": final_output.get("title"),
+                "summary": final_output.get("summary"),
+            }
+        else:
+            compact_final_output = final_output
+        return {
+            "success": result.success,
+            "execution_order": result.execution_order,
+            "final_output": compact_final_output,
+            "error": output.get("error"),
+        }
+
     print(
         json.dumps(
             {
-                "agent_branch_run": agent_result.asdict(),
-                "template_branch_run": template_result.asdict(),
+                "agent_branch_run": _summarize_run(agent_result),
+                "template_branch_run": _summarize_run(template_result),
             },
             ensure_ascii=True,
             indent=2,

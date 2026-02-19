@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
@@ -64,7 +65,18 @@ def main() -> None:
         stability_rounds=2,
     )
     result = pattern.run("Compare two concept options and converge.")
-    print(result.asdict())
+    output = result.output if isinstance(result.output, dict) else {}
+    blackboard = output.get("blackboard")
+    messages = blackboard.get("messages") if isinstance(blackboard, dict) else None
+    payload = {
+        "success": result.success,
+        "terminated_reason": output.get("terminated_reason"),
+        "rounds_executed": output.get("rounds_executed"),
+        "message_count": len(messages) if isinstance(messages, list) else 0,
+        "final_output": output.get("final_output"),
+        "error": output.get("error"),
+    }
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
