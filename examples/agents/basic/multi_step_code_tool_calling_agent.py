@@ -6,8 +6,11 @@ multi-step task and prints the final structured result payload.
 
 import json
 
-from design_research_agents import LlamaCppServerLLMClient, Toolbox
-from design_research_agents.agent import MultiStepCodeToolCallingAgent
+from design_research_agents import (
+    LlamaCppServerLLMClient,
+    MultiStepCodeToolCallingAgent,
+    Toolbox,
+)
 
 
 def main() -> None:
@@ -40,9 +43,11 @@ def main() -> None:
         "success": result.success,
         "terminated_reason": output.get("terminated_reason"),
         "steps_executed": output.get("steps_executed"),
-        "step_outputs_count": len(output.get("step_outputs", []))
-        if isinstance(output.get("step_outputs"), list)
-        else 0,
+        "step_outputs_count": (
+            len(output.get("step_outputs", []))
+            if isinstance(output.get("step_outputs"), list)
+            else 0
+        ),
         "tool_results_count": len(result.tool_results),
         "final_output": output.get("final_output"),
         "error": output.get("error"),

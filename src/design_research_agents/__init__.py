@@ -41,6 +41,40 @@ _EXPORTS: Final[dict[str, str]] = {
     "TransformersLocalLLMClient": "design_research_agents.llm:TransformersLocalLLMClient",
     "MlxLocalLLMClient": "design_research_agents.llm:MlxLocalLLMClient",
     "ModelSelector": "design_research_agents.model_selection:ModelSelector",
+    "Agent": "design_research_agents.contracts:Agent",
+    "ExecutionResult": "design_research_agents.contracts:ExecutionResult",
+    "LLMClient": "design_research_agents.contracts:LLMClient",
+    "LLMMessage": "design_research_agents.contracts:LLMMessage",
+    "LLMRole": "design_research_agents.contracts.llm:LLMRole",
+    "LLMChatParams": "design_research_agents.contracts:LLMChatParams",
+    "LLMRequest": "design_research_agents.contracts:LLMRequest",
+    "TaskProfile": "design_research_agents.contracts:TaskProfile",
+    "ToolRuntime": "design_research_agents.contracts:ToolRuntime",
+    "ToolSpec": "design_research_agents.contracts:ToolSpec",
+    "ToolMetadata": "design_research_agents.contracts:ToolMetadata",
+    "ToolSideEffects": "design_research_agents.contracts:ToolSideEffects",
+    "ToolCostHints": "design_research_agents.contracts:ToolCostHints",
+    "MemoryStore": "design_research_agents.contracts:MemoryStore",
+    "MemorySearchQuery": "design_research_agents.contracts:MemorySearchQuery",
+    "MemoryWriteRecord": "design_research_agents.contracts:MemoryWriteRecord",
+    "WorkflowDelegate": "design_research_agents.contracts.workflow:WorkflowDelegate",
+    "WorkflowDelegateRunner": "design_research_agents.contracts:WorkflowDelegateRunner",
+    "WorkflowExecutionMode": "design_research_agents.contracts:WorkflowExecutionMode",
+    "WorkflowFailurePolicy": "design_research_agents.contracts:WorkflowFailurePolicy",
+    "WorkflowStep": "design_research_agents.contracts:WorkflowStep",
+    "WorkflowInputMode": "design_research_agents.workflow.workflow:WorkflowInputMode",
+    "WorkflowArtifact": "design_research_agents.contracts:WorkflowArtifact",
+    "WorkflowArtifactSource": "design_research_agents.contracts:WorkflowArtifactSource",
+    "WorkflowArtifactsBuilder": "design_research_agents.contracts:WorkflowArtifactsBuilder",
+    "ToolStepInputBuilder": "design_research_agents.contracts:ToolStepInputBuilder",
+    "AgentStepPromptBuilder": "design_research_agents.contracts:AgentStepPromptBuilder",
+    "LogicStepHandler": "design_research_agents.contracts:LogicStepHandler",
+    "MemoryReadQueryBuilder": "design_research_agents.contracts:MemoryReadQueryBuilder",
+    "MemoryWriteRecordsBuilder": "design_research_agents.contracts:MemoryWriteRecordsBuilder",
+    "LoopStepContinuePredicate": "design_research_agents.contracts:LoopStepContinuePredicate",
+    "LoopStepStateReducer": "design_research_agents.contracts:LoopStepStateReducer",
+    "LoopStepTerminationReason": "design_research_agents.contracts:LoopStepTerminationReason",
+    "Tracer": "design_research_agents.tracing:Tracer",
 }
 
 __all__ = ["__version__", *_EXPORTS.keys()]
@@ -93,12 +127,44 @@ if TYPE_CHECKING:
     from .agent import SingleStepDirectLLMAgent as SingleStepDirectLLMAgent
     from .agent import SingleStepJsonToolCallingAgent as SingleStepJsonToolCallingAgent
     from .agent import SingleStepToolRouterAgent as SingleStepToolRouterAgent
+    from .contracts import Agent as Agent
     from .contracts import AgentStep as AgentStep
+    from .contracts import AgentStepPromptBuilder as AgentStepPromptBuilder
+    from .contracts import ExecutionResult as ExecutionResult
+    from .contracts import LLMChatParams as LLMChatParams
+    from .contracts import LLMClient as LLMClient
+    from .contracts import LLMMessage as LLMMessage
     from .contracts import LogicStep as LogicStep
+    from .contracts import LogicStepHandler as LogicStepHandler
     from .contracts import LoopStep as LoopStep
+    from .contracts import LoopStepContinuePredicate as LoopStepContinuePredicate
+    from .contracts import LoopStepStateReducer as LoopStepStateReducer
+    from .contracts import LoopStepTerminationReason as LoopStepTerminationReason
+    from .contracts import MemoryReadQueryBuilder as MemoryReadQueryBuilder
     from .contracts import MemoryReadStep as MemoryReadStep
+    from .contracts import MemorySearchQuery as MemorySearchQuery
+    from .contracts import MemoryStore as MemoryStore
+    from .contracts import MemoryWriteRecord as MemoryWriteRecord
+    from .contracts import MemoryWriteRecordsBuilder as MemoryWriteRecordsBuilder
     from .contracts import MemoryWriteStep as MemoryWriteStep
+    from .contracts import TaskProfile as TaskProfile
+    from .contracts import ToolCostHints as ToolCostHints
+    from .contracts import ToolMetadata as ToolMetadata
+    from .contracts import ToolRuntime as ToolRuntime
+    from .contracts import ToolSideEffects as ToolSideEffects
+    from .contracts import ToolSpec as ToolSpec
     from .contracts import ToolStep as ToolStep
+    from .contracts import ToolStepInputBuilder as ToolStepInputBuilder
+    from .contracts import WorkflowArtifact as WorkflowArtifact
+    from .contracts import WorkflowArtifactsBuilder as WorkflowArtifactsBuilder
+    from .contracts import WorkflowArtifactSource as WorkflowArtifactSource
+    from .contracts import WorkflowDelegateRunner as WorkflowDelegateRunner
+    from .contracts import WorkflowExecutionMode as WorkflowExecutionMode
+    from .contracts import WorkflowFailurePolicy as WorkflowFailurePolicy
+    from .contracts import WorkflowStep as WorkflowStep
+    from .contracts.llm import LLMRequest as LLMRequest
+    from .contracts.llm import LLMRole as LLMRole
+    from .contracts.workflow import WorkflowDelegate as WorkflowDelegate
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MlxLocalLLMClient as MlxLocalLLMClient
     from .llm import OpenAICompatibleHTTPLLMClient as OpenAICompatibleHTTPLLMClient
@@ -109,6 +175,7 @@ if TYPE_CHECKING:
     from .tools import McpServer as McpServer
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
+    from .tracing import Tracer as Tracer
     from .workflow import BlackboardPattern as BlackboardPattern
     from .workflow import ConversationPattern as ConversationPattern
     from .workflow import DebatePattern as DebatePattern
@@ -119,3 +186,4 @@ if TYPE_CHECKING:
     from .workflow import RouterPattern as RouterPattern
     from .workflow import TreeSearchPattern as TreeSearchPattern
     from .workflow import Workflow as Workflow
+    from .workflow.workflow import WorkflowInputMode as WorkflowInputMode

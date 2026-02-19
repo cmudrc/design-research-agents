@@ -45,6 +45,42 @@ The supported top-level API is the curated export list from
     - ``MemoryReadStep``
     - ``MemoryWriteStep``
     - ``Workflow``
+- Tracing
+    - ``Tracer``
+- Runtime Contracts
+    - ``Agent``
+    - ``AgentStepPromptBuilder``
+    - ``ExecutionResult``
+    - ``LLMChatParams``
+    - ``LLMClient``
+    - ``LLMMessage``
+    - ``LLMRequest``
+    - ``LLMRole``
+    - ``LogicStepHandler``
+    - ``LoopStepContinuePredicate``
+    - ``LoopStepStateReducer``
+    - ``LoopStepTerminationReason``
+    - ``MemoryReadQueryBuilder``
+    - ``MemorySearchQuery``
+    - ``ToolRuntime``
+    - ``MemoryWriteRecord``
+    - ``MemoryWriteRecordsBuilder``
+    - ``MemoryStore``
+    - ``TaskProfile``
+    - ``ToolCostHints``
+    - ``ToolMetadata``
+    - ``ToolSideEffects``
+    - ``ToolSpec``
+    - ``ToolStepInputBuilder``
+    - ``WorkflowArtifact``
+    - ``WorkflowArtifactSource``
+    - ``WorkflowArtifactsBuilder``
+    - ``WorkflowDelegate``
+    - ``WorkflowDelegateRunner``
+    - ``WorkflowExecutionMode``
+    - ``WorkflowFailurePolicy``
+    - ``WorkflowInputMode``
+    - ``WorkflowStep``
 
 The API is constructor-first: agents and workflows expose customization through
 ``__init__`` kwargs (prompt overrides, routing/tool allowlists, and workflow
@@ -207,5 +243,40 @@ Workflows
    :undoc-members:
 
 .. autoclass:: design_research_agents.Workflow
+   :members:
+   :undoc-members:
+
+Tracing
+-------
+
+.. autoclass:: design_research_agents.Tracer
+   :members:
+   :undoc-members:
+
+
+Runtime Contracts
+-----------------
+
+.. autoclass:: design_research_agents.Agent
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ExecutionResult
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.LLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ToolRuntime
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MemoryStore
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.WorkflowDelegateRunner
    :members:
    :undoc-members:

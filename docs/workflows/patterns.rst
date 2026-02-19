@@ -32,6 +32,7 @@ Examples
 - ``examples/workflow/propose_critic.py``
 - ``examples/workflow/agent_routing.py``
 - ``examples/workflow/debate_pattern.py``
+- ``examples/workflow/conversation_pattern.py``
 - ``examples/workflow/workflow_schema_mode.py``
 - ``examples/workflow/workflow_prompt_mode.py``
 - ``examples/workflow/README.md``

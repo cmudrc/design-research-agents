@@ -180,6 +180,24 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             '"synthesis":"Use local models for sensitive data and hosted APIs for burst capacity."}'
         ),
     ),
+    "examples/workflow/conversation_pattern.py": (
+        (
+            "Use a hand-crank dual-roller shelling stage with food-safe rubber rollers and a "
+            "winnowing chute."
+        ),
+        (
+            "Add a threaded gap adjuster and quick-release side plates so farmers can tune roller "
+            "spacing and clean jams quickly."
+        ),
+        (
+            "Prototype a second concept with a peg-drum against a perforated concave, driven by "
+            "gears to reduce operator force."
+        ),
+        (
+            "Prioritize the roller prototype first because it is simpler to fabricate; validate "
+            "kernel breakage, throughput, and cleaning time in field tests."
+        ),
+    ),
     "examples/workflow/workflow_prompt_mode.py": (
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '

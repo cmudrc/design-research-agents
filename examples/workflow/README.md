@@ -19,6 +19,8 @@ initialize once, then call `.run(...)` repeatedly with per-run input.
   - Intent/agent routing with delegate execution.
 - `debate_pattern.py`
   - Structured affirmative/negative debate with judged synthesis.
+- `conversation_pattern.py`
+  - Two-speaker brainstorming loop with role-specific prompts.
 - `workflow_schema_mode.py`
   - User-defined `Workflow` with `input_mode="schema"` for structured input payloads.
 - `workflow_prompt_mode.py`
@@ -41,6 +43,7 @@ PYTHONPATH=src python3 examples/workflow/plan_execute.py
 PYTHONPATH=src python3 examples/workflow/propose_critic.py
 PYTHONPATH=src python3 examples/workflow/agent_routing.py
 PYTHONPATH=src python3 examples/workflow/debate_pattern.py
+PYTHONPATH=src python3 examples/workflow/conversation_pattern.py
 PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
 PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
 PYTHONPATH=src python3 examples/workflow/networked_blackboard.py
@@ -56,6 +59,7 @@ PYTHONPATH=src python3 examples/workflow/rag_reasoning.py
 - `propose_critic.py` (`ReflexionPattern`) -> `examples/workflow/propose_critic.py`
 - `agent_routing.py` (`RouterPattern`) -> `examples/workflow/agent_routing.py`
 - `debate_pattern.py` (`DebatePattern`) -> `examples/workflow/debate_pattern.py`
+- `conversation_pattern.py` (`ConversationPattern`) -> `examples/workflow/conversation_pattern.py`
 - `workflow_schema_mode.py` (`Workflow` in `schema` mode) -> `examples/workflow/workflow_schema_mode.py`
 - `workflow_prompt_mode.py` (`Workflow` in `prompt` mode) -> `examples/workflow/workflow_prompt_mode.py`
 - `networked_blackboard.py` (`BlackboardPattern`) -> `examples/workflow/networked_blackboard.py`
