@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from typing import Protocol
 
 from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import (
@@ -13,6 +12,7 @@ from design_research_agents.contracts.llm import (
     LLMMessage,
     LLMResponse,
 )
+from design_research_agents.contracts.workflow import WorkflowDelegate
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
@@ -27,6 +27,8 @@ from design_research_agents.schemas import (
     validate_payload_against_schema,
 )
 from design_research_agents.tracing import finish_model_call, start_model_call
+
+from .delegate_invocation import invoke_delegate
 
 CRITIC_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -77,7 +79,8 @@ class ReflexionLoopCallbacks:
         self,
         *,
         llm_client: LLMClient,
-        proposer_agent: ProposerAgent,
+        proposer_agent: WorkflowDelegate,
+        critic_delegate: WorkflowDelegate | None,
         resolved_model: str,
         task_prompt: str,
         request_id: str,
@@ -91,7 +94,8 @@ class ReflexionLoopCallbacks:
 
         Args:
             llm_client: LLM client used for critic calls.
-            proposer_agent: Proposer agent dependency exposing ``run``.
+            proposer_agent: Proposer delegate dependency.
+            critic_delegate: Optional critic delegate override.
             resolved_model: Resolved model id for critic calls.
             task_prompt: User task prompt text.
             request_id: Resolved request id.
@@ -103,6 +107,7 @@ class ReflexionLoopCallbacks:
         """
         self.llm_client = llm_client
         self.proposer_agent = proposer_agent
+        self.critic_delegate = critic_delegate
         self.resolved_model = resolved_model
         self.task_prompt = task_prompt
         self.request_id = request_id
@@ -243,15 +248,20 @@ class ReflexionLoopCallbacks:
             },
             field_name="propose_critic_proposer_user_prompt_template",
         )
-        propose_result = self.proposer_agent.run(
-            propose_prompt,
+        proposer_invocation = invoke_delegate(
+            delegate=self.proposer_agent,
+            prompt=propose_prompt,
+            step_context=None,
             request_id=f"{self.request_id}:propose-{iteration}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
             dependencies=self.dependencies,
         )
+        propose_result = proposer_invocation.result
         if propose_result.model_response is not None:
             self.last_model_response = propose_result.model_response
             self.budget_tracker.add_model_response(propose_result.model_response)
-        return str(propose_result.output.get("model_text", "")).strip()
+        return _extract_delegate_text(propose_result.output).strip()
 
     def _run_critic(self, proposal: str) -> LLMResponse:
         """Run critic model call for one proposal revision.
@@ -265,16 +275,35 @@ class ReflexionLoopCallbacks:
         Raises:
             Exception: Propagates model client failures.
         """
+        critic_prompt = render_prompt_template(
+            template_text=self.critic_user_prompt_template,
+            variables={"task_prompt": self.task_prompt, "proposal": proposal},
+            field_name="propose_critic_critic_user_prompt_template",
+        )
+        if self.critic_delegate is not None:
+            critic_invocation = invoke_delegate(
+                delegate=self.critic_delegate,
+                prompt=critic_prompt,
+                step_context=None,
+                request_id=f"{self.request_id}:critic_delegate",
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+                dependencies=self.dependencies,
+            )
+            critic_result = critic_invocation.result
+            if critic_result.model_response is not None:
+                self.last_model_response = critic_result.model_response
+                self.budget_tracker.add_model_response(critic_result.model_response)
+            text_output = _extract_delegate_text(critic_result.output)
+            return LLMResponse(
+                model=self.resolved_model,
+                text=text_output,
+                provider="delegate",
+            )
+
         critic_messages = [
             LLMMessage(role="system", content=self.critic_system_prompt),
-            LLMMessage(
-                role="user",
-                content=render_prompt_template(
-                    template_text=self.critic_user_prompt_template,
-                    variables={"task_prompt": self.task_prompt, "proposal": proposal},
-                    field_name="propose_critic_critic_user_prompt_template",
-                ),
-            ),
+            LLMMessage(role="user", content=critic_prompt),
         ]
         critic_params = LLMChatParams(
             response_schema=dict(CRITIC_SCHEMA),
@@ -384,26 +413,24 @@ class ReflexionLoopCallbacks:
         return next_state
 
 
-class ProposerAgent(Protocol):
-    """Protocol for proposer delegates used by reflexion loop callbacks."""
+def _extract_delegate_text(output: Mapping[str, object]) -> str:
+    """Extract critic delegate text payload from output mapping.
 
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> ExecutionResult:
-        """Execute one proposer step and return an execution result.
+    Args:
+        output: Delegate output mapping.
 
-        Args:
-            prompt: Prompt text for the proposer run.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency payload mapping.
-
-        Returns:
-            Execution result emitted by the proposer delegate.
-        """
+    Returns:
+        Best-effort string representation of delegate output content.
+    """
+    final_output = output.get("final_output")
+    if isinstance(final_output, str):
+        return final_output
+    if isinstance(final_output, Mapping):
+        return json.dumps(dict(final_output), ensure_ascii=True, sort_keys=True)
+    model_text = output.get("model_text")
+    if isinstance(model_text, str):
+        return model_text
+    return json.dumps(dict(output), ensure_ascii=True, sort_keys=True)
 
 
 __all__ = [

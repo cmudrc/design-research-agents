@@ -32,33 +32,35 @@ from design_research_agents.tracing import (
     start_model_call,
 )
 
-from ..shared.agent_internal.execution_context import (
+from ..execution_context import (
     finish_agent_execution,
     prepare_agent_execution,
 )
-from ..shared.agent_internal.input_parsing import (
+from ..input_parsing import (
     extract_positive_int as _extract_positive_int,
 )
-from ..shared.agent_internal.input_parsing import (
+from ..input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
-from ..shared.agent_internal.model_resolution import (
+from ..model_resolution import (
     resolve_agent_model,
 )
-from ..shared.agent_internal.multi_step_common import (
+from ..multi_step_common import (
     build_step_prompt,
 )
-from ..shared.agent_internal.prompt_overrides import (
+from ..prompt_overrides import (
     resolve_prompt_text,
 )
-from ..shared.agent_internal.response_schemas import (
+from ..response_schemas import (
     build_multi_step_direct_controller_response_schema,
     clone_response_schema,
 )
-from ..shared.agent_internal.result_builders import (
+from ..result_builders import (
     build_failure_result,
 )
-from ..shared.agent_internal.workflow_loop_orchestration import run_workflow_loop
+from ..workflow_loop_orchestration import (
+    run_workflow_loop,
+)
 
 
 @dataclass(slots=True, frozen=True)

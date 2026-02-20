@@ -42,7 +42,34 @@ class WorkflowDelegateRunner(Protocol):
         """
 
 
-WorkflowDelegate: TypeAlias = Agent | WorkflowDelegateRunner
+@runtime_checkable
+class WorkflowObjectDelegate(Protocol):
+    """Protocol for raw ``Workflow`` objects used as delegates."""
+
+    def run(
+        self,
+        input_data: str | Mapping[str, object] | None = None,
+        *,
+        execution_mode: WorkflowExecutionMode = "sequential",
+        failure_policy: WorkflowFailurePolicy = "skip_dependents",
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        """Execute a workflow object and return one aggregate result.
+
+        Args:
+            input_data: Optional workflow input payload.
+            execution_mode: Runtime scheduling mode (for example ``dag``).
+            failure_policy: Failure behavior when a step fails.
+            request_id: Optional request id used for tracing and downstream calls.
+            dependencies: Optional dependency payload mapping exposed to steps.
+
+        Returns:
+            Aggregated workflow execution result.
+        """
+
+
+WorkflowDelegate: TypeAlias = Agent | WorkflowDelegateRunner | WorkflowObjectDelegate
 
 
 @dataclass(slots=True, frozen=True)

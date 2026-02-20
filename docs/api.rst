@@ -30,19 +30,7 @@ Agents
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.MultiStepDirectLLMAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.MultiStepToolRouterAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.MultiStepJsonToolCallingAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.MultiStepCodeToolCallingAgent
+.. autoclass:: design_research_agents.MultiStepAgent
    :members:
    :undoc-members:
 

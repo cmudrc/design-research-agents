@@ -5,8 +5,8 @@ This folder demonstrates optimization-oriented agent runs with callable tools.
 ## What Each Example Demonstrates
 
 - `multi_step_tool_router_1d_optimization.py`
-  - Multi-step ToolRouting with separate `optimizer.increase_x` and
-    `optimizer.decrease_x` tools to minimize `f(x)=x^2`.
+  - `MultiStepAgent(mode="json")` router special-case with separate
+    `optimizer.increase_x` and `optimizer.decrease_x` tools to minimize `f(x)=x^2`.
 
 ## Quick Start
 

@@ -23,65 +23,69 @@ from design_research_agents.tracing import (
     start_model_call,
 )
 
-from ..shared.agent_internal.execution_context import (
+from ..execution_context import (
     finish_agent_execution,
     prepare_agent_execution,
 )
-from ..shared.agent_internal.input_parsing import (
+from ..input_parsing import (
     extract_boolean as _extract_boolean,
 )
-from ..shared.agent_internal.input_parsing import (
+from ..input_parsing import (
     extract_positive_int as _extract_positive_int,
 )
-from ..shared.agent_internal.model_resolution import resolve_agent_model
-from ..shared.agent_internal.multi_step_common import (
+from ..model_resolution import (
+    resolve_agent_model,
+)
+from ..multi_step_common import (
     build_step_prompt,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     build_loop_initial_state,
     continue_loop,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_state_records as _coerce_state_records,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_tool_results as _coerce_tool_results,
 )
-from ..shared.agent_internal.multi_step_router_runtime_helpers import (
+from ..multi_step_router_runtime_helpers import (
     build_router_final_result,
 )
-from ..shared.agent_internal.multi_step_router_runtime_helpers import (
+from ..multi_step_router_runtime_helpers import (
     run_tool_call_step as _run_tool_call_step,
 )
-from ..shared.agent_internal.multi_step_tool_router_helpers import (
+from ..multi_step_tool_router_helpers import (
     ToolRouterStepDecision,
 )
-from ..shared.agent_internal.multi_step_tool_router_helpers import (
+from ..multi_step_tool_router_helpers import (
     normalize_output_dict as _normalize_output_dict,
 )
-from ..shared.agent_internal.multi_step_tool_router_helpers import (
+from ..multi_step_tool_router_helpers import (
     parse_tool_router_step_decision as _parse_tool_router_step_decision,
 )
-from ..shared.agent_internal.prompt_alternatives import (
+from ..prompt_alternatives import (
     AlternativesPromptTarget,
     inject_alternatives_into_prompt_pair,
     normalize_alternatives_prompt_target,
 )
-from ..shared.agent_internal.prompt_overrides import (
+from ..prompt_overrides import (
     resolve_prompt_text,
 )
-from ..shared.agent_internal.response_schemas import (
+from ..response_schemas import (
     build_multi_step_tool_router_response_schema,
     clone_response_schema,
 )
-from ..shared.agent_internal.router_agent_helpers import (
+from ..router_agent_helpers import (
     ToolAlternative,
     build_routes_text,
     compile_runtime_alternatives,
     extract_alternatives,
     resolve_allowed_route_names,
 )
-from ..shared.agent_internal.workflow_loop_orchestration import run_workflow_loop
+from ..workflow_loop_orchestration import (
+    run_workflow_loop,
+)
 
 
 class MultiStepToolRouterAgent(Agent):

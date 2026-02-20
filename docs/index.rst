@@ -10,9 +10,10 @@ pieces so you can test ideas quickly and keep experiments reproducible.
 Highlights
 ----------
 
-- Five core agent styles: ``DirectLLMCall``, ``MultiStepDirectLLMAgent``,
-  ``MultiStepToolRouterAgent``, ``MultiStepJsonToolCallingAgent``, and
-  ``MultiStepCodeToolCallingAgent``.
+- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``.
+- ``MultiStepAgent`` supports explicit modes: ``direct``, ``json``, and ``code``.
+- JSON mode automatically uses a TOOL_CALL/STOP router schema when all tools
+  are arg-less (no structured input fields).
 - Model selection policies with local/remote catalogs.
 - Tool contracts and schemas for safe, structured I/O.
 - Tracing hooks and emitters for debugging and evaluation.

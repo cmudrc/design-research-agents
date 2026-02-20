@@ -7,28 +7,28 @@ continuation decision stops.
 Patterns
 --------
 
-``MultiStepDirectLLMAgent``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``MultiStepAgent(mode="direct")``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - Iterative direct-response loop with internal ``CONTINUE``/``STOP`` decisions.
 - No external tool calls; each step refines or finalizes the answer.
 
-``MultiStepToolRouterAgent``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``MultiStepAgent(mode="json")`` router special-case
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - ReAct-style loop where each step emits either ``TOOL_CALL`` or ``STOP``.
 - ``TOOL_CALL`` selects route candidates via ``tool_names`` and executes the first valid route.
 
-``MultiStepJsonToolCallingAgent``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``MultiStepAgent(mode="json")``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - ReAct-style loop over JSON tool-call actions.
 - Strong fit for structured iterative decomposition.
 - Constructor kwargs expose continuation/step prompt overrides plus
   ``continuation_memory_tail_items`` and ``step_memory_tail_items`` controls.
 
-``MultiStepCodeToolCallingAgent``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``MultiStepAgent(mode="code")``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - ReAct-style loop over generated code actions.
 - Strong fit for iterative tool chains that need richer control flow.

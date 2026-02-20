@@ -6,7 +6,7 @@ The pattern is workflow-native and built on ``WorkflowRuntime`` primitives.
 from design_research_agents import (
     DirectLLMCall,
     LlamaCppServerLLMClient,
-    MultiStepJsonToolCallingAgent,
+    MultiStepAgent,
     RouterPattern,
     Toolbox,
 )
@@ -18,7 +18,8 @@ def main() -> None:
     tool_runtime = Toolbox()
 
     direct_llm_agent = DirectLLMCall(llm_client=llm_client)
-    json_tool_agent = MultiStepJsonToolCallingAgent(
+    json_tool_agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         max_steps=1,
@@ -37,7 +38,8 @@ def main() -> None:
         },
     )
 
-    # Internal routing is performed by MultiStepToolRouterAgent(max_steps=1).
+    # Internal routing is performed by MultiStepAgent(mode="json", max_steps=1)
+    # in the arg-less-tools router special-case.
     result = workflow.run(
         prompt="Calculate this expression and return the numeric result: 12 * (4 + 1)",
         request_id="example-agent-routing-workflow-001",

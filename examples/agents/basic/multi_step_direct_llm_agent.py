@@ -1,16 +1,17 @@
-"""Runnable example showing one ``MultiStepDirectLLMAgent`` execution lifecycle."""
+"""Runnable example showing one ``MultiStepAgent(mode="direct")`` lifecycle."""
 
 import json
 
 from design_research_agents import LlamaCppServerLLMClient
-from design_research_agents.agent import MultiStepDirectLLMAgent
+from design_research_agents.agent import MultiStepAgent
 
 
 def main() -> None:
     """Execute one multi-step direct-LLM run and print the resulting result."""
     llm_client = LlamaCppServerLLMClient()
     try:
-        agent = MultiStepDirectLLMAgent(
+        agent = MultiStepAgent(
+            mode="direct",
             llm_client=llm_client,
             max_steps=3,
         )

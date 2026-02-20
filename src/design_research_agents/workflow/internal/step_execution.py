@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Mapping
 from dataclasses import asdict
-from typing import TypeGuard, cast
 
-from design_research_agents.contracts.agent import Agent
 from design_research_agents.contracts.memory import (
     MemorySearchQuery,
     MemoryStore,
@@ -20,13 +17,12 @@ from design_research_agents.contracts.workflow import (
     MemoryReadStep,
     MemoryWriteStep,
     ToolStep,
-    WorkflowDelegate,
-    WorkflowDelegateRunner,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
     WorkflowStepResult,
 )
 
+from .delegate_invocation import invoke_delegate
 from .step_context import (
     build_invocation_dependencies,
     resolve_agent_prompt,
@@ -174,59 +170,14 @@ def run_agent_step(
     )
 
     request_scope = f"{request_id}:workflow:{step_id}"
-
-    if _is_workflow_delegate_runner(selected_delegate):
-        nested_context = dict(step_context)
-        nested_context["prompt"] = prompt
-        try:
-            workflow_result = selected_delegate.run(
-                context=nested_context,
-                execution_mode=execution_mode,
-                failure_policy=failure_policy,
-                request_id=request_scope,
-                dependencies=invocation_dependencies,
-            )
-        except Exception as exc:
-            return _failed_step_result(
-                step_id=step_id,
-                error=str(exc),
-                metadata={
-                    "stage": "execution",
-                    "delegate_class": type(selected_delegate).__name__,
-                    "delegate_type": "workflow",
-                },
-            )
-
-        serialized_output = workflow_result.asdict()
-        if not workflow_result.success:
-            return _failed_step_result(
-                step_id=step_id,
-                output=serialized_output,
-                error="Nested workflow execution failed.",
-                metadata={
-                    "stage": "execution",
-                    "delegate_class": type(selected_delegate).__name__,
-                    "delegate_type": "workflow",
-                },
-            )
-
-        return WorkflowStepResult(
-            step_id=step_id,
-            status="completed",
-            success=True,
-            output=serialized_output,
-            metadata={
-                "stage": "execution",
-                "delegate_class": type(selected_delegate).__name__,
-                "delegate_type": "workflow",
-            },
-        )
-
-    selected_agent = cast(Agent, selected_delegate)
     try:
-        agent_result = selected_agent.run(
-            prompt,
+        delegate_invocation = invoke_delegate(
+            delegate=selected_delegate,
+            prompt=prompt,
+            step_context=step_context,
             request_id=request_scope,
+            execution_mode=execution_mode,
+            failure_policy=failure_policy,
             dependencies=invocation_dependencies,
         )
     except Exception as exc:
@@ -236,20 +187,25 @@ def run_agent_step(
             metadata={
                 "stage": "execution",
                 "delegate_class": type(selected_delegate).__name__,
-                "delegate_type": "agent",
+                "delegate_type": "unknown",
             },
         )
 
+    agent_result = delegate_invocation.result
     serialized_output = agent_result.asdict()
     if not agent_result.success:
+        if delegate_invocation.delegate_type == "workflow":
+            error_message = "Nested workflow execution failed."
+        else:
+            error_message = str(agent_result.output.get("error", "Agent execution failed."))
         return _failed_step_result(
             step_id=step_id,
             output=serialized_output,
-            error=str(agent_result.output.get("error", "Agent execution failed.")),
+            error=error_message,
             metadata={
                 "stage": "execution",
                 "delegate_class": type(selected_delegate).__name__,
-                "delegate_type": "agent",
+                "delegate_type": delegate_invocation.delegate_type,
             },
         )
 
@@ -261,42 +217,8 @@ def run_agent_step(
         metadata={
             "stage": "execution",
             "delegate_class": type(selected_delegate).__name__,
-            "delegate_type": "agent",
+            "delegate_type": delegate_invocation.delegate_type,
         },
-    )
-
-
-def _is_workflow_delegate_runner(
-    delegate: WorkflowDelegate,
-) -> TypeGuard[WorkflowDelegateRunner]:
-    """Return true when delegate ``run`` signature matches workflow style.
-
-    Args:
-        delegate: Delegate object registered for an ``AgentStep``.
-
-    Returns:
-        ``True`` when delegate ``run`` signature matches workflow-style execution.
-    """
-    run_callable = getattr(delegate, "run", None)
-    if run_callable is None:
-        return False
-    try:
-        signature = inspect.signature(run_callable)
-    except (TypeError, ValueError):
-        return False
-
-    parameters = list(signature.parameters.values())
-    if not parameters:
-        return True
-
-    first_parameter = parameters[0]
-    return not (
-        first_parameter.kind
-        in (
-            inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        )
-        and first_parameter.name == "prompt"
     )
 
 

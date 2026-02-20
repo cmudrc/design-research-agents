@@ -1,4 +1,4 @@
-"""Runnable example showing one ``MultiStepCodeToolCallingAgent`` execution lifecycle.
+"""Runnable example showing one ``MultiStepAgent(mode="code")`` execution lifecycle.
 
 The script demonstrates iterative continuation/step execution over a short
 multi-step task and prints the final structured result payload.
@@ -8,7 +8,7 @@ import json
 
 from design_research_agents import (
     LlamaCppServerLLMClient,
-    MultiStepCodeToolCallingAgent,
+    MultiStepAgent,
     Toolbox,
 )
 
@@ -21,7 +21,8 @@ def main() -> None:
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     try:
-        agent = MultiStepCodeToolCallingAgent(
+        agent = MultiStepAgent(
+            mode="code",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_steps=3,

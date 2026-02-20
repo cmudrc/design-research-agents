@@ -11,6 +11,7 @@ from design_research_agents.contracts.workflow import (
     AgentStep,
     MemoryReadStep,
     MemoryWriteStep,
+    WorkflowDelegate,
     WorkflowStep,
 )
 from design_research_agents.implementations.shared.agent_internal.run_options import (
@@ -27,7 +28,7 @@ class RagReasoningPattern(Agent):
     def __init__(
         self,
         *,
-        reasoning_delegate: Agent,
+        reasoning_delegate: WorkflowDelegate,
         memory_store: MemoryStore | None,
         memory_namespace: str = "default",
         memory_top_k: int = 5,
@@ -38,7 +39,7 @@ class RagReasoningPattern(Agent):
         """Initialize RAG reasoning pattern.
 
         Args:
-            reasoning_delegate: Delegate agent that performs reasoning with
+            reasoning_delegate: Delegate object that performs reasoning with
                 retrieved context.
             memory_store: Memory store used for retrieval and optional write-back.
             memory_namespace: Namespace partition for reads/writes.

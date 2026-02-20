@@ -13,10 +13,7 @@ from design_research_agents import contracts as dra_contracts
 EXPECTED_PUBLIC_API = [
     "__version__",
     "DirectLLMCall",
-    "MultiStepDirectLLMAgent",
-    "MultiStepToolRouterAgent",
-    "MultiStepJsonToolCallingAgent",
-    "MultiStepCodeToolCallingAgent",
+    "MultiStepAgent",
     "Toolbox",
     "CallableTool",
     "ScriptTool",

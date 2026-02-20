@@ -10,7 +10,7 @@ from uuid import uuid4
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage, LLMResponse
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
 from design_research_agents.implementations.agents.direct_llm_call import (
     DirectLLMCall,
 )
@@ -32,6 +32,8 @@ from design_research_agents.schemas import (
 )
 from design_research_agents.tracing import Tracer
 from design_research_agents.workflow import Workflow
+
+from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 _VERDICT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -96,8 +98,9 @@ class _DebateWorkflowCallbacks:
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-        affirmative_agent: DirectLLMCall,
-        negative_agent: DirectLLMCall,
+        affirmative_delegate: WorkflowDelegate,
+        negative_delegate: WorkflowDelegate,
+        judge_delegate: WorkflowDelegate | None,
         runtime_state: dict[str, object],
     ) -> None:
         """Store dependencies used by callback methods.
@@ -107,16 +110,18 @@ class _DebateWorkflowCallbacks:
             prompt: User task prompt.
             request_id: Resolved request id.
             dependencies: Resolved dependency mapping.
-            affirmative_agent: Affirmative direct-call delegate.
-            negative_agent: Negative direct-call delegate.
+            affirmative_delegate: Affirmative delegate object.
+            negative_delegate: Negative delegate object.
+            judge_delegate: Optional judge delegate object.
             runtime_state: Mutable state used to retain last model response.
         """
         self._pattern = pattern
         self._prompt = prompt
         self._request_id = request_id
         self._dependencies = dependencies
-        self._affirmative_agent = affirmative_agent
-        self._negative_agent = negative_agent
+        self._affirmative_delegate = affirmative_delegate
+        self._negative_delegate = negative_delegate
+        self._judge_delegate = judge_delegate
         self._runtime_state = runtime_state
 
     def continue_predicate(self, iteration: int, state: Mapping[str, object]) -> bool:
@@ -167,11 +172,16 @@ class _DebateWorkflowCallbacks:
             },
             field_name="debate_affirmative_user_prompt_template",
         )
-        affirmative_result = self._affirmative_agent.run(
-            affirmative_prompt,
+        affirmative_invocation = invoke_delegate(
+            delegate=self._affirmative_delegate,
+            prompt=affirmative_prompt,
+            step_context=context,
             request_id=f"{self._request_id}:debate:affirmative:{round_number}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
             dependencies=self._dependencies,
         )
+        affirmative_result = affirmative_invocation.result
         if affirmative_result.model_response is not None:
             self._runtime_state["last_model_response"] = affirmative_result.model_response
         affirmative_argument = str(affirmative_result.output.get("model_text", "")).strip()
@@ -185,11 +195,16 @@ class _DebateWorkflowCallbacks:
             },
             field_name="debate_negative_user_prompt_template",
         )
-        negative_result = self._negative_agent.run(
-            negative_prompt,
+        negative_invocation = invoke_delegate(
+            delegate=self._negative_delegate,
+            prompt=negative_prompt,
+            step_context=context,
             request_id=f"{self._request_id}:debate:negative:{round_number}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
             dependencies=self._dependencies,
         )
+        negative_result = negative_invocation.result
         if negative_result.model_response is not None:
             self._runtime_state["last_model_response"] = negative_result.model_response
         negative_argument = str(negative_result.output.get("model_text", "")).strip()
@@ -255,32 +270,57 @@ class _DebateWorkflowCallbacks:
                                 if isinstance(round_item, Mapping)
                             ]
 
-        resolved_model = resolve_agent_model(llm_client=self._pattern._llm_client)
-        judge_messages = [
-            LLMMessage(role="system", content=self._pattern._judge_system_prompt),
-            LLMMessage(
-                role="user",
-                content=_render_prompt_template(
-                    template_text=self._pattern._judge_user_prompt_template,
-                    variables={
-                        "task_prompt": self._prompt,
-                        "debate_rounds_json": json.dumps(
-                            rounds,
-                            ensure_ascii=True,
-                            sort_keys=True,
-                        ),
-                    },
-                    field_name="debate_judge_user_prompt_template",
+        judge_prompt = _render_prompt_template(
+            template_text=self._pattern._judge_user_prompt_template,
+            variables={
+                "task_prompt": self._prompt,
+                "debate_rounds_json": json.dumps(
+                    rounds,
+                    ensure_ascii=True,
+                    sort_keys=True,
                 ),
-            ),
-        ]
-        judge_response = self._pattern._llm_client.chat(
-            judge_messages,
-            model=resolved_model,
-            params=LLMChatParams(response_schema=dict(_VERDICT_SCHEMA)),
+            },
+            field_name="debate_judge_user_prompt_template",
         )
-        self._runtime_state["last_model_response"] = judge_response
-        parsed_verdict = _parse_json_mapping(judge_response.text)
+        if self._judge_delegate is None:
+            resolved_model = resolve_agent_model(llm_client=self._pattern._llm_client)
+            judge_messages = [
+                LLMMessage(role="system", content=self._pattern._judge_system_prompt),
+                LLMMessage(role="user", content=judge_prompt),
+            ]
+            judge_response = self._pattern._llm_client.chat(
+                judge_messages,
+                model=resolved_model,
+                params=LLMChatParams(response_schema=dict(_VERDICT_SCHEMA)),
+            )
+            self._runtime_state["last_model_response"] = judge_response
+            parsed_verdict = _parse_json_mapping(judge_response.text)
+        else:
+            judge_invocation = invoke_delegate(
+                delegate=self._judge_delegate,
+                prompt=judge_prompt,
+                step_context=context,
+                request_id=f"{self._request_id}:debate:judge",
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+                dependencies=self._dependencies,
+            )
+            judge_result = judge_invocation.result
+            if judge_result.model_response is not None:
+                self._runtime_state["last_model_response"] = judge_result.model_response
+            if not judge_result.success:
+                return {
+                    "status": "judge_invalid_json",
+                    "error": str(
+                        judge_result.output.get(
+                            "error",
+                            "Debate judge delegate did not return a successful result.",
+                        )
+                    ),
+                    "rounds": rounds,
+                    "verdict": None,
+                }
+            parsed_verdict = _extract_delegate_verdict(judge_result.output)
         if parsed_verdict is None:
             return {
                 "status": "judge_invalid_json",
@@ -317,6 +357,9 @@ class DebatePattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        affirmative_delegate: WorkflowDelegate | None = None,
+        negative_delegate: WorkflowDelegate | None = None,
+        judge_delegate: WorkflowDelegate | None = None,
         max_rounds: int = 3,
         debate_affirmative_system_prompt: str | None = None,
         debate_affirmative_user_prompt_template: str | None = None,
@@ -333,6 +376,9 @@ class DebatePattern(Agent):
         Args:
             llm_client: Client used for affirmative, negative, and judge model calls.
             tool_runtime: Tool runtime dependency for ``Agent`` interface compatibility.
+            affirmative_delegate: Optional affirmative delegate override.
+            negative_delegate: Optional negative delegate override.
+            judge_delegate: Optional judge delegate override.
             max_rounds: Maximum number of debate rounds before judgment.
             debate_affirmative_system_prompt: Optional override for affirmative system prompt text.
             debate_affirmative_user_prompt_template: Optional override for affirmative template.
@@ -360,6 +406,9 @@ class DebatePattern(Agent):
         self._default_dependencies = dict(default_dependencies or {})
         self._tracer = tracer
         self.workflow: object | None = None
+        self._affirmative_delegate = affirmative_delegate
+        self._negative_delegate = negative_delegate
+        self._judge_delegate = judge_delegate
         self._affirmative_system_prompt = _resolve_prompt_override(
             override=debate_affirmative_system_prompt,
             default_value=_DEFAULT_AFFIRMATIVE_SYSTEM_PROMPT,
@@ -422,24 +471,29 @@ class DebatePattern(Agent):
             default_dependencies=self._default_dependencies,
             run_dependencies=dependencies,
         )
-        affirmative_agent = DirectLLMCall(
-            llm_client=self._llm_client,
-            system_prompt=self._affirmative_system_prompt,
-            tracer=self._tracer,
-        )
-        negative_agent = DirectLLMCall(
-            llm_client=self._llm_client,
-            system_prompt=self._negative_system_prompt,
-            tracer=self._tracer,
-        )
+        affirmative_delegate = self._affirmative_delegate
+        if affirmative_delegate is None:
+            affirmative_delegate = DirectLLMCall(
+                llm_client=self._llm_client,
+                system_prompt=self._affirmative_system_prompt,
+                tracer=self._tracer,
+            )
+        negative_delegate = self._negative_delegate
+        if negative_delegate is None:
+            negative_delegate = DirectLLMCall(
+                llm_client=self._llm_client,
+                system_prompt=self._negative_system_prompt,
+                tracer=self._tracer,
+            )
         runtime_state: dict[str, object] = {"last_model_response": None}
         callbacks = _DebateWorkflowCallbacks(
             pattern=self,
             prompt=prompt,
             request_id=resolved_request_id,
             dependencies=resolved_dependencies,
-            affirmative_agent=affirmative_agent,
-            negative_agent=negative_agent,
+            affirmative_delegate=affirmative_delegate,
+            negative_delegate=negative_delegate,
+            judge_delegate=self._judge_delegate,
             runtime_state=runtime_state,
         )
 
@@ -566,6 +620,34 @@ def _build_debate_result(
             "rounds": len(normalized_rounds),
         },
     )
+
+
+def _extract_delegate_verdict(output: Mapping[str, object]) -> dict[str, object] | None:
+    """Extract verdict payload from delegate output mappings or model text.
+
+    Args:
+        output: Delegate output payload.
+
+    Returns:
+        Parsed verdict mapping when available, otherwise ``None``.
+    """
+    if {"winner", "rationale", "synthesis"}.issubset(output.keys()):
+        return dict(output)
+
+    final_output = output.get("final_output")
+    if isinstance(final_output, Mapping) and {"winner", "rationale", "synthesis"}.issubset(
+        final_output.keys()
+    ):
+        return dict(final_output)
+    if isinstance(final_output, str):
+        parsed_final = _parse_json_mapping(final_output)
+        if parsed_final is not None:
+            return parsed_final
+
+    model_text = output.get("model_text")
+    if isinstance(model_text, str):
+        return _parse_json_mapping(model_text)
+    return None
 
 
 def _merge_dependencies(

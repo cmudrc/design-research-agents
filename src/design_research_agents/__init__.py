@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING, Final
 
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
-    "MultiStepDirectLLMAgent": "design_research_agents.agent:MultiStepDirectLLMAgent",
-    "MultiStepToolRouterAgent": "design_research_agents.agent:MultiStepToolRouterAgent",
-    "MultiStepJsonToolCallingAgent": "design_research_agents.agent:MultiStepJsonToolCallingAgent",
-    "MultiStepCodeToolCallingAgent": "design_research_agents.agent:MultiStepCodeToolCallingAgent",
+    "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
     "Toolbox": "design_research_agents.tools:Toolbox",
     "CallableTool": "design_research_agents.tools:CallableTool",
     "ScriptTool": "design_research_agents.tools:ScriptTool",
@@ -84,10 +81,7 @@ def __dir__() -> list[str]:
 
 if TYPE_CHECKING:
     from .agent import DirectLLMCall as DirectLLMCall
-    from .agent import MultiStepCodeToolCallingAgent as MultiStepCodeToolCallingAgent
-    from .agent import MultiStepDirectLLMAgent as MultiStepDirectLLMAgent
-    from .agent import MultiStepJsonToolCallingAgent as MultiStepJsonToolCallingAgent
-    from .agent import MultiStepToolRouterAgent as MultiStepToolRouterAgent
+    from .agent import MultiStepAgent as MultiStepAgent
     from .contracts import AgentStep as AgentStep
     from .contracts import LogicStep as LogicStep
     from .contracts import LoopStep as LoopStep

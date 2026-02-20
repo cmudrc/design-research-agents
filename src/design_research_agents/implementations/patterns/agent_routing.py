@@ -12,10 +12,8 @@ from design_research_agents.contracts.termination import (
     TERMINATED_UNKNOWN_ALTERNATIVE,
 )
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
-from design_research_agents.contracts.workflow import LogicStep
-from design_research_agents.implementations.agents.multi_step_tool_router_agent import (
-    MultiStepToolRouterAgent,
-)
+from design_research_agents.contracts.workflow import LogicStep, WorkflowDelegate
+from design_research_agents.implementations.agents.multi_step_agent import MultiStepAgent
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow.workflow import Workflow
 
@@ -41,6 +39,7 @@ from ..shared.workflow_internal import (
     normalize_request_id_prefix,
     resolve_request_id_with_prefix,
 )
+from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 
 @dataclass(slots=True)
@@ -61,7 +60,7 @@ class _RoutingWorkflowCallbacks:
         self,
         *,
         pattern: RouterPattern,
-        router_agent: MultiStepToolRouterAgent,
+        router_agent: MultiStepAgent,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -144,19 +143,24 @@ class _RoutingWorkflowCallbacks:
             }
 
         selected_name = str(selection_output.get("selected_name", "")).strip()
-        selected_agent = self._pattern._alternatives.get(selected_name)
-        if selected_agent is None:
+        selected_delegate = self._pattern._alternatives.get(selected_name)
+        if selected_delegate is None:
             return {
                 "status": TERMINATED_UNKNOWN_ALTERNATIVE,
                 "selected_name": selected_name,
                 "routing": selection_output.get("routing", {}),
             }
 
-        self._state.delegated_result = selected_agent.run(
-            self._prompt,
+        delegate_invocation = invoke_delegate(
+            delegate=selected_delegate,
+            prompt=self._prompt,
+            step_context=context,
             request_id=f"{self._request_id}:agent_routing:{selected_name}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
             dependencies=self._dependencies,
         )
+        self._state.delegated_result = delegate_invocation.result
         delegated_result = self._state.delegated_result
         self._budget_tracker.add_model_response(delegated_result.model_response)
         self._budget_tracker.add_tool_results(
@@ -257,7 +261,7 @@ class RouterPattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        alternatives: Mapping[str, Agent],
+        alternatives: Mapping[str, WorkflowDelegate],
         alternative_descriptions: Mapping[str, str] | None = None,
         agent_routing_router_system_prompt: str | None = None,
         agent_routing_router_user_prompt_template: str | None = None,
@@ -270,7 +274,7 @@ class RouterPattern(Agent):
         Args:
             llm_client: LLM client used by the router agent.
             tool_runtime: Tool runtime used to cost/metadata-account delegated calls.
-            alternatives: Mapping of route keys to delegate agents.
+            alternatives: Mapping of route keys to delegate objects.
             alternative_descriptions: Optional descriptions used to guide routing.
             agent_routing_router_system_prompt: Optional override for router system prompt.
             agent_routing_router_user_prompt_template: Optional override for router user prompt.
@@ -399,12 +403,14 @@ class RouterPattern(Agent):
             alternatives=self._alternatives,
             descriptions=self._alternative_descriptions,
         )
-        router_agent = MultiStepToolRouterAgent(
+        router_agent = MultiStepAgent(
+            mode="json",
             llm_client=self._llm_client,
             tool_runtime=routing_tool_runtime,
             max_steps=1,
-            system_prompt=self._router_system_prompt,
-            user_prompt_template=self._router_user_prompt_template,
+            stop_on_step_failure=True,
+            router_system_prompt=self._router_system_prompt,
+            router_user_prompt_template=self._router_user_prompt_template,
             tracer=self._tracer,
         )
         runtime_tool_specs: dict[str, ToolSpec] = {

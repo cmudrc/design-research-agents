@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from design_research_agents.agent import (
-    MultiStepCodeToolCallingAgent,
-    MultiStepJsonToolCallingAgent,
-)
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.contracts.memory import MemorySearchQuery, MemoryWriteRecord
 from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
 from design_research_agents.tools import Toolbox
@@ -20,7 +17,8 @@ def test_multi_step_json_behavior_unchanged_without_memory_store() -> None:
             '{"continue": false, "thought": "done"}',
         ]
     )
-    agent = MultiStepJsonToolCallingAgent(
+    agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=Toolbox(),
         max_steps=3,
@@ -48,7 +46,8 @@ def test_multi_step_json_reads_memory_context_and_writes_observations(tmp_path) 
             '{"continue": false, "thought": "done"}',
         ]
     )
-    agent = MultiStepJsonToolCallingAgent(
+    agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=Toolbox(),
         max_steps=3,
@@ -96,7 +95,8 @@ def test_multi_step_code_writes_observations_when_memory_enabled(tmp_path) -> No
             '{"continue": false, "thought": "done"}',
         ]
     )
-    agent = MultiStepCodeToolCallingAgent(
+    agent = MultiStepAgent(
+        mode="code",
         llm_client=llm_client,
         tool_runtime=Toolbox(),
         max_steps=3,

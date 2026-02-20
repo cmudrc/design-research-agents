@@ -1,4 +1,4 @@
-"""Runnable example showing one ``MultiStepJsonToolCallingAgent`` execution lifecycle.
+"""Runnable example showing one ``MultiStepAgent(mode="json")`` execution lifecycle.
 
 The script demonstrates iterative continuation/step execution over a short
 multi-step task and prints the final structured result payload.
@@ -8,7 +8,7 @@ import json
 from collections.abc import Mapping
 
 from design_research_agents import CallableTool, LlamaCppServerLLMClient, Toolbox
-from design_research_agents.agent import MultiStepJsonToolCallingAgent
+from design_research_agents.agent import MultiStepAgent
 
 
 def _repo_metrics(payload: Mapping[str, object]) -> dict[str, object]:
@@ -39,7 +39,8 @@ def main() -> None:
         ),
     )
     try:
-        agent = MultiStepJsonToolCallingAgent(
+        agent = MultiStepAgent(
+            mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_steps=1,

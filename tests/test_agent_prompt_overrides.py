@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 import pytest
 
-from design_research_agents.agent import (
-    MultiStepCodeToolCallingAgent,
-    MultiStepJsonToolCallingAgent,
-    MultiStepToolRouterAgent,
-)
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMDelta,
@@ -17,6 +13,7 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import PlannerExecutorPattern
 
@@ -68,9 +65,70 @@ class _SequenceLLMClient:
         return "test-model"
 
 
+class _ArglessToolRuntime(ToolRuntime):
+    def list_tools(self) -> list[ToolSpec]:
+        return [
+            ToolSpec(
+                name="noop",
+                description="No-op",
+                input_schema={"type": "object", "additionalProperties": False},
+                output_schema={"type": "object", "additionalProperties": True},
+            )
+        ]
+
+    def invoke(
+        self,
+        tool_name: str,
+        input_dict: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del input_dict, request_id, dependencies
+        return ToolResult(tool_name=tool_name, ok=True, result={})
+
+
+class _EmptyToolRuntime(ToolRuntime):
+    def list_tools(self) -> list[ToolSpec]:
+        return []
+
+    def invoke(
+        self,
+        tool_name: str,
+        input_dict: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del tool_name, input_dict, request_id, dependencies
+        raise AssertionError("invoke should not be called for empty runtime")
+
+
+def test_multi_step_agent_rejects_missing_runtime_for_json_or_code_modes() -> None:
+    llm_client = _SequenceLLMClient(response_texts=['{"continue": false, "thought": "done"}'])
+
+    with pytest.raises(ValueError, match="tool_runtime is required"):
+        MultiStepAgent(mode="json", llm_client=llm_client)
+
+    with pytest.raises(ValueError, match="tool_runtime is required"):
+        MultiStepAgent(mode="code", llm_client=llm_client)
+
+
+def test_multi_step_agent_rejects_empty_runtime_for_json_or_code_modes() -> None:
+    llm_client = _SequenceLLMClient(response_texts=['{"continue": false, "thought": "done"}'])
+    empty_runtime = _EmptyToolRuntime()
+
+    with pytest.raises(ValueError, match="must expose at least one tool"):
+        MultiStepAgent(mode="json", llm_client=llm_client, tool_runtime=empty_runtime)
+
+    with pytest.raises(ValueError, match="must expose at least one tool"):
+        MultiStepAgent(mode="code", llm_client=llm_client, tool_runtime=empty_runtime)
+
+
 def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target() -> None:
     with pytest.raises(ValueError, match="alternatives_prompt_target"):
-        MultiStepJsonToolCallingAgent(
+        MultiStepAgent(
+            mode="json",
             llm_client=_SequenceLLMClient(
                 response_texts=['{"tool_name":"calculator","tool_input":{}}']
             ),
@@ -81,18 +139,20 @@ def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target()
 
 def test_multi_step_router_agent_rejects_unmatched_allowed_routes() -> None:
     with pytest.raises(ValueError, match="allowed_routes"):
-        MultiStepToolRouterAgent(
+        MultiStepAgent(
+            mode="json",
             llm_client=_SequenceLLMClient(
                 response_texts=['{"tool_names":["calculator"],"reason":"x"}']
             ),
-            tool_runtime=Toolbox(),
+            tool_runtime=_ArglessToolRuntime(),
             allowed_routes=["unknown_route"],
         )
 
 
 def test_multi_step_code_agent_rejects_empty_prompt_override() -> None:
     with pytest.raises(ValueError, match="continuation_system_prompt"):
-        MultiStepCodeToolCallingAgent(
+        MultiStepAgent(
+            mode="code",
             llm_client=_SequenceLLMClient(response_texts=["final_output = {}"]),
             tool_runtime=Toolbox(),
             continuation_system_prompt="   ",

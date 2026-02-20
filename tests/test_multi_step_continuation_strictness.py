@@ -62,7 +62,7 @@ def _continuation_call(
         continuation_response_schema=build_continuation_response_schema(),
         continuation_memory_tail_items=4,
         alternatives_section_label="Alternatives",
-        agent_name="MultiStepJsonToolCallingAgent",
+        agent_name="MultiStepAgent",
     )
 
 

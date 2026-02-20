@@ -7,7 +7,7 @@ from collections.abc import Mapping
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
-from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
 from design_research_agents.implementations.agents.direct_llm_call import (
     DirectLLMCall,
 )
@@ -32,6 +32,8 @@ from design_research_agents.implementations.shared.workflow_internal import (
 )
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow import Workflow
+
+from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 _DEFAULT_SPEAKER_A_NAME = "speaker_a"
 _DEFAULT_SPEAKER_B_NAME = "speaker_b"
@@ -80,8 +82,8 @@ class _ConversationLoopCallbacks:
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-        speaker_a_agent: DirectLLMCall,
-        speaker_b_agent: DirectLLMCall,
+        speaker_a_delegate: WorkflowDelegate,
+        speaker_b_delegate: WorkflowDelegate,
         runtime_state: dict[str, object],
     ) -> None:
         """Store callback dependencies.
@@ -91,16 +93,16 @@ class _ConversationLoopCallbacks:
             prompt: Task prompt for the run.
             request_id: Resolved request id.
             dependencies: Resolved dependency mapping.
-            speaker_a_agent: Configured delegate for speaker A.
-            speaker_b_agent: Configured delegate for speaker B.
+            speaker_a_delegate: Configured delegate for speaker A.
+            speaker_b_delegate: Configured delegate for speaker B.
             runtime_state: Mutable callback state sink.
         """
         self._pattern = pattern
         self._prompt = prompt
         self._request_id = request_id
         self._dependencies = dependencies
-        self._speaker_a_agent = speaker_a_agent
-        self._speaker_b_agent = speaker_b_agent
+        self._speaker_a_delegate = speaker_a_delegate
+        self._speaker_b_delegate = speaker_b_delegate
         self._runtime_state = runtime_state
 
     def continue_predicate(self, iteration: int, state: Mapping[str, object]) -> bool:
@@ -145,11 +147,16 @@ class _ConversationLoopCallbacks:
             partner_message=last_message_from_b,
             transcript=transcript,
         )
-        speaker_a_result = self._speaker_a_agent.run(
-            speaker_a_prompt,
+        speaker_a_invocation = invoke_delegate(
+            delegate=self._speaker_a_delegate,
+            prompt=speaker_a_prompt,
+            step_context=context,
             request_id=f"{self._request_id}:conversation:speaker_a:{turn_number}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
             dependencies=self._dependencies,
         )
+        speaker_a_result = speaker_a_invocation.result
         if speaker_a_result.model_response is not None:
             self._runtime_state["last_model_response"] = speaker_a_result.model_response
         if not speaker_a_result.success:
@@ -182,11 +189,16 @@ class _ConversationLoopCallbacks:
             partner_message=speaker_a_message or "(none)",
             transcript=transcript,
         )
-        speaker_b_result = self._speaker_b_agent.run(
-            speaker_b_prompt,
+        speaker_b_invocation = invoke_delegate(
+            delegate=self._speaker_b_delegate,
+            prompt=speaker_b_prompt,
+            step_context=context,
             request_id=f"{self._request_id}:conversation:speaker_b:{turn_number}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
             dependencies=self._dependencies,
         )
+        speaker_b_result = speaker_b_invocation.result
         if speaker_b_result.model_response is not None:
             self._runtime_state["last_model_response"] = speaker_b_result.model_response
         if not speaker_b_result.success:
@@ -249,6 +261,8 @@ class ConversationPattern(Agent):
         *,
         llm_client_a: LLMClient,
         llm_client_b: LLMClient | None = None,
+        speaker_a_delegate: WorkflowDelegate | None = None,
+        speaker_b_delegate: WorkflowDelegate | None = None,
         max_turns: int = 3,
         speaker_a_name: str = _DEFAULT_SPEAKER_A_NAME,
         speaker_b_name: str = _DEFAULT_SPEAKER_B_NAME,
@@ -266,6 +280,8 @@ class ConversationPattern(Agent):
             llm_client_a: LLM client used by speaker A.
             llm_client_b: Optional LLM client used by speaker B.
                 Defaults to ``llm_client_a`` when omitted.
+            speaker_a_delegate: Optional explicit delegate for speaker A.
+            speaker_b_delegate: Optional explicit delegate for speaker B.
             max_turns: Maximum conversation turns where each turn is A->B.
             speaker_a_name: Display name for speaker A in transcript and prompts.
             speaker_b_name: Display name for speaker B in transcript and prompts.
@@ -314,6 +330,8 @@ class ConversationPattern(Agent):
             default_value=_DEFAULT_SPEAKER_B_USER_PROMPT_TEMPLATE,
             field_name="conversation_speaker_b_user_prompt_template",
         )
+        self._speaker_a_delegate = speaker_a_delegate
+        self._speaker_b_delegate = speaker_b_delegate
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._tracer = tracer
@@ -396,28 +414,32 @@ class ConversationPattern(Agent):
         Raises:
             RuntimeError: If the loop step result is missing.
         """
-        resolve_agent_model(llm_client=self._llm_client_a)
-        if self._llm_client_b is not self._llm_client_a:
-            resolve_agent_model(llm_client=self._llm_client_b)
+        speaker_a_delegate = self._speaker_a_delegate
+        if speaker_a_delegate is None:
+            resolve_agent_model(llm_client=self._llm_client_a)
+            speaker_a_delegate = DirectLLMCall(
+                llm_client=self._llm_client_a,
+                system_prompt=self._speaker_a_system_prompt,
+                tracer=self._tracer,
+            )
 
-        speaker_a_agent = DirectLLMCall(
-            llm_client=self._llm_client_a,
-            system_prompt=self._speaker_a_system_prompt,
-            tracer=self._tracer,
-        )
-        speaker_b_agent = DirectLLMCall(
-            llm_client=self._llm_client_b,
-            system_prompt=self._speaker_b_system_prompt,
-            tracer=self._tracer,
-        )
+        speaker_b_delegate = self._speaker_b_delegate
+        if speaker_b_delegate is None:
+            if self._llm_client_b is not self._llm_client_a:
+                resolve_agent_model(llm_client=self._llm_client_b)
+            speaker_b_delegate = DirectLLMCall(
+                llm_client=self._llm_client_b,
+                system_prompt=self._speaker_b_system_prompt,
+                tracer=self._tracer,
+            )
         runtime_state: dict[str, object] = {"last_model_response": None}
         callbacks = _ConversationLoopCallbacks(
             pattern=self,
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            speaker_a_agent=speaker_a_agent,
-            speaker_b_agent=speaker_b_agent,
+            speaker_a_delegate=speaker_a_delegate,
+            speaker_b_delegate=speaker_b_delegate,
             runtime_state=runtime_state,
         )
 

@@ -3,11 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.agent import (
-    MultiStepCodeToolCallingAgent,
-    MultiStepJsonToolCallingAgent,
-    MultiStepToolRouterAgent,
-)
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMMessage,
@@ -54,7 +50,7 @@ class _RouterToolRuntime(ToolRuntime):
             ToolSpec(
                 name="sum",
                 description="Add numbers",
-                input_schema={"type": "object", "additionalProperties": True},
+                input_schema={"type": "object", "additionalProperties": False},
                 output_schema={"type": "object", "additionalProperties": True},
             ),
         )
@@ -71,7 +67,7 @@ class _RouterToolRuntime(ToolRuntime):
         return ToolResult(
             tool_name=tool_name,
             ok=True,
-            result={"value": int(input_dict.get("a", 0)) + int(input_dict.get("b", 0))},
+            result={"value": 5},
         )
 
 
@@ -88,7 +84,8 @@ def test_multi_step_tool_router_one_step_mode_runs_single_action_step() -> None:
             )
         ]
     )
-    agent = MultiStepToolRouterAgent(
+    agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=_RouterToolRuntime(),
         max_steps=1,
@@ -116,7 +113,8 @@ def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
             ),
         ]
     )
-    agent = MultiStepJsonToolCallingAgent(
+    agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=Toolbox(),
         max_steps=1,
@@ -144,7 +142,8 @@ def test_multi_step_code_one_step_mode_runs_single_code_step() -> None:
             ),
         ]
     )
-    agent = MultiStepCodeToolCallingAgent(
+    agent = MultiStepAgent(
+        mode="code",
         llm_client=llm_client,
         tool_runtime=Toolbox(),
         max_steps=1,

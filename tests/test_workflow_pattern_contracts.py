@@ -155,10 +155,14 @@ def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
     plan_params = inspect.signature(PlannerExecutorPattern.__init__).parameters
     assert "default_request_id_prefix" in plan_params
     assert "plan_execute_planner_system_prompt" in plan_params
+    assert "planner_delegate" in plan_params
+    assert "executor_delegate" in plan_params
 
     propose_params = inspect.signature(ReflexionPattern.__init__).parameters
     assert "propose_critic_proposer_user_prompt_template" in propose_params
     assert "default_dependencies" in propose_params
+    assert "proposer_delegate" in propose_params
+    assert "critic_delegate" in propose_params
 
     routing_params = inspect.signature(RouterPattern.__init__).parameters
     assert "agent_routing_router_system_prompt" in routing_params
@@ -181,6 +185,8 @@ def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
     conversation_params = inspect.signature(ConversationPattern.__init__).parameters
     assert "llm_client_a" in conversation_params
     assert "llm_client_b" in conversation_params
+    assert "speaker_a_delegate" in conversation_params
+    assert "speaker_b_delegate" in conversation_params
     assert "max_turns" in conversation_params
     assert "conversation_speaker_a_user_prompt_template" in conversation_params
 

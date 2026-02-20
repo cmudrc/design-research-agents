@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents.contracts.termination import (
     TERMINATED_CONTROLLER_INVALID_PAYLOAD,
     TERMINATED_MAX_STEPS_REACHED,
 )
-from design_research_agents.implementations.agents.multi_step_direct_llm_agent import (
-    MultiStepDirectLLMAgent,
+from design_research_agents.implementations.agents.multi_step_agent import (
     _coerce_state_records,
     _parse_controller_decision,
 )
@@ -51,7 +51,7 @@ def test_multi_step_direct_llm_agent_continue_then_stop() -> None:
             ),
         ]
     )
-    agent = MultiStepDirectLLMAgent(llm_client=llm_client, max_steps=3)
+    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=3)
 
     result = agent.run(
         "What is 6*7?",
@@ -75,7 +75,7 @@ def test_multi_step_direct_llm_agent_continue_then_stop() -> None:
 
 def test_multi_step_direct_llm_agent_invalid_controller_payload_fails() -> None:
     llm_client = _SequenceLLMClient(responses=[json.dumps({"continue": True, "thought": "legacy"})])
-    agent = MultiStepDirectLLMAgent(llm_client=llm_client, max_steps=2)
+    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=2)
 
     result = agent.run("Test invalid payload")
 
@@ -93,7 +93,7 @@ def test_multi_step_direct_llm_agent_max_steps_reached_on_all_continue() -> None
             json.dumps({"decision": "CONTINUE", "content": "second"}),
         ]
     )
-    agent = MultiStepDirectLLMAgent(llm_client=llm_client, max_steps=2)
+    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=2)
 
     result = agent.run("Continue until max steps")
 

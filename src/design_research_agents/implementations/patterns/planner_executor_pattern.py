@@ -9,12 +9,11 @@ from design_research_agents.contracts.llm import (
     LLMChatParams,
     LLMClient,
     LLMMessage,
+    LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.contracts.workflow import AgentStep, LoopStep
-from design_research_agents.implementations.agents.multi_step_code_tool_calling_agent import (
-    MultiStepCodeToolCallingAgent,
-)
+from design_research_agents.contracts.workflow import AgentStep, LoopStep, WorkflowDelegate
+from design_research_agents.implementations.agents.multi_step_agent import MultiStepAgent
 from design_research_agents.schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
@@ -52,6 +51,7 @@ from ..shared.workflow_internal import (
     resolve_prompt_override,
     resolve_request_id_with_prefix,
 )
+from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 from ..shared.workflow_internal.planner_executor_helpers import (
     DEFAULT_EXECUTOR_STEP_PROMPT_TEMPLATE,
     DEFAULT_PLANNER_SYSTEM_PROMPT,
@@ -69,6 +69,8 @@ class PlannerExecutorPattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        planner_delegate: WorkflowDelegate | None = None,
+        executor_delegate: WorkflowDelegate | None = None,
         max_iterations: int = 3,
         max_tool_calls_per_step: int = 5,
         plan_execute_planner_system_prompt: str | None = None,
@@ -83,6 +85,8 @@ class PlannerExecutorPattern(Agent):
         Args:
             llm_client: LLM client used for planner and executor model calls.
             tool_runtime: Tool runtime used by executor agent steps.
+            planner_delegate: Optional planner delegate override.
+            executor_delegate: Optional executor delegate override.
             max_iterations: Maximum number of plan steps executed in one run.
             max_tool_calls_per_step: Maximum tool calls allowed per executor step.
             plan_execute_planner_system_prompt: Optional override for planner system prompt.
@@ -102,6 +106,8 @@ class PlannerExecutorPattern(Agent):
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
+        self._planner_delegate = planner_delegate
+        self._executor_delegate = executor_delegate
         self._max_iterations = max_iterations
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._tracer = tracer
@@ -199,47 +205,70 @@ class PlannerExecutorPattern(Agent):
         """
         budget_tracker = WorkflowBudgetTracker()
         runtime_tool_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
-        resolved_model = resolve_agent_model(llm_client=self._llm_client)
+        planner_response: LLMResponse | None = None
+        parsed_plan: dict[str, object] | None = None
 
-        planner_messages = [
-            LLMMessage(role="system", content=self._planner_system_prompt),
-            LLMMessage(
-                role="user",
-                content=render_prompt_template(
-                    template_text=self._planner_user_prompt_template,
-                    variables={"task_prompt": prompt},
-                    field_name="plan_execute_planner_user_prompt_template",
+        if self._planner_delegate is None:
+            resolved_model = resolve_agent_model(llm_client=self._llm_client)
+            planner_messages = [
+                LLMMessage(role="system", content=self._planner_system_prompt),
+                LLMMessage(
+                    role="user",
+                    content=render_prompt_template(
+                        template_text=self._planner_user_prompt_template,
+                        variables={"task_prompt": prompt},
+                        field_name="plan_execute_planner_user_prompt_template",
+                    ),
                 ),
-            ),
-        ]
-        planner_call_metadata: dict[str, object] = {
-            "agent": "PlannerExecutorPattern",
-            "mode": "plan_execute",
-            "phase": "planner",
-        }
-        planner_params = LLMChatParams(
-            response_schema=dict(PLAN_SCHEMA),
-            provider_options=planner_call_metadata,
-        )
-        planner_span_id = start_model_call(
-            model=resolved_model,
-            messages=planner_messages,
-            params=planner_params,
-            metadata=planner_call_metadata,
-        )
-        try:
-            planner_response = self._llm_client.chat(
-                planner_messages,
-                model=resolved_model,
-                params=planner_params,
+            ]
+            planner_call_metadata: dict[str, object] = {
+                "agent": "PlannerExecutorPattern",
+                "mode": "plan_execute",
+                "phase": "planner",
+            }
+            planner_params = LLMChatParams(
+                response_schema=dict(PLAN_SCHEMA),
+                provider_options=planner_call_metadata,
             )
-        except Exception as exc:
-            finish_model_call(planner_span_id, error=str(exc), model=resolved_model)
-            raise
-        finish_model_call(planner_span_id, response=planner_response)
-        budget_tracker.add_model_response(planner_response)
+            planner_span_id = start_model_call(
+                model=resolved_model,
+                messages=planner_messages,
+                params=planner_params,
+                metadata=planner_call_metadata,
+            )
+            try:
+                planner_response = self._llm_client.chat(
+                    planner_messages,
+                    model=resolved_model,
+                    params=planner_params,
+                )
+            except Exception as exc:
+                finish_model_call(planner_span_id, error=str(exc), model=resolved_model)
+                raise
+            finish_model_call(planner_span_id, response=planner_response)
+            budget_tracker.add_model_response(planner_response)
+            parsed_plan = _parse_json_mapping(planner_response.text)
+        else:
+            planner_prompt = render_prompt_template(
+                template_text=self._planner_user_prompt_template,
+                variables={"task_prompt": prompt},
+                field_name="plan_execute_planner_user_prompt_template",
+            )
+            planner_invocation = invoke_delegate(
+                delegate=self._planner_delegate,
+                prompt=planner_prompt,
+                step_context=None,
+                request_id=f"{request_id}:plan_execute:planner_delegate",
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+                dependencies=dependencies,
+            )
+            planner_result = planner_invocation.result
+            planner_response = planner_result.model_response
+            budget_tracker.add_model_response(planner_response)
+            if planner_result.success:
+                parsed_plan = _extract_planner_payload(planner_result.output)
 
-        parsed_plan = _parse_json_mapping(planner_response.text)
         if parsed_plan is None:
             failure = build_pattern_failure_result(
                 error="Planner did not return valid JSON plan output.",
@@ -295,13 +324,17 @@ class PlannerExecutorPattern(Agent):
         raw_steps = parsed_plan.get("steps")
         plan_steps = raw_steps if isinstance(raw_steps, list) else []
 
-        executor_agent = MultiStepCodeToolCallingAgent(
-            llm_client=self._llm_client,
-            tool_runtime=self._tool_runtime,
-            max_steps=1,
-            max_tool_calls_per_step=self._max_tool_calls_per_step,
-            tracer=self._tracer,
-        )
+        if self._executor_delegate is None:
+            executor_delegate: WorkflowDelegate = MultiStepAgent(
+                mode="code",
+                llm_client=self._llm_client,
+                tool_runtime=self._tool_runtime,
+                max_steps=1,
+                max_tool_calls_per_step=self._max_tool_calls_per_step,
+                tracer=self._tracer,
+            )
+        else:
+            executor_delegate = self._executor_delegate
         callbacks = PlanExecuteLoopCallbacks(
             prompt=prompt,
             plan_steps=[dict(step) for step in plan_steps if isinstance(step, Mapping)],
@@ -324,7 +357,7 @@ class PlannerExecutorPattern(Agent):
                     steps=(
                         AgentStep(
                             step_id="execute_plan_step",
-                            delegate=executor_agent,
+                            delegate=executor_delegate,
                             prompt_builder=callbacks.executor_prompt_builder,
                         ),
                     ),
@@ -404,6 +437,35 @@ class PlannerExecutorPattern(Agent):
                 },
             },
         )
+
+
+def _extract_planner_payload(output: Mapping[str, object]) -> dict[str, object] | None:
+    """Extract planner payload mapping from delegate output.
+
+    Args:
+        output: Delegate output payload.
+
+    Returns:
+        Planner payload mapping when present, otherwise ``None``.
+    """
+    steps = output.get("steps")
+    if isinstance(steps, list):
+        return dict(output)
+
+    final_output = output.get("final_output")
+    if isinstance(final_output, Mapping):
+        final_steps = final_output.get("steps")
+        if isinstance(final_steps, list):
+            return dict(final_output)
+    if isinstance(final_output, str):
+        parsed_final = _parse_json_mapping(final_output)
+        if parsed_final is not None:
+            return parsed_final
+
+    model_text = output.get("model_text")
+    if isinstance(model_text, str):
+        return _parse_json_mapping(model_text)
+    return None
 
 
 __all__ = [

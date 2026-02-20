@@ -9,80 +9,84 @@ from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
 from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.implementations.shared.agent_internal.code_action_step_runner import (
-    CodeActionStepRunner,
-)
 from design_research_agents.tracing import Tracer
 
-from ..shared.agent_internal.execution_context import (
+from ..code_action_step_runner import (
+    CodeActionStepRunner,
+)
+from ..execution_context import (
     finish_agent_execution,
     prepare_agent_execution,
 )
-from ..shared.agent_internal.model_resolution import resolve_agent_model
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..model_resolution import (
+    resolve_agent_model,
+)
+from ..multi_step_code_runtime_helpers import (
     MultiStepCodeRunConfig,
     build_code_final_result,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     append_retrieval_trace as _append_retrieval_trace,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     build_code_step_agent as _build_code_step_agent,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     build_continuation_stop_state as _build_continuation_stop_state,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     build_step_input as _build_step_input,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     build_step_tools_text as _build_step_tools_text,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     resolve_run_config as _resolve_run_config,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     resolve_step_completion as _resolve_step_completion,
 )
-from ..shared.agent_internal.multi_step_code_runtime_helpers import (
+from ..multi_step_code_runtime_helpers import (
     write_step_observation as _write_step_observation,
 )
-from ..shared.agent_internal.multi_step_common import (
+from ..multi_step_common import (
     build_step_prompt,
 )
-from ..shared.agent_internal.multi_step_continuation import (
+from ..multi_step_continuation import (
     llm_should_continue as _llm_should_continue,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     build_loop_initial_state,
     continue_loop,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_mapping as _coerce_mapping,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_state_records as _coerce_state_records,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_string_list as _coerce_string_list,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_tool_results as _coerce_tool_results,
 )
-from ..shared.agent_internal.multi_step_memory import (
+from ..multi_step_memory import (
     retrieve_memory_context,
 )
-from ..shared.agent_internal.prompt_alternatives import (
+from ..prompt_alternatives import (
     AlternativesPromptTarget,
     normalize_alternatives_prompt_target,
 )
-from ..shared.agent_internal.prompt_overrides import (
+from ..prompt_overrides import (
     resolve_prompt_text,
 )
-from ..shared.agent_internal.response_schemas import (
+from ..response_schemas import (
     build_continuation_response_schema,
 )
-from ..shared.agent_internal.workflow_loop_orchestration import run_workflow_loop
+from ..workflow_loop_orchestration import (
+    run_workflow_loop,
+)
 
 
 class MultiStepCodeToolCallingAgent(Agent):

@@ -7,10 +7,7 @@ import pytest
 
 from design_research_agents.agent import (
     DirectLLMCall,
-    MultiStepCodeToolCallingAgent,
-    MultiStepDirectLLMAgent,
-    MultiStepJsonToolCallingAgent,
-    MultiStepToolRouterAgent,
+    MultiStepAgent,
 )
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -63,10 +60,7 @@ class _EmptyDefaultModelClient:
 def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
         DirectLLMCall,
-        MultiStepDirectLLMAgent,
-        MultiStepToolRouterAgent,
-        MultiStepJsonToolCallingAgent,
-        MultiStepCodeToolCallingAgent,
+        MultiStepAgent,
         ConversationPattern,
         PlannerExecutorPattern,
         ReflexionPattern,
@@ -76,7 +70,7 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
 
 
 def test_agent_constructor_signatures_expose_supported_kwargs() -> None:
-    multi_code_params = inspect.signature(MultiStepCodeToolCallingAgent.__init__).parameters
+    multi_code_params = inspect.signature(MultiStepAgent.__init__).parameters
     assert "execution_timeout_seconds" in multi_code_params
 
     planner_params = inspect.signature(PlannerExecutorPattern.__init__).parameters

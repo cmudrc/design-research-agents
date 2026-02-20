@@ -1,11 +1,11 @@
-"""Runnable example for ``MultiStepJsonToolCallingAgent`` with local memory."""
+"""Runnable example for ``MultiStepAgent(mode="json")`` with local memory."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Iterator, Sequence
 
-from design_research_agents import MultiStepJsonToolCallingAgent, Toolbox
+from design_research_agents import MultiStepAgent, Toolbox
 from design_research_agents.contracts import (
     LLMChatParams,
     LLMDelta,
@@ -126,7 +126,8 @@ def main() -> None:
             '{"continue": false, "thought": "done"}',
         ]
     )
-    agent = MultiStepJsonToolCallingAgent(
+    agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=Toolbox(),
         max_steps=3,

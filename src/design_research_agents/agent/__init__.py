@@ -7,18 +7,7 @@ from typing import Final
 
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.implementations.agents:DirectLLMCall",
-    "MultiStepCodeToolCallingAgent": (
-        "design_research_agents.implementations.agents:MultiStepCodeToolCallingAgent"
-    ),
-    "MultiStepDirectLLMAgent": (
-        "design_research_agents.implementations.agents:MultiStepDirectLLMAgent"
-    ),
-    "MultiStepJsonToolCallingAgent": (
-        "design_research_agents.implementations.agents:MultiStepJsonToolCallingAgent"
-    ),
-    "MultiStepToolRouterAgent": (
-        "design_research_agents.implementations.agents:MultiStepToolRouterAgent"
-    ),
+    "MultiStepAgent": "design_research_agents.implementations.agents:MultiStepAgent",
 }
 
 __all__ = list(_EXPORTS.keys())

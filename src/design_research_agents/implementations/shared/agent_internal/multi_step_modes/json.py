@@ -20,73 +20,77 @@ from design_research_agents.contracts.termination import (
     continuation_stopped_reason,
 )
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.implementations.shared.agent_internal.json_action_step_runner import (
-    JsonActionStepRunner,
-)
 from design_research_agents.tracing import Tracer
 
-from ..shared.agent_internal.execution_context import (
+from ..execution_context import (
     finish_agent_execution,
     prepare_agent_execution,
 )
-from ..shared.agent_internal.input_parsing import (
+from ..input_parsing import (
     extract_boolean as _extract_boolean,
 )
-from ..shared.agent_internal.input_parsing import (
+from ..input_parsing import (
     extract_positive_int as _extract_positive_int,
 )
-from ..shared.agent_internal.model_resolution import resolve_agent_model
-from ..shared.agent_internal.multi_step_common import (
+from ..json_action_step_runner import (
+    JsonActionStepRunner,
+)
+from ..model_resolution import (
+    resolve_agent_model,
+)
+from ..multi_step_common import (
     build_step_prompt,
 )
-from ..shared.agent_internal.multi_step_continuation import (
+from ..multi_step_continuation import (
     llm_should_continue as _llm_should_continue,
 )
-from ..shared.agent_internal.multi_step_json_helpers import (
+from ..multi_step_json_helpers import (
     build_step_tools_text,
     normalize_step_final_output,
     resolve_step_error,
 )
-from ..shared.agent_internal.multi_step_json_runtime_helpers import (
+from ..multi_step_json_runtime_helpers import (
     build_json_final_result,
 )
-from ..shared.agent_internal.multi_step_json_runtime_helpers import (
+from ..multi_step_json_runtime_helpers import (
     summarize_observation as _summarize_observation,
 )
-from ..shared.agent_internal.multi_step_json_runtime_helpers import (
+from ..multi_step_json_runtime_helpers import (
     summarize_tool_action as _summarize_tool_action,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     build_loop_initial_state,
     continue_loop,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_mapping as _coerce_mapping,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_state_records as _coerce_state_records,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_string_list as _coerce_string_list,
 )
-from ..shared.agent_internal.multi_step_loop_state import (
+from ..multi_step_loop_state import (
     coerce_tool_results as _coerce_tool_results,
 )
-from ..shared.agent_internal.multi_step_memory import (
+from ..multi_step_memory import (
     retrieve_memory_context,
     write_memory_observation,
 )
-from ..shared.agent_internal.prompt_alternatives import (
+from ..prompt_alternatives import (
     AlternativesPromptTarget,
     normalize_alternatives_prompt_target,
 )
-from ..shared.agent_internal.prompt_overrides import (
+from ..prompt_overrides import (
     resolve_prompt_text,
 )
-from ..shared.agent_internal.response_schemas import (
+from ..response_schemas import (
     build_continuation_response_schema,
 )
-from ..shared.agent_internal.workflow_loop_orchestration import run_workflow_loop
+from ..workflow_loop_orchestration import (
+    run_workflow_loop,
+)
 
 
 class MultiStepJsonToolCallingAgent(Agent):

@@ -2,10 +2,7 @@
 
 from .agents import (
     DirectLLMCall,
-    MultiStepCodeToolCallingAgent,
-    MultiStepDirectLLMAgent,
-    MultiStepJsonToolCallingAgent,
-    MultiStepToolRouterAgent,
+    MultiStepAgent,
 )
 from .patterns import (
     BlackboardPattern,
@@ -24,10 +21,7 @@ __all__ = [
     "ConversationPattern",
     "DebatePattern",
     "DirectLLMCall",
-    "MultiStepCodeToolCallingAgent",
-    "MultiStepDirectLLMAgent",
-    "MultiStepJsonToolCallingAgent",
-    "MultiStepToolRouterAgent",
+    "MultiStepAgent",
     "NetworkedPattern",
     "PlannerExecutorPattern",
     "RagReasoningPattern",

@@ -1,7 +1,7 @@
 Agents
 ======
 
-The framework provides five core concrete agent implementations. Choose by
+The framework provides two core concrete agent entry points. Choose by
 execution pattern first, then by control requirements.
 
 Multi-agent orchestration patterns (``PlannerExecutorPattern``,
@@ -12,10 +12,7 @@ Overview
 --------
 
 - ``DirectLLMCall``
-- ``MultiStepDirectLLMAgent``
-- ``MultiStepToolRouterAgent``
-- ``MultiStepJsonToolCallingAgent``
-- ``MultiStepCodeToolCallingAgent``
+- ``MultiStepAgent`` (``mode="direct" | "json" | "code"``)
 
 Decision table
 --------------
@@ -30,16 +27,16 @@ Decision table
      - ``DirectLLMCall``
      - Lowest orchestration overhead
    * - Iterative direct (no external tools)
-     - ``MultiStepDirectLLMAgent``
+     - ``MultiStepAgent(mode="direct")``
      - Internal CONTINUE/STOP controller steps
    * - Iterative tool routing loop
-     - ``MultiStepToolRouterAgent``
-     - ReAct-style TOOL_CALL/STOP controller loop
+     - ``MultiStepAgent(mode="json")`` with arg-less tools
+     - ReAct-style TOOL_CALL/STOP controller loop (auto-special-case)
    * - Iterative structured tool loops
-     - ``MultiStepJsonToolCallingAgent``
+     - ``MultiStepAgent(mode="json")``
      - ReAct-style multi-step loop with JSON actions
    * - Iterative code-action loops
-     - ``MultiStepCodeToolCallingAgent``
+     - ``MultiStepAgent(mode="code")``
      - ReAct-style loop with code actions
 
 Examples

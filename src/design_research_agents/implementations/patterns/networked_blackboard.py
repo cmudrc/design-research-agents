@@ -8,13 +8,15 @@ from hashlib import sha256
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
-from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
 from design_research_agents.implementations.shared.agent_internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow import Workflow
+
+from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 
 class NetworkedPattern(Agent):
@@ -23,7 +25,7 @@ class NetworkedPattern(Agent):
     def __init__(
         self,
         *,
-        peers: Mapping[str, Agent],
+        peers: Mapping[str, WorkflowDelegate],
         max_rounds: int = 4,
         initial_state: Mapping[str, object] | None = None,
         peer_prompt_builder: (Callable[[str, Mapping[str, object], str, int], str] | None) = None,
@@ -32,7 +34,7 @@ class NetworkedPattern(Agent):
         """Initialize peer-only networked orchestration.
 
         Args:
-            peers: Mapping of peer ids to agent delegates.
+            peers: Mapping of peer ids to delegate objects.
             max_rounds: Maximum number of coordination rounds.
             initial_state: Optional initial shared state payload.
             peer_prompt_builder: Optional prompt builder per peer and round.
@@ -188,11 +190,16 @@ class NetworkedPattern(Agent):
                     "peer_id": peer_id,
                     "blackboard": _json_ready(blackboard),
                 }
-                peer_result = peer.run(
-                    peer_prompt,
+                peer_invocation = invoke_delegate(
+                    delegate=peer,
+                    prompt=peer_prompt,
+                    step_context=context,
                     request_id=f"{request_id}:networked:{peer_id}:{round_number}",
+                    execution_mode="sequential",
+                    failure_policy="skip_dependents",
                     dependencies=peer_dependencies,
                 )
+                peer_result = peer_invocation.result
                 tool_results.extend(peer_result.tool_results)
                 if not peer_result.success:
                     return {
@@ -400,7 +407,7 @@ class BlackboardPattern(NetworkedPattern):
     def __init__(
         self,
         *,
-        peers: Mapping[str, Agent],
+        peers: Mapping[str, WorkflowDelegate],
         max_rounds: int = 6,
         stability_rounds: int = 2,
         initial_state: Mapping[str, object] | None = None,

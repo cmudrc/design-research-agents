@@ -8,15 +8,15 @@ These examples run one complete non-streaming call per script and print an
 - `direct_llm_call.py`
   - One direct LLM completion without tool calling.
 - `multi_step_code_tool_calling_agent.py`
-  - Multi-step ReAct loop using generated code actions.
+  - `MultiStepAgent(mode="code")`: multi-step ReAct loop using generated code actions.
 - `multi_step_json_tool_calling_agent.py`
-  - Multi-step ReAct loop using JSON tool-call actions.
+  - `MultiStepAgent(mode="json")`: multi-step ReAct loop using JSON tool-call actions.
 - `multi_step_json_with_memory.py`
-  - Multi-step JSON tool-calling with local memory retrieval and write-back.
+  - `MultiStepAgent(mode="json")` with local memory retrieval and write-back.
 - `multi_step_tool_router_agent.py`
-  - Multi-step ReAct loop where each step is TOOL_CALL or STOP.
+  - `MultiStepAgent(mode="json")` router special-case where each step is TOOL_CALL or STOP.
 - `multi_step_direct_llm_agent.py`
-  - Multi-step direct-response controller with CONTINUE/STOP decisions.
+  - `MultiStepAgent(mode="direct")` with CONTINUE/STOP decisions.
 
 ## Quick Start
 

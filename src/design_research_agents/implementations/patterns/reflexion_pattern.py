@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
 from design_research_agents.implementations.agents.direct_llm_call import (
     DirectLLMCall,
 )
@@ -56,6 +56,8 @@ class ReflexionPattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
+        proposer_delegate: WorkflowDelegate | None = None,
+        critic_delegate: WorkflowDelegate | None = None,
         max_iterations: int = 3,
         propose_critic_proposer_system_prompt: str | None = None,
         propose_critic_proposer_user_prompt_template: str | None = None,
@@ -70,6 +72,8 @@ class ReflexionPattern(Agent):
         Args:
             llm_client: LLM client used by proposer and critic calls.
             tool_runtime: Tool runtime used by loop execution runtime.
+            proposer_delegate: Optional proposer delegate override.
+            critic_delegate: Optional critic delegate override.
             max_iterations: Maximum propose/critic iterations per run.
             propose_critic_proposer_system_prompt: Optional override for proposer system prompt.
             propose_critic_proposer_user_prompt_template: Optional proposer user prompt template.
@@ -87,6 +91,8 @@ class ReflexionPattern(Agent):
 
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
+        self._proposer_delegate = proposer_delegate
+        self._critic_delegate = critic_delegate
         self._max_iterations = max_iterations
         self._tracer = tracer
         self.workflow: Workflow | None = None
@@ -189,14 +195,17 @@ class ReflexionPattern(Agent):
         """
         budget_tracker = WorkflowBudgetTracker()
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
-        proposer = DirectLLMCall(
-            llm_client=self._llm_client,
-            system_prompt=self._proposer_system_prompt,
-            tracer=self._tracer,
-        )
+        proposer = self._proposer_delegate
+        if proposer is None:
+            proposer = DirectLLMCall(
+                llm_client=self._llm_client,
+                system_prompt=self._proposer_system_prompt,
+                tracer=self._tracer,
+            )
         callbacks = ReflexionLoopCallbacks(
             llm_client=self._llm_client,
             proposer_agent=proposer,
+            critic_delegate=self._critic_delegate,
             resolved_model=resolved_model,
             task_prompt=prompt,
             request_id=request_id,

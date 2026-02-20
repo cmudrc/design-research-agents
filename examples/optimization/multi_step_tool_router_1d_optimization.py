@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
-from design_research_agents import CallableTool, LlamaCppServerLLMClient, Toolbox
-from design_research_agents.agent import MultiStepToolRouterAgent
+from design_research_agents import LlamaCppServerLLMClient
+from design_research_agents.agent import MultiStepAgent
+from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 
 
 def _objective(x: float) -> float:
@@ -150,24 +151,65 @@ def main() -> None:
         """
         return _step(-1.0, payload)
 
-    tools = Toolbox(
-        enable_core_tools=False,
-        callable_tools=(
-            CallableTool(
-                name="optimizer.decrease_x",
-                description="Decrease x by step (default 1).",
-                handler=_decrease,
-            ),
-            CallableTool(
-                name="optimizer.increase_x",
-                description="Increase x by step (default 1).",
-                handler=_increase,
-            ),
-        ),
-    )
+    class _OptimizationRouterRuntime(ToolRuntime):
+        """Arg-less runtime to trigger JSON router-special-case mode."""
+
+        def list_tools(self) -> Sequence[ToolSpec]:
+            """Expose optimizer tool specifications.
+
+            Returns:
+                Tool specifications available to the optimization runtime.
+            """
+            return (
+                ToolSpec(
+                    name="optimizer.decrease_x",
+                    description="Decrease x by step (default 1).",
+                    input_schema={"type": "object", "additionalProperties": False},
+                    output_schema={"type": "object", "additionalProperties": True},
+                ),
+                ToolSpec(
+                    name="optimizer.increase_x",
+                    description="Increase x by step (default 1).",
+                    input_schema={"type": "object", "additionalProperties": False},
+                    output_schema={"type": "object", "additionalProperties": True},
+                ),
+            )
+
+        def invoke(
+            self,
+            tool_name: str,
+            input_dict: Mapping[str, object],
+            *,
+            request_id: str,
+            dependencies: Mapping[str, object],
+        ) -> ToolResult:
+            """Invoke one optimizer tool.
+
+            Args:
+                tool_name: Tool name to invoke.
+                input_dict: Tool input payload.
+                request_id: Invocation request id.
+                dependencies: Dependency mapping for invocation.
+
+            Returns:
+                Tool invocation result payload.
+            """
+            del request_id, dependencies
+            if tool_name == "optimizer.decrease_x":
+                return ToolResult(tool_name=tool_name, ok=True, result=_decrease(input_dict))
+            if tool_name == "optimizer.increase_x":
+                return ToolResult(tool_name=tool_name, ok=True, result=_increase(input_dict))
+            return ToolResult(tool_name=tool_name, ok=False, result={}, error="unknown tool")
+
+    tools = _OptimizationRouterRuntime()
     llm_client = LlamaCppServerLLMClient()
     try:
-        agent = MultiStepToolRouterAgent(llm_client=llm_client, tool_runtime=tools, max_steps=6)
+        agent = MultiStepAgent(
+            mode="json",
+            llm_client=llm_client,
+            tool_runtime=tools,
+            max_steps=6,
+        )
         result = agent.run(
             prompt=(
                 "Minimize f(x)=x^2 from x=3 using optimizer.increase_x or "
@@ -189,7 +231,7 @@ def main() -> None:
     memory = result.output.get("memory")
     memory_tail = memory[-6:] if isinstance(memory, list) else []
     payload = {
-        "agent": "MultiStepToolRouterAgent",
+        "agent": "MultiStepAgent(mode=json/router)",
         "objective": "x^2",
         "final_output": result.output.get("final_output"),
         "best_seen": {

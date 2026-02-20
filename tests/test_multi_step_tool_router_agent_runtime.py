@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents.contracts.termination import (
     TERMINATED_INVALID_ROUTE_SELECTION,
@@ -10,8 +11,8 @@ from design_research_agents.contracts.termination import (
     TERMINATED_STEP_FAILURE,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.implementations.agents.multi_step_tool_router_agent import (
-    MultiStepToolRouterAgent,
+from design_research_agents.implementations.shared.agent_internal import (
+    multi_step_router_runtime_helpers as router_runtime_helpers,
 )
 from design_research_agents.implementations.shared.agent_internal import (
     multi_step_tool_router_helpers as router_helpers,
@@ -52,13 +53,13 @@ class _StubToolRuntime(ToolRuntime):
             ToolSpec(
                 name="sum",
                 description="Add numbers",
-                input_schema={"type": "object", "additionalProperties": True},
+                input_schema={"type": "object", "additionalProperties": False},
                 output_schema={"type": "object", "additionalProperties": True},
             ),
             ToolSpec(
                 name="fail",
                 description="Always fails",
-                input_schema={"type": "object", "additionalProperties": True},
+                input_schema={"type": "object", "additionalProperties": False},
                 output_schema={"type": "object", "additionalProperties": True},
             ),
         )
@@ -104,7 +105,12 @@ def test_multi_step_tool_router_tool_call_then_stop() -> None:
         ]
     )
     tool_runtime = _StubToolRuntime()
-    agent = MultiStepToolRouterAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=3)
+    agent = MultiStepAgent(
+        mode="json",
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        max_steps=3,
+    )
 
     result = agent.run("Compute 2+3", request_id="req-router-success")
 
@@ -123,8 +129,8 @@ def test_multi_step_tool_router_tool_call_then_stop() -> None:
 
 def test_multi_step_tool_router_invalid_step_output_fails() -> None:
     llm_client = _SequenceLLMClient(responses=[json.dumps({"continue": True, "thought": "legacy"})])
-    agent = MultiStepToolRouterAgent(
-        llm_client=llm_client, tool_runtime=_StubToolRuntime(), max_steps=2
+    agent = MultiStepAgent(
+        mode="json", llm_client=llm_client, tool_runtime=_StubToolRuntime(), max_steps=2
     )
 
     result = agent.run("Bad payload")
@@ -139,7 +145,12 @@ def test_multi_step_tool_router_invalid_route_selection_fails() -> None:
         responses=[json.dumps({"action": "TOOL_CALL", "tool_names": ["missing"], "reason": "x"})]
     )
     tool_runtime = _StubToolRuntime()
-    agent = MultiStepToolRouterAgent(llm_client=llm_client, tool_runtime=tool_runtime, max_steps=2)
+    agent = MultiStepAgent(
+        mode="json",
+        llm_client=llm_client,
+        tool_runtime=tool_runtime,
+        max_steps=2,
+    )
 
     result = agent.run("Route to unknown tool")
 
@@ -152,7 +163,8 @@ def test_multi_step_tool_router_step_failure_stops_when_configured() -> None:
     llm_client = _SequenceLLMClient(
         responses=[json.dumps({"action": "TOOL_CALL", "tool_names": ["fail"], "reason": "x"})]
     )
-    agent = MultiStepToolRouterAgent(
+    agent = MultiStepAgent(
+        mode="json",
         llm_client=llm_client,
         tool_runtime=_StubToolRuntime(),
         max_steps=2,
@@ -169,13 +181,8 @@ def test_multi_step_tool_router_step_failure_stops_when_configured() -> None:
 
 def test_multi_step_tool_router_internal_step_failure_can_continue_when_disabled() -> None:
     tool_runtime = _StubToolRuntime()
-    agent = MultiStepToolRouterAgent(
-        llm_client=_SequenceLLMClient(responses=[]),
+    state = router_runtime_helpers.run_tool_call_step(
         tool_runtime=tool_runtime,
-        max_steps=2,
-        stop_on_step_failure=False,
-    )
-    state = agent._run_tool_call_step(
         step_number=1,
         parsed_step=router_helpers.ToolRouterStepDecision(
             action="TOOL_CALL",

@@ -4,16 +4,18 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping, Sequence
-from typing import cast
+from typing import TypeGuard, cast
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
-from design_research_agents.contracts.workflow import LogicStep, LoopStep
+from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
 from design_research_agents.implementations.shared.agent_internal.run_options import (
     normalize_dependencies,
     resolve_request_id,
 )
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow import Workflow
+
+from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 GeneratorValue = Mapping[str, object] | str | int | float
 GeneratorDelegate = Callable[[Mapping[str, object]], Sequence[GeneratorValue]]
@@ -26,8 +28,8 @@ class TreeSearchPattern(Agent):
     def __init__(
         self,
         *,
-        generator_delegate: GeneratorDelegate | Agent,
-        evaluator_delegate: EvaluatorDelegate | Agent,
+        generator_delegate: GeneratorDelegate | WorkflowDelegate,
+        evaluator_delegate: EvaluatorDelegate | WorkflowDelegate,
         max_depth: int = 3,
         branch_factor: int = 3,
         beam_width: int = 2,
@@ -53,8 +55,8 @@ class TreeSearchPattern(Agent):
         if beam_width < 1:
             raise ValueError("beam_width must be >= 1.")
 
-        self._generator_delegate = generator_delegate
-        self._evaluator_delegate = evaluator_delegate
+        self._generator_delegate = _normalize_generator_delegate(generator_delegate)
+        self._evaluator_delegate = _normalize_evaluator_delegate(evaluator_delegate)
         self._max_depth = max_depth
         self._branch_factor = branch_factor
         self._beam_width = beam_width
@@ -407,21 +409,20 @@ class TreeSearchPattern(Agent):
             "branch_factor": self._branch_factor,
         }
 
-        if _is_agent_like(self._generator_delegate):
-            delegate_agent = cast(Agent, self._generator_delegate)
-            delegate_prompt = json.dumps(delegate_input, ensure_ascii=True, sort_keys=True)
-            delegate_result = delegate_agent.run(
-                delegate_prompt,
-                request_id=f"{request_id}:tree_search:generator:{depth}:{parent_node.get('node_id')}",
-                dependencies=dependencies,
-            )
-            if not delegate_result.success:
-                return []
-            return _extract_candidate_list(delegate_result.output)
-
-        generator_delegate = cast(GeneratorDelegate, self._generator_delegate)
-        raw_children = generator_delegate(delegate_input)
-        return list(raw_children)
+        delegate_prompt = json.dumps(delegate_input, ensure_ascii=True, sort_keys=True)
+        delegate_invocation = invoke_delegate(
+            delegate=self._generator_delegate,
+            prompt=delegate_prompt,
+            step_context=None,
+            request_id=f"{request_id}:tree_search:generator:{depth}:{parent_node.get('node_id')}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
+            dependencies=dependencies,
+        )
+        delegate_result = delegate_invocation.result
+        if not delegate_result.success:
+            return []
+        return _extract_candidate_list(delegate_result.output)
 
     def _evaluate_candidate(
         self,
@@ -450,38 +451,199 @@ class TreeSearchPattern(Agent):
             "candidate": _json_ready(candidate),
         }
 
-        if _is_agent_like(self._evaluator_delegate):
-            delegate_agent = cast(Agent, self._evaluator_delegate)
-            delegate_prompt = json.dumps(delegate_input, ensure_ascii=True, sort_keys=True)
-            delegate_result = delegate_agent.run(
-                delegate_prompt,
-                request_id=f"{request_id}:tree_search:evaluator:{depth}",
-                dependencies=dependencies,
+        delegate_prompt = json.dumps(delegate_input, ensure_ascii=True, sort_keys=True)
+        delegate_invocation = invoke_delegate(
+            delegate=self._evaluator_delegate,
+            prompt=delegate_prompt,
+            step_context=None,
+            request_id=f"{request_id}:tree_search:evaluator:{depth}",
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
+            dependencies=dependencies,
+        )
+        delegate_result = delegate_invocation.result
+        if not delegate_result.success:
+            return 0.0
+        return _extract_score(delegate_result.output)
+
+
+def _normalize_generator_delegate(
+    delegate: GeneratorDelegate | WorkflowDelegate,
+) -> WorkflowDelegate:
+    """Normalize generator delegate into one object-delegate contract.
+
+    Args:
+        delegate: Generator callable or workflow-compatible delegate object.
+
+    Returns:
+        Workflow-compatible delegate object.
+    """
+    if _is_workflow_delegate(delegate):
+        return delegate
+    return _GeneratorCallableDelegateAdapter(cast(GeneratorDelegate, delegate))
+
+
+def _normalize_evaluator_delegate(
+    delegate: EvaluatorDelegate | WorkflowDelegate,
+) -> WorkflowDelegate:
+    """Normalize evaluator delegate into one object-delegate contract.
+
+    Args:
+        delegate: Evaluator callable or workflow-compatible delegate object.
+
+    Returns:
+        Workflow-compatible delegate object.
+    """
+    if _is_workflow_delegate(delegate):
+        return delegate
+    return _EvaluatorCallableDelegateAdapter(cast(EvaluatorDelegate, delegate))
+
+
+class _GeneratorCallableDelegateAdapter:
+    """Adapter that wraps callable generator delegates as agent-like delegates."""
+
+    def __init__(self, delegate: GeneratorDelegate) -> None:
+        """Store callable generator delegate.
+
+        Args:
+            delegate: Callable generator delegate.
+        """
+        self._delegate = delegate
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        """Execute callable generator delegate and normalize output.
+
+        Args:
+            prompt: Serialized delegate context payload.
+            request_id: Optional request identifier.
+            dependencies: Optional dependency mapping.
+
+        Returns:
+            Normalized execution result containing ``candidates`` output.
+        """
+        del request_id, dependencies
+        context = _parse_json_context(prompt)
+        try:
+            raw_children = self._delegate(context)
+        except Exception as exc:
+            return ExecutionResult(
+                output={"error": str(exc)},
+                success=False,
+                tool_results=[],
+                model_response=None,
+                metadata={"delegate_type": "callable_generator"},
             )
-            if not delegate_result.success:
-                return 0.0
-            return _extract_score(delegate_result.output)
+        return ExecutionResult(
+            output={"candidates": list(raw_children)},
+            success=True,
+            tool_results=[],
+            model_response=None,
+            metadata={"delegate_type": "callable_generator"},
+        )
 
-        evaluator_delegate = cast(EvaluatorDelegate, self._evaluator_delegate)
-        raw_score = evaluator_delegate(delegate_input)
+
+class _EvaluatorCallableDelegateAdapter:
+    """Adapter that wraps callable evaluator delegates as agent-like delegates."""
+
+    def __init__(self, delegate: EvaluatorDelegate) -> None:
+        """Store callable evaluator delegate.
+
+        Args:
+            delegate: Callable evaluator delegate.
+        """
+        self._delegate = delegate
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        """Execute callable evaluator delegate and normalize score output.
+
+        Args:
+            prompt: Serialized delegate context payload.
+            request_id: Optional request identifier.
+            dependencies: Optional dependency mapping.
+
+        Returns:
+            Normalized execution result containing a numeric score payload.
+        """
+        del request_id, dependencies
+        context = _parse_json_context(prompt)
+        try:
+            raw_score = self._delegate(context)
+        except Exception as exc:
+            return ExecutionResult(
+                output={"error": str(exc)},
+                success=False,
+                tool_results=[],
+                model_response=None,
+                metadata={"delegate_type": "callable_evaluator"},
+            )
         if isinstance(raw_score, (int, float)):
-            return float(raw_score)
-        if isinstance(raw_score, Mapping):
-            return _extract_score(raw_score)
-        return 0.0
+            output: dict[str, object] = {"score": float(raw_score)}
+        elif isinstance(raw_score, Mapping):
+            output = dict(raw_score)
+        else:
+            output = {"score": 0.0}
+        return ExecutionResult(
+            output=output,
+            success=True,
+            tool_results=[],
+            model_response=None,
+            metadata={"delegate_type": "callable_evaluator"},
+        )
 
 
-def _is_agent_like(delegate: object) -> bool:
-    """Return whether delegate appears to implement the ``Agent`` contract.
+def _parse_json_context(prompt: str) -> dict[str, object]:
+    """Parse delegate prompt payload into mapping context.
+
+    Args:
+        prompt: Serialized JSON payload or raw prompt text.
+
+    Returns:
+        Mapping context for callable delegate invocation.
+    """
+    try:
+        parsed = json.loads(prompt)
+    except json.JSONDecodeError:
+        return {"task": prompt}
+    if isinstance(parsed, Mapping):
+        return {str(key): _json_ready(value) for key, value in parsed.items()}
+    return {"task": prompt}
+
+
+def _is_workflow_delegate(delegate: object) -> TypeGuard[WorkflowDelegate]:
+    """Return whether delegate appears to implement workflow-delegate contract.
 
     Args:
         delegate: Delegate candidate object.
 
     Returns:
-        ``True`` when ``delegate`` appears agent-like.
+        ``True`` when ``delegate`` exposes a callable ``run`` method.
     """
     run_callable = getattr(delegate, "run", None)
     return callable(run_callable)
+
+
+def _is_agent_like(delegate: object) -> bool:
+    """Return whether delegate appears to implement an agent-like ``run`` method.
+
+    Args:
+        delegate: Delegate candidate object.
+
+    Returns:
+        ``True`` when the delegate has a callable ``run`` attribute.
+    """
+    return _is_workflow_delegate(delegate)
 
 
 def _extract_candidate_list(output: Mapping[str, object]) -> list[GeneratorValue]:
