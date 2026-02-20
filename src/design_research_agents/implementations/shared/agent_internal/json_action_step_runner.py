@@ -1,4 +1,4 @@
-"""Workflow-native single-step tool router agent."""
+"""Workflow-native JSON tool-calling action-step runner."""
 
 from __future__ import annotations
 
@@ -6,12 +6,29 @@ from collections.abc import Mapping, Sequence
 
 from design_research_agents.contracts.agent import Agent
 from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage, LLMResponse
+from design_research_agents.contracts.llm import LLMClient, LLMMessage, LLMRequest, LLMResponse
 from design_research_agents.contracts.tools import ToolError, ToolResult, ToolRuntime
-from design_research_agents.contracts.workflow import LogicStep, ToolStep, ToolStepInputBuilder
+from design_research_agents.contracts.workflow import (
+    LogicStep,
+    ToolStep,
+    ToolStepInputBuilder,
+    WorkflowStepResult,
+)
 from design_research_agents.implementations.shared.agent_internal.execution_context import (
     finish_agent_execution,
     prepare_agent_execution,
+)
+from design_research_agents.implementations.shared.agent_internal.json_tool_agent_helpers import (
+    build_tool_call_prompt,
+    build_tool_choices_text,
+    clone_tool_choice,
+    extract_tool_choices,
+    parse_tool_call,
+    parse_tool_call_from_response,
+    request_tool_call_response,
+    resolve_allowed_tool_names,
+    resolve_tool_input,
+    select_tool_choice,
 )
 from design_research_agents.implementations.shared.agent_internal.model_resolution import (
     resolve_agent_model,
@@ -25,23 +42,8 @@ from design_research_agents.implementations.shared.agent_internal.prompt_alterna
 from design_research_agents.implementations.shared.agent_internal.prompt_overrides import (
     resolve_prompt_text,
 )
-from design_research_agents.implementations.shared.agent_internal.response_schemas import (
-    clone_response_schema,
-)
-from design_research_agents.implementations.shared.agent_internal.router_agent_helpers import (
-    ParsedRoute,
-    ToolAlternative,
-    build_route_prompt,
-    build_routes_text,
-    clone_alternative,
-    compile_runtime_alternatives,
-    extract_alternatives,
-    parse_route_response,
-    resolve_allowed_route_names,
-    resolve_model_route,
-    resolve_tool_input,
-    route_response_schema,
-    routing_failure_result,
+from design_research_agents.implementations.shared.agent_internal.result_builders import (
+    build_failure_result,
 )
 from design_research_agents.implementations.shared.agent_internal.tool_input import extract_prompt
 from design_research_agents.implementations.shared.agent_internal.workflow_first_envelope import (
@@ -50,15 +52,15 @@ from design_research_agents.implementations.shared.agent_internal.workflow_first
 from design_research_agents.tracing import (
     Tracer,
     emit_guardrail_decision,
-    emit_router_decision,
+    emit_tool_selection_decision,
     finish_model_call,
     start_model_call,
 )
 from design_research_agents.workflow import Workflow
 
 
-class SingleStepToolRouterAgent(Agent):
-    """Agent that routes one request to one selected tool alternative."""
+class JsonActionStepRunner(Agent):
+    """Agent that asks the model to select one tool and structured arguments."""
 
     def __init__(
         self,
@@ -68,18 +70,18 @@ class SingleStepToolRouterAgent(Agent):
         system_prompt: str | None = None,
         user_prompt_template: str | None = None,
         alternatives_prompt_target: AlternativesPromptTarget = "user",
-        allowed_routes: Sequence[str] | None = None,
+        allowed_tools: Sequence[str] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
-        """Initialize a router agent with injected runtime dependencies.
+        """Initialize a tool-calling agent with injected runtime dependencies.
 
         Args:
             llm_client: LLM client used for prompt execution.
             tool_runtime: Tool runtime used for tool invocation.
             system_prompt: Optional system prompt override.
             user_prompt_template: Optional user prompt template override.
-            alternatives_prompt_target: Prompt target for routes block.
-            allowed_routes: Optional route/tool allowlist.
+            alternatives_prompt_target: Prompt target for tools block.
+            allowed_tools: Optional tool allowlist.
             tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
@@ -87,36 +89,29 @@ class SingleStepToolRouterAgent(Agent):
         self._tracer = tracer
         self._system_prompt = resolve_prompt_text(
             override=system_prompt,
-            default_prompt_name="router_system",
+            default_prompt_name="tool_calling_system",
             field_name="system_prompt",
         )
         self._user_prompt_template = resolve_prompt_text(
             override=user_prompt_template,
-            default_prompt_name="router_user_route",
+            default_prompt_name="tool_calling_user_select_tool",
             field_name="user_prompt_template",
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(
             alternatives_prompt_target
         )
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
-        self._allowed_route_names = resolve_allowed_route_names(
+        self._allowed_tool_names = resolve_allowed_tool_names(
             runtime_specs=self._runtime_specs,
-            allowed_routes=allowed_routes,
+            allowed_tools=allowed_tools,
         )
-        self._compiled_runtime_alternatives = compile_runtime_alternatives(
+        self._compiled_tool_choices = extract_tool_choices(
             tool_specs=self._runtime_specs,
-            allowed_route_names=self._allowed_route_names,
-        )
-        self._default_alternatives = extract_alternatives(
-            runtime_specs=self._runtime_specs,
-            compiled_runtime_alternatives=self._compiled_runtime_alternatives,
-        )
-        self._default_route_response_schema = route_response_schema(
-            alternatives=self._default_alternatives,
+            allowed_tool_names=self._allowed_tool_names,
         )
         self._tool_step_ids = {
-            alternative.tool_name: _tool_step_id(alternative.tool_name)
-            for alternative in self._default_alternatives
+            choice.tool_name: _tool_step_id(choice.tool_name)
+            for choice in self._compiled_tool_choices
         }
         self.workflow: Workflow | None = None
 
@@ -127,7 +122,7 @@ class SingleStepToolRouterAgent(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run one model route-selection call and one routed tool invocation.
+        """Run one workflow-native tool selection and invocation cycle.
 
         Args:
             prompt: Prompt text for the run.
@@ -144,7 +139,7 @@ class SingleStepToolRouterAgent(Agent):
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="SingleStepToolRouterAgent",
+            agent_name="JsonActionStepRunner",
             tracer=self._tracer,
         )
         self.workflow = self._build_workflow()
@@ -157,7 +152,7 @@ class SingleStepToolRouterAgent(Agent):
                 },
                 execution_mode="sequential",
                 failure_policy="skip_dependents",
-                request_id=f"{execution_context.request_id}:single_step_router",
+                request_id=f"{execution_context.request_id}:action_step_json",
                 dependencies=execution_context.dependencies,
             )
             result = self._build_result(
@@ -173,42 +168,42 @@ class SingleStepToolRouterAgent(Agent):
         return result
 
     def _build_workflow(self) -> Workflow:
-        """Compose route selection + per-route tool invocation workflow graph.
+        """Compose a route-selection + per-tool invocation workflow graph.
 
         Returns:
-            Workflow configured for route selection, routed tool execution,
-            and invalid-route handling.
+            Workflow configured for selection, routed tool execution,
+            and invalid selection handling.
         """
         route_map = {
-            alternative.tool_name: (self._tool_step_ids[alternative.tool_name],)
-            for alternative in self._default_alternatives
+            choice.tool_name: (self._tool_step_ids[choice.tool_name],)
+            for choice in self._compiled_tool_choices
         }
-        route_map["__invalid__"] = ("invalid_route",)
+        route_map["__invalid__"] = ("invalid_selection",)
 
         steps: list[LogicStep | ToolStep] = [
             LogicStep(
-                step_id="select_route",
-                handler=self._select_route_handler,
+                step_id="select_tool",
+                handler=self._select_tool_handler,
                 route_map=route_map,
             ),
         ]
-        for alternative in self._default_alternatives:
+
+        for choice in self._compiled_tool_choices:
+            step_id = self._tool_step_ids[choice.tool_name]
             steps.append(
                 ToolStep(
-                    step_id=self._tool_step_ids[alternative.tool_name],
-                    tool_name=alternative.tool_name,
-                    dependencies=("select_route",),
-                    input_builder=_build_tool_input_builder(
-                        expected_tool_name=alternative.tool_name,
-                    ),
+                    step_id=step_id,
+                    tool_name=choice.tool_name,
+                    dependencies=("select_tool",),
+                    input_builder=_build_tool_input_builder(expected_tool_name=choice.tool_name),
                 )
             )
 
         steps.append(
             LogicStep(
-                step_id="invalid_route",
-                dependencies=("select_route",),
-                handler=_invalid_route_handler,
+                step_id="invalid_selection",
+                dependencies=("select_tool",),
+                handler=_invalid_selection_handler,
             )
         )
 
@@ -221,14 +216,14 @@ class SingleStepToolRouterAgent(Agent):
             default_failure_policy="skip_dependents",
         )
 
-    def _select_route_handler(self, context: Mapping[str, object]) -> Mapping[str, object]:
-        """Run model route-selection logic and emit a tool route key.
+    def _select_tool_handler(self, context: Mapping[str, object]) -> Mapping[str, object]:
+        """Run model selection logic and emit a route for tool branch activation.
 
         Args:
             context: Workflow step execution context payload.
 
         Returns:
-            Mapping containing selected route metadata and model response payload.
+            Mapping containing route, selected tool metadata, and model response payload.
 
         Raises:
             TypeError: If schema-mode input payloads are missing or malformed.
@@ -236,7 +231,7 @@ class SingleStepToolRouterAgent(Agent):
         """
         inputs = context.get("inputs")
         if not isinstance(inputs, Mapping):
-            raise TypeError("Single-step router workflow requires schema input mapping.")
+            raise TypeError("JSON action-step workflow requires schema input mapping.")
         normalized_input = inputs.get("normalized_input")
         request_id = inputs.get("request_id")
         if not isinstance(normalized_input, Mapping):
@@ -245,157 +240,128 @@ class SingleStepToolRouterAgent(Agent):
         resolved_request_id = str(request_id) if request_id is not None else ""
         prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
-        alternatives = [
-            clone_alternative(alternative) for alternative in self._default_alternatives
-        ]
+        choices = [clone_tool_choice(choice) for choice in self._compiled_tool_choices]
         alternatives_prompt_target = self._alternatives_prompt_target
-        routes_text = build_routes_text(alternatives=alternatives)
-        routes_block = build_user_prompt_alternatives_block(
-            section_label="Available routes",
-            alternatives_text=routes_text,
+        choices_text = build_tool_choices_text(choices=choices)
+        choices_block = build_user_prompt_alternatives_block(
+            section_label="Available tools",
+            alternatives_text=choices_text,
             target=alternatives_prompt_target,
         )
-        user_prompt = build_route_prompt(
+        user_prompt = build_tool_call_prompt(
             prompt=prompt,
-            routes_block=routes_block,
+            choices_block=choices_block,
             prompt_template=self._user_prompt_template,
         )
         system_prompt = self._system_prompt
         if alternatives_prompt_target == "system":
             system_prompt = append_alternatives_block(
                 prompt_text=system_prompt,
-                section_label="Available routes",
-                alternatives_text=routes_text,
+                section_label="Available tools",
+                alternatives_text=choices_text,
             )
 
-        messages = [
+        model_messages = [
             LLMMessage(role="system", content=system_prompt),
             LLMMessage(role="user", content=user_prompt),
         ]
-        llm_params = LLMChatParams(
-            response_schema=clone_response_schema(self._default_route_response_schema),
-            provider_options={
-                "agent": "SingleStepToolRouterAgent",
-                "phase": "route_select",
+        llm_request = LLMRequest(
+            messages=model_messages,
+            model=resolved_model,
+            tools=list(self._runtime_specs.values()),
+            metadata={
+                "request_id": resolved_request_id,
+                "agent": "JsonActionStepRunner",
             },
+            provider_options={"agent": "JsonActionStepRunner"},
         )
         model_span_id = start_model_call(
             model=resolved_model,
-            messages=messages,
-            params=llm_params,
-            metadata={"agent": "SingleStepToolRouterAgent", "phase": "route_select"},
+            messages=model_messages,
+            params=llm_request,
+            metadata={"agent": "JsonActionStepRunner"},
         )
         try:
-            llm_response = self._llm_client.chat(messages, model=resolved_model, params=llm_params)
+            llm_response = request_tool_call_response(
+                llm_client=self._llm_client,
+                llm_request=llm_request,
+            )
         except Exception as exc:
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             raise
         finish_model_call(model_span_id, response=llm_response)
 
-        parsed_route = parse_route_response(llm_response.text)
-        route_resolution = resolve_model_route(
-            parsed_route=parsed_route,
-            alternatives=alternatives,
+        parsed_tool_call = parse_tool_call_from_response(llm_response)
+        if parsed_tool_call is None:
+            parsed_tool_call = parse_tool_call(llm_response.text)
+        tool_selection = select_tool_choice(
+            parsed_tool_call=parsed_tool_call,
+            choices=choices,
         )
-        if route_resolution is None:
+
+        available_tools = [choice.tool_name for choice in choices]
+        if tool_selection is None:
             emit_guardrail_decision(
-                guardrail="route_validation",
+                guardrail="tool_selection_output",
                 decision="reject",
-                reason="invalid model route output",
-                details={"stage": "routing"},
+                reason="invalid model tool selection",
+                details={"stage": "tool_selection"},
             )
-            emit_router_decision(
+            emit_tool_selection_decision(
                 source="model_invalid",
-                alternatives=[candidate.tool_name for candidate in alternatives],
-                selected_tool_name=None,
-                selected_index=None,
-                reason="invalid model route output",
-                parsed_route=(
-                    {
-                        "tool_names": list(parsed_route.tool_names),
-                        "reason": parsed_route.reason,
-                    }
-                    if parsed_route is not None
-                    else None
-                ),
+                tool_name="",
+                reason="invalid model tool selection",
+                parsed_tool_call=parsed_tool_call,
             )
             return {
                 "route": "__invalid__",
                 "selection_valid": False,
                 "error": (
-                    "Router model output was invalid. "
-                    "Expected JSON with `tool_names` (non-empty list)."
+                    "Model tool selection was invalid. Expected one allowed "
+                    "`tool_name` in structured output."
                 ),
                 "model_text": llm_response.text,
-                "model_response_payload": {},
-                "selected_tool_name": None,
-                "selected_tool_names": [],
-                "selected_index": None,
-                "selected_reason": "invalid model route output",
+                "tool_name": None,
                 "tool_input": {},
-                "alternatives": [candidate.tool_name for candidate in alternatives],
-                "parsed_route": (
-                    {
-                        "tool_names": list(parsed_route.tool_names),
-                        "reason": parsed_route.reason,
-                    }
-                    if parsed_route is not None
-                    else None
-                ),
+                "available_tools": available_tools,
+                "parsed_tool_call": parsed_tool_call,
+                "metadata_tool_call": {
+                    "source": "model_invalid",
+                    "reason": "invalid model tool selection",
+                    "available_tools": available_tools,
+                    "parsed_tool_call": parsed_tool_call,
+                },
                 "model_response": llm_response,
             }
 
-        (
-            selected_alternative,
-            selected_index,
-            selected_reason,
-            selected_tool_names,
-        ) = route_resolution
-        emit_router_decision(
-            source="model",
-            alternatives=[candidate.tool_name for candidate in alternatives],
-            selected_tool_name=selected_alternative.tool_name,
-            selected_index=selected_index,
-            reason=selected_reason,
-            parsed_route=(
-                {
-                    "tool_names": list(parsed_route.tool_names),
-                    "reason": parsed_route.reason,
-                }
-                if parsed_route is not None
-                else None
-            ),
+        selected_choice, tool_call_source, tool_call_reason = tool_selection
+        emit_tool_selection_decision(
+            source=tool_call_source,
+            tool_name=selected_choice.tool_name,
+            reason=tool_call_reason,
+            parsed_tool_call=parsed_tool_call,
         )
-
         tool_input = resolve_tool_input(
-            tool_name=selected_alternative.tool_name,
+            selected_choice=selected_choice,
+            parsed_tool_call=parsed_tool_call,
             input_payload=normalized_input,
         )
         return {
-            "route": selected_alternative.tool_name,
+            "route": selected_choice.tool_name,
             "selection_valid": True,
             "error": None,
             "model_text": llm_response.text,
-            "model_response_payload": {
-                "tool_names": list(parsed_route.tool_names) if parsed_route is not None else [],
-                "reason": parsed_route.reason if parsed_route is not None else None,
-            },
-            "selected_tool_name": selected_alternative.tool_name,
-            "selected_tool_names": selected_tool_names,
-            "selected_index": selected_index,
-            "selected_reason": selected_reason,
+            "tool_name": selected_choice.tool_name,
             "tool_input": tool_input,
-            "alternatives": [candidate.tool_name for candidate in alternatives],
-            "parsed_route": (
-                {
-                    "tool_names": list(parsed_route.tool_names),
-                    "reason": parsed_route.reason,
-                }
-                if parsed_route is not None
-                else None
-            ),
+            "available_tools": available_tools,
+            "parsed_tool_call": parsed_tool_call,
+            "metadata_tool_call": {
+                "source": tool_call_source,
+                "reason": tool_call_reason,
+                "available_tools": available_tools,
+                "parsed_tool_call": parsed_tool_call,
+            },
             "model_response": llm_response,
-            "request_id": resolved_request_id,
         }
 
     def _build_result(
@@ -418,84 +384,67 @@ class SingleStepToolRouterAgent(Agent):
         Raises:
             RuntimeError: If required workflow step outputs are missing.
         """
-        select_step = workflow_result.step_results.get("select_route")
+        select_step = workflow_result.step_results.get("select_tool")
         if select_step is None:
-            raise RuntimeError("Router single-step workflow missing select_route result.")
+            raise RuntimeError("JSON action-step workflow missing select_tool result.")
         select_output = select_step.output
 
         raw_model_response = select_output.get("model_response")
         model_response = raw_model_response if isinstance(raw_model_response, LLMResponse) else None
-        selected_tool_name_raw = select_output.get("selected_tool_name")
-        selected_tool_name = (
-            selected_tool_name_raw if isinstance(selected_tool_name_raw, str) else ""
-        )
-        selected_step_id = self._tool_step_ids.get(selected_tool_name, "")
-        selected_step = workflow_result.step_results.get(selected_step_id)
+        tool_call_metadata = select_output.get("metadata_tool_call")
+        tool_call_info = dict(tool_call_metadata) if isinstance(tool_call_metadata, Mapping) else {}
 
-        parsed_route = select_output.get("parsed_route")
-        parsed_route_payload = dict(parsed_route) if isinstance(parsed_route, Mapping) else None
-        alternatives_raw = select_output.get("alternatives")
-        alternatives = (
-            list(alternatives_raw)
-            if isinstance(alternatives_raw, Sequence)
-            and not isinstance(alternatives_raw, (str, bytes))
-            else [candidate.tool_name for candidate in self._default_alternatives]
-        )
+        selected_tool_name = select_output.get("tool_name")
+        selected_tool_name_text = selected_tool_name if isinstance(selected_tool_name, str) else ""
+        selected_tool_step_id = self._tool_step_ids.get(selected_tool_name_text, "")
+        selected_tool_step = workflow_result.step_results.get(selected_tool_step_id)
 
-        if not workflow_result.success and not bool(select_output.get("selection_valid", False)):
-            if model_response is None:
-                raise RuntimeError("Router failure path missing model response payload.")
-            fallback = routing_failure_result(
-                error=str(
-                    select_output.get(
-                        "error",
-                        "Router model output was invalid. Expected valid route output.",
-                    )
-                ),
-                llm_response=model_response,
+        if not workflow_result.success:
+            typed_selected_step = (
+                selected_tool_step if isinstance(selected_tool_step, WorkflowStepResult) else None
+            )
+            error_text = _resolve_failure_error(
+                select_output=select_output,
+                selected_step=typed_selected_step,
+            )
+            failed_output = {
+                "model_text": str(select_output.get("model_text", "")),
+                "tool_name": selected_tool_name if selected_tool_name_text else None,
+                "tool_input": _mapping_or_empty(select_output.get("tool_input")),
+                "tool_output": _resolve_failed_tool_output(typed_selected_step),
+            }
+            base_result = build_failure_result(
+                error=error_text,
+                model_response=model_response,
+                tool_results=_resolve_tool_results_for_failure(typed_selected_step),
                 request_id=request_id,
                 dependencies=dependencies,
-                alternatives=[
-                    ToolAlternative(tool_name=name, description="", input_schema={})
-                    for name in alternatives
-                ],
-                parsed_route=_parsed_route_from_mapping(parsed_route_payload),
+                metadata={"stage": "tool_selection", "tool_call": tool_call_info},
+                output=failed_output,
             )
             output = build_workflow_first_output(
-                base_output=fallback.output,
+                base_output=base_result.output,
                 workflow_result=workflow_result,
-                final_output=fallback.output.get("tool_output", {}),
+                final_output=failed_output["tool_output"],
             )
             return ExecutionResult(
                 output=output,
                 success=False,
-                tool_results=[],
+                tool_results=list(base_result.tool_results),
                 model_response=model_response,
-                metadata=dict(fallback.metadata),
+                metadata=dict(base_result.metadata),
             )
 
-        if not selected_tool_name:
-            raise RuntimeError("Router single-step workflow missing selected tool name.")
-        if selected_step is None:
-            raise RuntimeError("Router single-step workflow missing selected tool step output.")
-
+        if selected_tool_step is None:
+            raise RuntimeError("JSON action-step workflow missing selected tool invocation step.")
         tool_result = _tool_result_from_step_output(
-            step_output=selected_step.output,
-            fallback_tool_name=selected_tool_name,
+            step_output=selected_tool_step.output,
+            fallback_tool_name=selected_tool_name_text,
         )
         tool_output = tool_result.result
         base_output: dict[str, object] = {
             "model_text": str(select_output.get("model_text", "")),
-            "model_response": (
-                dict(select_output.get("model_response_payload"))
-                if isinstance(select_output.get("model_response_payload"), Mapping)
-                else {}
-            ),
-            "tool_name": selected_tool_name,
-            "tool_names": list(select_output.get("selected_tool_names", []))
-            if isinstance(select_output.get("selected_tool_names"), Sequence)
-            and not isinstance(select_output.get("selected_tool_names"), (str, bytes))
-            else [],
+            "tool_name": selected_tool_name_text,
             "tool_input": _mapping_or_empty(select_output.get("tool_input")),
             "tool_output": tool_output,
         }
@@ -512,21 +461,13 @@ class SingleStepToolRouterAgent(Agent):
             metadata={
                 "request_id": request_id,
                 "dependency_keys": sorted(dependencies.keys()),
-                "routing": {
-                    "source": "model",
-                    "alternatives": alternatives,
-                    "selected_tool_name": selected_tool_name,
-                    "selected_tool_names": base_output["tool_names"],
-                    "selected_index": select_output.get("selected_index"),
-                    "selected_reason": select_output.get("selected_reason"),
-                    "parsed_route": parsed_route_payload,
-                },
+                "tool_call": tool_call_info,
             },
         )
 
 
-def _invalid_route_handler(context: Mapping[str, object]) -> Mapping[str, object]:
-    """Raise deterministic route validation failure from routed selection output.
+def _invalid_selection_handler(context: Mapping[str, object]) -> Mapping[str, object]:
+    """Raise a deterministic error when model tool selection is invalid.
 
     Args:
         context: Workflow step execution context payload.
@@ -535,55 +476,55 @@ def _invalid_route_handler(context: Mapping[str, object]) -> Mapping[str, object
         Mapping payload for the logic-step contract; this function always raises.
 
     Raises:
-        ValueError: If routed selection output is missing or invalid.
+        ValueError: If selection output is missing or invalid.
     """
     dependency_results = context.get("dependency_results")
     if not isinstance(dependency_results, Mapping):
-        raise ValueError("Missing dependency_results for invalid_route step.")
-    select_result = dependency_results.get("select_route")
+        raise ValueError("Missing dependency_results for invalid_selection step.")
+    select_result = dependency_results.get("select_tool")
     if not isinstance(select_result, Mapping):
-        raise ValueError("Missing select_route result for invalid_route step.")
+        raise ValueError("Missing select_tool result for invalid_selection step.")
     select_output = select_result.get("output")
     if not isinstance(select_output, Mapping):
-        raise ValueError("Invalid select_route output for invalid_route step.")
+        raise ValueError("Invalid select_tool output for invalid_selection step.")
     error_text = select_output.get("error")
     resolved_error = (
         str(error_text)
         if isinstance(error_text, str) and error_text.strip()
-        else "invalid model route output"
+        else "invalid model tool selection"
     )
     raise ValueError(resolved_error)
 
 
 def _build_tool_input_builder(*, expected_tool_name: str) -> ToolStepInputBuilder:
-    """Build ``ToolStep.input_builder`` callback for one routed route tool.
+    """Build ``ToolStep.input_builder`` callback for one routed tool.
 
     Args:
         expected_tool_name: Tool name bound to the generated builder callback.
 
     Returns:
-        Tool-step input builder that forwards selected route input payloads.
+        Tool-step input builder that forwards selected tool input payloads.
     """
 
     def _builder(context: Mapping[str, object]) -> Mapping[str, object]:
-        """Extract selected route tool input payload from dependency outputs.
+        """Extract selected tool input payload from routed dependency outputs.
 
         Args:
             context: Workflow step execution context payload.
 
         Returns:
-            Tool input payload for the expected route tool, or an empty mapping.
+            Tool input payload for the expected tool, or an empty mapping.
         """
         dependency_results = context.get("dependency_results")
         if not isinstance(dependency_results, Mapping):
             return {}
-        select_result = dependency_results.get("select_route")
+        select_result = dependency_results.get("select_tool")
         if not isinstance(select_result, Mapping):
             return {}
         select_output = select_result.get("output")
         if not isinstance(select_output, Mapping):
             return {}
-        selected_tool_name = select_output.get("selected_tool_name")
+        selected_tool_name = select_output.get("tool_name")
         if selected_tool_name != expected_tool_name:
             return {}
         return _mapping_or_empty(select_output.get("tool_input"))
@@ -633,25 +574,70 @@ def _tool_result_from_step_output(
     )
 
 
-def _parsed_route_from_mapping(payload: Mapping[str, object] | None) -> ParsedRoute | None:
-    """Convert parsed-route mapping back to helper dataclass when available.
+def _resolve_failure_error(
+    *,
+    select_output: Mapping[str, object],
+    selected_step: WorkflowStepResult | None,
+) -> str:
+    """Resolve one stable failure message for invalid selection/tool failure paths.
 
     Args:
-        payload: Parsed-route payload mapping from workflow output.
+        select_output: Output payload emitted by the selection step.
+        selected_step: Optional selected tool-step result.
 
     Returns:
-        Parsed route dataclass when payload is valid, otherwise ``None``.
+        Stable failure message string.
     """
-    if payload is None:
-        return None
-    tool_names = payload.get("tool_names")
-    if not isinstance(tool_names, Sequence) or isinstance(tool_names, (str, bytes)):
-        return None
+    select_error = select_output.get("error")
+    if isinstance(select_error, str) and select_error.strip():
+        return select_error
+    if selected_step is not None:
+        selected_error = selected_step.error
+        if isinstance(selected_error, str) and selected_error.strip():
+            return selected_error
+    return "Tool selection or execution failed."
 
-    normalized_names = tuple(name for name in tool_names if isinstance(name, str) and name.strip())
-    reason = payload.get("reason")
-    reason_text = reason if isinstance(reason, str) else None
-    return ParsedRoute(tool_names=normalized_names, reason=reason_text)
+
+def _resolve_failed_tool_output(selected_step: WorkflowStepResult | None) -> object:
+    """Extract failed tool payload when a selected ``ToolStep`` returned output.
+
+    Args:
+        selected_step: Optional selected tool-step result.
+
+    Returns:
+        Failed tool result payload when available, otherwise an empty mapping.
+    """
+    if selected_step is None:
+        return {}
+    step_output = selected_step.output
+    if isinstance(step_output, Mapping):
+        return step_output.get("result", {})
+    return {}
+
+
+def _resolve_tool_results_for_failure(selected_step: WorkflowStepResult | None) -> list[ToolResult]:
+    """Return tool results accumulated before/at failure.
+
+    Args:
+        selected_step: Optional selected tool-step result.
+
+    Returns:
+        List of reconstructed tool results collected before or at failure.
+    """
+    if selected_step is None:
+        return []
+    step_output = selected_step.output
+    if not isinstance(step_output, Mapping):
+        return []
+    tool_name = step_output.get("tool_name")
+    if not isinstance(tool_name, str):
+        return []
+    return [
+        _tool_result_from_step_output(
+            step_output=step_output,
+            fallback_tool_name=tool_name,
+        )
+    ]
 
 
 def _tool_error_payload(value: object) -> ToolError | Mapping[str, object] | str | None:
@@ -685,5 +671,5 @@ def _tool_step_id(tool_name: str) -> str:
 
 
 __all__ = [
-    "SingleStepToolRouterAgent",
+    "JsonActionStepRunner",
 ]

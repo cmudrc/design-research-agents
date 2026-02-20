@@ -11,8 +11,8 @@ from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMChatParams, LLMClient, LLMMessage, LLMResponse
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import LogicStep, LoopStep
-from design_research_agents.implementations.agents.single_step_direct_llm_agent import (
-    SingleStepDirectLLMAgent,
+from design_research_agents.implementations.agents.direct_llm_call import (
+    DirectLLMCall,
 )
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
@@ -96,8 +96,8 @@ class _DebateWorkflowCallbacks:
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-        affirmative_agent: SingleStepDirectLLMAgent,
-        negative_agent: SingleStepDirectLLMAgent,
+        affirmative_agent: DirectLLMCall,
+        negative_agent: DirectLLMCall,
         runtime_state: dict[str, object],
     ) -> None:
         """Store dependencies used by callback methods.
@@ -107,8 +107,8 @@ class _DebateWorkflowCallbacks:
             prompt: User task prompt.
             request_id: Resolved request id.
             dependencies: Resolved dependency mapping.
-            affirmative_agent: Affirmative single-step delegate.
-            negative_agent: Negative single-step delegate.
+            affirmative_agent: Affirmative direct-call delegate.
+            negative_agent: Negative direct-call delegate.
             runtime_state: Mutable state used to retain last model response.
         """
         self._pattern = pattern
@@ -342,7 +342,7 @@ class DebatePattern(Agent):
             debate_judge_user_prompt_template: Optional override for judge user prompt template.
             default_request_id_prefix: Optional prefix used when auto-generating request IDs.
             default_dependencies: Optional default dependency mapping merged into run calls.
-            tracer: Optional tracer used by internal single-step agents.
+            tracer: Optional tracer used by internal direct-call agents.
 
         Returns:
             None.
@@ -422,12 +422,12 @@ class DebatePattern(Agent):
             default_dependencies=self._default_dependencies,
             run_dependencies=dependencies,
         )
-        affirmative_agent = SingleStepDirectLLMAgent(
+        affirmative_agent = DirectLLMCall(
             llm_client=self._llm_client,
             system_prompt=self._affirmative_system_prompt,
             tracer=self._tracer,
         )
-        negative_agent = SingleStepDirectLLMAgent(
+        negative_agent = DirectLLMCall(
             llm_client=self._llm_client,
             system_prompt=self._negative_system_prompt,
             tracer=self._tracer,

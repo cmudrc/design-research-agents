@@ -6,7 +6,7 @@ surfaces: agents, clients, orchestration workflows, model selection, and tool ru
 ## Directory Guide
 
 - `examples/agents`
-  - Core agent patterns (single-step and multi-step).
+  - Core direct and multi-step agent patterns.
   - See `examples/agents/README.md`.
 - `examples/clients`
   - Purposeful client-configuration examples for each supported LLM client type.
@@ -29,7 +29,7 @@ surfaces: agents, clients, orchestration workflows, model selection, and tool ru
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
+PYTHONPATH=src python3 examples/agents/basic/direct_llm_call.py
 ```
 
 ## Expected Outputs

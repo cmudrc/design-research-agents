@@ -5,9 +5,9 @@ from collections.abc import Iterator
 import pytest
 
 from design_research_agents.agent import (
-    SingleStepCodeToolCallingAgent,
-    SingleStepJsonToolCallingAgent,
-    SingleStepToolRouterAgent,
+    MultiStepCodeToolCallingAgent,
+    MultiStepJsonToolCallingAgent,
+    MultiStepToolRouterAgent,
 )
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -68,9 +68,9 @@ class _SequenceLLMClient:
         return "test-model"
 
 
-def test_single_step_json_tool_agent_rejects_invalid_alternatives_prompt_target() -> None:
+def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target() -> None:
     with pytest.raises(ValueError, match="alternatives_prompt_target"):
-        SingleStepJsonToolCallingAgent(
+        MultiStepJsonToolCallingAgent(
             llm_client=_SequenceLLMClient(
                 response_texts=['{"tool_name":"calculator","tool_input":{}}']
             ),
@@ -79,20 +79,9 @@ def test_single_step_json_tool_agent_rejects_invalid_alternatives_prompt_target(
         )
 
 
-def test_single_step_json_tool_agent_rejects_unmatched_allowed_tools() -> None:
-    with pytest.raises(ValueError, match="allowed_tools"):
-        SingleStepJsonToolCallingAgent(
-            llm_client=_SequenceLLMClient(
-                response_texts=['{"tool_name":"calculator","tool_input":{}}']
-            ),
-            tool_runtime=Toolbox(),
-            allowed_tools=["does_not_exist"],
-        )
-
-
-def test_single_step_router_agent_rejects_unmatched_allowed_routes() -> None:
+def test_multi_step_router_agent_rejects_unmatched_allowed_routes() -> None:
     with pytest.raises(ValueError, match="allowed_routes"):
-        SingleStepToolRouterAgent(
+        MultiStepToolRouterAgent(
             llm_client=_SequenceLLMClient(
                 response_texts=['{"tool_names":["calculator"],"reason":"x"}']
             ),
@@ -101,12 +90,12 @@ def test_single_step_router_agent_rejects_unmatched_allowed_routes() -> None:
         )
 
 
-def test_single_step_code_agent_rejects_empty_prompt_override() -> None:
-    with pytest.raises(ValueError, match="system_prompt"):
-        SingleStepCodeToolCallingAgent(
+def test_multi_step_code_agent_rejects_empty_prompt_override() -> None:
+    with pytest.raises(ValueError, match="continuation_system_prompt"):
+        MultiStepCodeToolCallingAgent(
             llm_client=_SequenceLLMClient(response_texts=["final_output = {}"]),
             tool_runtime=Toolbox(),
-            system_prompt="   ",
+            continuation_system_prompt="   ",
         )
 
 
@@ -116,6 +105,7 @@ def test_plan_execute_workflow_template_override_supports_task_prompt_variable()
             response_texts=[
                 '{"steps":[{"step_id":"one","instruction":"Compute 6 * 7.",'
                 '"success_criteria":"Return result"}]}',
+                '{"continue": true, "thought": "run step"}',
                 'calc = call_tool("calculator", {"expression": "6 * 7"})\n'
                 'final_output = {"result": calc["result"]}',
             ]

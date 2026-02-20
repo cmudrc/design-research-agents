@@ -6,6 +6,7 @@ from importlib import import_module
 from typing import Final
 
 _EXPORTS: Final[dict[str, str]] = {
+    "DirectLLMCall": "design_research_agents.implementations.agents:DirectLLMCall",
     "MultiStepCodeToolCallingAgent": (
         "design_research_agents.implementations.agents:MultiStepCodeToolCallingAgent"
     ),
@@ -17,18 +18,6 @@ _EXPORTS: Final[dict[str, str]] = {
     ),
     "MultiStepToolRouterAgent": (
         "design_research_agents.implementations.agents:MultiStepToolRouterAgent"
-    ),
-    "SingleStepCodeToolCallingAgent": (
-        "design_research_agents.implementations.agents:SingleStepCodeToolCallingAgent"
-    ),
-    "SingleStepDirectLLMAgent": (
-        "design_research_agents.implementations.agents:SingleStepDirectLLMAgent"
-    ),
-    "SingleStepJsonToolCallingAgent": (
-        "design_research_agents.implementations.agents:SingleStepJsonToolCallingAgent"
-    ),
-    "SingleStepToolRouterAgent": (
-        "design_research_agents.implementations.agents:SingleStepToolRouterAgent"
     ),
 }
 

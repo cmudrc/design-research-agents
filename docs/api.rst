@@ -26,19 +26,7 @@ Entry Points
 Agents
 ^^^^^^
 
-.. autoclass:: design_research_agents.SingleStepDirectLLMAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.SingleStepToolRouterAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.SingleStepJsonToolCallingAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.SingleStepCodeToolCallingAgent
+.. autoclass:: design_research_agents.DirectLLMCall
    :members:
    :undoc-members:
 

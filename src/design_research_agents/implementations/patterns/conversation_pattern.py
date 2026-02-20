@@ -8,8 +8,8 @@ from collections.abc import Mapping
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
 from design_research_agents.contracts.workflow import LogicStep, LoopStep
-from design_research_agents.implementations.agents.single_step_direct_llm_agent import (
-    SingleStepDirectLLMAgent,
+from design_research_agents.implementations.agents.direct_llm_call import (
+    DirectLLMCall,
 )
 from design_research_agents.implementations.shared.agent_internal.model_resolution import (
     resolve_agent_model,
@@ -80,8 +80,8 @@ class _ConversationLoopCallbacks:
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-        speaker_a_agent: SingleStepDirectLLMAgent,
-        speaker_b_agent: SingleStepDirectLLMAgent,
+        speaker_a_agent: DirectLLMCall,
+        speaker_b_agent: DirectLLMCall,
         runtime_state: dict[str, object],
     ) -> None:
         """Store callback dependencies.
@@ -400,12 +400,12 @@ class ConversationPattern(Agent):
         if self._llm_client_b is not self._llm_client_a:
             resolve_agent_model(llm_client=self._llm_client_b)
 
-        speaker_a_agent = SingleStepDirectLLMAgent(
+        speaker_a_agent = DirectLLMCall(
             llm_client=self._llm_client_a,
             system_prompt=self._speaker_a_system_prompt,
             tracer=self._tracer,
         )
-        speaker_b_agent = SingleStepDirectLLMAgent(
+        speaker_b_agent = DirectLLMCall(
             llm_client=self._llm_client_b,
             system_prompt=self._speaker_b_system_prompt,
             tracer=self._tracer,

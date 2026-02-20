@@ -10,10 +10,9 @@ pieces so you can test ideas quickly and keep experiments reproducible.
 Highlights
 ----------
 
-- Eight core agent styles: ``SingleStepDirectLLMAgent``, ``SingleStepToolRouterAgent``,
-  ``SingleStepJsonToolCallingAgent``, ``SingleStepCodeToolCallingAgent``,
-  ``MultiStepDirectLLMAgent``, ``MultiStepToolRouterAgent``,
-  ``MultiStepJsonToolCallingAgent``, and ``MultiStepCodeToolCallingAgent``.
+- Five core agent styles: ``DirectLLMCall``, ``MultiStepDirectLLMAgent``,
+  ``MultiStepToolRouterAgent``, ``MultiStepJsonToolCallingAgent``, and
+  ``MultiStepCodeToolCallingAgent``.
 - Model selection policies with local/remote catalogs.
 - Tool contracts and schemas for safe, structured I/O.
 - Tracing hooks and emitters for debugging and evaluation.

@@ -17,8 +17,8 @@ from design_research_agents.contracts.termination import (
     continuation_stopped_reason,
 )
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.implementations.agents.single_step_code_tool_calling_agent import (
-    SingleStepCodeToolCallingAgent,
+from design_research_agents.implementations.shared.agent_internal.code_action_step_runner import (
+    CodeActionStepRunner,
 )
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     extract_boolean,
@@ -112,7 +112,7 @@ def build_code_step_agent(
     default_tools_per_step: Sequence[Mapping[str, object]] | None,
     alternatives_prompt_target: AlternativesPromptTarget,
     tracer: Tracer | None,
-) -> SingleStepCodeToolCallingAgent:
+) -> CodeActionStepRunner:
     """Build one configured step agent used by the multi-step code loop.
 
     Args:
@@ -127,9 +127,9 @@ def build_code_step_agent(
         tracer: Optional tracer dependency.
 
     Returns:
-        Configured ``SingleStepCodeToolCallingAgent`` instance.
+        Configured ``CodeActionStepRunner`` instance.
     """
-    return SingleStepCodeToolCallingAgent(
+    return CodeActionStepRunner(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         max_tool_calls=max_tool_calls_per_step,
@@ -519,7 +519,7 @@ def build_step_input(
         alternatives_prompt_target: Alternatives prompt insertion target.
 
     Returns:
-        Step input payload mapping passed to ``SingleStepCodeToolCallingAgent``.
+        Step input payload mapping passed to ``CodeActionStepRunner``.
     """
     step_input = dict(normalized_input)
     step_input["prompt"] = step_prompt

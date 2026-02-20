@@ -7,10 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Final
 
 _EXPORTS: Final[dict[str, str]] = {
-    "SingleStepDirectLLMAgent": "design_research_agents.agent:SingleStepDirectLLMAgent",
-    "SingleStepToolRouterAgent": "design_research_agents.agent:SingleStepToolRouterAgent",
-    "SingleStepJsonToolCallingAgent": "design_research_agents.agent:SingleStepJsonToolCallingAgent",
-    "SingleStepCodeToolCallingAgent": "design_research_agents.agent:SingleStepCodeToolCallingAgent",
+    "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
     "MultiStepDirectLLMAgent": "design_research_agents.agent:MultiStepDirectLLMAgent",
     "MultiStepToolRouterAgent": "design_research_agents.agent:MultiStepToolRouterAgent",
     "MultiStepJsonToolCallingAgent": "design_research_agents.agent:MultiStepJsonToolCallingAgent",
@@ -86,14 +83,11 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:
+    from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepCodeToolCallingAgent as MultiStepCodeToolCallingAgent
     from .agent import MultiStepDirectLLMAgent as MultiStepDirectLLMAgent
     from .agent import MultiStepJsonToolCallingAgent as MultiStepJsonToolCallingAgent
     from .agent import MultiStepToolRouterAgent as MultiStepToolRouterAgent
-    from .agent import SingleStepCodeToolCallingAgent as SingleStepCodeToolCallingAgent
-    from .agent import SingleStepDirectLLMAgent as SingleStepDirectLLMAgent
-    from .agent import SingleStepJsonToolCallingAgent as SingleStepJsonToolCallingAgent
-    from .agent import SingleStepToolRouterAgent as SingleStepToolRouterAgent
     from .contracts import AgentStep as AgentStep
     from .contracts import LogicStep as LogicStep
     from .contracts import LoopStep as LoopStep

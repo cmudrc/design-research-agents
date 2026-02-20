@@ -48,6 +48,7 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
                         ]
                     }
                 ),
+                '{"continue": true, "thought": "execute first step"}',
                 "\n".join(
                     [
                         'calc = call_tool("calculator", {"expression": "6 * 7"})',
@@ -120,7 +121,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
 def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> None:
     success_workflow = RouterPattern(
         llm_client=SequenceLLMClient(
-            response_texts=['{"tool_names":["alt_two"],"reason":"best fit"}']
+            response_texts=['{"action":"TOOL_CALL","tool_names":["alt_two"],"reason":"best fit"}']
         ),
         tool_runtime=Toolbox(),
         alternatives={
@@ -137,7 +138,9 @@ def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> N
 
     failure_workflow = RouterPattern(
         llm_client=SequenceLLMClient(
-            response_texts=['{"tool_names":["unknown_alt"],"reason":"best fit"}']
+            response_texts=[
+                '{"action":"TOOL_CALL","tool_names":["unknown_alt"],"reason":"best fit"}'
+            ]
         ),
         tool_runtime=Toolbox(),
         alternatives={"alt_one": StaticMarkerAgent(marker="one")},

@@ -30,10 +30,10 @@ Use this when you want the shortest path to a working run.
 
 .. code-block:: python
 
-   from design_research_agents import OpenAIServiceLLMClient, SingleStepDirectLLMAgent
+   from design_research_agents import DirectLLMCall, OpenAIServiceLLMClient
 
    llm_client = OpenAIServiceLLMClient()
-   agent = SingleStepDirectLLMAgent(llm_client=llm_client)
+   agent = DirectLLMCall(llm_client=llm_client)
    result = agent.run("List three interview themes about onboarding friction.")
    print(result.output)
 
@@ -52,10 +52,10 @@ Use this when you want local execution and are willing to manage local runtime/m
 
 .. code-block:: python
 
-   from design_research_agents import LlamaCppServerLLMClient, SingleStepDirectLLMAgent
+   from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient
 
    llm_client = LlamaCppServerLLMClient()
-   agent = SingleStepDirectLLMAgent(llm_client=llm_client)
+   agent = DirectLLMCall(llm_client=llm_client)
    result = agent.run("Summarize this study brief in five bullets.")
    print(result.output)
 

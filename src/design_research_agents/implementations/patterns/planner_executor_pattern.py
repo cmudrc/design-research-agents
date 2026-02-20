@@ -12,8 +12,8 @@ from design_research_agents.contracts.llm import (
 )
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import AgentStep, LoopStep
-from design_research_agents.implementations.agents.single_step_code_tool_calling_agent import (
-    SingleStepCodeToolCallingAgent,
+from design_research_agents.implementations.agents.multi_step_code_tool_calling_agent import (
+    MultiStepCodeToolCallingAgent,
 )
 from design_research_agents.schemas import (
     SchemaValidationError,
@@ -295,10 +295,11 @@ class PlannerExecutorPattern(Agent):
         raw_steps = parsed_plan.get("steps")
         plan_steps = raw_steps if isinstance(raw_steps, list) else []
 
-        executor_agent = SingleStepCodeToolCallingAgent(
+        executor_agent = MultiStepCodeToolCallingAgent(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
-            max_tool_calls=self._max_tool_calls_per_step,
+            max_steps=1,
+            max_tool_calls_per_step=self._max_tool_calls_per_step,
             tracer=self._tracer,
         )
         callbacks = PlanExecuteLoopCallbacks(

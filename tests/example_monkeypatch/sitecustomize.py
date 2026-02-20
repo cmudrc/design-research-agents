@@ -24,49 +24,7 @@ if _DETERMINISTIC_MODE:
     )
 
 _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
-    "examples/agents/basic/single_step_direct_llm_agent.py": ("4",),
-    "examples/agents/basic/single_step_tool_router_agent.py": (
-        '{"tool_names":["text.word_count"],"reason":"Analyze text content."}',
-    ),
-    "examples/agents/basic/single_step_json_tool_calling_agent.py": (
-        '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
-    ),
-    "examples/agents/basic/single_step_json_callable_tool_agent.py": (
-        (
-            '{"tool_name":"normalize.title","tool_input":{"title":"the old man and the sea"},'
-            '"reason":"Normalize the provided title casing."}'
-        ),
-    ),
-    "examples/tools/script_tools/python/single_step_json_script_rubric_score_agent.py": (
-        (
-            '{"tool_name":"script::rubric_score","tool_input":{"text":"Agents can quickly score '
-            'this sample summary.","max_score":12}}'
-        ),
-    ),
-    "examples/tools/script_tools/bash/single_step_json_script_repo_quickscan_agent.py": (
-        '{"tool_name":"script::repo_quickscan","tool_input":{"include_hidden":false}}',
-    ),
-    "examples/agents/basic/single_step_code_tool_calling_agent.py": (
-        "\n".join(
-            [
-                'csv_text = "tool,source\\ncalculator,core\\nrepo_quickscan,script\\n"',
-                'write_result = call_tool("fs.write_text", {"path": '
-                '"artifacts/examples/single_step_tool_inventory.csv", "content": csv_text, '
-                '"overwrite": True})',
-                'describe_result = call_tool("data.describe", {"path": '
-                '"artifacts/examples/single_step_tool_inventory.csv", "kind": "csv"})',
-                'search_result = call_tool("search.ripgrep", {"query": '
-                '"Toolbox", "root": "src/design_research_agents/tools", '
-                '"max_matches": 3})',
-                "final_output = {",
-                '    "csv_path": write_result["path"],',
-                '    "row_count": describe_result["rows"],',
-                '    "column_count": describe_result["column_count"],',
-                '    "match_count": search_result["count"],',
-                "}",
-            ]
-        ),
-    ),
+    "examples/agents/basic/direct_llm_call.py": ("4",),
     "examples/agents/basic/multi_step_code_tool_calling_agent.py": (
         '{"continue": true, "thought": "Read README and analyze text stats."}',
         "\n".join(
@@ -117,13 +75,6 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             '"converged":true},"reason":"No one-step improvement remains."}'
         ),
     ),
-    "examples/optimization/single_step_optimizer_tool_agent.py": (
-        (
-            '{"tool_name":"optimizer.search_1d","tool_input":{"initial_guess":7,'
-            '"step_size":1,"max_iterations":20},'
-            '"reason":"Run the optimizer from the provided initial guess."}'
-        ),
-    ),
     "examples/agents/basic/multi_step_direct_llm_agent.py": (
         (
             '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.",'
@@ -138,6 +89,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             'Toolbox.","success_criteria":"Return csv row stats and source-code '
             'match count."}]}'
         ),
+        '{"continue": true, "thought": "Run the first execution step."}',
         "\n".join(
             [
                 'csv_text = "tool,source\\ncalculator,core\\nrubric_score,script\\n'
@@ -169,7 +121,11 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
     "examples/workflow/agent_routing.py": (
-        '{"tool_names":["json_tool_agent"],"reason":"Arithmetic request uses tools."}',
+        (
+            '{"action":"TOOL_CALL","tool_names":["json_tool_agent"],'
+            '"reason":"Arithmetic request uses tools."}'
+        ),
+        '{"continue": true, "thought": "Select one arithmetic tool call."}',
         '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
     ),
     "examples/workflow/debate_pattern.py": (
@@ -202,29 +158,6 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         (
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
             'script, and MCP tools.","priority":"high"}'
-        ),
-    ),
-    "examples/agents/streaming/single_step_direct_llm_agent_stream.py": ("The answer is 4.",),
-    "examples/agents/streaming/single_step_tool_router_agent_stream.py": (
-        '{"tool_names":["calculator"],"reason":"Arithmetic request."}',
-    ),
-    "examples/agents/streaming/single_step_json_tool_calling_agent_stream.py": (
-        (
-            '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"},'
-            '"reason":"Arithmetic request."}'
-        ),
-    ),
-    "examples/agents/streaming/single_step_code_tool_calling_agent_stream.py": (
-        "\n".join(
-            [
-                'repo_files = call_tool("fs.list_dir", {"path": ".", "max_entries": 30})',
-                'search_result = call_tool("search.ripgrep", {"query": "Toolbox", '
-                '"root": "src", "max_matches": 2})',
-                "final_output = {",
-                '  "top_level_entry_count": repo_files["count"],',
-                '  "search_hits": search_result["count"]',
-                "}",
-            ]
         ),
     ),
     "examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py": (

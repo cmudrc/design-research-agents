@@ -1,4 +1,4 @@
-"""Helper functions shared by workflow-native single-step code agents."""
+"""Helper functions shared by workflow-native code action-step agents."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def assert_success_handler(context: Mapping[str, object]) -> Mapping[str, object
         raise ValueError(
             str(error_text)
             if isinstance(error_text, str) and error_text.strip()
-            else "single-step code execution failed"
+            else "code action-step execution failed"
         )
     return {"ok": True}
 

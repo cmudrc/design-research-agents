@@ -10,7 +10,7 @@ sources.
 - `source_fusion_story.py`
   - One run combining core tools, script tools, and MCP tools into a single report.
 - `script_tools/README.md`
-  - Script-tool examples and one-step agent wrappers, colocated under `examples/tools/script_tools`.
+  - Script-tool examples colocated under `examples/tools/script_tools`.
 
 ## Quick Start
 
@@ -19,7 +19,6 @@ Run from repository root:
 ```bash
 PYTHONPATH=src python3 examples/tools/mcp_minimal.py
 PYTHONPATH=src python3 examples/tools/source_fusion_story.py
-PYTHONPATH=src python3 examples/tools/script_tools/python/single_step_json_script_rubric_score_agent.py
 bash examples/tools/script_tools/bash/repo_quickscan.sh <<'JSON'
 {"include_hidden":false}
 JSON

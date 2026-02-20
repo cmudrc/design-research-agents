@@ -1,4 +1,4 @@
-"""Multi-step ReAct-style agent built as a loop over ``SingleStepJsonToolCallingAgent``.
+"""Multi-step ReAct-style agent built as a loop over internal JSON action steps.
 
 The agent alternates continuation checks with step execution, recording a
 structured thought-action-observation memory trace and aggregating tool
@@ -20,8 +20,8 @@ from design_research_agents.contracts.termination import (
     continuation_stopped_reason,
 )
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.implementations.agents.single_step_json_tool_calling_agent import (
-    SingleStepJsonToolCallingAgent,
+from design_research_agents.implementations.shared.agent_internal.json_action_step_runner import (
+    JsonActionStepRunner,
 )
 from design_research_agents.tracing import Tracer
 
@@ -93,7 +93,7 @@ class MultiStepJsonToolCallingAgent(Agent):
     """Agent that iterates action-observation steps until continuation stops.
 
     Each iteration asks the model whether to continue, then delegates one action
-    step to ``SingleStepJsonToolCallingAgent``. The loop keeps explicit
+    step to ``JsonActionStepRunner``. The loop keeps explicit
     ReAct-style thought-action-observation entries in memory.
     """
 
@@ -230,7 +230,7 @@ class MultiStepJsonToolCallingAgent(Agent):
             tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
         )
 
-        step_agent = SingleStepJsonToolCallingAgent(
+        step_agent = JsonActionStepRunner(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
             alternatives_prompt_target=alternatives_prompt_target,
@@ -305,7 +305,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         resolved_model: str,
         alternatives_prompt_target: AlternativesPromptTarget,
         step_tools_text: str,
-        step_agent: SingleStepJsonToolCallingAgent,
+        step_agent: JsonActionStepRunner,
         request_id: str,
         dependencies: Mapping[str, object],
         stop_on_step_failure: bool,

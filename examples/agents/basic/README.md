@@ -5,16 +5,8 @@ These examples run one complete non-streaming call per script and print an
 
 ## What Each Example Demonstrates
 
-- `single_step_direct_llm_agent.py`
-  - One LLM completion without tool calling.
-- `single_step_tool_router_agent.py`
-  - Route selection across available runtime tools.
-- `single_step_json_tool_calling_agent.py`
-  - Single-step structured tool selection and invocation.
-- `single_step_json_callable_tool_agent.py`
-  - Single-step structured tool selection over a custom `CallableTool`.
-- `single_step_code_tool_calling_agent.py`
-  - Single-step generated-code execution with tool calls.
+- `direct_llm_call.py`
+  - One direct LLM completion without tool calling.
 - `multi_step_code_tool_calling_agent.py`
   - Multi-step ReAct loop using generated code actions.
 - `multi_step_json_tool_calling_agent.py`
@@ -31,11 +23,7 @@ These examples run one complete non-streaming call per script and print an
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
-PYTHONPATH=src python3 examples/agents/basic/single_step_tool_router_agent.py
-PYTHONPATH=src python3 examples/agents/basic/single_step_json_tool_calling_agent.py
-PYTHONPATH=src python3 examples/agents/basic/single_step_json_callable_tool_agent.py
-PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
+PYTHONPATH=src python3 examples/agents/basic/direct_llm_call.py
 PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
 PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
 PYTHONPATH=src python3 examples/agents/basic/multi_step_json_with_memory.py

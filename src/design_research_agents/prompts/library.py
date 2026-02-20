@@ -13,12 +13,10 @@ from string import Template
 from typing import Final
 
 _PROMPT_FILES: Final[dict[str, str]] = {
-    "router_system": "router_system.md",
-    "router_user_route": "router_user_route.md",
     "tool_calling_system": "tool_calling_system.md",
     "tool_calling_user_select_tool": "tool_calling_user_select_tool.md",
-    "single_step_code_system": "single_step_code_system.md",
-    "single_step_code_user_plan": "single_step_code_user_plan.md",
+    "code_action_step_system": "code_action_step_system.md",
+    "code_action_step_user_plan": "code_action_step_user_plan.md",
     "multi_step_continue_system": "multi_step_continue_system.md",
     "multi_step_continue_user": "multi_step_continue_user.md",
     "multi_step_step_user": "multi_step_step_user.md",

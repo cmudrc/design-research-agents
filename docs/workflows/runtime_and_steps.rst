@@ -82,7 +82,7 @@ Input mode contracts
   Schema input is provided to step context under ``inputs``.
 - Both modes support constructor-level run defaults and per-run overrides.
   They return ``ExecutionResult`` with consistent workflow metadata.
-- Workflow-native single-step agents and patterns normalize run payloads to a
+- Workflow-native agents and patterns normalize run payloads to a
   workflow-first envelope with ``output.workflow``, ``output.final_output``,
   and ``output.artifacts`` for consistent downstream consumption.
 

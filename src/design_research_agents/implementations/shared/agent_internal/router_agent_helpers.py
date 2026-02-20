@@ -1,4 +1,4 @@
-"""Helper utilities for single-step router agents."""
+"""Helper utilities for route-selection agents."""
 
 from __future__ import annotations
 
@@ -123,9 +123,7 @@ def extract_alternatives(
     if compiled_runtime_alternatives:
         return [clone_alternative(alternative) for alternative in compiled_runtime_alternatives]
 
-    raise ValueError(
-        "SingleStepToolRouterAgent requires at least one tool in ToolRuntime.list_tools()."
-    )
+    raise ValueError("Tool router requires at least one tool in ToolRuntime.list_tools().")
 
 
 def clone_alternative(alternative: ToolAlternative) -> ToolAlternative:

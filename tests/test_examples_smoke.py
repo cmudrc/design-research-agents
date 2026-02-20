@@ -28,11 +28,11 @@ def _example_env(example_id: str) -> dict[str, str]:
 
 
 def test_agent_example_smoke_runs() -> None:
-    example_path = REPO_ROOT / "examples" / "agents" / "basic" / "single_step_direct_llm_agent.py"
+    example_path = REPO_ROOT / "examples" / "agents" / "basic" / "direct_llm_call.py"
     completed = subprocess.run(
         [sys.executable, str(example_path)],
         cwd=REPO_ROOT,
-        env=_example_env("examples/agents/basic/single_step_direct_llm_agent.py"),
+        env=_example_env("examples/agents/basic/direct_llm_call.py"),
         capture_output=True,
         text=True,
         check=False,

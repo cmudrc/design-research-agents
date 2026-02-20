@@ -1,14 +1,11 @@
 """Shared implementation modules used by agent/workflow facades."""
 
 from .agents import (
+    DirectLLMCall,
     MultiStepCodeToolCallingAgent,
     MultiStepDirectLLMAgent,
     MultiStepJsonToolCallingAgent,
     MultiStepToolRouterAgent,
-    SingleStepCodeToolCallingAgent,
-    SingleStepDirectLLMAgent,
-    SingleStepJsonToolCallingAgent,
-    SingleStepToolRouterAgent,
 )
 from .patterns import (
     BlackboardPattern,
@@ -26,6 +23,7 @@ __all__ = [
     "BlackboardPattern",
     "ConversationPattern",
     "DebatePattern",
+    "DirectLLMCall",
     "MultiStepCodeToolCallingAgent",
     "MultiStepDirectLLMAgent",
     "MultiStepJsonToolCallingAgent",
@@ -35,9 +33,5 @@ __all__ = [
     "RagReasoningPattern",
     "ReflexionPattern",
     "RouterPattern",
-    "SingleStepCodeToolCallingAgent",
-    "SingleStepDirectLLMAgent",
-    "SingleStepJsonToolCallingAgent",
-    "SingleStepToolRouterAgent",
     "TreeSearchPattern",
 ]

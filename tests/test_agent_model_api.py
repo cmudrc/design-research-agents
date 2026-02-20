@@ -6,14 +6,11 @@ from collections.abc import Iterator
 import pytest
 
 from design_research_agents.agent import (
+    DirectLLMCall,
     MultiStepCodeToolCallingAgent,
     MultiStepDirectLLMAgent,
     MultiStepJsonToolCallingAgent,
     MultiStepToolRouterAgent,
-    SingleStepCodeToolCallingAgent,
-    SingleStepDirectLLMAgent,
-    SingleStepJsonToolCallingAgent,
-    SingleStepToolRouterAgent,
 )
 from design_research_agents.contracts.llm import (
     LLMChatParams,
@@ -65,10 +62,7 @@ class _EmptyDefaultModelClient:
 
 def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
-        SingleStepDirectLLMAgent,
-        SingleStepToolRouterAgent,
-        SingleStepJsonToolCallingAgent,
-        SingleStepCodeToolCallingAgent,
+        DirectLLMCall,
         MultiStepDirectLLMAgent,
         MultiStepToolRouterAgent,
         MultiStepJsonToolCallingAgent,
@@ -95,7 +89,7 @@ def test_agent_constructor_signatures_expose_supported_kwargs() -> None:
 
 def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        SingleStepDirectLLMAgent(llm_client=_EmptyDefaultModelClient()).run("Hello")
+        DirectLLMCall(llm_client=_EmptyDefaultModelClient()).run("Hello")
 
 
 def test_workflow_patterns_fail_when_llm_default_model_is_empty() -> None:

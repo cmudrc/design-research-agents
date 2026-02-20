@@ -155,7 +155,7 @@ class PlanExecuteLoopCallbacks:
             step_context: Step context containing loop metadata and state.
 
         Returns:
-            Rendered prompt text for ``SingleStepCodeToolCallingAgent``.
+            Rendered prompt text for ``MultiStepCodeToolCallingAgent``.
 
         Raises:
             ValueError: If loop metadata or plan step payload is invalid.

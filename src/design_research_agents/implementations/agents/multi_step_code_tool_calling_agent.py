@@ -9,8 +9,8 @@ from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
 from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.implementations.agents.single_step_code_tool_calling_agent import (
-    SingleStepCodeToolCallingAgent,
+from design_research_agents.implementations.shared.agent_internal.code_action_step_runner import (
+    CodeActionStepRunner,
 )
 from design_research_agents.tracing import Tracer
 
@@ -340,7 +340,7 @@ class MultiStepCodeToolCallingAgent(Agent):
         resolved_model: str,
         alternatives_prompt_target: AlternativesPromptTarget,
         step_tools_text: str,
-        step_agent: SingleStepCodeToolCallingAgent,
+        step_agent: CodeActionStepRunner,
         normalized_input: Mapping[str, object],
         max_tool_calls_per_step: int,
         execution_timeout_seconds: int,

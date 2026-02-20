@@ -1,4 +1,4 @@
-"""Contract checks for the phase-2 single-step workflow refactor."""
+"""Contract checks for removed legacy implementation module paths."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Workflow-native single-step code-writing tool agent."""
+"""Workflow-native code-writing action-step runner."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ from design_research_agents.tracing import (
 )
 from design_research_agents.workflow import Workflow
 
-from ..shared.agent_internal.single_step_code_workflow_helpers import (
+from .code_action_step_workflow_helpers import (
     assert_success_handler,
     dependency_output,
     int_or_default,
@@ -68,7 +68,7 @@ from ..shared.agent_internal.single_step_code_workflow_helpers import (
 )
 
 
-class SingleStepCodeToolCallingAgent(Agent):
+class CodeActionStepRunner(Agent):
     """Agent that writes and executes one sandboxed Python action program."""
 
     def __init__(
@@ -86,7 +86,7 @@ class SingleStepCodeToolCallingAgent(Agent):
         alternatives_prompt_target: AlternativesPromptTarget = "user",
         tracer: Tracer | None = None,
     ) -> None:
-        """Initialize a single-step code agent.
+        """Initialize a code action-step runner.
 
         Args:
             llm_client: LLM client used to generate one action program.
@@ -118,12 +118,12 @@ class SingleStepCodeToolCallingAgent(Agent):
         self._normalize_generated_code = normalize_generated_code
         self._system_prompt = resolve_prompt_text(
             override=system_prompt,
-            default_prompt_name="single_step_code_system",
+            default_prompt_name="code_action_step_system",
             field_name="system_prompt",
         )
         self._user_prompt_template = resolve_prompt_text(
             override=user_prompt_template,
-            default_prompt_name="single_step_code_user_plan",
+            default_prompt_name="code_action_step_user_plan",
             field_name="user_prompt_template",
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(
@@ -160,7 +160,7 @@ class SingleStepCodeToolCallingAgent(Agent):
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="SingleStepCodeToolCallingAgent",
+            agent_name="CodeActionStepRunner",
             tracer=self._tracer,
         )
         self.workflow = self._build_workflow()
@@ -174,16 +174,16 @@ class SingleStepCodeToolCallingAgent(Agent):
                 },
                 execution_mode="sequential",
                 failure_policy="skip_dependents",
-                request_id=f"{execution_context.request_id}:single_step_code",
+                request_id=f"{execution_context.request_id}:action_step_code",
                 dependencies=execution_context.dependencies,
             )
             finalize_step = workflow_result.step_results.get("finalize")
             if finalize_step is None:
-                raise RuntimeError("Code single-step workflow missing finalize step result.")
+                raise RuntimeError("Code action-step workflow missing finalize step result.")
             finalize_output = finalize_step.output
             raw_agent_result = finalize_output.get("agent_result")
             if not isinstance(raw_agent_result, ExecutionResult):
-                raise TypeError("Code single-step workflow finalize result is invalid.")
+                raise TypeError("Code action-step workflow finalize result is invalid.")
             output = build_workflow_first_output(
                 base_output=raw_agent_result.output,
                 workflow_result=workflow_result,
@@ -264,7 +264,7 @@ class SingleStepCodeToolCallingAgent(Agent):
         """
         inputs = context.get("inputs")
         if not isinstance(inputs, Mapping):
-            raise TypeError("Code single-step workflow requires schema input mapping.")
+            raise TypeError("Code action-step workflow requires schema input mapping.")
         normalized_input = inputs.get("normalized_input")
         request_id = inputs.get("request_id")
         dependencies = inputs.get("dependencies")
@@ -738,7 +738,7 @@ class SingleStepCodeToolCallingAgent(Agent):
                 alternatives_text=tools_text,
             )
         llm_params = LLMChatParams(
-            provider_options={"agent": "SingleStepCodeToolCallingAgent"},
+            provider_options={"agent": "CodeActionStepRunner"},
         )
         messages = [
             LLMMessage(role="system", content=system_prompt),
@@ -748,7 +748,7 @@ class SingleStepCodeToolCallingAgent(Agent):
             model=model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "SingleStepCodeToolCallingAgent"},
+            metadata={"agent": "CodeActionStepRunner"},
         )
         try:
             response = self._llm_client.chat(messages, model=model, params=llm_params)
@@ -760,5 +760,5 @@ class SingleStepCodeToolCallingAgent(Agent):
 
 
 __all__ = [
-    "SingleStepCodeToolCallingAgent",
+    "CodeActionStepRunner",
 ]

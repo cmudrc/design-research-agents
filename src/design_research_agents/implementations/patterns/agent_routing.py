@@ -13,8 +13,8 @@ from design_research_agents.contracts.termination import (
 )
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.contracts.workflow import LogicStep
-from design_research_agents.implementations.agents.single_step_router_agent import (
-    SingleStepToolRouterAgent,
+from design_research_agents.implementations.agents.multi_step_tool_router_agent import (
+    MultiStepToolRouterAgent,
 )
 from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
 from design_research_agents.workflow.workflow import Workflow
@@ -61,7 +61,7 @@ class _RoutingWorkflowCallbacks:
         self,
         *,
         pattern: RouterPattern,
-        router_agent: SingleStepToolRouterAgent,
+        router_agent: MultiStepToolRouterAgent,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -399,9 +399,10 @@ class RouterPattern(Agent):
             alternatives=self._alternatives,
             descriptions=self._alternative_descriptions,
         )
-        router_agent = SingleStepToolRouterAgent(
+        router_agent = MultiStepToolRouterAgent(
             llm_client=self._llm_client,
             tool_runtime=routing_tool_runtime,
+            max_steps=1,
             system_prompt=self._router_system_prompt,
             user_prompt_template=self._router_user_prompt_template,
             tracer=self._tracer,
@@ -550,22 +551,34 @@ class RouterPattern(Agent):
 
 
 def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> str:
-    """Extract the selected delegate name from router output payload.
+    """Extract selected delegate name from multi-step router output payload.
 
     Args:
-        output: Router output mapping containing ``tool_names``.
+        output: Router output mapping containing ``step_outputs``.
 
     Returns:
         Normalized selected delegate key, or empty string when unavailable.
     """
-    raw_tool_names = output.get("tool_names")
-    if isinstance(raw_tool_names, Sequence) and not isinstance(raw_tool_names, (str, bytes)):
-        for raw_name in raw_tool_names:
-            if not isinstance(raw_name, str):
-                continue
-            normalized_name = raw_name.strip()
-            if normalized_name:
-                return normalized_name
+    raw_step_outputs = output.get("step_outputs")
+    if not isinstance(raw_step_outputs, Sequence) or isinstance(raw_step_outputs, (str, bytes)):
+        return ""
+    for raw_step_output in raw_step_outputs:
+        if not isinstance(raw_step_output, Mapping):
+            continue
+        action = raw_step_output.get("action")
+        if action != "TOOL_CALL":
+            continue
+        tool_name = raw_step_output.get("tool_name")
+        if isinstance(tool_name, str) and tool_name.strip():
+            return tool_name.strip()
+        raw_tool_names = raw_step_output.get("tool_names")
+        if isinstance(raw_tool_names, Sequence) and not isinstance(raw_tool_names, (str, bytes)):
+            for raw_name in raw_tool_names:
+                if not isinstance(raw_name, str):
+                    continue
+                normalized_name = raw_name.strip()
+                if normalized_name:
+                    return normalized_name
     return ""
 
 

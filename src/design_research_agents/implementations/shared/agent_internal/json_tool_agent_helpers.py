@@ -1,4 +1,4 @@
-"""Helper utilities for single-step JSON tool-calling agents."""
+"""Helper utilities for JSON action-step tool-calling agents."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def extract_tool_choices(
         ]
 
     raise ValueError(
-        "SingleStepJsonToolCallingAgent requires at least one tool in ToolRuntime.list_tools()."
+        "JSON action step runner requires at least one tool in ToolRuntime.list_tools()."
     )
 
 

@@ -37,7 +37,7 @@ def compile_sandboxed_code(code_text: str) -> CodeType:
 
     syntax_tree = ast.parse(code_text, mode="exec")
     validate_sandbox_syntax_tree(syntax_tree)
-    return compile(syntax_tree, filename="<single_step_code_tool_calling_agent>", mode="exec")
+    return compile(syntax_tree, filename="<code_action_step_runner>", mode="exec")
 
 
 def validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:

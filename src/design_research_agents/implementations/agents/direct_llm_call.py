@@ -1,4 +1,4 @@
-"""Direct LLM agent composed from workflow building blocks."""
+"""Direct one-shot LLM call composed from workflow building blocks."""
 
 from __future__ import annotations
 
@@ -36,8 +36,8 @@ from design_research_agents.tracing import (
 from design_research_agents.workflow import Workflow
 
 
-class SingleStepDirectLLMAgent(Agent):
-    """Agent that performs one direct model call with no tool runtime."""
+class DirectLLMCall(Agent):
+    """One-shot direct model call with no tool runtime."""
 
     def __init__(
         self,
@@ -99,7 +99,7 @@ class SingleStepDirectLLMAgent(Agent):
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="SingleStepDirectLLMAgent",
+            agent_name="DirectLLMCall",
             tracer=self._tracer,
         )
         self.workflow = self._build_workflow()
@@ -112,7 +112,7 @@ class SingleStepDirectLLMAgent(Agent):
                 },
                 execution_mode="sequential",
                 failure_policy="skip_dependents",
-                request_id=f"{execution_context.request_id}:single_step_direct",
+                request_id=f"{execution_context.request_id}:direct_call",
                 dependencies=execution_context.dependencies,
             )
             if not workflow_result.success:
@@ -125,7 +125,7 @@ class SingleStepDirectLLMAgent(Agent):
             finalized = finalize_step.output
             model_response = finalized.get("model_response")
             if not isinstance(model_response, LLMResponse):
-                raise TypeError("Direct single-step workflow missing LLMResponse payload.")
+                raise TypeError("Direct call workflow missing LLMResponse payload.")
 
             base_output = finalized.get("output")
             base_metadata = finalized.get("metadata")
@@ -207,7 +207,7 @@ class SingleStepDirectLLMAgent(Agent):
         """
         inputs = context.get("inputs")
         if not isinstance(inputs, Mapping):
-            raise TypeError("Direct single-step workflow requires schema input mapping.")
+            raise TypeError("Direct call workflow requires schema input mapping.")
         normalized_input = inputs.get("normalized_input")
         request_id_value = inputs.get("request_id")
         if not isinstance(normalized_input, Mapping):
@@ -235,7 +235,7 @@ class SingleStepDirectLLMAgent(Agent):
             response_schema=extract_response_schema(normalized_input),
             metadata={
                 "request_id": request_id_text,
-                "agent": "SingleStepDirectLLMAgent",
+                "agent": "DirectLLMCall",
                 "message_source": message_source,
             },
             provider_options=merge_provider_options(
@@ -277,7 +277,7 @@ class SingleStepDirectLLMAgent(Agent):
             messages=list(raw_messages) if isinstance(raw_messages, list) else [],
             params=llm_request,
             metadata={
-                "agent": "SingleStepDirectLLMAgent",
+                "agent": "DirectLLMCall",
                 "message_source": prepare_output.get("message_source", "prompt"),
             },
         )
@@ -393,10 +393,10 @@ def _raise_workflow_failure(workflow_result: ExecutionResult) -> None:
         step_error = step_result.error
         if isinstance(step_error, str) and step_error.strip():
             raise ValueError(step_error)
-        raise RuntimeError(f"Direct single-step workflow step '{step_id}' failed.")
-    raise RuntimeError("Direct single-step workflow execution failed.")
+        raise RuntimeError(f"Direct call workflow step '{step_id}' failed.")
+    raise RuntimeError("Direct call workflow execution failed.")
 
 
 __all__ = [
-    "SingleStepDirectLLMAgent",
+    "DirectLLMCall",
 ]
