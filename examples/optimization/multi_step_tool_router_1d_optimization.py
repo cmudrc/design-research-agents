@@ -96,8 +96,9 @@ def main() -> None:
         )
         result = agent.run(
             prompt=(
-                "Minimize f(x)=x^2 from x=3 using optimizer.increase_x or optimizer.decrease_x "
-                "with step=1. Keep iterating until no one-step move improves the value."
+                "Your job is to find a value of x to minimize the mathematical blackbox function f(x). "
+                "Starting at x=3 and using optimizer.increase_x or optimizer.decrease_x to search. "
+                "Keep iterating until no one-step move improves the value."
             ),
             request_id=request_id,
         )
