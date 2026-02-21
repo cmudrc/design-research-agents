@@ -10,8 +10,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents import CallableTool, LlamaCppServerLLMClient, MultiStepAgent, Toolbox
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents import (
+    CallableTool,
+    LlamaCppServerLLMClient,
+    MultiStepAgent,
+    Toolbox,
+)
+from design_research_agents.shared.example_support import (
+    make_tracer,
+    print_json,
+    trace_info,
+)
 
 
 def _objective(x: float) -> float:
@@ -96,8 +105,8 @@ def main() -> None:
         )
         result = agent.run(
             prompt=(
-                "Your job is to find a value of x to minimize the mathematical blackbox function f(x). "
-                "Starting at x=3 and using optimizer.increase_x or optimizer.decrease_x to search. "
+                "Your job is to find a value of x to minimize the blackbox function f(x). "
+                "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
                 "Keep iterating until no one-step move improves the value."
             ),
             request_id=request_id,
