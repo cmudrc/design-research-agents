@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="146" 
-    height="20" role="img" aria-label="Examples Passing: 44/44">
+    height="20" role="img" aria-label="Examples Passing: 36/36">
   <linearGradient id="g" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
     <stop offset=".1" stop-color="#aaa" stop-opacity=".1"/>
@@ -18,7 +18,7 @@
   font-size="11">
     <text x="53.0" y="15" fill="#010101" fill-opacity=".3">Examples Passing</text>
     <text x="53.0" y="14">Examples Passing</text>
-    <text x="126.0" y="15" fill="#010101" fill-opacity=".3">44/44</text>
-    <text x="126.0" y="14">44/44</text>
+    <text x="126.0" y="15" fill="#010101" fill-opacity=".3">36/36</text>
+    <text x="126.0" y="14">36/36</text>
   </g>
 </svg>
