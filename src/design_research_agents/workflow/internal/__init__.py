@@ -12,9 +12,11 @@ from .step_context import (
 )
 from .step_execution import (
     run_agent_step,
+    run_delegate_batch_step,
     run_logic_step,
     run_memory_read_step,
     run_memory_write_step,
+    run_model_step,
     run_tool_step,
 )
 from .step_tracing import activate_step_span, finish_step_span, start_step_span
@@ -40,9 +42,11 @@ __all__ = [
     "resolve_request_id_with_prefix",
     "route_deactivations",
     "run_agent_step",
+    "run_delegate_batch_step",
     "run_logic_step",
     "run_memory_read_step",
     "run_memory_write_step",
+    "run_model_step",
     "run_tool_step",
     "start_step_span",
     "validate_no_cycles",

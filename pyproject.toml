@@ -9,12 +9,11 @@ name = "design-research-agents"
 version = "0.2.0"
 description = "A flexible, modular framework for researching AI agents that design"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [{ name = "design-research-agents contributors" }]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -76,7 +75,7 @@ markers = [
 # Ruff settings for lint/format targets.
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 src = ["src", "tests", "examples"]
 
 [tool.ruff.format]
@@ -87,6 +86,7 @@ line-ending = "auto"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D", "C90"]
+ignore = ["UP040"]
 [tool.ruff.lint.mccabe]
 max-complexity = 12
 
@@ -99,7 +99,7 @@ convention = "google"
 # Strict-ish mypy baseline for framework code.
 [tool.mypy]
 packages = ["design_research_agents"]
-python_version = "3.11"
+python_version = "3.12"
 warn_unused_configs = true
 check_untyped_defs = true
 disallow_untyped_defs = true

@@ -21,6 +21,7 @@ from design_research_agents.implementations.shared.workflow_internal import (
 from design_research_agents.implementations.shared.workflow_internal.pattern_runtime import (
     WorkflowBudgetTracker,
 )
+from design_research_agents.shared import run_defaults as canonical_run_defaults
 
 
 def _tool_spec(name: str = "calculator") -> ToolSpec:
@@ -72,7 +73,7 @@ def test_run_defaults_and_loop_state_helpers_cover_error_and_fallback_paths(
         == "provided"
     )
     assert run_defaults.resolve_request_id_with_prefix(request_id=" ", default_prefix=None) == " "
-    monkeypatch.setattr(run_defaults, "uuid4", lambda: SimpleNamespace(hex="abc123"))
+    monkeypatch.setattr(canonical_run_defaults, "uuid4", lambda: SimpleNamespace(hex="abc123"))
     assert (
         run_defaults.resolve_request_id_with_prefix(
             request_id=" ",

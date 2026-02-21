@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from types import SimpleNamespace
-
-import pytest
 
 from design_research_agents.contracts.execution import ExecutionResult
 from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
@@ -184,9 +181,7 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
     assert capped_result.output["terminated_reason"] == "max_iterations_reached"
 
 
-def test_debate_pattern_delegate_and_helper_branches(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_debate_pattern_delegate_and_helper_branches() -> None:
     assert debate_impl._extract_delegate_verdict(
         {"winner": "tie", "rationale": "r", "synthesis": "s"}
     ) == {"winner": "tie", "rationale": "r", "synthesis": "s"}
@@ -223,65 +218,10 @@ def test_debate_pattern_delegate_and_helper_branches(
     ) == {"winner": "tie", "rationale": "r", "synthesis": "s"}
     assert debate_impl._extract_delegate_verdict({"model_text": "not-json"}) is None
 
-    assert debate_impl._merge_dependencies(
-        default_dependencies={"a": 1},
-        run_dependencies=None,
-    ) == {"a": 1}
-    assert debate_impl._merge_dependencies(
-        default_dependencies={"a": 1},
-        run_dependencies={"b": 2},
-    ) == {"a": 1, "b": 2}
-
     assert debate_impl._safe_int(True) == 1
     assert debate_impl._safe_int(2.9) == 2
     assert debate_impl._safe_int("7") == 7
     assert debate_impl._safe_int("bad") == 1
-
-    assert debate_impl._normalize_request_id_prefix(None) is None
-    assert debate_impl._normalize_request_id_prefix(" req ") == "req"
-    with pytest.raises(ValueError, match="non-empty"):
-        debate_impl._normalize_request_id_prefix("   ")
-
-    monkeypatch.setattr(debate_impl, "uuid4", lambda: SimpleNamespace(hex="abc123"))
-    assert debate_impl._resolve_request_id(request_id="provided", default_prefix="x") == "provided"
-    assert (
-        debate_impl._resolve_request_id(
-            request_id="",
-            default_prefix="debate",
-        )
-        == "debate:abc123"
-    )
-    assert debate_impl._resolve_request_id(request_id=" ", default_prefix=None) == " "
-
-    assert (
-        debate_impl._resolve_prompt_override(
-            override=None,
-            default_value="default prompt",
-            field_name="field",
-        )
-        == "default prompt"
-    )
-    with pytest.raises(ValueError, match="field"):
-        debate_impl._resolve_prompt_override(
-            override="   ",
-            default_value="default prompt",
-            field_name="field",
-        )
-
-    assert (
-        debate_impl._render_prompt_template(
-            template_text="Task=$task",
-            variables={"task": "go"},
-            field_name="f",
-        )
-        == "Task=go"
-    )
-    with pytest.raises(ValueError, match="missing required variable"):
-        debate_impl._render_prompt_template(
-            template_text="Task=$missing",
-            variables={"task": "go"},
-            field_name="f",
-        )
 
     affirmative = _StaticDelegate(success=True, payload={"model_text": "Affirmative"})
     negative = _StaticDelegate(success=True, payload={"model_text": "Negative"})

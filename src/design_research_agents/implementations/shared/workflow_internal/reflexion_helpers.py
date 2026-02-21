@@ -1,4 +1,4 @@
-"""Shared constants for reflexion/propose-critic workflow patterns."""
+"""Shared constants and callbacks for reflexion/propose-critic patterns."""
 
 from __future__ import annotations
 
@@ -6,13 +6,7 @@ import json
 from collections.abc import Mapping
 
 from design_research_agents.contracts.agent import ExecutionResult
-from design_research_agents.contracts.llm import (
-    LLMChatParams,
-    LLMClient,
-    LLMMessage,
-    LLMResponse,
-)
-from design_research_agents.contracts.workflow import WorkflowDelegate
+from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse
 from design_research_agents.implementations.shared.agent_internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
@@ -26,9 +20,6 @@ from design_research_agents.schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
-from design_research_agents.tracing import finish_model_call, start_model_call
-
-from .delegate_invocation import invoke_delegate
 
 CRITIC_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -73,14 +64,11 @@ DEFAULT_CRITIC_USER_PROMPT_TEMPLATE = "\n".join(
 
 
 class ReflexionLoopCallbacks:
-    """Callback bundle used by reflexion propose/critic loop runtime."""
+    """Callback bundle for reflexion loop prompt and state handling."""
 
     def __init__(
         self,
         *,
-        llm_client: LLMClient,
-        proposer_agent: WorkflowDelegate,
-        critic_delegate: WorkflowDelegate | None,
         resolved_model: str,
         task_prompt: str,
         request_id: str,
@@ -90,24 +78,7 @@ class ReflexionLoopCallbacks:
         critic_user_prompt_template: str,
         budget_tracker: WorkflowBudgetTracker,
     ) -> None:
-        """Store loop dependencies shared by callback methods.
-
-        Args:
-            llm_client: LLM client used for critic calls.
-            proposer_agent: Proposer delegate dependency.
-            critic_delegate: Optional critic delegate override.
-            resolved_model: Resolved model id for critic calls.
-            task_prompt: User task prompt text.
-            request_id: Resolved request id.
-            dependencies: Normalized dependency mapping.
-            proposer_user_prompt_template: Proposer user prompt template.
-            critic_system_prompt: Critic system prompt.
-            critic_user_prompt_template: Critic user prompt template.
-            budget_tracker: Budget tracker collecting model metrics.
-        """
-        self.llm_client = llm_client
-        self.proposer_agent = proposer_agent
-        self.critic_delegate = critic_delegate
+        """Store loop dependencies shared by callback methods."""
         self.resolved_model = resolved_model
         self.task_prompt = task_prompt
         self.request_id = request_id
@@ -119,126 +90,17 @@ class ReflexionLoopCallbacks:
         self.last_model_response: LLMResponse | None = None
 
     def continue_predicate(self, iteration: int, state: Mapping[str, object]) -> bool:
-        """Continue until proposal is approved or an unrecoverable failure occurs.
-
-        Args:
-            iteration: One-based loop iteration index.
-            state: Current loop state before this iteration.
-
-        Returns:
-            ``True`` when another propose/critic iteration should run.
-        """
+        """Continue until proposal is approved or an unrecoverable failure occurs."""
         del iteration
         if bool(state.get("approved")):
             return False
         failure_reason = state.get("failure_reason")
         return not (isinstance(failure_reason, str) and failure_reason)
 
-    def run_iteration(self, context: Mapping[str, object]) -> Mapping[str, object]:
-        """Execute one propose-then-critic iteration.
-
-        Args:
-            context: Step context containing loop metadata and loop state.
-
-        Returns:
-            Iteration payload containing proposal, approval, and feedback fields.
-
-        Raises:
-            ValueError: If required loop metadata is missing.
-        """
+    def build_proposer_prompt(self, context: Mapping[str, object]) -> str:
+        """Build proposer prompt for one loop iteration."""
         iteration, current_feedback, current_goals = self._extract_iteration_state(context)
-        current_proposal = self._run_proposer(iteration, current_feedback, current_goals)
-        critic_response = self._run_critic(current_proposal)
-
-        parsed_critique = _parse_json_mapping(critic_response.text)
-        if parsed_critique is None:
-            return {
-                "failure_reason": "critic_invalid_json",
-                "failure_error": "Critic did not return valid JSON output.",
-                "proposal": current_proposal,
-            }
-
-        try:
-            validate_payload_against_schema(
-                payload=parsed_critique,
-                schema=CRITIC_SCHEMA,
-                location="propose_critic.critic",
-            )
-        except SchemaValidationError as exc:
-            return {
-                "failure_reason": "critic_invalid_schema",
-                "failure_error": f"Critic output failed schema validation: {exc}",
-                "proposal": current_proposal,
-            }
-
-        revision_goals_raw = parsed_critique.get("revision_goals")
-        revision_goals = (
-            [str(goal) for goal in revision_goals_raw]
-            if isinstance(revision_goals_raw, list)
-            else []
-        )
-        return {
-            "failure_reason": None,
-            "failure_error": None,
-            "proposal": current_proposal,
-            "approved": bool(parsed_critique.get("approved")),
-            "feedback": str(parsed_critique.get("feedback", "")),
-            "revision_goals": revision_goals,
-        }
-
-    def _extract_iteration_state(
-        self,
-        context: Mapping[str, object],
-    ) -> tuple[int, str, list[str]]:
-        """Extract iteration index and prior critique state from loop context.
-
-        Args:
-            context: Loop step context containing ``_loop`` metadata and loop state.
-
-        Returns:
-            Tuple of iteration number, prior feedback text, and revision goals.
-
-        Raises:
-            ValueError: If required loop metadata is missing.
-        """
-        loop_metadata = context.get("_loop")
-        if not isinstance(loop_metadata, Mapping):
-            raise ValueError("Loop metadata is required for propose_critic iteration.")
-
-        raw_iteration = loop_metadata.get("iteration")
-        iteration = parse_loop_iteration(
-            raw_iteration,
-            error_prefix="Propose and critique loop iteration",
-        )
-
-        loop_state = context.get("loop_state")
-        state_mapping = loop_state if isinstance(loop_state, Mapping) else {}
-        current_feedback = str(state_mapping.get("feedback", ""))
-        revision_goals_raw = state_mapping.get("revision_goals")
-        current_goals = (
-            [str(goal) for goal in revision_goals_raw]
-            if isinstance(revision_goals_raw, list)
-            else []
-        )
-        return iteration, current_feedback, current_goals
-
-    def _run_proposer(
-        self,
-        iteration: int,
-        current_feedback: str,
-        current_goals: list[str],
-    ) -> str:
-        """Run proposer agent and update budget/model-response state.
-
-        Args:
-            iteration: One-based iteration number.
-            current_feedback: Feedback text from the prior iteration.
-            current_goals: Revision goals from the prior iteration.
-
-        Returns:
-            Normalized proposal text emitted by the proposer.
-        """
-        propose_prompt = render_prompt_template(
+        return render_prompt_template(
             template_text=self.proposer_user_prompt_template,
             variables={
                 "task_prompt": self.task_prompt,
@@ -246,96 +108,115 @@ class ReflexionLoopCallbacks:
                 "prior_feedback": current_feedback or "(none)",
                 "revision_goals_json": json.dumps(current_goals, sort_keys=True),
             },
-            field_name="propose_critic_proposer_user_prompt_template",
+            field_name="proposer_user_prompt_template",
         )
-        proposer_invocation = invoke_delegate(
-            delegate=self.proposer_agent,
-            prompt=propose_prompt,
-            step_context=None,
-            request_id=f"{self.request_id}:propose-{iteration}",
-            execution_mode="sequential",
-            failure_policy="skip_dependents",
-            dependencies=self.dependencies,
-        )
-        propose_result = proposer_invocation.result
-        if propose_result.model_response is not None:
-            self.last_model_response = propose_result.model_response
-            self.budget_tracker.add_model_response(propose_result.model_response)
-        return _extract_delegate_text(propose_result.output).strip()
 
-    def _run_critic(self, proposal: str) -> LLMResponse:
-        """Run critic model call for one proposal revision.
-
-        Args:
-            proposal: Proposed draft text to critique.
-
-        Returns:
-            Critic model response payload.
-
-        Raises:
-            Exception: Propagates model client failures.
-        """
-        critic_prompt = render_prompt_template(
+    def build_critic_prompt(self, context: Mapping[str, object]) -> str:
+        """Build critic prompt from the latest proposer output in loop context."""
+        proposal = _extract_proposer_text(context)
+        return render_prompt_template(
             template_text=self.critic_user_prompt_template,
             variables={"task_prompt": self.task_prompt, "proposal": proposal},
-            field_name="propose_critic_critic_user_prompt_template",
+            field_name="critic_user_prompt_template",
         )
-        if self.critic_delegate is not None:
-            critic_invocation = invoke_delegate(
-                delegate=self.critic_delegate,
-                prompt=critic_prompt,
-                step_context=None,
-                request_id=f"{self.request_id}:critic_delegate",
-                execution_mode="sequential",
-                failure_policy="skip_dependents",
-                dependencies=self.dependencies,
-            )
-            critic_result = critic_invocation.result
-            if critic_result.model_response is not None:
-                self.last_model_response = critic_result.model_response
-                self.budget_tracker.add_model_response(critic_result.model_response)
-            text_output = _extract_delegate_text(critic_result.output)
-            return LLMResponse(
-                model=self.resolved_model,
-                text=text_output,
-                provider="delegate",
-            )
 
-        critic_messages = [
-            LLMMessage(role="system", content=self.critic_system_prompt),
-            LLMMessage(role="user", content=critic_prompt),
-        ]
-        critic_params = LLMChatParams(
-            response_schema=dict(CRITIC_SCHEMA),
-            provider_options={
-                "agent": "ReflexionPattern",
-                "mode": "propose_critic",
-                "phase": "critic",
-            },
-        )
-        critic_span_id = start_model_call(
+    def build_critic_request(self, context: Mapping[str, object]) -> LLMRequest:
+        """Build model request payload for direct critic invocation."""
+        critic_prompt = self.build_critic_prompt(context)
+        metadata: dict[str, object] = {
+            "agent": "ReflexionPattern",
+            "mode": "propose_critic",
+            "phase": "critic",
+            "request_id": self.request_id,
+        }
+        return LLMRequest(
+            messages=[
+                LLMMessage(role="system", content=self.critic_system_prompt),
+                LLMMessage(role="user", content=critic_prompt),
+            ],
             model=self.resolved_model,
-            messages=critic_messages,
-            params=critic_params,
-            metadata={
-                "agent": "ReflexionPattern",
-                "mode": "propose_critic",
-                "phase": "critic",
-            },
+            response_schema=dict(CRITIC_SCHEMA),
+            metadata=dict(metadata),
+            provider_options=dict(metadata),
         )
-        try:
-            critic_response = self.llm_client.chat(
-                critic_messages,
-                model=self.resolved_model,
-                params=critic_params,
-            )
-        except Exception as exc:
-            finish_model_call(critic_span_id, error=str(exc), model=self.resolved_model)
-            raise
-        finish_model_call(critic_span_id, response=critic_response)
-        self.last_model_response = critic_response
-        self.budget_tracker.add_model_response(critic_response)
-        return critic_response
+
+    def parse_critic_model_response(
+        self,
+        response: LLMResponse,
+        context: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        """Parse model critic response into structured critique payload."""
+        del context
+        return {"critique": _parse_json_mapping(response.text)}
+
+    def build_iteration_from_model(self, context: Mapping[str, object]) -> Mapping[str, object]:
+        """Build one iteration state from proposer and direct model-critic steps."""
+        proposal = _extract_proposer_text(context)
+        proposer_step = _extract_dependency_output(
+            context=context,
+            dependency_id="propose_critic_proposer",
+        )
+        self._record_step_model_response(proposer_step)
+
+        critic_step = _extract_dependency_output(
+            context=context,
+            dependency_id="propose_critic_critic_model",
+        )
+        self._record_step_model_response(critic_step)
+        critic_step_success = critic_step.get("success") is True
+        if not critic_step_success:
+            error_text = str(critic_step.get("error", "Critic model step failed."))
+            return {
+                "failure_reason": "iteration_failed",
+                "failure_error": error_text,
+                "proposal": proposal,
+            }
+
+        critic_step_output = critic_step.get("output")
+        normalized_step_output = (
+            dict(critic_step_output) if isinstance(critic_step_output, Mapping) else {}
+        )
+        parsed_payload = normalized_step_output.get("parsed")
+        parsed_mapping = dict(parsed_payload) if isinstance(parsed_payload, Mapping) else {}
+        critique_payload = parsed_mapping.get("critique")
+        return self._build_critique_result(
+            proposal=proposal,
+            parsed_critique=critique_payload,
+        )
+
+    def build_iteration_from_delegate(
+        self,
+        context: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        """Build one iteration state from proposer and delegate-critic steps."""
+        proposal = _extract_proposer_text(context)
+        proposer_step = _extract_dependency_output(
+            context=context,
+            dependency_id="propose_critic_proposer",
+        )
+        self._record_step_model_response(proposer_step)
+
+        critic_step = _extract_dependency_output(
+            context=context,
+            dependency_id="propose_critic_critic_delegate",
+        )
+        self._record_step_model_response(critic_step)
+        critic_delegate_output = _extract_step_delegate_output(critic_step)
+        critic_step_success = critic_step.get("success") is True
+        if not critic_step_success and not critic_delegate_output:
+            error_text = str(critic_step.get("error", "Critic delegate step failed."))
+            return {
+                "failure_reason": "iteration_failed",
+                "failure_error": error_text,
+                "proposal": proposal,
+            }
+
+        critic_text = _extract_delegate_text(critic_delegate_output)
+        parsed_critique = _parse_json_mapping(critic_text)
+        return self._build_critique_result(
+            proposal=proposal,
+            parsed_critique=parsed_critique,
+        )
 
     def state_reducer(
         self,
@@ -343,16 +224,7 @@ class ReflexionLoopCallbacks:
         iteration_result: ExecutionResult,
         iteration: int,
     ) -> Mapping[str, object]:
-        """Fold one iteration result into accumulated reflexion loop state.
-
-        Args:
-            state: Current aggregate loop state.
-            iteration_result: Workflow result produced by this iteration body.
-            iteration: One-based iteration index.
-
-        Returns:
-            Updated state with proposal, feedback, and critique history.
-        """
+        """Fold one iteration result into accumulated reflexion loop state."""
         next_state = dict(state)
         critique_iterations = normalize_mapping_records(next_state.get("critique_iterations"))
         next_state["critique_iterations"] = critique_iterations
@@ -412,16 +284,137 @@ class ReflexionLoopCallbacks:
         next_state["failure_error"] = None
         return next_state
 
+    def _extract_iteration_state(
+        self,
+        context: Mapping[str, object],
+    ) -> tuple[int, str, list[str]]:
+        """Extract iteration index and prior critique state from loop context."""
+        loop_metadata = context.get("_loop")
+        if not isinstance(loop_metadata, Mapping):
+            raise ValueError("Loop metadata is required for propose_critic iteration.")
+        raw_iteration = loop_metadata.get("iteration")
+        iteration = parse_loop_iteration(
+            raw_iteration,
+            error_prefix="Propose and critique loop iteration",
+        )
+        loop_state = context.get("loop_state")
+        state_mapping = loop_state if isinstance(loop_state, Mapping) else {}
+        current_feedback = str(state_mapping.get("feedback", ""))
+        revision_goals_raw = state_mapping.get("revision_goals")
+        current_goals = (
+            [str(goal) for goal in revision_goals_raw]
+            if isinstance(revision_goals_raw, list)
+            else []
+        )
+        return iteration, current_feedback, current_goals
+
+    def _record_step_model_response(
+        self,
+        step_payload: Mapping[str, object],
+    ) -> None:
+        """Record model response metrics from one serialized dependency step payload."""
+        model_response = _extract_step_model_response(step_payload)
+        if model_response is None:
+            return
+        self.last_model_response = model_response
+        self.budget_tracker.add_model_response(model_response)
+
+    def _build_critique_result(
+        self,
+        *,
+        proposal: str,
+        parsed_critique: object,
+    ) -> Mapping[str, object]:
+        """Validate parsed critique payload and normalize iteration output."""
+        if not isinstance(parsed_critique, Mapping):
+            return {
+                "failure_reason": "critic_invalid_json",
+                "failure_error": "Critic did not return valid JSON output.",
+                "proposal": proposal,
+            }
+
+        normalized_critique = dict(parsed_critique)
+        try:
+            validate_payload_against_schema(
+                payload=normalized_critique,
+                schema=CRITIC_SCHEMA,
+                location="propose_critic.critic",
+            )
+        except SchemaValidationError as exc:
+            return {
+                "failure_reason": "critic_invalid_schema",
+                "failure_error": f"Critic output failed schema validation: {exc}",
+                "proposal": proposal,
+            }
+
+        revision_goals_raw = normalized_critique.get("revision_goals")
+        revision_goals = (
+            [str(goal) for goal in revision_goals_raw]
+            if isinstance(revision_goals_raw, list)
+            else []
+        )
+        return {
+            "failure_reason": None,
+            "failure_error": None,
+            "proposal": proposal,
+            "approved": bool(normalized_critique.get("approved")),
+            "feedback": str(normalized_critique.get("feedback", "")),
+            "revision_goals": revision_goals,
+        }
+
+
+def _extract_dependency_output(
+    *,
+    context: Mapping[str, object],
+    dependency_id: str,
+) -> Mapping[str, object]:
+    """Extract one dependency step payload from workflow step context."""
+    dependency_results = context.get("dependency_results")
+    if not isinstance(dependency_results, Mapping):
+        return {}
+    dependency_payload = dependency_results.get(dependency_id)
+    if not isinstance(dependency_payload, Mapping):
+        return {}
+    return dict(dependency_payload)
+
+
+def _extract_step_delegate_output(step_payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Extract serialized delegate output payload from one step-result mapping."""
+    raw_step_output = step_payload.get("output")
+    if not isinstance(raw_step_output, Mapping):
+        return {}
+    delegate_output = raw_step_output.get("output")
+    if not isinstance(delegate_output, Mapping):
+        return {}
+    return dict(delegate_output)
+
+
+def _extract_step_model_response(step_payload: Mapping[str, object]) -> LLMResponse | None:
+    """Extract serialized ``LLMResponse`` from one step-result mapping."""
+    raw_step_output = step_payload.get("output")
+    if not isinstance(raw_step_output, Mapping):
+        return None
+    raw_model_response = raw_step_output.get("model_response")
+    if not isinstance(raw_model_response, Mapping):
+        return None
+    try:
+        return LLMResponse(**dict(raw_model_response))
+    except TypeError:
+        return None
+
+
+def _extract_proposer_text(context: Mapping[str, object]) -> str:
+    """Extract proposer text payload from loop dependency context."""
+    proposer_step = _extract_dependency_output(
+        context=context,
+        dependency_id="propose_critic_proposer",
+    )
+    proposer_output = _extract_step_delegate_output(proposer_step)
+    return _extract_delegate_text(proposer_output).strip()
+
 
 def _extract_delegate_text(output: Mapping[str, object]) -> str:
-    """Extract critic delegate text payload from output mapping.
-
-    Args:
-        output: Delegate output mapping.
-
-    Returns:
-        Best-effort string representation of delegate output content.
-    """
+    """Extract best-effort text payload from serialized delegate output mapping."""
     final_output = output.get("final_output")
     if isinstance(final_output, str):
         return final_output

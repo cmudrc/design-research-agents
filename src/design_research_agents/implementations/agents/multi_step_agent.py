@@ -8,7 +8,7 @@ from typing import Literal
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.memory import MemoryStore
-from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
+from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.implementations.shared.agent_internal.multi_step_modes.code import (
     MultiStepCodeToolCallingAgent as _CodeModeStrategy,
 )
@@ -21,9 +21,6 @@ from design_research_agents.implementations.shared.agent_internal.multi_step_mod
 )
 from design_research_agents.implementations.shared.agent_internal.multi_step_modes.json import (
     MultiStepJsonToolCallingAgent as _JsonModeStrategy,
-)
-from design_research_agents.implementations.shared.agent_internal.multi_step_modes.router import (
-    MultiStepToolRouterAgent as _RouterModeStrategy,
 )
 from design_research_agents.implementations.shared.agent_internal.prompt_alternatives import (
     AlternativesPromptTarget,
@@ -49,6 +46,8 @@ class MultiStepAgent(Agent):
         continuation_system_prompt: str | None = None,
         continuation_user_prompt_template: str | None = None,
         step_user_prompt_template: str | None = None,
+        tool_calling_system_prompt: str | None = None,
+        tool_calling_user_prompt_template: str | None = None,
         alternatives_prompt_target: AlternativesPromptTarget = "user",
         continuation_memory_tail_items: int = 6,
         step_memory_tail_items: int = 8,
@@ -61,9 +60,7 @@ class MultiStepAgent(Agent):
         validate_tool_input_schema: bool = False,
         normalize_generated_code_per_step: bool = False,
         default_tools_per_step: Sequence[Mapping[str, object]] | None = None,
-        router_system_prompt: str | None = None,
-        router_user_prompt_template: str | None = None,
-        allowed_routes: Sequence[str] | None = None,
+        allowed_tools: Sequence[str] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize one mode-specific multi-step strategy.
@@ -79,6 +76,8 @@ class MultiStepAgent(Agent):
             continuation_system_prompt: Continuation system prompt override.
             continuation_user_prompt_template: Continuation user prompt override.
             step_user_prompt_template: Step action user prompt override.
+            tool_calling_system_prompt: Json mode tool-calling system prompt override.
+            tool_calling_user_prompt_template: Json mode tool-calling user prompt override.
             alternatives_prompt_target: Prompt insertion target for alternatives blocks.
             continuation_memory_tail_items: Continuation memory tail item count.
             step_memory_tail_items: Step memory tail item count.
@@ -91,9 +90,7 @@ class MultiStepAgent(Agent):
             validate_tool_input_schema: Code-mode tool input schema validation toggle.
             normalize_generated_code_per_step: Code-mode code normalization toggle.
             default_tools_per_step: Code-mode default tool allowlist.
-            router_system_prompt: Router-special-case system prompt override.
-            router_user_prompt_template: Router-special-case user prompt override.
-            allowed_routes: Optional router-special-case route allowlist.
+            allowed_tools: Optional json-mode tool allowlist.
             tracer: Optional tracer dependency.
 
         Raises:
@@ -106,13 +103,10 @@ class MultiStepAgent(Agent):
         if normalized_mode in {"json", "code"}:
             if tool_runtime is None:
                 raise ValueError("tool_runtime is required when mode is 'json' or 'code'.")
-            runtime_tools = tuple(tool_runtime.list_tools())
-            if not runtime_tools:
+            if not tool_runtime.list_tools():
                 raise ValueError(
                     "tool_runtime must expose at least one tool when mode is 'json' or 'code'."
                 )
-        else:
-            runtime_tools = ()
 
         self._mode: MultiStepMode = normalized_mode  # type: ignore[assignment]
         self._strategy: Agent
@@ -153,21 +147,6 @@ class MultiStepAgent(Agent):
             )
             return
 
-        if _all_tools_are_argless(runtime_tools):
-            self._strategy = _RouterModeStrategy(
-                llm_client=llm_client,
-                tool_runtime=tool_runtime,
-                max_steps=max_steps,
-                stop_on_step_failure=stop_on_step_failure,
-                system_prompt=router_system_prompt,
-                user_prompt_template=router_user_prompt_template,
-                alternatives_prompt_target=alternatives_prompt_target,
-                allowed_routes=allowed_routes,
-                step_memory_tail_items=step_memory_tail_items,
-                tracer=tracer,
-            )
-            return
-
         self._strategy = _JsonModeStrategy(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -176,6 +155,8 @@ class MultiStepAgent(Agent):
             continuation_system_prompt=continuation_system_prompt,
             continuation_user_prompt_template=continuation_user_prompt_template,
             step_user_prompt_template=step_user_prompt_template,
+            tool_calling_system_prompt=tool_calling_system_prompt,
+            tool_calling_user_prompt_template=tool_calling_user_prompt_template,
             alternatives_prompt_target=alternatives_prompt_target,
             continuation_memory_tail_items=continuation_memory_tail_items,
             step_memory_tail_items=step_memory_tail_items,
@@ -183,6 +164,7 @@ class MultiStepAgent(Agent):
             memory_namespace=memory_namespace,
             memory_read_top_k=memory_read_top_k,
             memory_write_observations=memory_write_observations,
+            allowed_tools=allowed_tools,
             tracer=tracer,
         )
 
@@ -217,57 +199,6 @@ class MultiStepAgent(Agent):
             request_id=request_id,
             dependencies=dependencies,
         )
-
-
-def _all_tools_are_argless(tool_specs: Sequence[ToolSpec]) -> bool:
-    """Return whether all runtime tools accept no structured arguments.
-
-    Args:
-        tool_specs: Runtime tool specifications.
-
-    Returns:
-        ``True`` when every tool schema is argument-less.
-    """
-    if not tool_specs:
-        return False
-    return all(not _tool_takes_structured_args(spec.input_schema) for spec in tool_specs)
-
-
-def _tool_takes_structured_args(schema: object) -> bool:
-    """Return whether a JSON schema clearly accepts structured argument fields.
-
-    Args:
-        schema: JSON-schema-like object.
-
-    Returns:
-        ``True`` when the schema allows or requires structured fields.
-    """
-    if not isinstance(schema, Mapping):
-        return True
-    schema_type = schema.get("type")
-    if isinstance(schema_type, str) and schema_type != "object":
-        return True
-
-    required = schema.get("required")
-    if isinstance(required, list) and len(required) > 0:
-        return True
-
-    properties = schema.get("properties")
-    if isinstance(properties, Mapping) and len(properties) > 0:
-        return True
-
-    one_of = schema.get("oneOf")
-    if isinstance(one_of, list) and one_of:
-        return True
-    any_of = schema.get("anyOf")
-    if isinstance(any_of, list) and any_of:
-        return True
-    all_of = schema.get("allOf")
-    if isinstance(all_of, list) and all_of:
-        return True
-
-    additional_properties = schema.get("additionalProperties")
-    return additional_properties not in (None, False)
 
 
 __all__ = [

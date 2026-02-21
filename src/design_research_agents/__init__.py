@@ -16,6 +16,8 @@ _EXPORTS: Final[dict[str, str]] = {
     "LogicStep": "design_research_agents.contracts:LogicStep",
     "ToolStep": "design_research_agents.contracts:ToolStep",
     "AgentStep": "design_research_agents.contracts:AgentStep",
+    "ModelStep": "design_research_agents.contracts:ModelStep",
+    "DelegateBatchStep": "design_research_agents.contracts:DelegateBatchStep",
     "LoopStep": "design_research_agents.contracts:LoopStep",
     "MemoryReadStep": "design_research_agents.contracts:MemoryReadStep",
     "MemoryWriteStep": "design_research_agents.contracts:MemoryWriteStep",
@@ -83,10 +85,12 @@ if TYPE_CHECKING:
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
     from .contracts import AgentStep as AgentStep
+    from .contracts import DelegateBatchStep as DelegateBatchStep
     from .contracts import LogicStep as LogicStep
     from .contracts import LoopStep as LoopStep
     from .contracts import MemoryReadStep as MemoryReadStep
     from .contracts import MemoryWriteStep as MemoryWriteStep
+    from .contracts import ModelStep as ModelStep
     from .contracts import ToolStep as ToolStep
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MlxLocalLLMClient as MlxLocalLLMClient

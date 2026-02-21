@@ -44,6 +44,8 @@ llm_client = LlamaCppServerLLMClient()
 
 ## Quickstart
 
+Requires Python 3.12+.
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate

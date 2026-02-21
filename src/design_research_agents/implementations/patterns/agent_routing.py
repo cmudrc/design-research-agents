@@ -14,7 +14,7 @@ from design_research_agents.contracts.termination import (
 from design_research_agents.contracts.tools import ToolRuntime, ToolSpec
 from design_research_agents.contracts.workflow import LogicStep, WorkflowDelegate
 from design_research_agents.implementations.agents.multi_step_agent import MultiStepAgent
-from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
+from design_research_agents.tracing import Tracer
 from design_research_agents.workflow.workflow import Workflow
 
 from ..shared.agent_internal.agent_routing_runtime_adapter import (
@@ -27,17 +27,15 @@ from ..shared.agent_internal.prompt_overrides import (
     validate_prompt_text,
 )
 from ..shared.agent_internal.run_options import (
-    normalize_dependencies,
     normalize_input_payload,
-    resolve_request_id,
 )
 from ..shared.workflow_internal import (
     WorkflowBudgetTracker,
     attach_runtime_metadata,
     build_pattern_failure_result,
-    merge_dependencies,
+    execute_pattern_with_trace,
     normalize_request_id_prefix,
-    resolve_request_id_with_prefix,
+    resolve_pattern_run_context,
 )
 from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
@@ -263,8 +261,8 @@ class RouterPattern(Agent):
         tool_runtime: ToolRuntime,
         alternatives: Mapping[str, WorkflowDelegate],
         alternative_descriptions: Mapping[str, str] | None = None,
-        agent_routing_router_system_prompt: str | None = None,
-        agent_routing_router_user_prompt_template: str | None = None,
+        router_system_prompt: str | None = None,
+        router_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
@@ -276,8 +274,8 @@ class RouterPattern(Agent):
             tool_runtime: Tool runtime used to cost/metadata-account delegated calls.
             alternatives: Mapping of route keys to delegate objects.
             alternative_descriptions: Optional descriptions used to guide routing.
-            agent_routing_router_system_prompt: Optional override for router system prompt.
-            agent_routing_router_user_prompt_template: Optional override for router user prompt.
+            router_system_prompt: Optional override for router system prompt.
+            router_user_prompt_template: Optional override for router user prompt.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
             tracer: Optional tracer used for run-level instrumentation.
@@ -309,18 +307,18 @@ class RouterPattern(Agent):
         }
         self._router_system_prompt = (
             validate_prompt_text(
-                value=agent_routing_router_system_prompt,
-                field_name="agent_routing_router_system_prompt",
+                value=router_system_prompt,
+                field_name="router_system_prompt",
             )
-            if agent_routing_router_system_prompt is not None
+            if router_system_prompt is not None
             else None
         )
         self._router_user_prompt_template = (
             validate_prompt_text(
-                value=agent_routing_router_user_prompt_template,
-                field_name="agent_routing_router_user_prompt_template",
+                value=router_user_prompt_template,
+                field_name="router_user_prompt_template",
             )
-            if agent_routing_router_user_prompt_template is not None
+            if router_user_prompt_template is not None
             else None
         )
 
@@ -344,39 +342,26 @@ class RouterPattern(Agent):
         Raises:
             Exception: Propagates runtime failures from routing/delegate execution.
         """
-        configured_request_id = resolve_request_id_with_prefix(
+        run_context = resolve_pattern_run_context(
+            default_request_id_prefix=self._default_request_id_prefix,
+            default_dependencies=self._default_dependencies,
             request_id=request_id,
-            default_prefix=self._default_request_id_prefix,
-        )
-        resolved_request_id = resolve_request_id(configured_request_id)
-        resolved_dependencies = normalize_dependencies(
-            merge_dependencies(
-                default_dependencies=self._default_dependencies,
-                run_dependencies=dependencies,
-            )
+            dependencies=dependencies,
         )
         normalized_input = normalize_input_payload(prompt)
         resolved_prompt = _extract_prompt(normalized_input)
-        trace_scope = start_trace_run(
+        return execute_pattern_with_trace(
             agent_name="RouterPattern",
-            request_id=resolved_request_id,
+            request_id=run_context.request_id,
             input_payload={"prompt": resolved_prompt, "mode": "agent_routing"},
-            dependencies=resolved_dependencies,
+            dependencies=run_context.dependencies,
             tracer=self._tracer,
-        )
-
-        try:
-            result = self._run_agent_routing(
+            runner=lambda: self._run_agent_routing(
                 prompt=resolved_prompt,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-            )
-        except Exception as exc:
-            finish_trace_run(trace_scope, error=str(exc))
-            raise
-
-        finish_trace_run(trace_scope, result=result)
-        return result
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+            ),
+        )
 
     def _run_agent_routing(
         self,
@@ -409,8 +394,9 @@ class RouterPattern(Agent):
             tool_runtime=routing_tool_runtime,
             max_steps=1,
             stop_on_step_failure=True,
-            router_system_prompt=self._router_system_prompt,
-            router_user_prompt_template=self._router_user_prompt_template,
+            tool_calling_system_prompt=self._router_system_prompt,
+            tool_calling_user_prompt_template=self._router_user_prompt_template,
+            allowed_tools=tuple(sorted(self._alternatives)),
             tracer=self._tracer,
         )
         runtime_tool_specs: dict[str, ToolSpec] = {
@@ -565,14 +551,15 @@ def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> s
     Returns:
         Normalized selected delegate key, or empty string when unavailable.
     """
+    direct_tool_name = output.get("tool_name")
+    if isinstance(direct_tool_name, str) and direct_tool_name.strip():
+        return direct_tool_name.strip()
+
     raw_step_outputs = output.get("step_outputs")
     if not isinstance(raw_step_outputs, Sequence) or isinstance(raw_step_outputs, (str, bytes)):
         return ""
-    for raw_step_output in raw_step_outputs:
+    for raw_step_output in reversed(raw_step_outputs):
         if not isinstance(raw_step_output, Mapping):
-            continue
-        action = raw_step_output.get("action")
-        if action != "TOOL_CALL":
             continue
         tool_name = raw_step_output.get("tool_name")
         if isinstance(tool_name, str) and tool_name.strip():

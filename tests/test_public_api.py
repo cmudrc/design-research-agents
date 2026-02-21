@@ -21,6 +21,8 @@ EXPECTED_PUBLIC_API = [
     "LogicStep",
     "ToolStep",
     "AgentStep",
+    "ModelStep",
+    "DelegateBatchStep",
     "LoopStep",
     "MemoryReadStep",
     "MemoryWriteStep",

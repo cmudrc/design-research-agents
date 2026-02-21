@@ -4,22 +4,9 @@ import json
 from collections.abc import Mapping, Sequence
 
 from design_research_agents.agent import MultiStepAgent
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.contracts.termination import (
-    TERMINATED_INVALID_ROUTE_SELECTION,
-    TERMINATED_INVALID_STEP_OUTPUT,
-    TERMINATED_STEP_FAILURE,
-)
+from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMRequest, LLMResponse
+from design_research_agents.contracts.termination import TERMINATED_STEP_FAILURE
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.implementations.shared.agent_internal import (
-    multi_step_router_runtime_helpers as router_runtime_helpers,
-)
-from design_research_agents.implementations.shared.agent_internal import (
-    multi_step_tool_router_helpers as router_helpers,
-)
-from design_research_agents.implementations.shared.agent_internal.router_agent_helpers import (
-    ToolAlternative,
-)
 
 
 class _SequenceLLMClient:
@@ -42,6 +29,16 @@ class _SequenceLLMClient:
             raise AssertionError("No stubbed model responses remain.")
         self.chat_calls += 1
         return LLMResponse(model=model, text=self._responses.pop(0), provider="test")
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        return self.chat(
+            request.messages,
+            model=request.model or self.default_model(),
+            params=LLMChatParams(
+                response_schema=request.response_schema,
+                provider_options=dict(request.provider_options),
+            ),
+        )
 
 
 class _StubToolRuntime(ToolRuntime):
@@ -84,24 +81,12 @@ class _StubToolRuntime(ToolRuntime):
         return ToolResult(tool_name=tool_name, ok=False, result={}, error="boom")
 
 
-def test_multi_step_tool_router_tool_call_then_stop() -> None:
+def test_multi_step_json_tool_call_then_continuation_stop() -> None:
     llm_client = _SequenceLLMClient(
         responses=[
-            json.dumps(
-                {
-                    "action": "TOOL_CALL",
-                    "tool_names": ["sum"],
-                    "tool_input": {"a": 2, "b": 3},
-                    "reason": "compute",
-                }
-            ),
-            json.dumps(
-                {
-                    "action": "STOP",
-                    "final_output": {"answer": 5},
-                    "reason": "done",
-                }
-            ),
+            json.dumps({"continue": True, "thought": "compute"}),
+            json.dumps({"tool_name": "sum", "tool_input": {"a": 2, "b": 3}}),
+            json.dumps({"continue": False, "thought": "done"}),
         ]
     )
     tool_runtime = _StubToolRuntime()
@@ -112,37 +97,47 @@ def test_multi_step_tool_router_tool_call_then_stop() -> None:
         max_steps=3,
     )
 
-    result = agent.run("Compute 2+3", request_id="req-router-success")
+    result = agent.run("Compute 2+3", request_id="req-json-success")
 
     assert result.success is True
     assert agent.workflow is not None
-    assert result.output["steps_executed"] == 2
-    assert result.output["final_output"] == {"answer": 5}
+    assert result.output["steps_executed"] == 1
+    assert result.output["final_output"] == {"value": 5}
     assert isinstance(result.output["workflow"], dict)
     assert isinstance(result.output["artifacts"], list)
-    assert result.output["terminated_reason"] == "stop:model"
+    assert str(result.output["terminated_reason"]).startswith("continuation_stopped")
     assert len(result.tool_results) == 1
     assert len(tool_runtime.calls) == 1
     assert tool_runtime.calls[0][0] == "sum"
-    assert llm_client.chat_calls == 2
+    assert llm_client.chat_calls == 3
 
 
-def test_multi_step_tool_router_invalid_step_output_fails() -> None:
-    llm_client = _SequenceLLMClient(responses=[json.dumps({"continue": True, "thought": "legacy"})])
+def test_multi_step_json_invalid_step_output_fails() -> None:
+    llm_client = _SequenceLLMClient(
+        responses=[
+            json.dumps({"continue": True, "thought": "run"}),
+            json.dumps({"unexpected": True}),
+        ]
+    )
     agent = MultiStepAgent(
-        mode="json", llm_client=llm_client, tool_runtime=_StubToolRuntime(), max_steps=2
+        mode="json",
+        llm_client=llm_client,
+        tool_runtime=_StubToolRuntime(),
+        max_steps=2,
     )
 
     result = agent.run("Bad payload")
 
     assert result.success is False
-    assert result.output["terminated_reason"] == TERMINATED_INVALID_STEP_OUTPUT
-    assert result.metadata["stage"] == "step_decision"
+    assert result.output["terminated_reason"] == TERMINATED_STEP_FAILURE
 
 
-def test_multi_step_tool_router_invalid_route_selection_fails() -> None:
+def test_multi_step_json_invalid_tool_selection_fails_without_invocation() -> None:
     llm_client = _SequenceLLMClient(
-        responses=[json.dumps({"action": "TOOL_CALL", "tool_names": ["missing"], "reason": "x"})]
+        responses=[
+            json.dumps({"continue": True, "thought": "route"}),
+            json.dumps({"tool_name": "missing", "tool_input": {}, "reason": "x"}),
+        ]
     )
     tool_runtime = _StubToolRuntime()
     agent = MultiStepAgent(
@@ -155,13 +150,16 @@ def test_multi_step_tool_router_invalid_route_selection_fails() -> None:
     result = agent.run("Route to unknown tool")
 
     assert result.success is False
-    assert result.output["terminated_reason"] == TERMINATED_INVALID_ROUTE_SELECTION
+    assert result.output["terminated_reason"] == TERMINATED_STEP_FAILURE
     assert tool_runtime.calls == []
 
 
-def test_multi_step_tool_router_step_failure_stops_when_configured() -> None:
+def test_multi_step_json_step_failure_stops_when_configured() -> None:
     llm_client = _SequenceLLMClient(
-        responses=[json.dumps({"action": "TOOL_CALL", "tool_names": ["fail"], "reason": "x"})]
+        responses=[
+            json.dumps({"continue": True, "thought": "run"}),
+            json.dumps({"tool_name": "fail", "tool_input": {"x": 1}}),
+        ]
     )
     agent = MultiStepAgent(
         mode="json",
@@ -179,37 +177,27 @@ def test_multi_step_tool_router_step_failure_stops_when_configured() -> None:
     assert result.metadata["stage"] == "step_execution"
 
 
-def test_multi_step_tool_router_internal_step_failure_can_continue_when_disabled() -> None:
+def test_multi_step_json_step_failure_can_continue_when_disabled() -> None:
+    llm_client = _SequenceLLMClient(
+        responses=[
+            json.dumps({"continue": True, "thought": "first"}),
+            json.dumps({"tool_name": "fail", "tool_input": {"x": 1}}),
+            json.dumps({"continue": True, "thought": "second"}),
+            json.dumps({"tool_name": "sum", "tool_input": {"a": 1, "b": 4}}),
+        ]
+    )
     tool_runtime = _StubToolRuntime()
-    state = router_runtime_helpers.run_tool_call_step(
+    agent = MultiStepAgent(
+        mode="json",
+        llm_client=llm_client,
         tool_runtime=tool_runtime,
-        step_number=1,
-        parsed_step=router_helpers.ToolRouterStepDecision(
-            action="TOOL_CALL",
-            tool_names=("fail",),
-            tool_input={"x": 1},
-            final_output=None,
-            reason="exercise branch",
-            source="model",
-        ),
-        alternatives=[
-            ToolAlternative(
-                tool_name="fail",
-                description="Always fails",
-                input_schema={"type": "object"},
-            )
-        ],
-        normalized_input={"prompt": "task prompt"},
-        request_id="req-router-branch",
-        dependencies={},
-        memory=[],
-        step_outputs=[],
-        tool_results=[],
-        final_output={},
-        last_model_response=None,
+        max_steps=2,
         stop_on_step_failure=False,
     )
 
-    assert state["terminated_reason"] == TERMINATED_STEP_FAILURE
-    assert state["should_continue"] is True
-    assert state["fatal_error"] is None
+    result = agent.run("Continue after failure")
+
+    assert result.success is False
+    assert result.output["steps_executed"] == 2
+    assert len(tool_runtime.calls) == 2
+    assert result.output["terminated_reason"] == "max_steps_reached"

@@ -193,7 +193,7 @@ class PlanExecuteLoopCallbacks:
                 "success_criteria": str(raw_step.get("success_criteria", "")),
                 "prior_step_outputs_json": json.dumps(loop_step_records[-3:], sort_keys=True),
             },
-            field_name="plan_execute_executor_step_prompt_template",
+            field_name="executor_step_prompt_template",
         )
 
     def state_reducer(

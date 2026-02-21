@@ -14,11 +14,11 @@ def main() -> None:
             max_turns=2,
             speaker_a_name="Concept Designer",
             speaker_b_name="Prototype Reviewer",
-            conversation_speaker_a_system_prompt=(
+            speaker_a_system_prompt=(
                 "You are Concept Designer. Propose practical ideas for a low-cost peanut sheller "
                 "for small farms."
             ),
-            conversation_speaker_b_system_prompt=(
+            speaker_b_system_prompt=(
                 "You are Prototype Reviewer. Stress-test each idea for manufacturability, safety, "
                 "and maintainability."
             ),

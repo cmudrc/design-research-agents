@@ -8,15 +8,20 @@ from hashlib import sha256
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
-from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
-from design_research_agents.implementations.shared.agent_internal.run_options import (
-    normalize_dependencies,
-    resolve_request_id,
+from design_research_agents.contracts.tools import ToolResult
+from design_research_agents.contracts.workflow import (
+    DelegateBatchCall,
+    DelegateBatchStep,
+    LogicStep,
+    LoopStep,
+    WorkflowDelegate,
 )
-from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
+from design_research_agents.implementations.shared.workflow_internal import (
+    execute_pattern_with_trace,
+    resolve_pattern_run_context,
+)
+from design_research_agents.tracing import Tracer
 from design_research_agents.workflow import Workflow
-
-from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 
 class NetworkedPattern(Agent):
@@ -80,28 +85,24 @@ class NetworkedPattern(Agent):
         Raises:
             Exception: Propagated peer or reducer failures.
         """
-        resolved_request_id = resolve_request_id(request_id)
-        resolved_dependencies = normalize_dependencies(dependencies)
-        trace_scope = start_trace_run(
-            agent_name=self.__class__.__name__,
-            request_id=resolved_request_id,
-            input_payload={"prompt": prompt, "max_rounds": self._max_rounds},
-            dependencies=resolved_dependencies,
-            tracer=self._tracer,
+        run_context = resolve_pattern_run_context(
+            default_request_id_prefix=None,
+            default_dependencies={},
+            request_id=request_id,
+            dependencies=dependencies,
         )
-
-        try:
-            result = self._run_network(
+        return execute_pattern_with_trace(
+            agent_name=self.__class__.__name__,
+            request_id=run_context.request_id,
+            input_payload={"prompt": prompt, "max_rounds": self._max_rounds},
+            dependencies=run_context.dependencies,
+            tracer=self._tracer,
+            runner=lambda: self._run_network(
                 prompt=prompt,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-            )
-        except Exception as exc:
-            finish_trace_run(trace_scope, error=str(exc))
-            raise
-
-        finish_trace_run(trace_scope, result=result)
-        return result
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+            ),
+        )
 
     def _run_network(
         self,
@@ -133,171 +134,6 @@ class NetworkedPattern(Agent):
             "last_model_response": None,
         }
 
-        def _continue_predicate(iteration: int, state: Mapping[str, object]) -> bool:
-            """Decide whether the loop should continue.
-
-            Args:
-                iteration: One-based loop iteration index.
-                state: Current loop state mapping.
-
-            Returns:
-                ``True`` when another network round should execute.
-            """
-            del iteration
-            return bool(state.get("should_continue", True))
-
-        def _run_round(context: Mapping[str, object]) -> Mapping[str, object]:
-            """Execute one full network round across all peers.
-
-            Args:
-                context: Workflow step context for this iteration.
-
-            Returns:
-                Updated loop state for the next iteration.
-            """
-            loop_meta = context.get("_loop")
-            round_number = 1
-            if isinstance(loop_meta, Mapping):
-                round_number = max(1, _safe_int(loop_meta.get("iteration", 1)))
-
-            loop_state = context.get("loop_state")
-            current_state = dict(loop_state) if isinstance(loop_state, Mapping) else {}
-            raw_blackboard = current_state.get("blackboard")
-            blackboard = dict(raw_blackboard) if isinstance(raw_blackboard, Mapping) else {}
-            raw_round_summaries = current_state.get("round_summaries")
-            round_summaries = (
-                [dict(summary) for summary in raw_round_summaries if isinstance(summary, Mapping)]
-                if isinstance(raw_round_summaries, list)
-                else []
-            )
-            raw_tool_results = current_state.get("tool_results")
-            tool_results = list(raw_tool_results) if isinstance(raw_tool_results, list) else []
-
-            blackboard["round"] = round_number
-            round_contributions: dict[str, dict[str, object]] = {}
-            explicit_stop = False
-            for peer_id in peer_ids:
-                peer = self._peers[peer_id]
-                peer_prompt = self._peer_prompt_builder(
-                    prompt,
-                    blackboard,
-                    peer_id,
-                    round_number,
-                )
-                peer_dependencies = dict(dependencies)
-                peer_dependencies["_networked"] = {
-                    "round": round_number,
-                    "peer_id": peer_id,
-                    "blackboard": _json_ready(blackboard),
-                }
-                peer_invocation = invoke_delegate(
-                    delegate=peer,
-                    prompt=peer_prompt,
-                    step_context=context,
-                    request_id=f"{request_id}:networked:{peer_id}:{round_number}",
-                    execution_mode="sequential",
-                    failure_policy="skip_dependents",
-                    dependencies=peer_dependencies,
-                )
-                peer_result = peer_invocation.result
-                tool_results.extend(peer_result.tool_results)
-                if not peer_result.success:
-                    return {
-                        "blackboard": blackboard,
-                        "round_summaries": round_summaries,
-                        "terminated_reason": "peer_failure",
-                        "should_continue": False,
-                        "success": False,
-                        "failed_peer": peer_id,
-                        "peer_output": _json_ready(peer_result.output),
-                        "tool_results": tool_results,
-                        "last_model_response": peer_result.model_response,
-                    }
-                contribution = _normalize_peer_contribution(
-                    peer_id=peer_id,
-                    peer_output=peer_result.output,
-                    round_number=round_number,
-                )
-                round_contributions[peer_id] = contribution
-                if contribution.get("stop") is True:
-                    explicit_stop = True
-
-            blackboard = self._apply_round_reducer(
-                blackboard=blackboard,
-                round_number=round_number,
-                round_contributions=round_contributions,
-            )
-            state_hash = _compute_state_hash(blackboard)
-            blackboard["state_hash"] = state_hash
-            round_summaries.append(
-                {
-                    "round": round_number,
-                    "peer_order": peer_ids,
-                    "contributions": _json_ready(round_contributions),
-                    "state_hash": state_hash,
-                }
-            )
-            if explicit_stop:
-                return {
-                    "blackboard": blackboard,
-                    "round_summaries": round_summaries,
-                    "terminated_reason": "explicit_stop",
-                    "should_continue": False,
-                    "success": True,
-                    "failed_peer": None,
-                    "peer_output": {},
-                    "tool_results": tool_results,
-                    "last_model_response": None,
-                }
-            if self._check_convergence(
-                blackboard=blackboard,
-                round_summaries=round_summaries,
-            ):
-                return {
-                    "blackboard": blackboard,
-                    "round_summaries": round_summaries,
-                    "terminated_reason": "converged",
-                    "should_continue": False,
-                    "success": True,
-                    "failed_peer": None,
-                    "peer_output": {},
-                    "tool_results": tool_results,
-                    "last_model_response": None,
-                }
-            return {
-                "blackboard": blackboard,
-                "round_summaries": round_summaries,
-                "terminated_reason": "max_rounds_reached",
-                "should_continue": True,
-                "success": True,
-                "failed_peer": None,
-                "peer_output": {},
-                "tool_results": tool_results,
-                "last_model_response": None,
-            }
-
-        def _state_reducer(
-            state: Mapping[str, object],
-            iteration_result: ExecutionResult,
-            iteration: int,
-        ) -> Mapping[str, object]:
-            """Fold one iteration output into accumulated loop state.
-
-            Args:
-                state: Current accumulated state.
-                iteration_result: Workflow result for one loop iteration.
-                iteration: One-based loop iteration index.
-
-            Returns:
-                Reduced loop state mapping.
-            """
-            del iteration
-            iteration_step = iteration_result.step_results.get("network_round")
-            if iteration_step is None or not getattr(iteration_step, "success", False):
-                return dict(state)
-            output = getattr(iteration_step, "output", {})
-            return dict(output) if isinstance(output, Mapping) else dict(state)
-
         workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
@@ -305,13 +141,31 @@ class NetworkedPattern(Agent):
             steps=[
                 LoopStep(
                     step_id="network_loop",
-                    steps=(LogicStep(step_id="network_round", handler=_run_round),),
+                    steps=(
+                        DelegateBatchStep(
+                            step_id="network_peer_batch",
+                            calls_builder=lambda context: self._build_peer_calls_for_round(
+                                prompt=prompt,
+                                context=context,
+                                peer_ids=peer_ids,
+                            ),
+                            fail_fast=False,
+                        ),
+                        LogicStep(
+                            step_id="network_round",
+                            dependencies=("network_peer_batch",),
+                            handler=lambda context: self._run_network_round(
+                                context=context,
+                                peer_ids=peer_ids,
+                            ),
+                        ),
+                    ),
                     max_iterations=self._max_rounds,
                     initial_state=initial_state,
-                    continue_predicate=_continue_predicate,
-                    state_reducer=_state_reducer,
+                    continue_predicate=self._continue_network_loop,
+                    state_reducer=self._network_state_reducer,
                     execution_mode="sequential",
-                    failure_policy="skip_dependents",
+                    failure_policy="propagate_failed_state",
                 )
             ],
         )
@@ -331,6 +185,183 @@ class NetworkedPattern(Agent):
             dependencies=dependencies,
             peer_ids=peer_ids,
             max_rounds=self._max_rounds,
+        )
+
+    @staticmethod
+    def _continue_network_loop(iteration: int, state: Mapping[str, object]) -> bool:
+        """Return whether the next network loop iteration should execute."""
+        del iteration
+        return bool(state.get("should_continue", True))
+
+    def _build_peer_calls_for_round(
+        self,
+        *,
+        prompt: str,
+        context: Mapping[str, object],
+        peer_ids: Sequence[str],
+    ) -> list[DelegateBatchCall]:
+        """Build one delegate-batch call entry per peer for the current round."""
+        round_number, blackboard, _round_summaries, _tool_results = _resolve_network_loop_state(
+            context
+        )
+        blackboard["round"] = round_number
+        calls: list[DelegateBatchCall] = []
+        for peer_id in peer_ids:
+            peer_prompt = self._peer_prompt_builder(
+                prompt,
+                blackboard,
+                peer_id,
+                round_number,
+            )
+            calls.append(
+                DelegateBatchCall(
+                    call_id=peer_id,
+                    delegate=self._peers[peer_id],
+                    prompt=peer_prompt,
+                )
+            )
+        return calls
+
+    @staticmethod
+    def _network_state_reducer(
+        state: Mapping[str, object],
+        iteration_result: ExecutionResult,
+        iteration: int,
+    ) -> Mapping[str, object]:
+        """Fold one loop iteration output into accumulated network state."""
+        del iteration
+        iteration_step = iteration_result.step_results.get("network_round")
+        if iteration_step is None or not getattr(iteration_step, "success", False):
+            return dict(state)
+        output = getattr(iteration_step, "output", {})
+        return dict(output) if isinstance(output, Mapping) else dict(state)
+
+    @staticmethod
+    def _build_network_round_state(
+        *,
+        blackboard: Mapping[str, object],
+        round_summaries: Sequence[Mapping[str, object]],
+        terminated_reason: str,
+        should_continue: bool,
+        success: bool,
+        failed_peer: str | None,
+        peer_output: object,
+        tool_results: Sequence[ToolResult],
+        last_model_response: LLMResponse | None,
+    ) -> dict[str, object]:
+        """Build normalized loop-state payload returned by one network round."""
+        return {
+            "blackboard": dict(blackboard),
+            "round_summaries": list(round_summaries),
+            "terminated_reason": terminated_reason,
+            "should_continue": should_continue,
+            "success": success,
+            "failed_peer": failed_peer,
+            "peer_output": peer_output,
+            "tool_results": list(tool_results),
+            "last_model_response": last_model_response,
+        }
+
+    def _run_network_round(
+        self,
+        *,
+        context: Mapping[str, object],
+        peer_ids: Sequence[str],
+    ) -> Mapping[str, object]:
+        """Compute one network round update from delegate-batch outputs."""
+        round_number, blackboard, round_summaries, tool_results = _resolve_network_loop_state(
+            context
+        )
+        peer_batch_results = _extract_delegate_batch_results(
+            context=context,
+            dependency_step_id="network_peer_batch",
+        )
+
+        round_contributions: dict[str, dict[str, object]] = {}
+        explicit_stop = False
+        last_model_response: LLMResponse | None = None
+        for peer_id in peer_ids:
+            peer_result = _extract_delegate_batch_call_result(
+                results=peer_batch_results,
+                call_id=peer_id,
+            )
+            tool_results.extend(_extract_call_tool_results(peer_result))
+            peer_model_response = _extract_call_model_response(peer_result)
+            if peer_model_response is not None:
+                last_model_response = peer_model_response
+            if not _is_call_success(peer_result):
+                return self._build_network_round_state(
+                    blackboard=blackboard,
+                    round_summaries=round_summaries,
+                    terminated_reason="peer_failure",
+                    should_continue=False,
+                    success=False,
+                    failed_peer=peer_id,
+                    peer_output=_json_ready(_extract_call_output(peer_result)),
+                    tool_results=tool_results,
+                    last_model_response=last_model_response,
+                )
+            contribution = _normalize_peer_contribution(
+                peer_id=peer_id,
+                peer_output=_extract_call_output(peer_result),
+                round_number=round_number,
+            )
+            round_contributions[peer_id] = contribution
+            if contribution.get("stop") is True:
+                explicit_stop = True
+
+        blackboard = self._apply_round_reducer(
+            blackboard=blackboard,
+            round_number=round_number,
+            round_contributions=round_contributions,
+        )
+        state_hash = _compute_state_hash(blackboard)
+        blackboard["state_hash"] = state_hash
+        round_summaries.append(
+            {
+                "round": round_number,
+                "peer_order": peer_ids,
+                "contributions": _json_ready(round_contributions),
+                "state_hash": state_hash,
+            }
+        )
+        if explicit_stop:
+            return self._build_network_round_state(
+                blackboard=blackboard,
+                round_summaries=round_summaries,
+                terminated_reason="explicit_stop",
+                should_continue=False,
+                success=True,
+                failed_peer=None,
+                peer_output={},
+                tool_results=tool_results,
+                last_model_response=last_model_response,
+            )
+        if self._check_convergence(
+            blackboard=blackboard,
+            round_summaries=round_summaries,
+        ):
+            return self._build_network_round_state(
+                blackboard=blackboard,
+                round_summaries=round_summaries,
+                terminated_reason="converged",
+                should_continue=False,
+                success=True,
+                failed_peer=None,
+                peer_output={},
+                tool_results=tool_results,
+                last_model_response=last_model_response,
+            )
+        return self._build_network_round_state(
+            blackboard=blackboard,
+            round_summaries=round_summaries,
+            terminated_reason="max_rounds_reached",
+            should_continue=True,
+            success=True,
+            failed_peer=None,
+            peer_output={},
+            tool_results=tool_results,
+            last_model_response=last_model_response,
         )
 
     def _initial_blackboard(self, prompt: str) -> dict[str, object]:
@@ -542,6 +573,112 @@ class BlackboardPattern(NetworkedPattern):
                 return False
             recent_hashes.append(state_hash)
         return len(set(recent_hashes)) == 1
+
+
+def _resolve_network_loop_state(
+    context: Mapping[str, object],
+) -> tuple[int, dict[str, object], list[dict[str, object]], list[ToolResult]]:
+    """Resolve round number, blackboard, summaries, and accumulated tool results."""
+    loop_meta = context.get("_loop")
+    round_number = 1
+    if isinstance(loop_meta, Mapping):
+        round_number = max(1, _safe_int(loop_meta.get("iteration", 1)))
+
+    loop_state = context.get("loop_state")
+    current_state = dict(loop_state) if isinstance(loop_state, Mapping) else {}
+    raw_blackboard = current_state.get("blackboard")
+    blackboard = dict(raw_blackboard) if isinstance(raw_blackboard, Mapping) else {}
+
+    raw_round_summaries = current_state.get("round_summaries")
+    round_summaries = (
+        [dict(summary) for summary in raw_round_summaries if isinstance(summary, Mapping)]
+        if isinstance(raw_round_summaries, list)
+        else []
+    )
+
+    raw_tool_results = current_state.get("tool_results")
+    tool_results = (
+        [result for result in raw_tool_results if isinstance(result, ToolResult)]
+        if isinstance(raw_tool_results, list)
+        else []
+    )
+    return round_number, blackboard, round_summaries, tool_results
+
+
+def _extract_delegate_batch_results(
+    *,
+    context: Mapping[str, object],
+    dependency_step_id: str,
+) -> list[Mapping[str, object]]:
+    """Extract normalized call-result entries from a batch-step dependency output."""
+    dependency_results = context.get("dependency_results")
+    if not isinstance(dependency_results, Mapping):
+        return []
+    dependency_payload = dependency_results.get(dependency_step_id)
+    if not isinstance(dependency_payload, Mapping):
+        return []
+    dependency_output = dependency_payload.get("output")
+    if not isinstance(dependency_output, Mapping):
+        return []
+    raw_results = dependency_output.get("results")
+    if not isinstance(raw_results, list):
+        return []
+    return [entry for entry in raw_results if isinstance(entry, Mapping)]
+
+
+def _extract_delegate_batch_call_result(
+    *,
+    results: Sequence[Mapping[str, object]],
+    call_id: str,
+) -> Mapping[str, object] | None:
+    """Extract a single call result by ``call_id`` from batch call results."""
+    for result in results:
+        if str(result.get("call_id", "")) != call_id:
+            continue
+        return result
+    return None
+
+
+def _extract_call_output(call_result: Mapping[str, object] | None) -> dict[str, object]:
+    """Extract normalized output payload from one delegate-batch call result."""
+    if not isinstance(call_result, Mapping):
+        return {}
+    output = call_result.get("output")
+    if isinstance(output, Mapping):
+        return dict(output)
+    return {}
+
+
+def _extract_call_model_response(call_result: Mapping[str, object] | None) -> LLMResponse | None:
+    """Deserialize model response payload from one delegate-batch call result."""
+    if not isinstance(call_result, Mapping):
+        return None
+    model_response = call_result.get("model_response")
+    if isinstance(model_response, LLMResponse):
+        return model_response
+    if isinstance(model_response, Mapping):
+        try:
+            return LLMResponse(**dict(model_response))
+        except TypeError:
+            return None
+    return None
+
+
+def _extract_call_tool_results(call_result: Mapping[str, object] | None) -> list[ToolResult]:
+    """Extract tool results from one delegate-batch call result."""
+    if not isinstance(call_result, Mapping):
+        return []
+    raw_tool_results = call_result.get("tool_results")
+    if not isinstance(raw_tool_results, list):
+        return []
+    return [result for result in raw_tool_results if isinstance(result, ToolResult)]
+
+
+def _is_call_success(call_result: Mapping[str, object] | None) -> bool:
+    """Return whether one delegate-batch call result succeeded."""
+    if not isinstance(call_result, Mapping):
+        return False
+    return bool(call_result.get("success", False))
 
 
 def _extract_network_final_state(workflow_result: ExecutionResult) -> dict[str, object]:

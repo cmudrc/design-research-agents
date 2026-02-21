@@ -121,7 +121,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
 def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> None:
     success_workflow = RouterPattern(
         llm_client=SequenceLLMClient(
-            response_texts=['{"action":"TOOL_CALL","tool_names":["alt_two"],"reason":"best fit"}']
+            response_texts=['{"tool_name":"alt_two","tool_input":{},"reason":"best fit"}']
         ),
         tool_runtime=Toolbox(),
         alternatives={
@@ -138,9 +138,7 @@ def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> N
 
     failure_workflow = RouterPattern(
         llm_client=SequenceLLMClient(
-            response_texts=[
-                '{"action":"TOOL_CALL","tool_names":["unknown_alt"],"reason":"best fit"}'
-            ]
+            response_texts=['{"tool_name":"unknown_alt","tool_input":{},"reason":"best fit"}']
         ),
         tool_runtime=Toolbox(),
         alternatives={"alt_one": StaticMarkerAgent(marker="one")},
@@ -154,18 +152,18 @@ def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> N
 def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
     plan_params = inspect.signature(PlannerExecutorPattern.__init__).parameters
     assert "default_request_id_prefix" in plan_params
-    assert "plan_execute_planner_system_prompt" in plan_params
+    assert "planner_system_prompt" in plan_params
     assert "planner_delegate" in plan_params
     assert "executor_delegate" in plan_params
 
     propose_params = inspect.signature(ReflexionPattern.__init__).parameters
-    assert "propose_critic_proposer_user_prompt_template" in propose_params
+    assert "proposer_user_prompt_template" in propose_params
     assert "default_dependencies" in propose_params
     assert "proposer_delegate" in propose_params
     assert "critic_delegate" in propose_params
 
     routing_params = inspect.signature(RouterPattern.__init__).parameters
-    assert "agent_routing_router_system_prompt" in routing_params
+    assert "router_system_prompt" in routing_params
     assert "default_request_id_prefix" in routing_params
 
     workflow_params = inspect.signature(Workflow.__init__).parameters
@@ -188,7 +186,7 @@ def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
     assert "speaker_a_delegate" in conversation_params
     assert "speaker_b_delegate" in conversation_params
     assert "max_turns" in conversation_params
-    assert "conversation_speaker_a_user_prompt_template" in conversation_params
+    assert "speaker_a_user_prompt_template" in conversation_params
 
     networked_params = inspect.signature(NetworkedPattern.__init__).parameters
     assert "peers" in networked_params

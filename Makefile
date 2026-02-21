@@ -34,7 +34,7 @@ help:
 
 # Validate Python runtime matches project requirement.
 check-python:
-	@$(PYTHON) -c "import sys; import pathlib; print(f'Using Python {sys.version.split()[0]} at {pathlib.Path(sys.executable)}'); raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" || (echo "Python >= 3.11 is required by pyproject.toml"; exit 1)
+	@$(PYTHON) -c "import sys; import pathlib; print(f'Using Python {sys.version.split()[0]} at {pathlib.Path(sys.executable)}'); raise SystemExit(0 if sys.version_info >= (3, 12) else 1)" || (echo "Python >= 3.12 is required by pyproject.toml"; exit 1)
 
 # Install editable package with runtime dependencies only.
 install:
@@ -89,11 +89,12 @@ docstrings-check: check-python
 		CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_FILE)"; \
 	else \
 		CHANGED_FILES_FILE="artifacts/docstrings_changed_files.txt"; \
-		git diff --name-only --cached --diff-filter=ACMR > "$${CHANGED_FILES_FILE}"; \
+		git diff --name-only --diff-filter=ACMR HEAD > "$${CHANGED_FILES_FILE}"; \
 	fi; \
 	$(PYTHON) scripts/check_google_docstrings.py \
 		--baseline scripts/google_docstrings_baseline.txt \
-		--changed-files-file "$${CHANGED_FILES_FILE}"
+		--changed-files-file "$${CHANGED_FILES_FILE}" \
+		--enforce-codes DGS013,DGS014,DGS015
 
 # Fail when removed legacy/fallback paths or C901 suppressions reappear in src.
 legacy-check: check-python

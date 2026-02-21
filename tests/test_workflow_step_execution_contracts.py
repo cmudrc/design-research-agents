@@ -5,6 +5,12 @@ from collections.abc import Mapping, Sequence
 import pytest
 
 from design_research_agents.contracts.execution import ExecutionResult
+from design_research_agents.contracts.llm import (
+    LLMChatParams,
+    LLMMessage,
+    LLMRequest,
+    LLMResponse,
+)
 from design_research_agents.contracts.memory import (
     MemoryRecord,
     MemorySearchQuery,
@@ -13,14 +19,19 @@ from design_research_agents.contracts.memory import (
 from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.contracts.workflow import (
     AgentStep,
+    DelegateBatchCall,
+    DelegateBatchStep,
     MemoryReadStep,
     MemoryWriteStep,
+    ModelStep,
     ToolStep,
 )
 from design_research_agents.workflow.internal.step_execution import (
     run_agent_step,
+    run_delegate_batch_step,
     run_memory_read_step,
     run_memory_write_step,
+    run_model_step,
     run_tool_step,
 )
 
@@ -149,6 +160,66 @@ class _WorkflowDelegateRaises:
     ) -> ExecutionResult:
         del context, execution_mode, failure_policy, request_id, dependencies
         raise RuntimeError("nested exploded")
+
+
+class _WorkflowObjectDelegateSuccess:
+    _input_mode = "prompt"
+
+    def run(
+        self,
+        input_data: str | Mapping[str, object] | None = None,
+        *,
+        execution_mode: str = "sequential",
+        failure_policy: str = "skip_dependents",
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        del execution_mode, failure_policy, request_id, dependencies
+        return ExecutionResult(
+            success=True,
+            output={
+                "echo": str(input_data or ""),
+                "final_output": {"delegate_type": "workflow_object"},
+            },
+        )
+
+
+class _GenerateModelClient:
+    def __init__(
+        self,
+        *,
+        text: str = "model text",
+        raise_error: bool = False,
+    ) -> None:
+        self.text = text
+        self.raise_error = raise_error
+        self.requests: list[LLMRequest] = []
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        self.requests.append(request)
+        if self.raise_error:
+            raise RuntimeError("model exploded")
+        model_name = request.model or "generated-default"
+        return LLMResponse(model=model_name, text=self.text, provider="generate")
+
+
+class _ChatOnlyModelClient:
+    def __init__(self, *, text: str = "chat text") -> None:
+        self.text = text
+        self.calls: list[tuple[list[LLMMessage], str, LLMChatParams]] = []
+
+    def default_model(self) -> str:
+        return "chat-default-model"
+
+    def chat(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str,
+        params: LLMChatParams,
+    ) -> LLMResponse:
+        self.calls.append((list(messages), model, params))
+        return LLMResponse(model=model, text=self.text, provider="chat")
 
 
 class _MemoryStore:
@@ -364,6 +435,167 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
         dependencies={},
     )
     assert agent_success.success is True
+
+
+def test_run_model_step_covers_success_parser_failure_execution_failure_and_chat_fallback() -> None:
+    generate_client = _GenerateModelClient(text='{"winner":"tie"}')
+    success = run_model_step(
+        step=ModelStep(
+            step_id="model",
+            llm_client=generate_client,
+            request_builder=lambda _ctx: LLMRequest(
+                messages=[LLMMessage(role="user", content="evaluate")],
+                model="model-x",
+            ),
+            response_parser=lambda response, _ctx: {
+                "winner": response.text,
+                "final_output": {"decision": "accepted"},
+            },
+        ),
+        step_id="model",
+        step_context=_common_context(),
+    )
+    assert success.success is True
+    assert success.metadata["step_kind"] == "model"
+    assert success.output["parsed"]["winner"] == '{"winner":"tie"}'
+    assert success.output["final_output"] == {"decision": "accepted"}
+    assert "model_response" in success.output
+    assert "parsed" in success.output
+    assert "final_output" in success.output
+
+    parser_failure = run_model_step(
+        step=ModelStep(
+            step_id="model",
+            llm_client=generate_client,
+            request_builder=lambda _ctx: LLMRequest(
+                messages=[LLMMessage(role="user", content="evaluate")],
+                model="model-x",
+            ),
+            response_parser=lambda _response, _ctx: (_ for _ in ()).throw(ValueError("bad parse")),
+        ),
+        step_id="model",
+        step_context=_common_context(),
+    )
+    assert parser_failure.success is False
+    assert parser_failure.metadata["stage"] == "response_parse"
+
+    execution_failure = run_model_step(
+        step=ModelStep(
+            step_id="model",
+            llm_client=_GenerateModelClient(raise_error=True),
+            request_builder=lambda _ctx: LLMRequest(
+                messages=[LLMMessage(role="user", content="evaluate")],
+                model="model-x",
+            ),
+        ),
+        step_id="model",
+        step_context=_common_context(),
+    )
+    assert execution_failure.success is False
+    assert execution_failure.metadata["stage"] == "execution"
+    assert execution_failure.metadata["step_kind"] == "model"
+
+    chat_client = _ChatOnlyModelClient(text="chat path")
+    chat_success = run_model_step(
+        step=ModelStep(
+            step_id="model",
+            llm_client=chat_client,
+            request_builder=lambda _ctx: LLMRequest(
+                messages=[LLMMessage(role="user", content="fallback")],
+            ),
+        ),
+        step_id="model",
+        step_context=_common_context(),
+    )
+    assert chat_success.success is True
+    assert chat_success.output["parsed"] == {"model_text": "chat path"}
+    assert chat_client.calls[0][1] == "chat-default-model"
+
+
+def test_run_delegate_batch_step_covers_mixed_delegates_and_fail_fast_controls() -> None:
+    mixed_success = run_delegate_batch_step(
+        step=DelegateBatchStep(
+            step_id="batch",
+            calls_builder=lambda _ctx: [
+                DelegateBatchCall(
+                    call_id="agent",
+                    delegate=_AgentSuccess(),
+                    prompt="agent prompt",
+                ),
+                DelegateBatchCall(
+                    call_id="workflow_runner",
+                    delegate=_WorkflowDelegateSuccess(),
+                    prompt="runner prompt",
+                ),
+                DelegateBatchCall(
+                    call_id="workflow_object",
+                    delegate=_WorkflowObjectDelegateSuccess(),
+                    prompt="object prompt",
+                ),
+            ],
+            fail_fast=True,
+        ),
+        step_id="batch",
+        step_context=_common_context(),
+        request_id="req",
+        execution_mode="sequential",
+        failure_policy="skip_dependents",
+        dependencies={},
+    )
+    assert mixed_success.success is True
+    assert mixed_success.output["all_success"] is True
+    assert mixed_success.output["failed_call_id"] is None
+    assert len(mixed_success.output["results"]) == 3
+    assert mixed_success.output["results"][0]["delegate_type"] == "agent"
+    assert mixed_success.output["results"][1]["delegate_type"] == "workflow"
+    assert mixed_success.output["results"][2]["delegate_type"] == "workflow"
+    assert mixed_success.output["final_output"] == {"delegate_type": "workflow_object"}
+
+    fail_fast_enabled = run_delegate_batch_step(
+        step=DelegateBatchStep(
+            step_id="batch",
+            calls_builder=lambda _ctx: [
+                {"call_id": "first", "delegate": _AgentSuccess(), "prompt": "one"},
+                {"call_id": "second", "delegate": _AgentFailure(), "prompt": "two"},
+                {"call_id": "third", "delegate": _AgentSuccess(), "prompt": "three"},
+            ],
+            fail_fast=True,
+        ),
+        step_id="batch",
+        step_context=_common_context(),
+        request_id="req",
+        execution_mode="sequential",
+        failure_policy="skip_dependents",
+        dependencies={},
+    )
+    assert fail_fast_enabled.success is False
+    assert fail_fast_enabled.output["all_success"] is False
+    assert fail_fast_enabled.output["failed_call_id"] == "second"
+    assert len(fail_fast_enabled.output["results"]) == 2
+    assert fail_fast_enabled.metadata["fail_fast"] is True
+
+    fail_fast_disabled = run_delegate_batch_step(
+        step=DelegateBatchStep(
+            step_id="batch",
+            calls_builder=lambda _ctx: [
+                {"call_id": "first", "delegate": _AgentSuccess(), "prompt": "one"},
+                {"call_id": "second", "delegate": _AgentFailure(), "prompt": "two"},
+                {"call_id": "third", "delegate": _AgentSuccess(), "prompt": "three"},
+            ],
+            fail_fast=False,
+        ),
+        step_id="batch",
+        step_context=_common_context(),
+        request_id="req",
+        execution_mode="sequential",
+        failure_policy="skip_dependents",
+        dependencies={},
+    )
+    assert fail_fast_disabled.success is False
+    assert fail_fast_disabled.output["all_success"] is False
+    assert fail_fast_disabled.output["failed_call_id"] == "second"
+    assert len(fail_fast_disabled.output["results"]) == 3
+    assert fail_fast_disabled.metadata["fail_fast"] is False
 
 
 def test_run_memory_read_step_covers_binding_input_execution_and_success() -> None:

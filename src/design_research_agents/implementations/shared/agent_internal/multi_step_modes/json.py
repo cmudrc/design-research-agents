@@ -7,7 +7,7 @@ results across steps.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
@@ -111,6 +111,8 @@ class MultiStepJsonToolCallingAgent(Agent):
         continuation_system_prompt: str | None = None,
         continuation_user_prompt_template: str | None = None,
         step_user_prompt_template: str | None = None,
+        tool_calling_system_prompt: str | None = None,
+        tool_calling_user_prompt_template: str | None = None,
         alternatives_prompt_target: AlternativesPromptTarget = "user",
         continuation_memory_tail_items: int = 6,
         step_memory_tail_items: int = 8,
@@ -118,6 +120,7 @@ class MultiStepJsonToolCallingAgent(Agent):
         memory_namespace: str = "default",
         memory_read_top_k: int = 4,
         memory_write_observations: bool = True,
+        allowed_tools: Sequence[str] | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step JSON tool-calling agent.
@@ -130,6 +133,8 @@ class MultiStepJsonToolCallingAgent(Agent):
             continuation_system_prompt: Optional continuation system prompt override.
             continuation_user_prompt_template: Optional continuation user prompt template.
             step_user_prompt_template: Optional step user prompt template.
+            tool_calling_system_prompt: Optional system prompt for tool selection step.
+            tool_calling_user_prompt_template: Optional user template for tool selection step.
             alternatives_prompt_target: Prompt target for alternatives blocks.
             continuation_memory_tail_items: Memory tail size for continuation prompts.
             step_memory_tail_items: Memory tail size for step prompts.
@@ -137,10 +142,12 @@ class MultiStepJsonToolCallingAgent(Agent):
             memory_namespace: Namespace partition used for memory reads/writes.
             memory_read_top_k: Number of memory matches retrieved per step.
             memory_write_observations: Whether to persist per-step observations.
+            allowed_tools: Optional tool allowlist used by action steps.
             tracer: Optional explicit tracer dependency.
 
         Raises:
-            Exception: Raised when execution fails.
+            ValueError: If ``max_steps``, memory tail items, or ``memory_read_top_k`` are
+                less than ``1``.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
@@ -175,12 +182,15 @@ class MultiStepJsonToolCallingAgent(Agent):
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(
             alternatives_prompt_target
         )
+        self._tool_calling_system_prompt = tool_calling_system_prompt
+        self._tool_calling_user_prompt_template = tool_calling_user_prompt_template
         self._continuation_memory_tail_items = continuation_memory_tail_items
         self._step_memory_tail_items = step_memory_tail_items
         self._memory_store = memory_store
         self._memory_namespace = memory_namespace.strip() or "default"
         self._memory_read_top_k = memory_read_top_k
         self._memory_write_observations = memory_write_observations
+        self._allowed_tools = tuple(allowed_tools) if allowed_tools is not None else None
         self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
@@ -204,7 +214,8 @@ class MultiStepJsonToolCallingAgent(Agent):
             Final agent result payload.
 
         Raises:
-            Exception: Raised when execution fails.
+            RuntimeError: Propagates failures from continuation/model/tool execution
+                helpers while running the loop.
         """
         execution_context = prepare_agent_execution(
             prompt=prompt,
@@ -237,7 +248,10 @@ class MultiStepJsonToolCallingAgent(Agent):
         step_agent = JsonActionStepRunner(
             llm_client=self._llm_client,
             tool_runtime=self._tool_runtime,
+            system_prompt=self._tool_calling_system_prompt,
+            user_prompt_template=self._tool_calling_user_prompt_template,
             alternatives_prompt_target=alternatives_prompt_target,
+            allowed_tools=self._allowed_tools,
             tracer=self._tracer,
         )
 
@@ -364,25 +378,38 @@ class MultiStepJsonToolCallingAgent(Agent):
             }
         )
 
-        should_continue, continue_reason, continue_source, continue_response = _llm_should_continue(
-            llm_client=self._llm_client,
-            prompt=prompt,
-            memory=memory,
-            step_index=step_index,
-            max_steps=max_steps,
-            model=resolved_model,
-            alternatives_prompt_target=alternatives_prompt_target,
-            alternatives_text=step_tools_text,
-            retrieved_context=retrieved_context,
-            continuation_system_prompt=self._continuation_system_prompt,
-            continuation_user_prompt_template=self._continuation_user_prompt_template,
-            continuation_response_schema=self._continuation_response_schema,
-            continuation_memory_tail_items=self._continuation_memory_tail_items,
-            alternatives_section_label="Available tools for action steps",
-            agent_name="MultiStepJsonToolCallingAgent",
-        )
-        if continue_response is not None:
-            last_model_response = continue_response
+        skip_continuation_probe = max_steps == 1 and step_number == 1
+
+        if skip_continuation_probe:
+            should_continue = True
+            continue_reason = "single_step_mode"
+            continue_source = "single_step_mode"
+            continue_response = None
+        else:
+            (
+                should_continue,
+                continue_reason,
+                continue_source,
+                continue_response,
+            ) = _llm_should_continue(
+                llm_client=self._llm_client,
+                prompt=prompt,
+                memory=memory,
+                step_index=step_index,
+                max_steps=max_steps,
+                model=resolved_model,
+                alternatives_prompt_target=alternatives_prompt_target,
+                alternatives_text=step_tools_text,
+                retrieved_context=retrieved_context,
+                continuation_system_prompt=self._continuation_system_prompt,
+                continuation_user_prompt_template=self._continuation_user_prompt_template,
+                continuation_response_schema=self._continuation_response_schema,
+                continuation_memory_tail_items=self._continuation_memory_tail_items,
+                alternatives_section_label="Available tools for action steps",
+                agent_name="MultiStepJsonToolCallingAgent",
+            )
+            if continue_response is not None:
+                last_model_response = continue_response
         continuation_trace.append(
             {
                 "step": step_number,

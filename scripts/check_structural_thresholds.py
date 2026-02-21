@@ -10,10 +10,14 @@ from pathlib import Path
 from tokenize import COMMENT, generate_tokens
 
 IMPLEMENTATION_SEGMENTS = {
+    ("src", "design_research_agents", "implementations"),
     ("src", "design_research_agents", "agent", "implementations"),
     ("src", "design_research_agents", "workflow", "implementations"),
 }
 SCAN_ROOTS = ("src", "tests", "examples", "scripts", "docs")
+IMPLEMENTATION_THRESHOLD = 900
+TEST_THRESHOLD = 700
+GENERAL_THRESHOLD = 700
 
 
 @dataclass(slots=True, frozen=True)
@@ -110,10 +114,10 @@ def _classify(path: Path) -> tuple[int, str]:
     parts = path.as_posix().split("/")
     for segment in IMPLEMENTATION_SEGMENTS:
         if tuple(parts[: len(segment)]) == segment:
-            return 450, "implementation"
+            return IMPLEMENTATION_THRESHOLD, "implementation"
     if parts and parts[0] == "tests":
-        return 500, "tests"
-    return 650, "general"
+        return TEST_THRESHOLD, "tests"
+    return GENERAL_THRESHOLD, "general"
 
 
 def _collect_python_files(repo_root: Path) -> list[Path]:

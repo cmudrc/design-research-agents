@@ -1,6 +1,8 @@
 Quickstart
 ==========
 
+Requires Python 3.12+.
+
 Install and run from repository root:
 
 .. code-block:: bash

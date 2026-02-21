@@ -7,7 +7,9 @@ from contextlib import contextmanager
 
 from design_research_agents.contracts.workflow import (
     AgentStep,
+    DelegateBatchStep,
     LoopStep,
+    ModelStep,
     ToolStep,
     WorkflowStep,
 )
@@ -21,15 +23,19 @@ def step_kind(step: WorkflowStep) -> str:
     """Return a string label describing the workflow step kind.
 
     Args:
-        step: Parameter value.
+        step: Workflow step instance to classify.
 
     Returns:
-        The resulting value.
+        Stable step-kind label used in tracing attributes.
     """
     if isinstance(step, ToolStep):
         return "tool"
     if isinstance(step, AgentStep):
         return "agent"
+    if isinstance(step, ModelStep):
+        return "model"
+    if isinstance(step, DelegateBatchStep):
+        return "delegate_batch"
     if isinstance(step, LoopStep):
         return "loop"
     return "logic"
@@ -39,11 +45,11 @@ def start_step_span(*, step: WorkflowStep, step_id: str) -> str | None:
     """Start one step-level tracing span when a trace session is active.
 
     Args:
-        step: Parameter value.
-        step_id: Parameter value.
+        step: Workflow step being executed.
+        step_id: Runtime identifier for the step within the workflow run.
 
     Returns:
-        The resulting value.
+        Started span id, or ``None`` when tracing is inactive.
     """
     session = current_trace_session()
     if session is None:
@@ -64,10 +70,10 @@ def finish_step_span(*, span_id: str | None, step_id: str, status: str, error: s
     """Finish one step-level tracing span when available.
 
     Args:
-        span_id: Parameter value.
-        step_id: Parameter value.
-        status: Parameter value.
-        error: Parameter value.
+        span_id: Span id returned by :func:`start_step_span`.
+        step_id: Runtime identifier for the finished step.
+        status: Terminal step status (for example ``success`` or ``failed``).
+        error: Optional error message recorded for failed steps.
     """
     session = current_trace_session()
     if session is None or span_id is None:
@@ -88,10 +94,10 @@ def activate_step_span(span_id: str | None) -> Iterator[None]:
     """Temporarily bind a step span as the active tracing span.
 
     Args:
-        span_id: Parameter value.
+        span_id: Span id to mark as current for nested tracing calls.
 
     Yields:
-        The yielded values.
+        Control to the wrapped execution block.
     """
     if span_id is None:
         yield

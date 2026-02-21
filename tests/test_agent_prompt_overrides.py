@@ -137,16 +137,17 @@ def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target()
         )
 
 
-def test_multi_step_router_agent_rejects_unmatched_allowed_routes() -> None:
-    with pytest.raises(ValueError, match="allowed_routes"):
-        MultiStepAgent(
-            mode="json",
-            llm_client=_SequenceLLMClient(
-                response_texts=['{"tool_names":["calculator"],"reason":"x"}']
-            ),
-            tool_runtime=_ArglessToolRuntime(),
-            allowed_routes=["unknown_route"],
-        )
+def test_multi_step_json_agent_rejects_unmatched_allowed_tools() -> None:
+    agent = MultiStepAgent(
+        mode="json",
+        llm_client=_SequenceLLMClient(
+            response_texts=['{"tool_name":"calculator","tool_input":{},"reason":"x"}']
+        ),
+        tool_runtime=_ArglessToolRuntime(),
+        allowed_tools=["unknown_tool"],
+    )
+    with pytest.raises(ValueError, match="allowed_tools"):
+        agent.run("route request")
 
 
 def test_multi_step_code_agent_rejects_empty_prompt_override() -> None:
@@ -171,7 +172,7 @@ def test_plan_execute_workflow_template_override_supports_task_prompt_variable()
             ]
         ),
         tool_runtime=Toolbox(),
-        plan_execute_planner_user_prompt_template="Task block:\n$task_prompt",
+        planner_user_prompt_template="Task block:\n$task_prompt",
     )
     result = workflow.run("Compute 6 * 7.")
     assert result.success
@@ -181,7 +182,7 @@ def test_plan_execute_workflow_template_override_rejects_missing_variables() -> 
     workflow = PlannerExecutorPattern(
         llm_client=_SequenceLLMClient(response_texts=['{"steps":[]}']),
         tool_runtime=Toolbox(),
-        plan_execute_planner_user_prompt_template="Task block:\n$unknown_key",
+        planner_user_prompt_template="Task block:\n$unknown_key",
     )
     with pytest.raises(ValueError, match="unknown_key"):
         workflow.run("Compute 6 * 7.")

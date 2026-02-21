@@ -45,8 +45,8 @@ def test_conversation_pattern_supports_distinct_clients_and_prompt_templates() -
         max_turns=2,
         speaker_a_name="Researcher",
         speaker_b_name="Reviewer",
-        conversation_speaker_a_system_prompt="You are Researcher A.",
-        conversation_speaker_a_user_prompt_template="\n".join(
+        speaker_a_system_prompt="You are Researcher A.",
+        speaker_a_user_prompt_template="\n".join(
             [
                 "A-turn=$turn",
                 "Speaker=$speaker_name Partner=$partner_name",
@@ -55,8 +55,8 @@ def test_conversation_pattern_supports_distinct_clients_and_prompt_templates() -
                 "Task: $task_prompt",
             ]
         ),
-        conversation_speaker_b_system_prompt="You are Reviewer B.",
-        conversation_speaker_b_user_prompt_template="\n".join(
+        speaker_b_system_prompt="You are Reviewer B.",
+        speaker_b_user_prompt_template="\n".join(
             [
                 "B-turn=$turn",
                 "Speaker=$speaker_name Partner=$partner_name",
@@ -128,9 +128,9 @@ def test_conversation_pattern_validates_constructor_and_template_overrides() -> 
     pattern = ConversationPattern(
         llm_client_a=_CaptureLLMClient(response_texts=["a1", "b1"]),
         max_turns=1,
-        conversation_speaker_a_user_prompt_template="$missing_variable",
+        speaker_a_user_prompt_template="$missing_variable",
     )
     result = pattern.run("Trigger missing template variable.")
     assert not result.success
-    assert result.output["terminated_reason"] == "workflow_failure"
-    assert result.output["error"] == "Conversation workflow failed."
+    assert result.output["terminated_reason"] == "speaker_a_failed"
+    assert result.output["error"] == "Speaker A failed during conversation turn."

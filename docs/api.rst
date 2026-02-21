@@ -79,6 +79,14 @@ Workflow Steps and Facade
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.ModelStep
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.DelegateBatchStep
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.LoopStep
    :members:
    :undoc-members:

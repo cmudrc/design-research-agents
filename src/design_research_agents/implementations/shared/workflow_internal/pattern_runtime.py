@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from string import Template
+from typing import Any, cast
 
 from design_research_agents.contracts.agent import ExecutionResult
 from design_research_agents.contracts.llm import LLMResponse
@@ -15,6 +16,13 @@ from design_research_agents.implementations.shared.agent_internal.prompt_overrid
 from design_research_agents.implementations.shared.agent_internal.result_builders import (
     build_failure_result,
 )
+from design_research_agents.implementations.shared.agent_internal.run_options import (
+    normalize_dependencies,
+    resolve_request_id,
+)
+from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
+
+from .run_defaults import merge_dependencies, resolve_request_id_with_prefix
 
 
 @dataclass(slots=True)
@@ -75,6 +83,81 @@ class WorkflowBudgetTracker:
             "observed_tool_calls": self.observed_tool_calls,
             "observed_estimated_usd": round(self.observed_estimated_usd, 6),
         }
+
+
+@dataclass(slots=True, frozen=True)
+class PatternRunContext:
+    """Normalized request/dependency payload for one pattern run."""
+
+    request_id: str
+    """Resolved request id used for tracing and nested invocations."""
+    dependencies: dict[str, object]
+    """Merged and normalized run dependency mapping."""
+
+
+def resolve_pattern_run_context(
+    *,
+    default_request_id_prefix: str | None,
+    default_dependencies: Mapping[str, object],
+    request_id: str | None,
+    dependencies: Mapping[str, object] | None,
+) -> PatternRunContext:
+    """Resolve one pattern run context with shared request/dependency semantics."""
+    configured_request_id = resolve_request_id_with_prefix(
+        request_id=request_id,
+        default_prefix=default_request_id_prefix,
+    )
+    resolved_request_id = resolve_request_id(configured_request_id)
+    resolved_dependencies = normalize_dependencies(
+        merge_dependencies(
+            default_dependencies=default_dependencies,
+            run_dependencies=dependencies,
+        )
+    )
+    return PatternRunContext(
+        request_id=resolved_request_id,
+        dependencies=resolved_dependencies,
+    )
+
+
+def execute_pattern_with_trace(
+    *,
+    agent_name: str,
+    request_id: str,
+    input_payload: Mapping[str, object],
+    dependencies: Mapping[str, object],
+    tracer: Tracer | None,
+    runner: Callable[[], ExecutionResult],
+) -> ExecutionResult:
+    """Execute one callable under standardized start/finish trace emission."""
+    trace_scope = start_trace_run(
+        agent_name=agent_name,
+        request_id=request_id,
+        input_payload=dict(input_payload),
+        dependencies=dependencies,
+        tracer=tracer,
+    )
+    try:
+        result = runner()
+    except Exception as exc:
+        finish_trace_run(trace_scope, error=str(exc))
+        raise
+    finish_trace_run(trace_scope, result=result)
+    return result
+
+
+def attach_pattern_workflow(pattern: object, workflow: object) -> object:
+    """Attach workflow runtime object to a pattern instance for diagnostics/tests."""
+    cast(Any, pattern).workflow = workflow
+    return workflow
+
+
+def build_workflow_output_payload(workflow_result: ExecutionResult) -> dict[str, object]:
+    """Return standardized workflow payload envelope for pattern outputs."""
+    return {
+        "workflow": workflow_result.asdict(),
+        "artifacts": workflow_result.output.get("artifacts", []),
+    }
 
 
 def resolve_prompt_override(

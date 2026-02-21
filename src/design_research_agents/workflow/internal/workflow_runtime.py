@@ -10,11 +10,13 @@ from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
     AgentStep,
+    DelegateBatchStep,
     ExecutionResult,
     LogicStep,
     LoopStep,
     MemoryReadStep,
     MemoryWriteStep,
+    ModelStep,
     WorkflowArtifact,
     WorkflowArtifactSource,
     WorkflowExecutionMode,
@@ -35,9 +37,11 @@ from design_research_agents.workflow.internal import (
     release_dependents,
     route_deactivations,
     run_agent_step,
+    run_delegate_batch_step,
     run_logic_step,
     run_memory_read_step,
     run_memory_write_step,
+    run_model_step,
     run_tool_step,
     start_step_span,
     validate_no_cycles,
@@ -352,6 +356,18 @@ class WorkflowRuntime(WorkflowRunner):
                 result = run_logic_step(step=step, step_id=step_id, step_context=step_context)
             elif isinstance(step, AgentStep):
                 result = run_agent_step(
+                    step=step,
+                    step_id=step_id,
+                    step_context=step_context,
+                    request_id=request_id,
+                    execution_mode=execution_mode,
+                    failure_policy=failure_policy,
+                    dependencies=dependencies,
+                )
+            elif isinstance(step, ModelStep):
+                result = run_model_step(step=step, step_id=step_id, step_context=step_context)
+            elif isinstance(step, DelegateBatchStep):
+                result = run_delegate_batch_step(
                     step=step,
                     step_id=step_id,
                     step_context=step_context,

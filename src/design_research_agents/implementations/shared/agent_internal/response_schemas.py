@@ -72,7 +72,7 @@ def build_tool_call_response_schema(
     return {
         "type": "object",
         "additionalProperties": False,
-        "required": ["tool_name", "tool_input"],
+        "required": ["tool_name"],
         "properties": {
             "tool_name": {"type": "string", "enum": list(tool_names)},
             "tool_input": {"type": "object"},

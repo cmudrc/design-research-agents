@@ -7,7 +7,14 @@ from collections.abc import Mapping
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
+from design_research_agents.contracts.workflow import (
+    AgentStep,
+    LogicStep,
+    LoopStep,
+    ModelStep,
+    WorkflowDelegate,
+    WorkflowStep,
+)
 from design_research_agents.implementations.agents.direct_llm_call import (
     DirectLLMCall,
 )
@@ -18,20 +25,18 @@ from design_research_agents.implementations.shared.agent_internal.model_resoluti
     resolve_agent_model,
 )
 from design_research_agents.implementations.shared.agent_internal.run_options import (
-    normalize_dependencies,
     normalize_input_payload,
-    resolve_request_id,
 )
 from design_research_agents.implementations.shared.workflow_internal import (
     WorkflowBudgetTracker,
     attach_runtime_metadata,
     build_pattern_failure_result,
-    merge_dependencies,
+    execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
     normalize_request_id_prefix,
+    resolve_pattern_run_context,
     resolve_prompt_override,
-    resolve_request_id_with_prefix,
 )
 from design_research_agents.implementations.shared.workflow_internal.reflexion_helpers import (
     DEFAULT_CRITIC_SYSTEM_PROMPT,
@@ -40,11 +45,7 @@ from design_research_agents.implementations.shared.workflow_internal.reflexion_h
     DEFAULT_PROPOSER_USER_PROMPT_TEMPLATE,
     ReflexionLoopCallbacks,
 )
-from design_research_agents.tracing import (
-    Tracer,
-    finish_trace_run,
-    start_trace_run,
-)
+from design_research_agents.tracing import Tracer
 from design_research_agents.workflow.workflow import Workflow
 
 
@@ -59,10 +60,10 @@ class ReflexionPattern(Agent):
         proposer_delegate: WorkflowDelegate | None = None,
         critic_delegate: WorkflowDelegate | None = None,
         max_iterations: int = 3,
-        propose_critic_proposer_system_prompt: str | None = None,
-        propose_critic_proposer_user_prompt_template: str | None = None,
-        propose_critic_critic_system_prompt: str | None = None,
-        propose_critic_critic_user_prompt_template: str | None = None,
+        proposer_system_prompt: str | None = None,
+        proposer_user_prompt_template: str | None = None,
+        critic_system_prompt: str | None = None,
+        critic_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
@@ -75,10 +76,10 @@ class ReflexionPattern(Agent):
             proposer_delegate: Optional proposer delegate override.
             critic_delegate: Optional critic delegate override.
             max_iterations: Maximum propose/critic iterations per run.
-            propose_critic_proposer_system_prompt: Optional override for proposer system prompt.
-            propose_critic_proposer_user_prompt_template: Optional proposer user prompt template.
-            propose_critic_critic_system_prompt: Optional override for critic system prompt.
-            propose_critic_critic_user_prompt_template: Optional critic user prompt template.
+            proposer_system_prompt: Optional override for proposer system prompt.
+            proposer_user_prompt_template: Optional proposer user prompt template.
+            critic_system_prompt: Optional override for critic system prompt.
+            critic_user_prompt_template: Optional critic user prompt template.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
             tracer: Optional tracer used for run-level instrumentation.
@@ -99,24 +100,24 @@ class ReflexionPattern(Agent):
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._proposer_system_prompt = resolve_prompt_override(
-            override=propose_critic_proposer_system_prompt,
+            override=proposer_system_prompt,
             default_value=DEFAULT_PROPOSER_SYSTEM_PROMPT,
-            field_name="propose_critic_proposer_system_prompt",
+            field_name="proposer_system_prompt",
         )
         self._proposer_user_prompt_template = resolve_prompt_override(
-            override=propose_critic_proposer_user_prompt_template,
+            override=proposer_user_prompt_template,
             default_value=DEFAULT_PROPOSER_USER_PROMPT_TEMPLATE,
-            field_name="propose_critic_proposer_user_prompt_template",
+            field_name="proposer_user_prompt_template",
         )
         self._critic_system_prompt = resolve_prompt_override(
-            override=propose_critic_critic_system_prompt,
+            override=critic_system_prompt,
             default_value=DEFAULT_CRITIC_SYSTEM_PROMPT,
-            field_name="propose_critic_critic_system_prompt",
+            field_name="critic_system_prompt",
         )
         self._critic_user_prompt_template = resolve_prompt_override(
-            override=propose_critic_critic_user_prompt_template,
+            override=critic_user_prompt_template,
             default_value=DEFAULT_CRITIC_USER_PROMPT_TEMPLATE,
-            field_name="propose_critic_critic_user_prompt_template",
+            field_name="critic_user_prompt_template",
         )
 
     def run(
@@ -139,39 +140,26 @@ class ReflexionPattern(Agent):
         Raises:
             Exception: Propagates runtime failures from proposer/critic loop execution.
         """
-        configured_request_id = resolve_request_id_with_prefix(
+        run_context = resolve_pattern_run_context(
+            default_request_id_prefix=self._default_request_id_prefix,
+            default_dependencies=self._default_dependencies,
             request_id=request_id,
-            default_prefix=self._default_request_id_prefix,
-        )
-        resolved_request_id = resolve_request_id(configured_request_id)
-        resolved_dependencies = normalize_dependencies(
-            merge_dependencies(
-                default_dependencies=self._default_dependencies,
-                run_dependencies=dependencies,
-            )
+            dependencies=dependencies,
         )
         normalized_input = normalize_input_payload(prompt)
         resolved_prompt = _extract_prompt(normalized_input)
-        trace_scope = start_trace_run(
+        return execute_pattern_with_trace(
             agent_name="ReflexionPattern",
-            request_id=resolved_request_id,
+            request_id=run_context.request_id,
             input_payload={"prompt": resolved_prompt, "mode": "propose_critic"},
-            dependencies=resolved_dependencies,
+            dependencies=run_context.dependencies,
             tracer=self._tracer,
-        )
-
-        try:
-            result = self._run_propose_critic(
+            runner=lambda: self._run_propose_critic(
                 prompt=resolved_prompt,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-            )
-        except Exception as exc:
-            finish_trace_run(trace_scope, error=str(exc))
-            raise
-
-        finish_trace_run(trace_scope, result=result)
-        return result
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+            ),
+        )
 
     def _run_propose_critic(
         self,
@@ -203,9 +191,6 @@ class ReflexionPattern(Agent):
                 tracer=self._tracer,
             )
         callbacks = ReflexionLoopCallbacks(
-            llm_client=self._llm_client,
-            proposer_agent=proposer,
-            critic_delegate=self._critic_delegate,
             resolved_model=resolved_model,
             task_prompt=prompt,
             request_id=request_id,
@@ -215,6 +200,52 @@ class ReflexionPattern(Agent):
             critic_user_prompt_template=self._critic_user_prompt_template,
             budget_tracker=budget_tracker,
         )
+        loop_steps: tuple[WorkflowStep, ...]
+        if self._critic_delegate is None:
+            loop_steps = (
+                AgentStep(
+                    step_id="propose_critic_proposer",
+                    delegate=proposer,
+                    prompt_builder=callbacks.build_proposer_prompt,
+                ),
+                ModelStep(
+                    step_id="propose_critic_critic_model",
+                    dependencies=("propose_critic_proposer",),
+                    llm_client=self._llm_client,
+                    request_builder=callbacks.build_critic_request,
+                    response_parser=callbacks.parse_critic_model_response,
+                ),
+                LogicStep(
+                    step_id="propose_critic_iteration",
+                    dependencies=(
+                        "propose_critic_proposer",
+                        "propose_critic_critic_model",
+                    ),
+                    handler=callbacks.build_iteration_from_model,
+                ),
+            )
+        else:
+            loop_steps = (
+                AgentStep(
+                    step_id="propose_critic_proposer",
+                    delegate=proposer,
+                    prompt_builder=callbacks.build_proposer_prompt,
+                ),
+                AgentStep(
+                    step_id="propose_critic_critic_delegate",
+                    dependencies=("propose_critic_proposer",),
+                    delegate=self._critic_delegate,
+                    prompt_builder=callbacks.build_critic_prompt,
+                ),
+                LogicStep(
+                    step_id="propose_critic_iteration",
+                    dependencies=(
+                        "propose_critic_proposer",
+                        "propose_critic_critic_delegate",
+                    ),
+                    handler=callbacks.build_iteration_from_delegate,
+                ),
+            )
 
         self.workflow = Workflow(
             tool_runtime=self._tool_runtime,
@@ -224,12 +255,7 @@ class ReflexionPattern(Agent):
             steps=[
                 LoopStep(
                     step_id="propose_critic_loop",
-                    steps=(
-                        LogicStep(
-                            step_id="propose_critic_iteration",
-                            handler=callbacks.run_iteration,
-                        ),
-                    ),
+                    steps=loop_steps,
                     max_iterations=self._max_iterations,
                     initial_state={
                         "proposal": "",
@@ -243,7 +269,7 @@ class ReflexionPattern(Agent):
                     continue_predicate=callbacks.continue_predicate,
                     state_reducer=callbacks.state_reducer,
                     execution_mode="sequential",
-                    failure_policy="skip_dependents",
+                    failure_policy="propagate_failed_state",
                 )
             ],
         )

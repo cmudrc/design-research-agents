@@ -7,7 +7,13 @@ from collections.abc import Mapping
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import LLMClient, LLMResponse
-from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
+from design_research_agents.contracts.workflow import (
+    DelegateBatchCall,
+    DelegateBatchStep,
+    LogicStep,
+    LoopStep,
+    WorkflowDelegate,
+)
 from design_research_agents.implementations.agents.direct_llm_call import (
     DirectLLMCall,
 )
@@ -17,23 +23,17 @@ from design_research_agents.implementations.shared.agent_internal.model_resoluti
 from design_research_agents.implementations.shared.agent_internal.result_builders import (
     build_failure_result,
 )
-from design_research_agents.implementations.shared.agent_internal.run_options import (
-    normalize_dependencies,
-    resolve_request_id,
-)
 from design_research_agents.implementations.shared.workflow_internal import (
-    merge_dependencies,
+    execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
     normalize_request_id_prefix,
     render_prompt_template,
+    resolve_pattern_run_context,
     resolve_prompt_override,
-    resolve_request_id_with_prefix,
 )
-from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
+from design_research_agents.tracing import Tracer
 from design_research_agents.workflow import Workflow
-
-from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 
 _DEFAULT_SPEAKER_A_NAME = "speaker_a"
 _DEFAULT_SPEAKER_B_NAME = "speaker_b"
@@ -118,70 +118,46 @@ class _ConversationLoopCallbacks:
         del iteration
         return bool(state.get("should_continue", True))
 
-    def run_turn(self, context: Mapping[str, object]) -> Mapping[str, object]:
-        """Execute one A->B conversation turn.
-
-        Args:
-            context: Workflow step context.
-
-        Returns:
-            Updated loop state for the next iteration.
-        """
-        loop_meta = context.get("_loop")
-        turn_number = 1
-        if isinstance(loop_meta, Mapping):
-            turn_number = max(1, _safe_int(loop_meta.get("iteration", 1)))
-
-        current_state = normalize_mapping(context.get("loop_state"))
-        transcript = normalize_mapping_records(current_state.get("transcript"))
-        last_message_from_a = str(current_state.get("last_message_from_a", "(none)"))
-        last_message_from_b = str(current_state.get("last_message_from_b", "(none)"))
-
+    def build_speaker_a_calls(
+        self,
+        context: Mapping[str, object],
+    ) -> list[DelegateBatchCall]:
+        """Build the speaker-A delegate call for one turn."""
+        turn_number, transcript, _last_a, last_b = _resolve_turn_context(context)
         speaker_a_prompt = _render_conversation_prompt(
             template_text=self._pattern._speaker_a_user_prompt_template,
-            field_name="conversation_speaker_a_user_prompt_template",
+            field_name="speaker_a_user_prompt_template",
             task_prompt=self._prompt,
             turn_number=turn_number,
             speaker_name=self._pattern._speaker_a_name,
             partner_name=self._pattern._speaker_b_name,
-            partner_message=last_message_from_b,
+            partner_message=last_b,
             transcript=transcript,
         )
-        speaker_a_invocation = invoke_delegate(
-            delegate=self._speaker_a_delegate,
-            prompt=speaker_a_prompt,
-            step_context=context,
-            request_id=f"{self._request_id}:conversation:speaker_a:{turn_number}",
-            execution_mode="sequential",
-            failure_policy="skip_dependents",
-            dependencies=self._dependencies,
-        )
-        speaker_a_result = speaker_a_invocation.result
-        if speaker_a_result.model_response is not None:
-            self._runtime_state["last_model_response"] = speaker_a_result.model_response
-        if not speaker_a_result.success:
-            return _build_loop_failure_state(
-                transcript=transcript,
-                last_message_from_a=last_message_from_a,
-                last_message_from_b=last_message_from_b,
-                failure_reason="speaker_a_failed",
-                failure_error=_extract_failure_error(
-                    speaker_a_result,
-                    fallback_message="Speaker A failed during conversation turn.",
-                ),
+        return [
+            DelegateBatchCall(
+                call_id="speaker_a",
+                delegate=self._speaker_a_delegate,
+                prompt=speaker_a_prompt,
             )
-        speaker_a_message = _extract_model_text(speaker_a_result)
-        transcript.append(
-            {
-                "turn": turn_number,
-                "speaker": self._pattern._speaker_a_name,
-                "message": speaker_a_message,
-            }
-        )
+        ]
 
+    def build_speaker_b_calls(
+        self,
+        context: Mapping[str, object],
+    ) -> list[DelegateBatchCall]:
+        """Build the speaker-B delegate call for one turn."""
+        turn_number, transcript, _last_a, _last_b = _resolve_turn_context(context)
+        speaker_a_result = _extract_delegate_batch_call_result(
+            context=context,
+            dependency_step_id="conversation_speaker_a_batch",
+            call_id="speaker_a",
+        )
+        speaker_a_output = _extract_call_output(speaker_a_result)
+        speaker_a_message = _extract_model_text_from_output(speaker_a_output)
         speaker_b_prompt = _render_conversation_prompt(
             template_text=self._pattern._speaker_b_user_prompt_template,
-            field_name="conversation_speaker_b_user_prompt_template",
+            field_name="speaker_b_user_prompt_template",
             task_prompt=self._prompt,
             turn_number=turn_number,
             speaker_name=self._pattern._speaker_b_name,
@@ -189,30 +165,78 @@ class _ConversationLoopCallbacks:
             partner_message=speaker_a_message or "(none)",
             transcript=transcript,
         )
-        speaker_b_invocation = invoke_delegate(
-            delegate=self._speaker_b_delegate,
-            prompt=speaker_b_prompt,
-            step_context=context,
-            request_id=f"{self._request_id}:conversation:speaker_b:{turn_number}",
-            execution_mode="sequential",
-            failure_policy="skip_dependents",
-            dependencies=self._dependencies,
+        return [
+            DelegateBatchCall(
+                call_id="speaker_b",
+                delegate=self._speaker_b_delegate,
+                prompt=speaker_b_prompt,
+            )
+        ]
+
+    def build_turn_state(self, context: Mapping[str, object]) -> Mapping[str, object]:
+        """Build loop state for the next turn from delegate-batch outputs.
+
+        Args:
+            context: Workflow step context.
+
+        Returns:
+            Updated loop state for the next iteration.
+        """
+        (
+            turn_number,
+            transcript,
+            last_message_from_a,
+            last_message_from_b,
+        ) = _resolve_turn_context(context)
+        speaker_a_result = _extract_delegate_batch_call_result(
+            context=context,
+            dependency_step_id="conversation_speaker_a_batch",
+            call_id="speaker_a",
         )
-        speaker_b_result = speaker_b_invocation.result
-        if speaker_b_result.model_response is not None:
-            self._runtime_state["last_model_response"] = speaker_b_result.model_response
-        if not speaker_b_result.success:
+        speaker_a_response = _extract_call_model_response(speaker_a_result)
+        if speaker_a_response is not None:
+            self._runtime_state["last_model_response"] = speaker_a_response
+        if not _is_call_success(speaker_a_result):
+            return _build_loop_failure_state(
+                transcript=transcript,
+                last_message_from_a=last_message_from_a,
+                last_message_from_b=last_message_from_b,
+                failure_reason="speaker_a_failed",
+                failure_error=_extract_call_error(
+                    speaker_a_result,
+                    fallback_message="Speaker A failed during conversation turn.",
+                ),
+            )
+        speaker_a_output = _extract_call_output(speaker_a_result)
+        speaker_a_message = _extract_model_text_from_output(speaker_a_output)
+        transcript.append(
+            {
+                "turn": turn_number,
+                "speaker": self._pattern._speaker_a_name,
+                "message": speaker_a_message,
+            }
+        )
+        speaker_b_result = _extract_delegate_batch_call_result(
+            context=context,
+            dependency_step_id="conversation_speaker_b_batch",
+            call_id="speaker_b",
+        )
+        speaker_b_response = _extract_call_model_response(speaker_b_result)
+        if speaker_b_response is not None:
+            self._runtime_state["last_model_response"] = speaker_b_response
+        if not _is_call_success(speaker_b_result):
             return _build_loop_failure_state(
                 transcript=transcript,
                 last_message_from_a=speaker_a_message or "(none)",
                 last_message_from_b=last_message_from_b,
                 failure_reason="speaker_b_failed",
-                failure_error=_extract_failure_error(
+                failure_error=_extract_call_error(
                     speaker_b_result,
                     fallback_message="Speaker B failed during conversation turn.",
                 ),
             )
-        speaker_b_message = _extract_model_text(speaker_b_result)
+        speaker_b_output = _extract_call_output(speaker_b_result)
+        speaker_b_message = _extract_model_text_from_output(speaker_b_output)
         transcript.append(
             {
                 "turn": turn_number,
@@ -266,10 +290,10 @@ class ConversationPattern(Agent):
         max_turns: int = 3,
         speaker_a_name: str = _DEFAULT_SPEAKER_A_NAME,
         speaker_b_name: str = _DEFAULT_SPEAKER_B_NAME,
-        conversation_speaker_a_system_prompt: str | None = None,
-        conversation_speaker_a_user_prompt_template: str | None = None,
-        conversation_speaker_b_system_prompt: str | None = None,
-        conversation_speaker_b_user_prompt_template: str | None = None,
+        speaker_a_system_prompt: str | None = None,
+        speaker_a_user_prompt_template: str | None = None,
+        speaker_b_system_prompt: str | None = None,
+        speaker_b_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
@@ -285,10 +309,10 @@ class ConversationPattern(Agent):
             max_turns: Maximum conversation turns where each turn is A->B.
             speaker_a_name: Display name for speaker A in transcript and prompts.
             speaker_b_name: Display name for speaker B in transcript and prompts.
-            conversation_speaker_a_system_prompt: Optional override for speaker A system prompt.
-            conversation_speaker_a_user_prompt_template: Optional speaker A user template override.
-            conversation_speaker_b_system_prompt: Optional override for speaker B system prompt.
-            conversation_speaker_b_user_prompt_template: Optional speaker B user template override.
+            speaker_a_system_prompt: Optional override for speaker A system prompt.
+            speaker_a_user_prompt_template: Optional speaker A user template override.
+            speaker_b_system_prompt: Optional override for speaker B system prompt.
+            speaker_b_user_prompt_template: Optional speaker B user template override.
             default_request_id_prefix: Optional request-id prefix used for auto-generated ids.
             default_dependencies: Default dependency mapping merged into each run.
             tracer: Optional tracer used for pattern and nested agent traces.
@@ -311,24 +335,24 @@ class ConversationPattern(Agent):
             field_name="speaker_b_name",
         )
         self._speaker_a_system_prompt = resolve_prompt_override(
-            override=conversation_speaker_a_system_prompt,
+            override=speaker_a_system_prompt,
             default_value=_DEFAULT_SPEAKER_A_SYSTEM_PROMPT,
-            field_name="conversation_speaker_a_system_prompt",
+            field_name="speaker_a_system_prompt",
         )
         self._speaker_a_user_prompt_template = resolve_prompt_override(
-            override=conversation_speaker_a_user_prompt_template,
+            override=speaker_a_user_prompt_template,
             default_value=_DEFAULT_SPEAKER_A_USER_PROMPT_TEMPLATE,
-            field_name="conversation_speaker_a_user_prompt_template",
+            field_name="speaker_a_user_prompt_template",
         )
         self._speaker_b_system_prompt = resolve_prompt_override(
-            override=conversation_speaker_b_system_prompt,
+            override=speaker_b_system_prompt,
             default_value=_DEFAULT_SPEAKER_B_SYSTEM_PROMPT,
-            field_name="conversation_speaker_b_system_prompt",
+            field_name="speaker_b_system_prompt",
         )
         self._speaker_b_user_prompt_template = resolve_prompt_override(
-            override=conversation_speaker_b_user_prompt_template,
+            override=speaker_b_user_prompt_template,
             default_value=_DEFAULT_SPEAKER_B_USER_PROMPT_TEMPLATE,
-            field_name="conversation_speaker_b_user_prompt_template",
+            field_name="speaker_b_user_prompt_template",
         )
         self._speaker_a_delegate = speaker_a_delegate
         self._speaker_b_delegate = speaker_b_delegate
@@ -357,42 +381,29 @@ class ConversationPattern(Agent):
         Raises:
             Exception: Propagates loop and nested-agent execution failures.
         """
-        configured_request_id = resolve_request_id_with_prefix(
+        run_context = resolve_pattern_run_context(
+            default_request_id_prefix=self._default_request_id_prefix,
+            default_dependencies=self._default_dependencies,
             request_id=request_id,
-            default_prefix=self._default_request_id_prefix,
+            dependencies=dependencies,
         )
-        resolved_request_id = resolve_request_id(configured_request_id)
-        resolved_dependencies = normalize_dependencies(
-            merge_dependencies(
-                default_dependencies=self._default_dependencies,
-                run_dependencies=dependencies,
-            )
-        )
-        trace_scope = start_trace_run(
+        return execute_pattern_with_trace(
             agent_name="ConversationPattern",
-            request_id=resolved_request_id,
+            request_id=run_context.request_id,
             input_payload={
                 "prompt": prompt,
                 "max_turns": self._max_turns,
                 "speaker_a_name": self._speaker_a_name,
                 "speaker_b_name": self._speaker_b_name,
             },
-            dependencies=resolved_dependencies,
+            dependencies=run_context.dependencies,
             tracer=self._tracer,
-        )
-
-        try:
-            result = self._run_conversation(
+            runner=lambda: self._run_conversation(
                 prompt=prompt,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-            )
-        except Exception as exc:
-            finish_trace_run(trace_scope, error=str(exc))
-            raise
-
-        finish_trace_run(trace_scope, result=result)
-        return result
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+            ),
+        )
 
     def _run_conversation(
         self,
@@ -450,7 +461,27 @@ class ConversationPattern(Agent):
             steps=[
                 LoopStep(
                     step_id="conversation_loop",
-                    steps=(LogicStep(step_id="conversation_turn", handler=callbacks.run_turn),),
+                    steps=(
+                        DelegateBatchStep(
+                            step_id="conversation_speaker_a_batch",
+                            calls_builder=callbacks.build_speaker_a_calls,
+                            fail_fast=True,
+                        ),
+                        DelegateBatchStep(
+                            step_id="conversation_speaker_b_batch",
+                            dependencies=("conversation_speaker_a_batch",),
+                            calls_builder=callbacks.build_speaker_b_calls,
+                            fail_fast=True,
+                        ),
+                        LogicStep(
+                            step_id="conversation_turn",
+                            dependencies=(
+                                "conversation_speaker_a_batch",
+                                "conversation_speaker_b_batch",
+                            ),
+                            handler=callbacks.build_turn_state,
+                        ),
+                    ),
                     max_iterations=self._max_turns,
                     initial_state={
                         "transcript": [],
@@ -463,7 +494,7 @@ class ConversationPattern(Agent):
                     continue_predicate=callbacks.continue_predicate,
                     state_reducer=callbacks.state_reducer,
                     execution_mode="sequential",
-                    failure_policy="skip_dependents",
+                    failure_policy="propagate_failed_state",
                 )
             ],
         )
@@ -600,6 +631,117 @@ def _build_conversation_result(
             "turns_executed": turns_executed,
         },
     )
+
+
+def _resolve_turn_context(
+    context: Mapping[str, object],
+) -> tuple[int, list[dict[str, object]], str, str]:
+    """Resolve turn metadata and normalized loop state for one conversation iteration."""
+    loop_meta = context.get("_loop")
+    turn_number = 1
+    if isinstance(loop_meta, Mapping):
+        turn_number = max(1, _safe_int(loop_meta.get("iteration", 1)))
+
+    loop_state = context.get("loop_state")
+    state_mapping = loop_state if isinstance(loop_state, Mapping) else {}
+    transcript = normalize_mapping_records(state_mapping.get("transcript"))
+    last_message_from_a = str(state_mapping.get("last_message_from_a", "(none)"))
+    last_message_from_b = str(state_mapping.get("last_message_from_b", "(none)"))
+    return turn_number, transcript, last_message_from_a, last_message_from_b
+
+
+def _extract_delegate_batch_call_result(
+    *,
+    context: Mapping[str, object],
+    dependency_step_id: str,
+    call_id: str,
+) -> Mapping[str, object] | None:
+    """Extract one call-result mapping from a dependency ``DelegateBatchStep`` output."""
+    dependency_results = context.get("dependency_results")
+    if not isinstance(dependency_results, Mapping):
+        return None
+    dependency_payload = dependency_results.get(dependency_step_id)
+    if not isinstance(dependency_payload, Mapping):
+        return None
+    dependency_output = dependency_payload.get("output")
+    if not isinstance(dependency_output, Mapping):
+        return None
+    results = dependency_output.get("results")
+    if not isinstance(results, list):
+        return None
+    for result_entry in results:
+        if not isinstance(result_entry, Mapping):
+            continue
+        if str(result_entry.get("call_id", "")) != call_id:
+            continue
+        return result_entry
+    return None
+
+
+def _extract_call_output(call_result: Mapping[str, object] | None) -> dict[str, object]:
+    """Extract normalized delegate output mapping from one call-result entry."""
+    if not isinstance(call_result, Mapping):
+        return {}
+    output = call_result.get("output")
+    if isinstance(output, Mapping):
+        return dict(output)
+    return {}
+
+
+def _extract_model_text_from_output(output: Mapping[str, object]) -> str:
+    """Extract one normalized text payload from delegate output."""
+    model_text = output.get("model_text")
+    if isinstance(model_text, str):
+        return model_text.strip()
+    final_output = output.get("final_output")
+    if isinstance(final_output, str):
+        return final_output.strip()
+    if isinstance(final_output, Mapping):
+        text_value = final_output.get("message")
+        if isinstance(text_value, str):
+            return text_value.strip()
+    return ""
+
+
+def _extract_call_model_response(call_result: Mapping[str, object] | None) -> LLMResponse | None:
+    """Deserialize model response payload from one call-result entry when present."""
+    if not isinstance(call_result, Mapping):
+        return None
+    model_response = call_result.get("model_response")
+    if isinstance(model_response, LLMResponse):
+        return model_response
+    if isinstance(model_response, Mapping):
+        try:
+            return LLMResponse(**dict(model_response))
+        except TypeError:
+            return None
+    return None
+
+
+def _is_call_success(call_result: Mapping[str, object] | None) -> bool:
+    """Return whether one call-result entry succeeded."""
+    if not isinstance(call_result, Mapping):
+        return False
+    return bool(call_result.get("success", False))
+
+
+def _extract_call_error(
+    call_result: Mapping[str, object] | None,
+    *,
+    fallback_message: str,
+) -> str:
+    """Extract one human-readable error message from a call-result entry."""
+    if not isinstance(call_result, Mapping):
+        return fallback_message
+    raw_error = call_result.get("error")
+    if isinstance(raw_error, str) and raw_error.strip():
+        return raw_error.strip()
+    output = call_result.get("output")
+    if isinstance(output, Mapping):
+        output_error = output.get("error")
+        if isinstance(output_error, str) and output_error.strip():
+            return output_error.strip()
+    return fallback_message
 
 
 def _render_conversation_prompt(

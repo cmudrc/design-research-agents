@@ -6,25 +6,24 @@ from collections.abc import Mapping
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.llm import (
-    LLMChatParams,
     LLMClient,
     LLMMessage,
+    LLMRequest,
     LLMResponse,
 )
 from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.contracts.workflow import AgentStep, LoopStep, WorkflowDelegate
+from design_research_agents.contracts.workflow import (
+    AgentStep,
+    LoopStep,
+    ModelStep,
+    WorkflowDelegate,
+)
 from design_research_agents.implementations.agents.multi_step_agent import MultiStepAgent
 from design_research_agents.schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
-from design_research_agents.tracing import (
-    Tracer,
-    finish_model_call,
-    finish_trace_run,
-    start_model_call,
-    start_trace_run,
-)
+from design_research_agents.tracing import Tracer
 from design_research_agents.workflow.workflow import Workflow
 
 from ..shared.agent_internal.input_parsing import (
@@ -34,22 +33,18 @@ from ..shared.agent_internal.input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
 from ..shared.agent_internal.model_resolution import resolve_agent_model
-from ..shared.agent_internal.run_options import (
-    normalize_dependencies,
-    normalize_input_payload,
-    resolve_request_id,
-)
+from ..shared.agent_internal.run_options import normalize_input_payload
 from ..shared.workflow_internal import (
     WorkflowBudgetTracker,
     attach_runtime_metadata,
     build_pattern_failure_result,
-    merge_dependencies,
+    execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
     normalize_request_id_prefix,
     render_prompt_template,
+    resolve_pattern_run_context,
     resolve_prompt_override,
-    resolve_request_id_with_prefix,
 )
 from ..shared.workflow_internal.delegate_invocation import invoke_delegate
 from ..shared.workflow_internal.planner_executor_helpers import (
@@ -73,9 +68,9 @@ class PlannerExecutorPattern(Agent):
         executor_delegate: WorkflowDelegate | None = None,
         max_iterations: int = 3,
         max_tool_calls_per_step: int = 5,
-        plan_execute_planner_system_prompt: str | None = None,
-        plan_execute_planner_user_prompt_template: str | None = None,
-        plan_execute_executor_step_prompt_template: str | None = None,
+        planner_system_prompt: str | None = None,
+        planner_user_prompt_template: str | None = None,
+        executor_step_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
         tracer: Tracer | None = None,
@@ -89,9 +84,9 @@ class PlannerExecutorPattern(Agent):
             executor_delegate: Optional executor delegate override.
             max_iterations: Maximum number of plan steps executed in one run.
             max_tool_calls_per_step: Maximum tool calls allowed per executor step.
-            plan_execute_planner_system_prompt: Optional override for planner system prompt.
-            plan_execute_planner_user_prompt_template: Optional override for planner user prompt.
-            plan_execute_executor_step_prompt_template: Optional override for executor step prompt.
+            planner_system_prompt: Optional override for planner system prompt.
+            planner_user_prompt_template: Optional override for planner user prompt.
+            executor_step_prompt_template: Optional override for executor step prompt.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
             tracer: Optional tracer used for run-level instrumentation.
@@ -115,19 +110,19 @@ class PlannerExecutorPattern(Agent):
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._planner_system_prompt = resolve_prompt_override(
-            override=plan_execute_planner_system_prompt,
+            override=planner_system_prompt,
             default_value=DEFAULT_PLANNER_SYSTEM_PROMPT,
-            field_name="plan_execute_planner_system_prompt",
+            field_name="planner_system_prompt",
         )
         self._planner_user_prompt_template = resolve_prompt_override(
-            override=plan_execute_planner_user_prompt_template,
+            override=planner_user_prompt_template,
             default_value=DEFAULT_PLANNER_USER_PROMPT_TEMPLATE,
-            field_name="plan_execute_planner_user_prompt_template",
+            field_name="planner_user_prompt_template",
         )
         self._executor_step_prompt_template = resolve_prompt_override(
-            override=plan_execute_executor_step_prompt_template,
+            override=executor_step_prompt_template,
             default_value=DEFAULT_EXECUTOR_STEP_PROMPT_TEMPLATE,
-            field_name="plan_execute_executor_step_prompt_template",
+            field_name="executor_step_prompt_template",
         )
 
     def run(
@@ -150,38 +145,25 @@ class PlannerExecutorPattern(Agent):
         Raises:
             Exception: Propagates runtime failures from planner or executor phases.
         """
-        configured_request_id = resolve_request_id_with_prefix(
+        run_context = resolve_pattern_run_context(
+            default_request_id_prefix=self._default_request_id_prefix,
+            default_dependencies=self._default_dependencies,
             request_id=request_id,
-            default_prefix=self._default_request_id_prefix,
-        )
-        resolved_request_id = resolve_request_id(configured_request_id)
-        resolved_dependencies = normalize_dependencies(
-            merge_dependencies(
-                default_dependencies=self._default_dependencies,
-                run_dependencies=dependencies,
-            )
+            dependencies=dependencies,
         )
         resolved_prompt = _extract_prompt(normalize_input_payload(prompt))
-        trace_scope = start_trace_run(
+        return execute_pattern_with_trace(
             agent_name="PlannerExecutorPattern",
-            request_id=resolved_request_id,
+            request_id=run_context.request_id,
             input_payload={"prompt": resolved_prompt, "mode": "plan_execute"},
-            dependencies=resolved_dependencies,
+            dependencies=run_context.dependencies,
             tracer=self._tracer,
-        )
-
-        try:
-            result = self._run_plan_execute(
+            runner=lambda: self._run_plan_execute(
                 prompt=resolved_prompt,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-            )
-        except Exception as exc:
-            finish_trace_run(trace_scope, error=str(exc))
-            raise
-
-        finish_trace_run(trace_scope, result=result)
-        return result
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+            ),
+        )
 
     def _run_plan_execute(
         self,
@@ -209,50 +191,17 @@ class PlannerExecutorPattern(Agent):
         parsed_plan: dict[str, object] | None = None
 
         if self._planner_delegate is None:
-            resolved_model = resolve_agent_model(llm_client=self._llm_client)
-            planner_messages = [
-                LLMMessage(role="system", content=self._planner_system_prompt),
-                LLMMessage(
-                    role="user",
-                    content=render_prompt_template(
-                        template_text=self._planner_user_prompt_template,
-                        variables={"task_prompt": prompt},
-                        field_name="plan_execute_planner_user_prompt_template",
-                    ),
-                ),
-            ]
-            planner_call_metadata: dict[str, object] = {
-                "agent": "PlannerExecutorPattern",
-                "mode": "plan_execute",
-                "phase": "planner",
-            }
-            planner_params = LLMChatParams(
-                response_schema=dict(PLAN_SCHEMA),
-                provider_options=planner_call_metadata,
+            parsed_plan, planner_response = self._run_planner_model_step(
+                prompt=prompt,
+                request_id=request_id,
+                dependencies=dependencies,
             )
-            planner_span_id = start_model_call(
-                model=resolved_model,
-                messages=planner_messages,
-                params=planner_params,
-                metadata=planner_call_metadata,
-            )
-            try:
-                planner_response = self._llm_client.chat(
-                    planner_messages,
-                    model=resolved_model,
-                    params=planner_params,
-                )
-            except Exception as exc:
-                finish_model_call(planner_span_id, error=str(exc), model=resolved_model)
-                raise
-            finish_model_call(planner_span_id, response=planner_response)
             budget_tracker.add_model_response(planner_response)
-            parsed_plan = _parse_json_mapping(planner_response.text)
         else:
             planner_prompt = render_prompt_template(
                 template_text=self._planner_user_prompt_template,
                 variables={"task_prompt": prompt},
-                field_name="plan_execute_planner_user_prompt_template",
+                field_name="planner_user_prompt_template",
             )
             planner_invocation = invoke_delegate(
                 delegate=self._planner_delegate,
@@ -438,6 +387,90 @@ class PlannerExecutorPattern(Agent):
             },
         )
 
+    def _run_planner_model_step(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> tuple[dict[str, object] | None, LLMResponse | None]:
+        """Run planner model call through ``ModelStep`` and extract parsed plan output."""
+        resolved_model = resolve_agent_model(llm_client=self._llm_client)
+        planner_workflow = Workflow(
+            tool_runtime=None,
+            tracer=self._tracer,
+            input_mode="schema",
+            base_context={"prompt": prompt},
+            steps=[
+                ModelStep(
+                    step_id="plan_execute_planner_model",
+                    llm_client=self._llm_client,
+                    request_builder=lambda context: self._build_planner_request(
+                        context=context,
+                        prompt=prompt,
+                        resolved_model=resolved_model,
+                    ),
+                    response_parser=_parse_planner_model_response,
+                )
+            ],
+        )
+        planner_result = planner_workflow.run(
+            {},
+            execution_mode="sequential",
+            failure_policy="skip_dependents",
+            request_id=f"{request_id}:plan_execute_planner_model",
+            dependencies=dependencies,
+        )
+        planner_step = planner_result.step_results.get("plan_execute_planner_model")
+        if planner_step is None:
+            raise RuntimeError("Planner model step result is missing.")
+        if not planner_step.success:
+            error_text = planner_step.error or "Planner model step failed."
+            stage = str(planner_step.metadata.get("stage", ""))
+            if stage == "input_build":
+                raise ValueError(error_text)
+            raise RuntimeError(error_text)
+
+        planner_response = _extract_model_response_from_model_step_output(planner_step.output)
+        parsed_payload = planner_step.output.get("parsed")
+        if not isinstance(parsed_payload, Mapping):
+            return None, planner_response
+        plan_payload = parsed_payload.get("plan")
+        if not isinstance(plan_payload, Mapping):
+            return None, planner_response
+        return dict(plan_payload), planner_response
+
+    def _build_planner_request(
+        self,
+        *,
+        context: Mapping[str, object],
+        prompt: str,
+        resolved_model: str,
+    ) -> LLMRequest:
+        """Build one planner ``LLMRequest`` payload for ``ModelStep`` execution."""
+        del context
+        planner_prompt = render_prompt_template(
+            template_text=self._planner_user_prompt_template,
+            variables={"task_prompt": prompt},
+            field_name="planner_user_prompt_template",
+        )
+        planner_metadata: dict[str, object] = {
+            "agent": "PlannerExecutorPattern",
+            "mode": "plan_execute",
+            "phase": "planner",
+        }
+        planner_messages = [
+            LLMMessage(role="system", content=self._planner_system_prompt),
+            LLMMessage(role="user", content=planner_prompt),
+        ]
+        return LLMRequest(
+            messages=planner_messages,
+            model=resolved_model,
+            response_schema=dict(PLAN_SCHEMA),
+            metadata=dict(planner_metadata),
+            provider_options=dict(planner_metadata),
+        )
+
 
 def _extract_planner_payload(output: Mapping[str, object]) -> dict[str, object] | None:
     """Extract planner payload mapping from delegate output.
@@ -466,6 +499,28 @@ def _extract_planner_payload(output: Mapping[str, object]) -> dict[str, object] 
     if isinstance(model_text, str):
         return _parse_json_mapping(model_text)
     return None
+
+
+def _parse_planner_model_response(
+    response: LLMResponse,
+    context: Mapping[str, object],
+) -> Mapping[str, object]:
+    """Parse planner model response into ``{"plan": ...}`` payload."""
+    del context
+    return {"plan": _parse_json_mapping(response.text)}
+
+
+def _extract_model_response_from_model_step_output(
+    output: Mapping[str, object],
+) -> LLMResponse | None:
+    """Extract ``LLMResponse`` from serialized ``ModelStep`` output payload."""
+    raw_model_response = output.get("model_response")
+    if not isinstance(raw_model_response, Mapping):
+        return None
+    try:
+        return LLMResponse(**dict(raw_model_response))
+    except TypeError:
+        return None
 
 
 __all__ = [

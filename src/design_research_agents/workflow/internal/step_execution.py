@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 
+from design_research_agents.contracts.llm import LLMChatParams, LLMRequest, LLMResponse
 from design_research_agents.contracts.memory import (
     MemorySearchQuery,
     MemoryStore,
@@ -13,9 +14,12 @@ from design_research_agents.contracts.memory import (
 from design_research_agents.contracts.tools import ToolRuntime
 from design_research_agents.contracts.workflow import (
     AgentStep,
+    DelegateBatchCall,
+    DelegateBatchStep,
     LogicStep,
     MemoryReadStep,
     MemoryWriteStep,
+    ModelStep,
     ToolStep,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
@@ -220,6 +224,320 @@ def run_agent_step(
             "delegate_type": delegate_invocation.delegate_type,
         },
     )
+
+
+def run_model_step(
+    *,
+    step: ModelStep,
+    step_id: str,
+    step_context: Mapping[str, object],
+) -> WorkflowStepResult:
+    """Execute one model step and return normalized workflow step result."""
+    try:
+        llm_request = _build_model_request(step=step, step_context=step_context)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "model"},
+        )
+
+    try:
+        model_response = _execute_model_request(step=step, llm_request=llm_request)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "execution", "step_kind": "model"},
+        )
+
+    try:
+        parsed_payload = _parse_model_response_payload(
+            step=step,
+            model_response=model_response,
+            step_context=step_context,
+        )
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "response_parse", "step_kind": "model"},
+        )
+
+    output: dict[str, object] = {
+        "model_response": asdict(model_response),
+        "parsed": parsed_payload,
+        "final_output": _resolve_model_final_output(
+            parsed_payload=parsed_payload,
+            model_response=model_response,
+        ),
+    }
+    return WorkflowStepResult(
+        step_id=step_id,
+        status="completed",
+        success=True,
+        output=output,
+        metadata={"stage": "execution", "step_kind": "model"},
+    )
+
+
+def run_delegate_batch_step(
+    *,
+    step: DelegateBatchStep,
+    step_id: str,
+    step_context: Mapping[str, object],
+    request_id: str,
+    execution_mode: WorkflowExecutionMode,
+    failure_policy: WorkflowFailurePolicy,
+    dependencies: Mapping[str, object],
+) -> WorkflowStepResult:
+    """Execute one delegate-batch step and return normalized workflow step result."""
+    try:
+        raw_calls = step.calls_builder(step_context)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "delegate_batch"},
+        )
+    try:
+        normalized_calls = _normalize_delegate_batch_calls(raw_calls=raw_calls)
+    except Exception as exc:
+        return _failed_step_result(
+            step_id=step_id,
+            error=str(exc),
+            metadata={"stage": "input_build", "step_kind": "delegate_batch"},
+        )
+
+    invocation_dependencies = build_invocation_dependencies(
+        base_dependencies=dependencies,
+        step_id=step_id,
+        request_id=request_id,
+        execution_mode=execution_mode,
+        failure_policy=failure_policy,
+        step_context=step_context,
+    )
+    results, failed_call_id = _execute_delegate_batch_calls(
+        calls=normalized_calls,
+        step_context=step_context,
+        request_id=request_id,
+        step_id=step_id,
+        invocation_dependencies=invocation_dependencies,
+        fail_fast=step.fail_fast,
+    )
+
+    all_success = failed_call_id is None
+    output = {
+        "results": results,
+        "all_success": all_success,
+        "failed_call_id": failed_call_id,
+        "final_output": _resolve_delegate_batch_final_output(results),
+    }
+    if not all_success:
+        assert failed_call_id is not None
+        return _failed_step_result(
+            step_id=step_id,
+            output=output,
+            error=f"Delegate batch call '{failed_call_id}' failed.",
+            metadata={
+                "stage": "execution",
+                "step_kind": "delegate_batch",
+                "fail_fast": step.fail_fast,
+            },
+        )
+    return WorkflowStepResult(
+        step_id=step_id,
+        status="completed",
+        success=True,
+        output=output,
+        metadata={"stage": "execution", "step_kind": "delegate_batch", "fail_fast": step.fail_fast},
+    )
+
+
+def _build_model_request(
+    *,
+    step: ModelStep,
+    step_context: Mapping[str, object],
+) -> LLMRequest:
+    """Build and validate ``ModelStep`` request payload."""
+    llm_request = step.request_builder(step_context)
+    if not isinstance(llm_request, LLMRequest):
+        raise TypeError("ModelStep request_builder must return an LLMRequest.")
+    return llm_request
+
+
+def _resolve_model_request_model_id(*, llm_client: object, llm_request: LLMRequest) -> str:
+    """Resolve model id for ``chat``-based model-step execution."""
+    if llm_request.model is not None:
+        return llm_request.model
+
+    default_model = getattr(llm_client, "default_model", None)
+    if not callable(default_model):
+        raise TypeError("ModelStep llm_client requires request.model or callable default_model().")
+    return str(default_model())
+
+
+def _execute_model_request(*, step: ModelStep, llm_request: LLMRequest) -> LLMResponse:
+    """Execute one model request using ``generate`` or ``chat`` fallback."""
+    generate_callable = getattr(step.llm_client, "generate", None)
+    if callable(generate_callable):
+        generated_response = generate_callable(llm_request)
+        if not isinstance(generated_response, LLMResponse):
+            raise TypeError("ModelStep llm_client.generate() must return an LLMResponse.")
+        return generated_response
+
+    chat_callable = getattr(step.llm_client, "chat", None)
+    if not callable(chat_callable):
+        raise TypeError("ModelStep llm_client must expose generate() or chat().")
+
+    chat_response = chat_callable(
+        llm_request.messages,
+        model=_resolve_model_request_model_id(llm_client=step.llm_client, llm_request=llm_request),
+        params=LLMChatParams(
+            temperature=llm_request.temperature,
+            max_tokens=llm_request.max_tokens,
+            response_schema=llm_request.response_schema,
+            provider_options=dict(llm_request.provider_options),
+        ),
+    )
+    if not isinstance(chat_response, LLMResponse):
+        raise TypeError("ModelStep llm_client.chat() must return an LLMResponse.")
+    return chat_response
+
+
+def _parse_model_response_payload(
+    *,
+    step: ModelStep,
+    model_response: LLMResponse,
+    step_context: Mapping[str, object],
+) -> dict[str, object]:
+    """Parse model-step response payload into normalized mapping output."""
+    if step.response_parser is None:
+        return {"model_text": model_response.text}
+
+    parsed_output = step.response_parser(model_response, step_context)
+    if not isinstance(parsed_output, Mapping):
+        raise TypeError("ModelStep response_parser must return a mapping.")
+    return dict(parsed_output)
+
+
+def _resolve_model_final_output(
+    *,
+    parsed_payload: Mapping[str, object],
+    model_response: LLMResponse,
+) -> dict[str, object]:
+    """Resolve canonical ``final_output`` payload for one model step."""
+    final_output_raw = parsed_payload.get("final_output")
+    if isinstance(final_output_raw, Mapping):
+        return dict(final_output_raw)
+    if parsed_payload:
+        return dict(parsed_payload)
+    return {"model_text": model_response.text}
+
+
+def _normalize_delegate_batch_calls(*, raw_calls: object) -> list[DelegateBatchCall]:
+    """Normalize and validate delegate-batch calls-builder output."""
+    if not isinstance(raw_calls, Sequence) or isinstance(raw_calls, (str, bytes)):
+        raise TypeError("DelegateBatchStep calls_builder must return a sequence.")
+
+    normalized_calls: list[DelegateBatchCall] = []
+    seen_call_ids: set[str] = set()
+    for index, raw_call in enumerate(raw_calls, start=1):
+        normalized_call = _normalize_delegate_batch_call(raw_call, index=index)
+        if normalized_call.call_id in seen_call_ids:
+            raise ValueError(f"Duplicate delegate batch call_id '{normalized_call.call_id}'.")
+        seen_call_ids.add(normalized_call.call_id)
+        normalized_calls.append(normalized_call)
+    return normalized_calls
+
+
+def _run_delegate_batch_call(
+    *,
+    call: DelegateBatchCall,
+    step_context: Mapping[str, object],
+    request_id: str,
+    step_id: str,
+    invocation_dependencies: Mapping[str, object],
+) -> dict[str, object]:
+    """Invoke one delegate-batch call and normalize result payload."""
+    call_request_id = f"{request_id}:workflow:{step_id}:delegate_batch:{call.call_id}"
+    try:
+        delegate_invocation = invoke_delegate(
+            delegate=call.delegate,
+            prompt=call.prompt,
+            step_context=step_context,
+            request_id=call_request_id,
+            execution_mode=call.execution_mode,
+            failure_policy=call.failure_policy,
+            dependencies=invocation_dependencies,
+        )
+        call_result = delegate_invocation.result
+    except Exception as exc:
+        return {
+            "call_id": call.call_id,
+            "success": False,
+            "output": {},
+            "error": str(exc),
+            "metadata": {},
+            "delegate_type": "unknown",
+            "model_response": None,
+            "tool_results": [],
+        }
+
+    call_error = str(call_result.output.get("error", "")) if not call_result.success else None
+    return {
+        "call_id": call.call_id,
+        "success": call_result.success,
+        "output": dict(call_result.output),
+        "error": call_error,
+        "metadata": dict(call_result.metadata),
+        "delegate_type": delegate_invocation.delegate_type,
+        "model_response": call_result.model_response,
+        "tool_results": list(call_result.tool_results),
+    }
+
+
+def _execute_delegate_batch_calls(
+    *,
+    calls: Sequence[DelegateBatchCall],
+    step_context: Mapping[str, object],
+    request_id: str,
+    step_id: str,
+    invocation_dependencies: Mapping[str, object],
+    fail_fast: bool,
+) -> tuple[list[dict[str, object]], str | None]:
+    """Execute normalized delegate-batch calls and collect call result entries."""
+    results: list[dict[str, object]] = []
+    failed_call_id: str | None = None
+    for call in calls:
+        call_result_entry = _run_delegate_batch_call(
+            call=call,
+            step_context=step_context,
+            request_id=request_id,
+            step_id=step_id,
+            invocation_dependencies=invocation_dependencies,
+        )
+        results.append(call_result_entry)
+        if not bool(call_result_entry.get("success")) and failed_call_id is None:
+            failed_call_id = call.call_id
+        if failed_call_id is not None and fail_fast:
+            break
+    return results, failed_call_id
+
+
+def _resolve_delegate_batch_final_output(
+    results: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    """Extract canonical delegate-batch ``final_output`` from call results."""
+    if not results:
+        return {}
+    last_output = results[-1].get("output")
+    if not isinstance(last_output, Mapping):
+        return {}
+    maybe_final_output = last_output.get("final_output")
+    if isinstance(maybe_final_output, Mapping):
+        return dict(maybe_final_output)
+    return dict(last_output)
 
 
 def run_logic_step(
@@ -487,6 +805,44 @@ def _normalize_memory_write_records(
         raise TypeError("Unsupported memory write record type.")
 
     return normalized_records
+
+
+def _normalize_delegate_batch_call(raw_call: object, *, index: int) -> DelegateBatchCall:
+    """Normalize one delegate-batch call specification."""
+    if isinstance(raw_call, DelegateBatchCall):
+        return raw_call
+    if not isinstance(raw_call, Mapping):
+        raise TypeError("DelegateBatchStep calls must be DelegateBatchCall or mapping payloads.")
+
+    raw_call_id = raw_call.get("call_id", f"call_{index}")
+    call_id = str(raw_call_id).strip()
+    if not call_id:
+        raise ValueError("DelegateBatchStep call_id must be non-empty.")
+    if "delegate" not in raw_call:
+        raise ValueError(f"DelegateBatchStep call '{call_id}' is missing delegate.")
+    if "prompt" not in raw_call:
+        raise ValueError(f"DelegateBatchStep call '{call_id}' is missing prompt.")
+    raw_prompt = raw_call.get("prompt")
+    if not isinstance(raw_prompt, str) or not raw_prompt.strip():
+        raise ValueError(f"DelegateBatchStep call '{call_id}' prompt must be a non-empty string.")
+
+    raw_execution_mode = raw_call.get("execution_mode", "sequential")
+    execution_mode: WorkflowExecutionMode = (
+        raw_execution_mode if raw_execution_mode in {"sequential", "dag"} else "sequential"
+    )
+    raw_failure_policy = raw_call.get("failure_policy", "skip_dependents")
+    normalized_failure_policy: WorkflowFailurePolicy = (
+        raw_failure_policy
+        if raw_failure_policy in {"skip_dependents", "propagate_failed_state"}
+        else "skip_dependents"
+    )
+    return DelegateBatchCall(
+        call_id=call_id,
+        delegate=raw_call["delegate"],
+        prompt=raw_prompt.strip(),
+        execution_mode=execution_mode,
+        failure_policy=normalized_failure_policy,
+    )
 
 
 def _failed_step_result(

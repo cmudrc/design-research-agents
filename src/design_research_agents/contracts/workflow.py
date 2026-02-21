@@ -8,6 +8,7 @@ from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 
 from .agent import Agent
 from .execution import ExecutionResult
+from .llm import LLMClient, LLMRequest, LLMResponse
 from .memory import MemoryWriteRecord
 
 WorkflowExecutionMode = Literal["sequential", "dag"]
@@ -120,6 +121,11 @@ WorkflowArtifactsBuilder: TypeAlias = Callable[
 ]
 ToolStepInputBuilder: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
 AgentStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
+ModelStepRequestBuilder: TypeAlias = Callable[[Mapping[str, object]], LLMRequest]
+ModelStepResponseParser: TypeAlias = Callable[
+    [LLMResponse, Mapping[str, object]],
+    Mapping[str, object],
+]
 LogicStepHandler: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
 MemoryReadQueryBuilder: TypeAlias = Callable[[Mapping[str, object]], str | Mapping[str, object]]
 MemoryWriteRecordsBuilder: TypeAlias = Callable[
@@ -170,6 +176,62 @@ class AgentStep:
     """Static prompt passed to the delegate when ``prompt_builder`` is absent."""
     prompt_builder: AgentStepPromptBuilder | None = None
     """Optional callback that derives a prompt string from runtime step context."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
+
+
+@dataclass(slots=True, frozen=True)
+class ModelStep:
+    """Workflow step that executes one model request through an LLM client."""
+
+    step_id: str
+    """Unique step identifier used for dependency wiring and result lookup."""
+    llm_client: LLMClient
+    """LLM client used to execute the request built for this step."""
+    request_builder: ModelStepRequestBuilder
+    """Callback that builds the ``LLMRequest`` payload from runtime context."""
+    dependencies: tuple[str, ...] = ()
+    """Step ids that must complete before this step can run."""
+    response_parser: ModelStepResponseParser | None = None
+    """Optional callback that parses model response into structured output."""
+    artifacts_builder: WorkflowArtifactsBuilder | None = None
+    """Optional callback that extracts user-facing artifact manifests from step context."""
+
+
+@dataclass(slots=True, frozen=True)
+class DelegateBatchCall:
+    """One delegate call specification executed by ``DelegateBatchStep``."""
+
+    call_id: str
+    """Unique call identifier within the batch."""
+    delegate: WorkflowDelegate
+    """Delegate object invoked for this call."""
+    prompt: str
+    """Prompt passed to the delegate for this call."""
+    execution_mode: WorkflowExecutionMode = "sequential"
+    """Execution mode propagated when the delegate is workflow-like."""
+    failure_policy: WorkflowFailurePolicy = "skip_dependents"
+    """Failure policy propagated when the delegate is workflow-like."""
+
+
+DelegateBatchCallsBuilder: TypeAlias = Callable[
+    [Mapping[str, object]],
+    Sequence[DelegateBatchCall | Mapping[str, object]],
+]
+
+
+@dataclass(slots=True, frozen=True)
+class DelegateBatchStep:
+    """Workflow step that executes multiple delegate invocations in sequence."""
+
+    step_id: str
+    """Unique step identifier used for dependency wiring and result lookup."""
+    calls_builder: DelegateBatchCallsBuilder
+    """Callback that builds batch delegate call specs from runtime context."""
+    dependencies: tuple[str, ...] = ()
+    """Step ids that must complete before this step can run."""
+    fail_fast: bool = True
+    """Whether to stop executing additional calls after first failure."""
     artifacts_builder: WorkflowArtifactsBuilder | None = None
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
@@ -253,7 +315,14 @@ class MemoryWriteStep:
 
 
 WorkflowStep: TypeAlias = (
-    ToolStep | AgentStep | LogicStep | LoopStep | MemoryReadStep | MemoryWriteStep
+    ToolStep
+    | AgentStep
+    | ModelStep
+    | DelegateBatchStep
+    | LogicStep
+    | LoopStep
+    | MemoryReadStep
+    | MemoryWriteStep
 )
 
 

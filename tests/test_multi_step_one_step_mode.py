@@ -76,10 +76,8 @@ def test_multi_step_tool_router_one_step_mode_runs_single_action_step() -> None:
         responses=[
             json.dumps(
                 {
-                    "action": "TOOL_CALL",
-                    "tool_names": ["sum"],
+                    "tool_name": "sum",
                     "tool_input": {"a": 2, "b": 3},
-                    "reason": "compute",
                 }
             )
         ]
@@ -104,7 +102,6 @@ def test_multi_step_tool_router_one_step_mode_runs_single_action_step() -> None:
 def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
     llm_client = _SequenceChatLLMClient(
         responses=[
-            json.dumps({"continue": True, "thought": "run one step"}),
             json.dumps(
                 {
                     "tool_name": "calculator",
@@ -127,7 +124,7 @@ def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
     assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
     assert result.output["final_output"]["result"] == 42.0
     assert len(result.tool_results) == 1
-    assert llm_client.chat_calls == 2
+    assert llm_client.chat_calls == 1
 
 
 def test_multi_step_code_one_step_mode_runs_single_code_step() -> None:

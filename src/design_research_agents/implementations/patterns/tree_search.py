@@ -8,11 +8,11 @@ from typing import TypeGuard, cast
 
 from design_research_agents.contracts.agent import Agent, ExecutionResult
 from design_research_agents.contracts.workflow import LogicStep, LoopStep, WorkflowDelegate
-from design_research_agents.implementations.shared.agent_internal.run_options import (
-    normalize_dependencies,
-    resolve_request_id,
+from design_research_agents.implementations.shared.workflow_internal import (
+    execute_pattern_with_trace,
+    resolve_pattern_run_context,
 )
-from design_research_agents.tracing import Tracer, finish_trace_run, start_trace_run
+from design_research_agents.tracing import Tracer
 from design_research_agents.workflow import Workflow
 
 from ..shared.workflow_internal.delegate_invocation import invoke_delegate
@@ -83,33 +83,29 @@ class TreeSearchPattern(Agent):
         Raises:
             Exception: Propagated delegate invocation errors.
         """
-        resolved_request_id = resolve_request_id(request_id)
-        resolved_dependencies = normalize_dependencies(dependencies)
-        trace_scope = start_trace_run(
+        run_context = resolve_pattern_run_context(
+            default_request_id_prefix=None,
+            default_dependencies={},
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        return execute_pattern_with_trace(
             agent_name="TreeSearchPattern",
-            request_id=resolved_request_id,
+            request_id=run_context.request_id,
             input_payload={
                 "prompt": prompt,
                 "max_depth": self._max_depth,
                 "branch_factor": self._branch_factor,
                 "beam_width": self._beam_width,
             },
-            dependencies=resolved_dependencies,
+            dependencies=run_context.dependencies,
             tracer=self._tracer,
-        )
-
-        try:
-            result = self._run_tree_search(
+            runner=lambda: self._run_tree_search(
                 prompt=prompt,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-            )
-        except Exception as exc:
-            finish_trace_run(trace_scope, error=str(exc))
-            raise
-
-        finish_trace_run(trace_scope, result=result)
-        return result
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+            ),
+        )
 
     def _run_tree_search(
         self,

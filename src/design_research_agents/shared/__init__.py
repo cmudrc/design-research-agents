@@ -1,8 +1,6 @@
-"""Re-export canonical run-default helpers for implementation modules."""
+"""Shared helpers reused across implementation and workflow runtimes."""
 
-from __future__ import annotations
-
-from ....shared.run_defaults import (
+from .run_defaults import (
     merge_dependencies,
     normalize_request_id_prefix,
     resolve_request_id_with_prefix,

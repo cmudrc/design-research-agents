@@ -68,7 +68,7 @@ Please include:
 
 ## Code Style
 
-- Python 3.11+ target.
+- Python 3.12+ target.
 - Ruff for linting/formatting.
 - Complete Google-style docstrings are required for all Python callables
   (including private/dunder) in `src/`, `examples/`, and `scripts/`.
@@ -104,7 +104,7 @@ def run(value: int) -> int:
     """
 ```
 
-CI enforces these checks on Python 3.11 and 3.12.
+CI enforces these checks on Python 3.12.
 
 ## Conduct
 
