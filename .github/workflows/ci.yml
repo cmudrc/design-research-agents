@@ -35,19 +35,9 @@ jobs:
       - name: Install dependencies
         run: make install-dev
 
-      - name: Determine changed files
-        run: |
-          mkdir -p artifacts
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch origin "${{ github.base_ref }}" --depth=1
-            git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" > artifacts/changed_files.txt
-          else
-            git diff --name-only --diff-filter=ACMR "${{ github.event.before }}...${{ github.sha }}" > artifacts/changed_files.txt
-          fi
-
       - name: Run checks
         # Lint/format/type checks, fast unit suite, coverage, and examples smoke.
-        run: DOCSTRING_CHANGED_FILES_FILE=artifacts/changed_files.txt make ci
+        run: make ci
 
   coverage-badge:
     # Keep a coverage badge on main in sync with the stable unit-suite baseline.
