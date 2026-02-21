@@ -440,6 +440,38 @@ def test_placeholder_docstrings_are_reported() -> None:
     assert {"DGS014", "DGS015"} <= _error_codes(lines)
 
 
+def test_placeholder_docstrings_are_suppressed_when_changed_file_list_is_empty() -> None:
+    source = """
+    \"\"\"Module summary.\"\"\"
+
+    def evaluate(alpha: int) -> int:
+        \"\"\"Run evaluate.
+
+        Args:
+            alpha: Parameter value.
+
+        Returns:
+            The resulting value.
+        \"\"\"
+        return alpha + 1
+    """
+    repo_root = Path("artifacts/tests/docstring_checker_placeholders_empty_changed_scope")
+    if repo_root.exists():
+        shutil.rmtree(repo_root)
+    _write_file(repo_root, "src/pkg/placeholder_example.py", source)
+
+    changed_files_path = repo_root / "changed_files.txt"
+    changed_files_path.write_text("", encoding="utf-8")
+
+    exit_code, lines = _run_checker(
+        repo_root,
+        changed_files_path=changed_files_path,
+    )
+
+    assert exit_code == 0
+    assert lines == ["Google-style docstring checks passed."]
+
+
 def test_placeholder_docstrings_only_fail_changed_files_when_changed_list_is_provided() -> None:
     placeholder_source = """
     \"\"\"Module summary.\"\"\"

@@ -850,6 +850,7 @@ def main() -> int:
     violations = _collect_violations(repo_root)
     baseline_entries = _load_baseline_entries(baseline_path)
     changed_files = _load_changed_files(changed_files_path, repo_root)
+    changed_files_scope_enabled = changed_files_path is not None
     baseline_guard_violations, blocked_paths = _collect_changed_file_baseline_violations(
         baseline_entries=baseline_entries,
         changed_files=changed_files,
@@ -870,7 +871,7 @@ def main() -> int:
                 violation
                 for violation in violations
                 if not (
-                    changed_files
+                    changed_files_scope_enabled
                     and violation.code in PLACEHOLDER_VIOLATION_CODES
                     and violation.path not in changed_files
                 )

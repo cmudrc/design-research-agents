@@ -6,14 +6,27 @@ RUFF ?= $(PYTHON) -m ruff
 MYPY ?= $(PYTHON) -m mypy
 SPHINX ?= $(PYTHON) -m sphinx
 
-.PHONY: help \
-	install install-dev install-all check-python \
-	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check \
-	examples-smoke examples-test examples-deterministic examples-metrics run-example \
-	docs docs-build docs-open docs-linkcheck docs-check \
-	ci pre-commit \
-	clean distclean purge-ignored-junk \
-	format format-check typecheck
+# Target groups used to compose aggregate checks.
+INSTALL_TARGETS := install install-dev install-all
+QUALITY_TARGETS := lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check
+EXAMPLE_TARGETS := examples-smoke examples-test examples-deterministic examples-metrics run-example
+DOC_TARGETS := docs docs-build docs-open docs-linkcheck docs-check
+CLEAN_TARGETS := clean distclean purge-ignored-junk
+ALIAS_TARGETS := format format-check typecheck
+
+QA_TARGETS := lint fmt-check type unit
+QA_FULL_TARGETS := qa structure-check docstrings-check coverage
+CI_TARGETS := qa-full examples-smoke legacy-check baseline-integrity-check junk-check docs-check
+PRE_COMMIT_TARGETS := lint fmt-check type structure-check docstrings-check unit junk-check docs-build
+DOCSTRING_CHANGED_FILES_DEFAULT := artifacts/docstrings_changed_files.txt
+
+.PHONY: help check-python ci pre-commit \
+	$(INSTALL_TARGETS) \
+	$(QUALITY_TARGETS) \
+	$(EXAMPLE_TARGETS) \
+	$(DOC_TARGETS) \
+	$(CLEAN_TARGETS) \
+	$(ALIAS_TARGETS)
 
 help:
 	@echo "Common targets:"
@@ -76,7 +89,7 @@ unit: check-python
 	PYTHONPATH=src $(PYTEST) -m "not examples_full"
 
 # Fast local quality checks.
-qa: lint fmt-check type unit
+qa: $(QA_TARGETS)
 
 # Enforce structural module size thresholds.
 structure-check: check-python
@@ -85,10 +98,9 @@ structure-check: check-python
 # Enforce complete Google-style docstrings for src/examples/scripts.
 docstrings-check: check-python
 	@mkdir -p artifacts
-	@if [ -n "$(DOCSTRING_CHANGED_FILES_FILE)" ]; then \
-		CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_FILE)"; \
-	else \
-		CHANGED_FILES_FILE="artifacts/docstrings_changed_files.txt"; \
+	@CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_FILE)"; \
+	if [ -z "$${CHANGED_FILES_FILE}" ]; then \
+		CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_DEFAULT)"; \
 		git diff --name-only --diff-filter=ACMR HEAD > "$${CHANGED_FILES_FILE}"; \
 	fi; \
 	$(PYTHON) scripts/check_google_docstrings.py \
@@ -115,7 +127,7 @@ coverage: check-python
 	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json
 
 # Full quality gate used by CI and release checks.
-qa-full: qa structure-check docstrings-check coverage
+qa-full: $(QA_FULL_TARGETS)
 
 # Run deterministic smoke checks for representative examples in main CI.
 examples-smoke: check-python
@@ -158,9 +170,9 @@ docs-check: check-python
 purge-ignored-junk:
 	@echo "Removing traces/ directories, Sphinx _build, and egg-info..."
 	@find . -type d -name traces -prune -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name artifacts -prune -exec rm -rf {} + 2>/dev/null || true
 	@rm -rf docs/_build
 	@rm -rf src/design_research_agents.egg-info
-	@rm -rf artifacts
 	@find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
 
 # Remove generated artifacts only (no source mutation).
@@ -170,10 +182,10 @@ clean: purge-ignored-junk
 distclean: clean
 
 # Aggregate checks used by CI.
-ci: qa-full examples-smoke legacy-check baseline-integrity-check junk-check docs-check
+ci: $(CI_TARGETS)
 
 # Check set used by local pre-commit hook.
-pre-commit: lint fmt-check type structure-check docstrings-check unit junk-check docs-build
+pre-commit: $(PRE_COMMIT_TARGETS)
 
 # Compatibility aliases.
 format: fmt
