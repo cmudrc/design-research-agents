@@ -9,10 +9,10 @@ def normalize_mapping(raw_value: object) -> dict[str, object]:
     """Normalize an arbitrary object into a mutable mapping copy.
 
     Args:
-        raw_value: Parameter value.
+        raw_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not isinstance(raw_value, Mapping):
         return {}
@@ -23,10 +23,10 @@ def normalize_mapping_records(raw_value: object) -> list[dict[str, object]]:
     """Normalize an arbitrary object into list-of-mapping records.
 
     Args:
-        raw_value: Parameter value.
+        raw_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not isinstance(raw_value, list):
         return []
@@ -41,14 +41,14 @@ def parse_loop_iteration(raw_value: object, *, error_prefix: str) -> int:
     """Parse one loop-iteration value from loop metadata.
 
     Args:
-        raw_value: Parameter value.
-        error_prefix: Parameter value.
+        raw_value: Input value for this parameter.
+        error_prefix: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
 
     Raises:
-        Exception: Raised when execution fails.
+        Exception: Raised when validation or execution fails.
     """
     if isinstance(raw_value, int):
         return raw_value

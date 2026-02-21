@@ -10,10 +10,10 @@ def extract_prompt(input_payload: Mapping[str, object]) -> str:
     """Extract prompt text from run input with stable fallback behavior.
 
     Args:
-        input_payload: Parameter value.
+        input_payload: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_prompt = input_payload.get(
         "prompt",
@@ -31,12 +31,12 @@ def extract_positive_int(
     """Extract a positive integer from run input with fallback semantics.
 
     Args:
-        input_payload: Parameter value.
-        key: Parameter value.
-        default_value: Parameter value.
+        input_payload: Input value for this parameter.
+        key: Input value for this parameter.
+        default_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_value = input_payload.get(key)
     if raw_value is None:
@@ -57,12 +57,12 @@ def extract_boolean(
     """Extract a boolean from run input with fallback semantics.
 
     Args:
-        input_payload: Parameter value.
-        key: Parameter value.
-        default_value: Parameter value.
+        input_payload: Input value for this parameter.
+        key: Input value for this parameter.
+        default_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
@@ -74,10 +74,10 @@ def load_json_mapping(raw_text: str) -> dict[str, object] | None:
     """Load text as a JSON mapping or return ``None`` when invalid.
 
     Args:
-        raw_text: Parameter value.
+        raw_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     try:
         parsed = json.loads(raw_text)
@@ -92,10 +92,10 @@ def parse_json_mapping(raw_text: str) -> dict[str, object] | None:
     """Parse the first JSON object found in text, if any.
 
     Args:
-        raw_text: Parameter value.
+        raw_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     parsed_direct = load_json_mapping(raw_text)
     if parsed_direct is not None:

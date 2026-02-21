@@ -122,7 +122,7 @@ class JsonActionStepRunner(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run one workflow-native tool selection and invocation cycle.
+        """Execute one workflow-native tool selection and invocation cycle.
 
         Args:
             prompt: Prompt text for the run.
@@ -133,7 +133,7 @@ class JsonActionStepRunner(Agent):
             Final agent result payload.
 
         Raises:
-            Exception: Raised when execution fails.
+            Exception: Raised when validation or execution fails.
         """
         execution_context = prepare_agent_execution(
             prompt=prompt,
@@ -217,7 +217,7 @@ class JsonActionStepRunner(Agent):
         )
 
     def _select_tool_handler(self, context: Mapping[str, object]) -> Mapping[str, object]:
-        """Run model selection logic and emit a route for tool branch activation.
+        """Execute model selection logic and emit a route for tool branch activation.
 
         Args:
             context: Workflow step execution context payload.

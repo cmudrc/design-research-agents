@@ -47,7 +47,7 @@ class CodeNormalizationResult:
         """Return whether normalization altered imports/calls.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         return self.stripped_safe_tool_imports > 0 or self.rewritten_tool_calls > 0
 
@@ -55,7 +55,7 @@ class CodeNormalizationResult:
         """Return a compact normalization metadata payload.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         return {
             "changed": self.changed,
@@ -74,10 +74,10 @@ def extract_allowed_tools(
     """Return allowed tools compiled at initialization time.
 
     Args:
-        default_allowed_tools: Parameter value.
+        default_allowed_tools: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return (
         [clone_allowed_tool(tool) for tool in default_allowed_tools],
@@ -93,11 +93,11 @@ def compile_default_allowed_tools(
     """Compile default allowed tools from init config and runtime tool specs.
 
     Args:
-        runtime_specs: Parameter value.
-        default_tools: Parameter value.
+        runtime_specs: Input value for this parameter.
+        default_tools: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if default_tools is not None:
         compiled_from_input = normalize_allowed_tools(
@@ -124,11 +124,11 @@ def normalize_allowed_tools(
     """Normalize explicit allowed-tool payload into runtime-backed tool entries.
 
     Args:
-        raw_tools: Parameter value.
-        runtime_specs: Parameter value.
+        raw_tools: Input value for this parameter.
+        runtime_specs: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not isinstance(raw_tools, Sequence) or isinstance(raw_tools, (str, bytes)):
         return []
@@ -183,10 +183,10 @@ def clone_allowed_tool(allowed_tool: AllowedTool) -> AllowedTool:
     """Clone one allowed tool to isolate run-level payload mutations.
 
     Args:
-        allowed_tool: Parameter value.
+        allowed_tool: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return AllowedTool(
         tool_name=allowed_tool.tool_name,
@@ -204,10 +204,10 @@ def extract_prompt(input_payload: Mapping[str, object]) -> str:
     """Extract prompt text from run input.
 
     Args:
-        input_payload: Parameter value.
+        input_payload: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_prompt = input_payload.get(
         "prompt", input_payload.get("text", "Provide a concise response.")
@@ -224,12 +224,12 @@ def extract_positive_int(
     """Extract a positive integer option from run input.
 
     Args:
-        input_payload: Parameter value.
-        key: Parameter value.
-        default_value: Parameter value.
+        input_payload: Input value for this parameter.
+        key: Input value for this parameter.
+        default_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_value = input_payload.get(key)
     if raw_value is None:
@@ -250,12 +250,12 @@ def extract_boolean(
     """Extract a boolean option from run input.
 
     Args:
-        input_payload: Parameter value.
-        key: Parameter value.
-        default_value: Parameter value.
+        input_payload: Input value for this parameter.
+        key: Input value for this parameter.
+        default_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
@@ -267,10 +267,10 @@ def extract_python_code(raw_model_text: str) -> str:
     """Extract Python code from model output text, preferring fenced blocks.
 
     Args:
-        raw_model_text: Parameter value.
+        raw_model_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     fenced_match = match_fenced_code_block(raw_model_text)
     if fenced_match is not None:
@@ -282,10 +282,10 @@ def match_fenced_code_block(raw_text: str) -> str | None:
     """Return first Python-like fenced code block when present and well-formed.
 
     Args:
-        raw_text: Parameter value.
+        raw_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     fence = "```"
     start_index = raw_text.find(fence)
@@ -310,10 +310,10 @@ class _CodeCanonicalizer(ast.NodeTransformer):
     """Conservative AST normalizer for common tool-call variants."""
 
     def __init__(self, *, allowed_tool_names: set[str]) -> None:
-        """Run init.
+        """Execute init.
 
         Args:
-            allowed_tool_names: Parameter value.
+            allowed_tool_names: Input value for this parameter.
         """
         self._allowed_tool_names = allowed_tool_names
         self.stripped_safe_tool_imports = 0
@@ -322,13 +322,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         self.rewritten_module_attr_calls = 0
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
-        """Run visit Module.
+        """Execute visit Module.
 
         Args:
-            node: Parameter value.
+            node: Input value for this parameter.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         new_body: list[ast.stmt] = []
         for statement in node.body:
@@ -346,13 +346,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return node
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
-        """Run visit Call.
+        """Execute visit Call.
 
         Args:
-            node: Parameter value.
+            node: Input value for this parameter.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         visited_node = self.generic_visit(node)
         if not isinstance(visited_node, ast.Call):
@@ -381,13 +381,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return rewritten_call
 
     def _is_strippable_tool_import(self, statement: ast.stmt) -> bool:
-        """Run is strippable tool import.
+        """Execute is strippable tool import.
 
         Args:
-            statement: Parameter value.
+            statement: Input value for this parameter.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         return isinstance(statement, (ast.Import, ast.ImportFrom))
 
@@ -395,13 +395,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         self,
         call_target: ast.expr,
     ) -> tuple[str, str] | None:
-        """Run resolve rewrite target.
+        """Execute resolve rewrite target.
 
         Args:
-            call_target: Parameter value.
+            call_target: Input value for this parameter.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         if isinstance(call_target, ast.Name):
             if call_target.id in self._allowed_tool_names:
@@ -418,13 +418,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return call_target.attr, "module_attr"
 
     def _build_tool_input_argument(self, node: ast.Call) -> ast.expr | None:
-        """Run build tool input argument.
+        """Execute build tool input argument.
 
         Args:
-            node: Parameter value.
+            node: Input value for this parameter.
 
         Returns:
-            The resulting value.
+            Computed return value.
         """
         if len(node.args) == 1 and not node.keywords:
             if isinstance(node.args[0], ast.Starred):
@@ -453,11 +453,11 @@ def canonicalize_generated_code(
     """Rewrite narrow, known-safe tool call variants into canonical form.
 
     Args:
-        code_text: Parameter value.
-        allowed_tools: Parameter value.
+        code_text: Input value for this parameter.
+        allowed_tools: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not code_text:
         return CodeNormalizationResult(

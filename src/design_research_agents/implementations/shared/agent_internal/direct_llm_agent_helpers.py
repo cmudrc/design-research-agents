@@ -27,11 +27,11 @@ def generate_response(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResp
     """Issue one non-streaming LLM request.
 
     Args:
-        llm_client: Parameter value.
-        llm_request: Parameter value.
+        llm_client: Input value for this parameter.
+        llm_request: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
 
     Raises:
         AttributeError: Raised when the client exposes neither ``generate`` nor ``chat``.
@@ -86,15 +86,15 @@ def build_success_result(
     """Build a success result payload from one completed model response.
 
     Args:
-        llm_response: Parameter value.
-        request_id: Parameter value.
-        dependencies: Parameter value.
-        message_source: Parameter value.
-        message_count: Parameter value.
-        llm_request: Parameter value.
+        llm_response: Input value for this parameter.
+        request_id: Input value for this parameter.
+        dependencies: Input value for this parameter.
+        message_source: Input value for this parameter.
+        message_count: Input value for this parameter.
+        llm_request: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     output: dict[str, object] = {
         "model": llm_response.model,
@@ -129,11 +129,11 @@ def extract_messages(
     """Extract normalized message list from explicit messages or prompt fallback.
 
     Args:
-        input_payload: Parameter value.
-        default_system_prompt: Parameter value.
+        input_payload: Input value for this parameter.
+        default_system_prompt: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     normalized_input_messages = normalize_messages(input_payload.get("messages"))
     if normalized_input_messages:
@@ -167,11 +167,11 @@ def extract_system_prompt(
     """Extract optional system prompt override from run input or defaults.
 
     Args:
-        input_payload: Parameter value.
-        default_system_prompt: Parameter value.
+        input_payload: Input value for this parameter.
+        default_system_prompt: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_system_prompt = input_payload.get("system_prompt", default_system_prompt)
     if raw_system_prompt is None:
@@ -184,10 +184,10 @@ def normalize_messages(raw_messages: object) -> list[LLMMessage]:
     """Normalize optional message payload into a validated ``LLMMessage`` list.
 
     Args:
-        raw_messages: Parameter value.
+        raw_messages: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not isinstance(raw_messages, Sequence) or isinstance(raw_messages, (str, bytes)):
         return []
@@ -218,11 +218,11 @@ def inject_alternatives_into_messages(
     """Inject optional alternatives context into either system or user prompt.
 
     Args:
-        messages: Parameter value.
-        input_payload: Parameter value.
+        messages: Input value for this parameter.
+        input_payload: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     alternatives_text = format_raw_alternatives(input_payload.get("alternatives"))
     if not alternatives_text:
@@ -246,11 +246,11 @@ def inject_alternatives_into_system_message(
     """Inject alternatives text into the first system message or create one.
 
     Args:
-        messages: Parameter value.
-        alternatives_text: Parameter value.
+        messages: Input value for this parameter.
+        alternatives_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     injected_messages = list(messages)
     for index, message in enumerate(injected_messages):
@@ -288,11 +288,11 @@ def inject_alternatives_into_user_message(
     """Inject alternatives text into the last user message or append one.
 
     Args:
-        messages: Parameter value.
-        alternatives_text: Parameter value.
+        messages: Input value for this parameter.
+        alternatives_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     injected_messages = list(messages)
     for index in range(len(injected_messages) - 1, -1, -1):
@@ -329,10 +329,10 @@ def extract_response_schema(
     """Extract optional response-schema mapping from run input.
 
     Args:
-        input_payload: Parameter value.
+        input_payload: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_response_schema = input_payload.get("response_schema")
     if isinstance(raw_response_schema, Mapping):
@@ -348,11 +348,11 @@ def extract_temperature(
     """Extract optional sampling temperature from input payload.
 
     Args:
-        input_payload: Parameter value.
-        default_value: Parameter value.
+        input_payload: Input value for this parameter.
+        default_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_temperature = input_payload.get("temperature", default_value)
     if isinstance(raw_temperature, (int, float)):
@@ -376,11 +376,11 @@ def extract_max_tokens(
     """Extract optional positive max-token value from input payload.
 
     Args:
-        input_payload: Parameter value.
-        default_value: Parameter value.
+        input_payload: Input value for this parameter.
+        default_value: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     raw_max_tokens = input_payload.get("max_tokens", default_value)
     if isinstance(raw_max_tokens, int):
@@ -401,11 +401,11 @@ def merge_provider_options(
     """Merge default and input provider options into a plain dictionary.
 
     Args:
-        default_provider_options: Parameter value.
-        raw_provider_options: Parameter value.
+        default_provider_options: Input value for this parameter.
+        raw_provider_options: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     merged = dict(default_provider_options)
     merged.update(coerce_provider_options(raw_provider_options))
@@ -416,10 +416,10 @@ def coerce_provider_options(raw_provider_options: object) -> dict[str, object]:
     """Normalize optional provider options into ``dict[str, object]``.
 
     Args:
-        raw_provider_options: Parameter value.
+        raw_provider_options: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not isinstance(raw_provider_options, Mapping):
         return {}

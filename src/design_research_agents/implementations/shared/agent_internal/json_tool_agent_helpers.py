@@ -44,14 +44,14 @@ def extract_tool_choices(
     """Extract normalized tool choices from runtime specs.
 
     Args:
-        tool_specs: Parameter value.
-        allowed_tool_names: Parameter value.
+        tool_specs: Input value for this parameter.
+        allowed_tool_names: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
 
     Raises:
-        Exception: Raised when execution fails.
+        Exception: Raised when validation or execution fails.
     """
     allowed_name_set = set(allowed_tool_names or [])
     filtered_specs = [
@@ -78,12 +78,12 @@ def build_tool_call_prompt(*, prompt: str, choices_block: str, prompt_template: 
     """Build prompt asking model to select tool and structured arguments.
 
     Args:
-        prompt: Parameter value.
-        choices_block: Parameter value.
-        prompt_template: Parameter value.
+        prompt: Input value for this parameter.
+        choices_block: Input value for this parameter.
+        prompt_template: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return render_template_text(
         template_text=prompt_template,
@@ -103,14 +103,14 @@ def resolve_allowed_tool_names(
     """Resolve tool allowlist against runtime specs.
 
     Args:
-        runtime_specs: Parameter value.
-        allowed_tools: Parameter value.
+        runtime_specs: Input value for this parameter.
+        allowed_tools: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
 
     Raises:
-        Exception: Raised when execution fails.
+        Exception: Raised when validation or execution fails.
     """
     if allowed_tools is None:
         return None
@@ -130,10 +130,10 @@ def build_tool_choices_text(*, choices: Sequence[ToolChoice]) -> str:
     """Build formatted runtime tool choices text.
 
     Args:
-        choices: Parameter value.
+        choices: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     choice_lines: list[str] = []
     for choice in choices:
@@ -153,10 +153,10 @@ def clone_tool_choice(choice: ToolChoice) -> ToolChoice:
     """Clone one tool choice so run-local payloads remain isolated.
 
     Args:
-        choice: Parameter value.
+        choice: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return ToolChoice(
         tool_name=choice.tool_name,
@@ -173,11 +173,11 @@ def request_tool_call_response(
     """Dispatch one tool-call planning request to the LLM client.
 
     Args:
-        llm_client: Parameter value.
-        llm_request: Parameter value.
+        llm_client: Input value for this parameter.
+        llm_request: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return cast(Callable[[LLMRequest], LLMResponse], llm_client.generate)(llm_request)
 
@@ -186,10 +186,10 @@ def tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, 
     """Build the strict tool-call response schema for available tools.
 
     Args:
-        available_tool_names: Parameter value.
+        available_tool_names: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return build_tool_call_response_schema(
         tool_names=available_tool_names,
@@ -202,10 +202,10 @@ def parse_tool_call_from_response(
     """Extract first structured tool call payload from provider tool-call metadata.
 
     Args:
-        llm_response: Parameter value.
+        llm_response: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if not llm_response.tool_calls:
         return None
@@ -225,10 +225,10 @@ def parse_tool_call(raw_text: str) -> dict[str, object] | None:
     """Parse tool-call JSON payload from model text output.
 
     Args:
-        raw_text: Parameter value.
+        raw_text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return parse_json_mapping(raw_text)
 
@@ -241,11 +241,11 @@ def select_tool_choice(
     """Select a validated tool choice from structured model output.
 
     Args:
-        parsed_tool_call: Parameter value.
-        choices: Parameter value.
+        parsed_tool_call: Input value for this parameter.
+        choices: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if parsed_tool_call is None:
         return None
@@ -271,12 +271,12 @@ def resolve_tool_input(
     """Resolve final tool input from model payload, run input, or heuristics.
 
     Args:
-        selected_choice: Parameter value.
-        parsed_tool_call: Parameter value.
-        input_payload: Parameter value.
+        selected_choice: Input value for this parameter.
+        parsed_tool_call: Input value for this parameter.
+        input_payload: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if parsed_tool_call is not None:
         raw_tool_input = parsed_tool_call.get(
@@ -306,10 +306,10 @@ def coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
     """Convert raw tool-input payload into a JSON-like dictionary when possible.
 
     Args:
-        raw_tool_input: Parameter value.
+        raw_tool_input: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if isinstance(raw_tool_input, Mapping):
         return dict(raw_tool_input)
