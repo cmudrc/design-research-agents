@@ -49,5 +49,5 @@ Examples
 Attribution
 -----------
 
-- Docs: `llama.cpp server usage <https://github.com/ggml-org/llama.cpp/tree/master/examples/server>`_
+- Docs: `llama.cpp server usage <https://github.com/ggml-org/llama.cpp/tree/master/tools/server>`_
 - Homepage: `llama.cpp GitHub <https://github.com/ggml-org/llama.cpp>`_

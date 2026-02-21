@@ -39,4 +39,4 @@ Attribution
 -----------
 
 - Docs: `OpenAI API reference <https://developers.openai.com/api/reference/overview>`_
-- Homepage: `OpenAI <https://openai.com/>`_
+- Homepage: `OpenAI developer portal <https://developers.openai.com/>`_

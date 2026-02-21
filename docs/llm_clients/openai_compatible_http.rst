@@ -40,4 +40,4 @@ Attribution
 -----------
 
 - Docs: `OpenAI API compatibility target <https://developers.openai.com/api/reference/overview>`_
-- Homepage: `OpenAI platform <https://openai.com/>`_
+- Homepage: `OpenAI developer portal <https://developers.openai.com/>`_
