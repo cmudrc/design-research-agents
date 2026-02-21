@@ -10,6 +10,9 @@ and emit configuration plus call metadata.
 - `openai_compatible_http_client.py`
 - `transformers_local_client.py`
 - `mlx_local_client.py`
+- `vllm_server_client.py`
+- `ollama_local_client.py`
+- `sglang_server_client.py`
 
 ## Quick Start
 
@@ -19,6 +22,9 @@ PYTHONPATH=src python3 examples/clients/openai_service_client.py
 PYTHONPATH=src python3 examples/clients/openai_compatible_http_client.py
 PYTHONPATH=src python3 examples/clients/transformers_local_client.py
 PYTHONPATH=src python3 examples/clients/mlx_local_client.py
+PYTHONPATH=src python3 examples/clients/vllm_server_client.py
+PYTHONPATH=src python3 examples/clients/ollama_local_client.py
+PYTHONPATH=src python3 examples/clients/sglang_server_client.py
 ```
 
 ## Expected Outputs

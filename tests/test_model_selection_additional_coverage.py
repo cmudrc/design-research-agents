@@ -226,6 +226,39 @@ def test_selector_error_paths_and_alias_branches() -> None:
     resolved_mlx = selector._resolve_client_config(decision_mlx)
     assert resolved_mlx["client_class"] == "MlxLocalLLMClient"
 
+    decision_vllm = ModelSelectionDecision(
+        model_id="vllm-model",
+        provider="vllm_local",
+        rationale="test",
+        safety_constraints=ModelSafetyConstraints(max_cost_usd=None, max_latency_ms=None),
+        policy_id="policy",
+        catalog_signature="sig",
+    )
+    resolved_vllm = selector._resolve_client_config(decision_vllm)
+    assert resolved_vllm["client_class"] == "VllmServerLLMClient"
+
+    decision_ollama = ModelSelectionDecision(
+        model_id="ollama-model",
+        provider="ollama_local",
+        rationale="test",
+        safety_constraints=ModelSafetyConstraints(max_cost_usd=None, max_latency_ms=None),
+        policy_id="policy",
+        catalog_signature="sig",
+    )
+    resolved_ollama = selector._resolve_client_config(decision_ollama)
+    assert resolved_ollama["client_class"] == "OllamaLLMClient"
+
+    decision_sglang = ModelSelectionDecision(
+        model_id="sglang-model",
+        provider="sglang_local",
+        rationale="test",
+        safety_constraints=ModelSafetyConstraints(max_cost_usd=None, max_latency_ms=None),
+        policy_id="policy",
+        catalog_signature="sig",
+    )
+    resolved_sglang = selector._resolve_client_config(decision_sglang)
+    assert resolved_sglang["client_class"] == "SglangServerLLMClient"
+
     local_catalog = ModelCatalog(models=(_model(model_id="local", provider="llama_cpp"),))
     with pytest.raises(ValueError, match="unsupported client_class"):
         ModelSelector(
@@ -258,6 +291,13 @@ def test_selector_error_paths_and_alias_branches() -> None:
         _build_client_from_config({"client_class": "Nope", "kwargs": {}})
     with pytest.raises(ValueError, match="invalid kwargs"):
         _build_client_from_config({"client_class": "OpenAIServiceLLMClient", "kwargs": []})
+
+
+def test_model_spec_is_local_includes_new_local_providers() -> None:
+    assert _model(model_id="vllm", provider="vllm_local").is_local is True
+    assert _model(model_id="ollama", provider="ollama_local").is_local is True
+    assert _model(model_id="sglang", provider="sglang_local").is_local is True
+    assert _model(model_id="openai", provider="openai").is_local is False
 
 
 def test_selector_coercion_helper_error_paths() -> None:

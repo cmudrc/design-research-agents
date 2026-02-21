@@ -46,7 +46,8 @@ Examples
 
 - ``examples/clients/llama_cpp_server_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `llama.cpp <https://github.com/ggml-org/llama.cpp>`_
+- Docs: `llama.cpp server usage <https://github.com/ggml-org/llama.cpp/tree/master/examples/server>`_
+- Homepage: `llama.cpp GitHub <https://github.com/ggml-org/llama.cpp>`_

@@ -17,9 +17,12 @@ from design_research_agents.llm.backends.base import BaseLLMBackend
 from design_research_agents.llm.clients import (
     LlamaCppServerLLMClient,
     MlxLocalLLMClient,
+    OllamaLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
+    SglangServerLLMClient,
     TransformersLocalLLMClient,
+    VllmServerLLMClient,
     _SingleBackendLLMClient,
 )
 
@@ -78,6 +81,9 @@ def test_provider_clients_empty_init_and_default_model() -> None:
         OpenAICompatibleHTTPLLMClient(),
         TransformersLocalLLMClient(),
         MlxLocalLLMClient(),
+        VllmServerLLMClient(manage_server=False),
+        OllamaLLMClient(manage_server=False),
+        SglangServerLLMClient(manage_server=False),
     )
     try:
         for client in clients:
@@ -98,6 +104,9 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
     assert OpenAICompatibleHTTPLLMClient()._backend.name == "openai-compatible"
     assert TransformersLocalLLMClient()._backend.name == "transformers-local"
     assert MlxLocalLLMClient()._backend.name == "mlx-local"
+    assert VllmServerLLMClient(manage_server=False)._backend.name == "vllm-local"
+    assert OllamaLLMClient(manage_server=False)._backend.name == "ollama-local"
+    assert SglangServerLLMClient(manage_server=False)._backend.name == "sglang-local"
 
 
 def test_chat_builds_request_from_chat_params() -> None:

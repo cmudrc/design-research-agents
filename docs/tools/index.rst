@@ -16,6 +16,7 @@ Pages
 
 - :doc:`/examples/tools_and_integrations`
 - :doc:`runtime_basics`
+- :doc:`design_stem_tools`
 - :doc:`mcp`
 - :doc:`script_tools`
 
@@ -24,5 +25,6 @@ Pages
    :hidden:
 
    runtime_basics
+   design_stem_tools
    mcp
    script_tools

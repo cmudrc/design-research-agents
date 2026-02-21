@@ -9,9 +9,12 @@ from design_research_agents.contracts.llm import LLMClient
 from design_research_agents.llm import (
     LlamaCppServerLLMClient,
     MlxLocalLLMClient,
+    OllamaLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
+    SglangServerLLMClient,
     TransformersLocalLLMClient,
+    VllmServerLLMClient,
 )
 
 from .catalog import ModelCatalog
@@ -34,6 +37,9 @@ _CLIENT_CLASSES: dict[str, type[object]] = {
     "OpenAICompatibleHTTPLLMClient": OpenAICompatibleHTTPLLMClient,
     "TransformersLocalLLMClient": TransformersLocalLLMClient,
     "MlxLocalLLMClient": MlxLocalLLMClient,
+    "VllmServerLLMClient": VllmServerLLMClient,
+    "OllamaLLMClient": OllamaLLMClient,
+    "SglangServerLLMClient": SglangServerLLMClient,
 }
 
 
@@ -129,7 +135,7 @@ class ModelSelector:
               context.
 
         Raises:
-            Exception: Raised when execution fails.
+            ValueError: If ``output`` is unsupported or selection/config coercion fails.
         """
         if output not in {"client", "decision", "client_config"}:
             raise ValueError("output must be one of: 'client', 'decision', 'client_config'.")
@@ -153,16 +159,17 @@ class ModelSelector:
         return _build_client_from_config(client_config)
 
     def _resolve_client_config(self, decision: ModelSelectionDecision) -> dict[str, object]:
-        """Run resolve client config.
+        """Resolve one selection decision into a concrete client configuration payload.
 
         Args:
-            decision: Parameter value.
+            decision: Selection decision produced by the policy layer.
 
         Returns:
-            The resulting value.
+            Configuration payload containing ``client_class`` and ``kwargs`` plus
+            metadata used for downstream tracing and reporting.
 
         Raises:
-            Exception: Raised when execution fails.
+            ValueError: If resolved ``client_class`` or ``kwargs`` are invalid.
         """
         provider = decision.provider.strip()
         default_config: dict[str, object] | None = None
@@ -194,6 +201,32 @@ class ModelSelector:
                 "kwargs": {
                     "model_id": decision.model_id,
                     "default_model": decision.model_id,
+                },
+            }
+        elif provider == "vllm_local":
+            default_config = {
+                "client_class": "VllmServerLLMClient",
+                "kwargs": {
+                    "api_model": decision.model_id,
+                    "manage_server": False,
+                    "base_url": "http://127.0.0.1:8002/v1",
+                },
+            }
+        elif provider == "ollama_local":
+            default_config = {
+                "client_class": "OllamaLLMClient",
+                "kwargs": {
+                    "default_model": decision.model_id,
+                    "manage_server": False,
+                },
+            }
+        elif provider == "sglang_local":
+            default_config = {
+                "client_class": "SglangServerLLMClient",
+                "kwargs": {
+                    "model": decision.model_id,
+                    "manage_server": False,
+                    "base_url": "http://127.0.0.1:30000/v1",
                 },
             }
 
@@ -229,16 +262,16 @@ class ModelSelector:
         return full_config
 
     def _resolve_local_client_config(self, decision: ModelSelectionDecision) -> dict[str, object]:
-        """Run resolve local client config.
+        """Resolve local-provider client configuration via user-supplied resolver.
 
         Args:
-            decision: Parameter value.
+            decision: Selection decision that could not be mapped by built-in providers.
 
         Returns:
-            The resulting value.
+            Resolver payload containing ``client_class`` and ``kwargs``.
 
         Raises:
-            Exception: Raised when execution fails.
+            ValueError: If resolver is missing, returns a non-dict, or misses required keys.
         """
         if self._local_client_resolver is None:
             raise ValueError(
@@ -257,16 +290,16 @@ class ModelSelector:
 
 
 def _build_client_from_config(config: dict[str, object]) -> LLMClient:
-    """Run build client from config.
+    """Instantiate an ``LLMClient`` from a resolved configuration payload.
 
     Args:
-        config: Parameter value.
+        config: Mapping with ``client_class`` and constructor ``kwargs``.
 
     Returns:
-        The resulting value.
+        Instantiated ``LLMClient`` for immediate use.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If client class name or kwargs payload is invalid.
     """
     client_class = config.get("client_class")
     kwargs = config.get("kwargs")
@@ -282,16 +315,16 @@ def _build_client_from_config(config: dict[str, object]) -> LLMClient:
 def _coerce_hardware_profile(
     value: Mapping[str, object] | HardwareProfile | None,
 ) -> HardwareProfile | None:
-    """Run coerce hardware profile.
+    """Normalize optional hardware-profile input into ``HardwareProfile``.
 
     Args:
-        value: Parameter value.
+        value: Existing ``HardwareProfile`` instance, mapping, or ``None``.
 
     Returns:
-        The resulting value.
+        Normalized hardware profile instance or ``None``.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If ``value`` has unsupported type or invalid field shapes.
     """
     if value is None:
         return None
@@ -314,16 +347,16 @@ def _coerce_hardware_profile(
 
 
 def _coerce_load_average(raw: object) -> tuple[float, float, float] | None:
-    """Run coerce load average.
+    """Normalize optional load-average values to a 3-float tuple.
 
     Args:
-        raw: Parameter value.
+        raw: Optional 3-item sequence representing system load averages.
 
     Returns:
-        The resulting value.
+        ``None`` when unset, otherwise a ``(1m, 5m, 15m)`` float tuple.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If value is not a 3-item sequence.
     """
     if raw is None:
         return None
@@ -334,16 +367,16 @@ def _coerce_load_average(raw: object) -> tuple[float, float, float] | None:
 
 
 def _coerce_optional_float(raw: object) -> float | None:
-    """Run coerce optional float.
+    """Coerce an optional value into ``float``.
 
     Args:
-        raw: Parameter value.
+        raw: Input value to normalize.
 
     Returns:
-        The resulting value.
+        ``None`` when unset, otherwise parsed float.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If value cannot be interpreted as float.
     """
     if raw is None:
         return None
@@ -358,16 +391,16 @@ def _coerce_optional_float(raw: object) -> float | None:
 
 
 def _coerce_optional_int(raw: object) -> int | None:
-    """Run coerce optional int.
+    """Coerce an optional value into ``int``.
 
     Args:
-        raw: Parameter value.
+        raw: Input value to normalize.
 
     Returns:
-        The resulting value.
+        ``None`` when unset, otherwise parsed int.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If value cannot be interpreted as int.
     """
     if raw is None:
         return None
@@ -382,16 +415,16 @@ def _coerce_optional_int(raw: object) -> int | None:
 
 
 def _coerce_optional_bool(raw: object) -> bool | None:
-    """Run coerce optional bool.
+    """Coerce an optional value into ``bool``.
 
     Args:
-        raw: Parameter value.
+        raw: Input value to normalize.
 
     Returns:
-        The resulting value.
+        ``None`` when unset, otherwise bool value.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If provided value is not a bool.
     """
     if raw is None:
         return None
@@ -401,16 +434,16 @@ def _coerce_optional_bool(raw: object) -> bool | None:
 
 
 def _coerce_optional_str(raw: object) -> str | None:
-    """Run coerce optional str.
+    """Coerce an optional value into normalized ``str``.
 
     Args:
-        raw: Parameter value.
+        raw: Input value to normalize.
 
     Returns:
-        The resulting value.
+        ``None`` when unset or blank, otherwise stripped string value.
 
     Raises:
-        Exception: Raised when execution fails.
+        ValueError: If provided value is not a string.
     """
     if raw is None:
         return None

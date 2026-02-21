@@ -46,7 +46,8 @@ Examples
 
 - ``examples/clients/mlx_local_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `MLX <https://ml-explore.github.io/mlx/build/html/index.html>`_
+- Docs: `MLX docs <https://ml-explore.github.io/mlx/build/html/index.html>`_
+- Homepage: `MLX GitHub <https://github.com/ml-explore/mlx>`_

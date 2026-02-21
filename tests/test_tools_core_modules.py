@@ -7,10 +7,15 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
+from design_research_agents.contracts.memory import MemoryWriteRecord
+from design_research_agents.memory import EmbeddingProvider, SQLiteMemoryStore
 from design_research_agents.tools.core import (
     bash_tools,
+    evaluation_tools,
     fs_tools,
     git_tools,
+    memory_tools,
+    python_tools,
     search_tools,
     text_tools,
 )
@@ -19,6 +24,18 @@ from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
 
 def _policy(tmp_path: Path) -> ToolPolicy:
     return ToolPolicy(ToolPolicyConfig(workspace_root=str(tmp_path)))
+
+
+class _StaticEmbeddingProvider(EmbeddingProvider):
+    def __init__(self, *, vectors_by_text: dict[str, list[float]]) -> None:
+        self._vectors_by_text = vectors_by_text
+
+    @property
+    def model_name(self) -> str:
+        return "test-embeddings"
+
+    def embed(self, texts: list[str] | tuple[str, ...]) -> list[list[float]] | None:
+        return [list(self._vectors_by_text.get(text, [0.0, 0.0])) for text in texts]
 
 
 def test_search_rejects_empty_query(tmp_path: Path) -> None:
@@ -353,3 +370,146 @@ def test_bash_exec_handler_success_with_fake_bashkit(monkeypatch: pytest.MonkeyP
     )
     assert output["stdout"] == "ok"
     assert output["success"] is True
+
+
+def test_python_sandbox_handler_success_and_stdout() -> None:
+    output = python_tools._python_sandbox_handler(
+        {
+            "code": "values = context['values']\nresult = {'sum': sum(values)}\nprint('ok')\n",
+            "context": {"values": [1, 2, 3]},
+            "timeout_s": 2,
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert output["result"] == {"sum": 6}
+    assert output["stdout"] == "ok\n"
+    assert output["truncated"] is False
+    assert isinstance(output["execution_ms"], int)
+
+
+def test_python_sandbox_handler_rejects_import() -> None:
+    with pytest.raises(ValueError, match="Unsupported syntax node: Import"):
+        python_tools._python_sandbox_handler(
+            {"code": "import os\nresult = 1"},
+            request_id="req",
+            dependencies={},
+        )
+
+
+@pytest.mark.skipif(not hasattr(python_tools.signal, "SIGALRM"), reason="POSIX-only timeout")
+def test_python_sandbox_handler_times_out() -> None:
+    with pytest.raises(TimeoutError, match="Execution exceeded timeout"):
+        python_tools._python_sandbox_handler(
+            {"code": "while True:\n    pass\n", "timeout_s": 1},
+            request_id="req",
+            dependencies={},
+        )
+
+
+def test_memory_tools_write_search_stats_round_trip(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    db_path = "artifacts/memory/core_tools.sqlite3"
+
+    write_result = memory_tools._memory_write(
+        {
+            "db_path": db_path,
+            "namespace": "unit",
+            "records": [{"content": "alpha design note", "metadata": {"kind": "note"}}],
+        },
+        dependencies={},
+        policy=policy,
+    )
+    assert write_result["written"] == 1
+    assert write_result["namespace"] == "unit"
+
+    search_result = memory_tools._memory_search(
+        {
+            "db_path": db_path,
+            "namespace": "unit",
+            "text": "alpha",
+            "top_k": 5,
+        },
+        dependencies={},
+        policy=policy,
+    )
+    assert search_result["count"] == 1
+    assert search_result["retrieval_mode"] == "lexical"
+
+    stats_result = memory_tools._memory_stats(
+        {"db_path": db_path, "namespace": "unit"},
+        dependencies={},
+        policy=policy,
+    )
+    assert stats_result["record_count"] == 1
+    assert stats_result["embedding_count"] == 0
+
+
+def test_memory_tools_search_reports_hybrid_vector_mode(tmp_path: Path) -> None:
+    db_path = tmp_path / "artifacts" / "memory" / "memory.sqlite3"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    store = SQLiteMemoryStore(
+        db_path=db_path,
+        embedding_provider=_StaticEmbeddingProvider(
+            vectors_by_text={
+                "query": [1.0, 0.0],
+                "mostly lexical": [0.0, 1.0],
+                "mostly vector": [1.0, 0.0],
+            }
+        ),
+    )
+    store.write(
+        [
+            MemoryWriteRecord(content="mostly lexical"),
+            MemoryWriteRecord(content="mostly vector"),
+        ],
+        namespace="default",
+    )
+
+    result = memory_tools._memory_search(
+        {"text": "query", "namespace": "default", "top_k": 2},
+        dependencies={"memory_store": store},
+        policy=_policy(tmp_path),
+    )
+    store.close()
+
+    assert result["retrieval_mode"] == "hybrid_vector"
+    assert result["matches"][0]["content"] == "mostly vector"
+
+
+def test_eval_decision_matrix_ranks_alternatives() -> None:
+    result = evaluation_tools._decision_matrix_handler(
+        {
+            "alternatives": [
+                {"id": "A", "scores": {"cost": 5, "quality": 8}},
+                {"id": "B", "scores": {"cost": 9, "quality": 6}},
+            ],
+            "criteria": [
+                {"name": "cost", "goal": "min", "weight": 0.4},
+                {"name": "quality", "goal": "max", "weight": 0.6},
+            ],
+            "normalize": True,
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert result["ranked"][0]["alternative"] == "A"
+    assert result["ranked"][0]["rank"] == 1
+
+
+def test_eval_pairwise_rank_copeland() -> None:
+    result = evaluation_tools._pairwise_rank_handler(
+        {
+            "alternatives": ["A", "B", "C"],
+            "comparisons": [
+                {"a": "A", "b": "B", "outcome": "a"},
+                {"a": "A", "b": "C", "outcome": "a"},
+                {"a": "B", "b": "C", "outcome": "b"},
+            ],
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert result["method"] == "copeland"
+    assert result["ranking"][0]["alternative"] == "A"
+    assert result["ranking"][0]["copeland_score"] > result["ranking"][1]["copeland_score"]

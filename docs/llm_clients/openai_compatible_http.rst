@@ -36,7 +36,8 @@ Examples
 
 - ``examples/clients/openai_compatible_http_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `OpenAI API compatibility reference <https://developers.openai.com/api/reference/overview>`_
+- Docs: `OpenAI API compatibility target <https://developers.openai.com/api/reference/overview>`_
+- Homepage: `OpenAI platform <https://openai.com/>`_

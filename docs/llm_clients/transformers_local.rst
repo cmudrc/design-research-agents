@@ -46,7 +46,8 @@ Examples
 
 - ``examples/clients/transformers_local_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `Hugging Face Transformers <https://huggingface.co/docs/transformers/index>`_
+- Docs: `Hugging Face Transformers docs <https://huggingface.co/docs/transformers/index>`_
+- Homepage: `Hugging Face <https://huggingface.co/>`_

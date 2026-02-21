@@ -24,9 +24,21 @@ from .backends.providers.llama_cpp_server import (
     create_backend as create_llama_cpp_server,
 )
 from .backends.providers.mlx_local import MlxLocalBackend
+from .backends.providers.ollama_local import OllamaLocalBackend
+from .backends.providers.ollama_server import (
+    create_backend as create_ollama_server,
+)
 from .backends.providers.openai_compatible_http import OpenAICompatibleHTTPBackend
 from .backends.providers.openai_service import OpenAIServiceBackend
+from .backends.providers.sglang_local import SglangLocalBackend
+from .backends.providers.sglang_server import (
+    create_backend as create_sglang_server,
+)
 from .backends.providers.transformers_local import TransformersLocalBackend
+from .backends.providers.vllm_local import VllmLocalBackend
+from .backends.providers.vllm_server import (
+    create_backend as create_vllm_server,
+)
 
 _OPENAI_COMPAT_CAPABILITIES = BackendCapabilities(
     streaming=False,
@@ -160,7 +172,7 @@ class _SingleBackendLLMClient(LLMClient):
             Non-empty model identifier configured as backend default.
 
         Raises:
-            Exception: Raised when execution fails.
+            ValueError: If the backend default model is missing or blank.
         """
         default_model = self._backend.default_model
         if not isinstance(default_model, str) or not default_model.strip():
@@ -255,6 +267,306 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
         """Best-effort cleanup for managed server process during GC."""
+        self.close()
+
+
+class VllmServerLLMClient(_SingleBackendLLMClient):
+    """Client for local or self-hosted vLLM OpenAI-compatible inference."""
+
+    def __init__(
+        self,
+        *,
+        name: str = "vllm-local",
+        model: str = "Qwen/Qwen2.5-1.5B-Instruct",
+        api_model: str = "qwen2.5-1.5b-instruct",
+        host: str = "127.0.0.1",
+        port: int = 8002,
+        manage_server: bool = True,
+        startup_timeout_seconds: float = 90.0,
+        poll_interval_seconds: float = 0.5,
+        python_executable: str = sys.executable,
+        extra_server_args: tuple[str, ...] = (),
+        base_url: str | None = None,
+        request_timeout_seconds: float = 60.0,
+        max_retries: int = 2,
+        model_patterns: tuple[str, ...] | None = None,
+    ) -> None:
+        """Initialize a vLLM client in managed-server or connect mode.
+
+        Args:
+            name: Logical name for this client instance.
+            model: Model identifier passed to managed vLLM server startup.
+            api_model: Model alias exposed by vLLM OpenAI-compatible API.
+            host: Host interface used in managed mode.
+            port: TCP port used in managed mode.
+            manage_server: Whether this client manages the vLLM server lifecycle.
+            startup_timeout_seconds: Maximum startup wait time in managed mode.
+            poll_interval_seconds: Delay between readiness probes in managed mode.
+            python_executable: Python executable used to launch managed vLLM process.
+            extra_server_args: Additional CLI flags forwarded to vLLM server.
+            base_url: Optional connect-mode endpoint URL. Required only for remote/self-managed
+                deployments; defaults to ``http://{host}:{port}/v1``.
+            request_timeout_seconds: HTTP timeout for generate and stream requests.
+            max_retries: Number of retries for retryable provider/transport errors.
+            model_patterns: Optional tuple of model patterns for routing decisions.
+
+        Raises:
+            ValueError: If ``manage_server`` and ``base_url`` are both configured.
+        """
+        if manage_server and base_url is not None:
+            raise ValueError("base_url cannot be provided when manage_server is True.")
+
+        self._vllm_server = (
+            create_vllm_server(
+                model=model,
+                api_model=api_model,
+                host=host,
+                port=port,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+                python_executable=python_executable,
+                extra_server_args=extra_server_args,
+            )
+            if manage_server
+            else None
+        )
+        resolved_base_url = (
+            self._vllm_server.base_url
+            if self._vllm_server is not None
+            else (base_url or f"http://{host}:{port}/v1")
+        )
+        config_hash = _config_hash(
+            {
+                "kind": "vllm_local",
+                "name": name,
+                "model": model,
+                "api_model": api_model,
+                "host": host,
+                "port": port,
+                "manage_server": manage_server,
+                "startup_timeout_seconds": startup_timeout_seconds,
+                "poll_interval_seconds": poll_interval_seconds,
+                "python_executable": python_executable,
+                "extra_server_args": extra_server_args,
+                "base_url": base_url,
+                "request_timeout_seconds": request_timeout_seconds,
+                "max_retries": max_retries,
+            }
+        )
+        backend = VllmLocalBackend(
+            name=name,
+            base_url=resolved_base_url,
+            default_model=api_model,
+            request_timeout_seconds=request_timeout_seconds,
+            managed_server=self._vllm_server,
+            config_hash=config_hash,
+            max_retries=max_retries,
+            model_patterns=_resolve_model_patterns(model_patterns, api_model),
+        )
+        super().__init__(backend=backend)
+
+    def close(self) -> None:
+        """Stop the managed vLLM server process when present."""
+        server = getattr(self, "_vllm_server", None)
+        if server is not None:
+            server.close()
+
+    def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Best-effort managed server cleanup during garbage collection."""
+        self.close()
+
+
+class OllamaLLMClient(_SingleBackendLLMClient):
+    """Client for local or self-hosted Ollama chat inference."""
+
+    def __init__(
+        self,
+        *,
+        name: str = "ollama-local",
+        default_model: str = "qwen2.5:1.5b-instruct",
+        host: str = "127.0.0.1",
+        port: int = 11434,
+        manage_server: bool = True,
+        ollama_executable: str = "ollama",
+        auto_pull_model: bool = False,
+        startup_timeout_seconds: float = 60.0,
+        poll_interval_seconds: float = 0.25,
+        request_timeout_seconds: float = 60.0,
+        max_retries: int = 2,
+        model_patterns: tuple[str, ...] | None = None,
+    ) -> None:
+        """Initialize an Ollama client in managed-server or connect mode.
+
+        Args:
+            name: Logical name for this client instance.
+            default_model: Default model id used when requests omit model.
+            host: Host interface used in managed mode or connect mode.
+            port: TCP port used in managed mode or connect mode.
+            manage_server: Whether this client manages ``ollama serve`` lifecycle.
+            ollama_executable: Executable used to invoke ``ollama`` commands.
+            auto_pull_model: Whether to pull ``default_model`` after startup.
+            startup_timeout_seconds: Maximum startup wait time in managed mode.
+            poll_interval_seconds: Delay between readiness probes in managed mode.
+            request_timeout_seconds: HTTP timeout for generate and stream requests.
+            max_retries: Number of retries for retryable provider/transport errors.
+            model_patterns: Optional tuple of model patterns for routing decisions.
+        """
+        self._ollama_server = (
+            create_ollama_server(
+                host=host,
+                port=port,
+                ollama_executable=ollama_executable,
+                auto_pull_model=auto_pull_model,
+                default_model=default_model,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+            )
+            if manage_server
+            else None
+        )
+        resolved_base_url = (
+            self._ollama_server.base_url
+            if self._ollama_server is not None
+            else f"http://{host}:{port}"
+        )
+        config_hash = _config_hash(
+            {
+                "kind": "ollama_local",
+                "name": name,
+                "default_model": default_model,
+                "host": host,
+                "port": port,
+                "manage_server": manage_server,
+                "ollama_executable": ollama_executable,
+                "auto_pull_model": auto_pull_model,
+                "startup_timeout_seconds": startup_timeout_seconds,
+                "poll_interval_seconds": poll_interval_seconds,
+                "request_timeout_seconds": request_timeout_seconds,
+                "max_retries": max_retries,
+            }
+        )
+        backend = OllamaLocalBackend(
+            name=name,
+            base_url=resolved_base_url,
+            default_model=default_model,
+            request_timeout_seconds=request_timeout_seconds,
+            managed_server=self._ollama_server,
+            config_hash=config_hash,
+            max_retries=max_retries,
+            model_patterns=_resolve_model_patterns(model_patterns, default_model),
+        )
+        super().__init__(backend=backend)
+
+    def close(self) -> None:
+        """Stop the managed Ollama daemon when present."""
+        server = getattr(self, "_ollama_server", None)
+        if server is not None:
+            server.close()
+
+    def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Best-effort managed daemon cleanup during garbage collection."""
+        self.close()
+
+
+class SglangServerLLMClient(_SingleBackendLLMClient):
+    """Client for local or self-hosted SGLang OpenAI-compatible inference."""
+
+    def __init__(
+        self,
+        *,
+        name: str = "sglang-local",
+        model: str = "Qwen/Qwen2.5-1.5B-Instruct",
+        host: str = "127.0.0.1",
+        port: int = 30000,
+        manage_server: bool = True,
+        startup_timeout_seconds: float = 90.0,
+        poll_interval_seconds: float = 0.5,
+        python_executable: str = sys.executable,
+        extra_server_args: tuple[str, ...] = (),
+        base_url: str | None = None,
+        request_timeout_seconds: float = 60.0,
+        max_retries: int = 2,
+        model_patterns: tuple[str, ...] | None = None,
+    ) -> None:
+        """Initialize an SGLang client in managed-server or connect mode.
+
+        Args:
+            name: Logical name for this client instance.
+            model: Model identifier passed to managed SGLang server startup.
+            host: Host interface used in managed mode.
+            port: TCP port used in managed mode.
+            manage_server: Whether this client manages the SGLang server lifecycle.
+            startup_timeout_seconds: Maximum startup wait time in managed mode.
+            poll_interval_seconds: Delay between readiness probes in managed mode.
+            python_executable: Python executable used to launch managed SGLang process.
+            extra_server_args: Additional CLI flags forwarded to SGLang server.
+            base_url: Optional connect-mode endpoint URL. Required only for remote/self-managed
+                deployments; defaults to ``http://{host}:{port}/v1``.
+            request_timeout_seconds: HTTP timeout for generate and stream requests.
+            max_retries: Number of retries for retryable provider/transport errors.
+            model_patterns: Optional tuple of model patterns for routing decisions.
+
+        Raises:
+            ValueError: If ``manage_server`` and ``base_url`` are both configured.
+        """
+        if manage_server and base_url is not None:
+            raise ValueError("base_url cannot be provided when manage_server is True.")
+
+        self._sglang_server = (
+            create_sglang_server(
+                model=model,
+                host=host,
+                port=port,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+                python_executable=python_executable,
+                extra_server_args=extra_server_args,
+            )
+            if manage_server
+            else None
+        )
+        resolved_base_url = (
+            self._sglang_server.base_url
+            if self._sglang_server is not None
+            else (base_url or f"http://{host}:{port}/v1")
+        )
+        config_hash = _config_hash(
+            {
+                "kind": "sglang_local",
+                "name": name,
+                "model": model,
+                "host": host,
+                "port": port,
+                "manage_server": manage_server,
+                "startup_timeout_seconds": startup_timeout_seconds,
+                "poll_interval_seconds": poll_interval_seconds,
+                "python_executable": python_executable,
+                "extra_server_args": extra_server_args,
+                "base_url": base_url,
+                "request_timeout_seconds": request_timeout_seconds,
+                "max_retries": max_retries,
+            }
+        )
+        backend = SglangLocalBackend(
+            name=name,
+            base_url=resolved_base_url,
+            default_model=model,
+            request_timeout_seconds=request_timeout_seconds,
+            managed_server=self._sglang_server,
+            config_hash=config_hash,
+            max_retries=max_retries,
+            model_patterns=_resolve_model_patterns(model_patterns, model),
+        )
+        super().__init__(backend=backend)
+
+    def close(self) -> None:
+        """Stop the managed SGLang server process when present."""
+        server = getattr(self, "_sglang_server", None)
+        if server is not None:
+            server.close()
+
+    def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Best-effort managed server cleanup during garbage collection."""
         self.close()
 
 
@@ -516,7 +828,10 @@ def _config_hash(config_payload: dict[str, object]) -> str:
 __all__ = [
     "LlamaCppServerLLMClient",
     "MlxLocalLLMClient",
+    "OllamaLLMClient",
     "OpenAICompatibleHTTPLLMClient",
     "OpenAIServiceLLMClient",
+    "SglangServerLLMClient",
     "TransformersLocalLLMClient",
+    "VllmServerLLMClient",
 ]

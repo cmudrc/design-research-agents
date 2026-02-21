@@ -110,6 +110,9 @@ class ModelSpec:
             "llama_cpp",
             "transformers_local",
             "mlx_local",
+            "vllm_local",
+            "ollama_local",
+            "sglang_local",
             "local",
         }
 

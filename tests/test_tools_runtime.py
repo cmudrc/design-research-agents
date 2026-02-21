@@ -20,12 +20,20 @@ def test_unified_runtime_lists_expected_core_tools() -> None:
     names = {spec.name for spec in runtime.list_tools()}
 
     assert "calculator" in names
+    assert "python.sandbox" in names
     assert "text.word_count" in names
     assert "bash.exec" in names
     assert "fs.read_text" in names
+    assert "memory.search" in names
+    assert "memory.write" in names
+    assert "memory.stats" in names
+    assert "eval.decision_matrix" in names
+    assert "eval.pairwise_rank" in names
     assert "run.command" not in names
     assert "fs.read_json" not in names
     assert "fs.write_json" not in names
+    assert "data.aggregate" not in names
+    assert "eval.confidence_fuse" not in names
 
 
 def test_calculator_invocation() -> None:
@@ -82,6 +90,115 @@ def test_bash_exec_enforces_invocation_allowlist() -> None:
     assert result.error is not None
     assert "allowed_commands" in result.error.message
     assert "python3" in result.error.message
+
+
+def test_python_sandbox_invocation() -> None:
+    runtime = Toolbox()
+    result = runtime.invoke(
+        "python.sandbox",
+        {
+            "code": (
+                "values = context['values']\n"
+                "result = {'sum': sum(values), 'mean': mean(values)}\n"
+                "print('done')\n"
+            ),
+            "context": {"values": [1, 2, 3]},
+        },
+        request_id="unit-test",
+        dependencies={},
+    )
+    assert result.ok is True
+    assert isinstance(result.result, dict)
+    payload = result.result
+    assert payload["result"]["sum"] == 6
+    assert payload["stdout"] == "done\n"
+    assert payload["truncated"] is False
+
+
+def test_memory_tools_invocation_round_trip(tmp_path: Path) -> None:
+    runtime = Toolbox(workspace_root=str(tmp_path))
+    db_path = "artifacts/memory/runtime_tools.sqlite3"
+
+    write_result = runtime.invoke(
+        "memory.write",
+        {
+            "db_path": db_path,
+            "namespace": "unit",
+            "records": [{"content": "alpha design note", "metadata": {"kind": "note"}}],
+        },
+        request_id="unit-test",
+        dependencies={},
+    )
+    assert write_result.ok is True
+    assert isinstance(write_result.result, dict)
+    assert write_result.result["written"] == 1
+
+    search_result = runtime.invoke(
+        "memory.search",
+        {
+            "db_path": db_path,
+            "namespace": "unit",
+            "text": "alpha",
+            "top_k": 3,
+        },
+        request_id="unit-test",
+        dependencies={},
+    )
+    assert search_result.ok is True
+    assert isinstance(search_result.result, dict)
+    assert search_result.result["count"] == 1
+    assert search_result.result["retrieval_mode"] == "lexical"
+
+    stats_result = runtime.invoke(
+        "memory.stats",
+        {"db_path": db_path, "namespace": "unit"},
+        request_id="unit-test",
+        dependencies={},
+    )
+    assert stats_result.ok is True
+    assert isinstance(stats_result.result, dict)
+    assert stats_result.result["record_count"] == 1
+
+
+def test_evaluation_tools_invocation() -> None:
+    runtime = Toolbox()
+
+    decision = runtime.invoke(
+        "eval.decision_matrix",
+        {
+            "alternatives": [
+                {"id": "A", "scores": {"cost": 5, "quality": 8}},
+                {"id": "B", "scores": {"cost": 8, "quality": 6}},
+            ],
+            "criteria": [
+                {"name": "cost", "goal": "min", "weight": 0.4},
+                {"name": "quality", "goal": "max", "weight": 0.6},
+            ],
+            "normalize": True,
+        },
+        request_id="unit-test",
+        dependencies={},
+    )
+    assert decision.ok is True
+    assert isinstance(decision.result, dict)
+    assert decision.result["ranked"][0]["alternative"] == "A"
+
+    pairwise = runtime.invoke(
+        "eval.pairwise_rank",
+        {
+            "alternatives": ["A", "B", "C"],
+            "comparisons": [
+                {"a": "A", "b": "B", "outcome": "a"},
+                {"a": "A", "b": "C", "outcome": "a"},
+                {"a": "B", "b": "C", "outcome": "b"},
+            ],
+        },
+        request_id="unit-test",
+        dependencies={},
+    )
+    assert pairwise.ok is True
+    assert isinstance(pairwise.result, dict)
+    assert pairwise.result["ranking"][0]["alternative"] == "A"
 
 
 @pytest.mark.skipif(

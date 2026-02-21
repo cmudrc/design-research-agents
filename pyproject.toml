@@ -1,6 +1,6 @@
 # PEP 517/518 build configuration for editable/package installations.
 [build-system]
-requires = ["setuptools>=65", "wheel"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 # Core package metadata used by pip/PyPI tooling.
@@ -12,62 +12,95 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
 authors = [{ name = "design-research-agents contributors" }]
+
+keywords = ["agents", "llm", "mcp", "design", "research", "orchestration"]
+
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
 ]
+
+# Core deps: includes a "works everywhere" default backend (OpenAI).
 dependencies = [
-    "bashkit>=0.1.4",
-    "jsonschema>=4.23",
-    "mcp>=1.6",
-    "openai>=1.40",
-    "pyyaml>=6.0"
+  "bashkit>=0.1.4",
+  "jsonschema>=4.23",
+  "mcp>=1.6",
+  "openai>=1.40",
+  "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://cmudrc.github.io/design-research-agents/"
+Repository = "https://github.com/cmudrc/design-research-agents"
+Issues = "https://github.com/cmudrc/design-research-agents/issues"
 
 [project.scripts]
 dra = "design_research_agents.cli:main"
 
-# Batteries-included contributor dependencies.
+# Optional deps / extras.
 [project.optional-dependencies]
+
+# Contributor batteries.
 dev = [
-    "mypy>=1.10",
-    "pre-commit>=3.7",
-    "pytest>=8.2",
-    "pytest-asyncio>=0.23",
-    "pytest-cov>=7.0",
-    "ruff>=0.6.0",
-    "sphinx>=7.4",
-    "sphinx-rtd-theme>=2.0",
-]
-llama_cpp = [
-    "huggingface-hub>=0.24",
-    "llama-cpp-python[server]>=0.2.90",
-]
-mlx = [
-    "mlx-lm>=0.14",
-]
-transformers = [
-    "huggingface-hub>=0.24",
-    "torch>=2.10",
-    "transformers>=4.44",
-]
-full = [
-    "huggingface-hub>=0.24",
-    "llama-cpp-python[server]>=0.2.90",
-    "mlx-lm>=0.14",
-    "torch>=2.10",
-    "transformers>=4.44",
+  "mypy>=1.10",
+  "pre-commit>=3.7",
+  "pytest>=8.2",
+  "pytest-asyncio>=0.23",
+  "pytest-cov>=7.0",
+  "ruff>=0.6.0",
+  "sphinx>=7.4",
+  "sphinx-rtd-theme>=2.0",
 ]
 
-# Backward-compatible alias for all optional runtime backend extras.
+# Shared HF utilities (handy for multiple backends)
+hf = ["huggingface-hub>=0.24"]
+
+# Local backends
+llama_cpp = [
+  "huggingface-hub>=0.24",
+  "llama-cpp-python[server]>=0.2.90",
+]
+
+mlx = [
+  "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+]
+
+transformers = [
+  "huggingface-hub>=0.24",
+  "torch>=2.10",
+  "transformers>=4.44",
+]
+
+# Server-focused runtimes: gate to Linux so bundles don't explode elsewhere.
+vllm = [
+  "vllm>=0.6; platform_system == 'Linux'",
+]
+
+sglang = [
+  "sglang>=0.4; platform_system == 'Linux'",
+]
+
+# Convenience bundles
+# - "local" = all local backends that make sense on the current platform
+# - "full"  = local + server backends (Linux-only pieces auto-skip elsewhere)
 local = [
-    "huggingface-hub>=0.24",
-    "llama-cpp-python[server]>=0.2.90",
-    "mlx-lm>=0.14",
-    "torch>=2.10",
-    "transformers>=4.44",
+  "huggingface-hub>=0.24",
+  "llama-cpp-python[server]>=0.2.90",
+  "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "torch>=2.10",
+  "transformers>=4.44",
+]
+
+full = [
+  "huggingface-hub>=0.24",
+  "llama-cpp-python[server]>=0.2.90",
+  "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "torch>=2.10",
+  "transformers>=4.44",
+  "vllm>=0.6; platform_system == 'Linux'",
+  "sglang>=0.4; platform_system == 'Linux'",
 ]
 
 # Use src-layout packaging.
@@ -79,7 +112,7 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# Ship marker file for typed package consumers.
+# Ship marker file for typed package consumers + runtime assets.
 [tool.setuptools.package-data]
 design_research_agents = ["py.typed", "schemas/*.json", "prompts/*.md"]
 
@@ -88,9 +121,9 @@ design_research_agents = ["py.typed", "schemas/*.json", "prompts/*.md"]
 addopts = "-q"
 testpaths = ["tests"]
 markers = [
-    "examples_full: deterministic end-to-end example execution suite",
-    "examples_smoke: small deterministic example smoke checks for main CI",
-    "contract: contract-focused behavior tests for runtime boundaries",
+  "examples_full: deterministic end-to-end example execution suite",
+  "examples_smoke: small deterministic example smoke checks for main CI",
+  "contract: contract-focused behavior tests for runtime boundaries",
 ]
 
 # Ruff settings for lint/format targets.
@@ -108,6 +141,7 @@ line-ending = "auto"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D", "C90"]
 ignore = ["UP040"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 12
 
@@ -133,18 +167,20 @@ strict_equality = true
 # Third-party stubs may be missing locally; keep checks stable.
 [[tool.mypy.overrides]]
 module = [
-    "jsonschema",
-    "jsonschema.*",
-    "mlx_lm",
-    "mlx_lm.*",
-    "openai",
-    "openai.*",
-    "bashkit",
-    "bashkit.*",
-    "torch",
-    "torch.*",
-    "transformers",
-    "transformers.*",
-    "yaml",
+  "jsonschema",
+  "jsonschema.*",
+  "mcp",
+  "mcp.*",
+  "mlx_lm",
+  "mlx_lm.*",
+  "openai",
+  "openai.*",
+  "bashkit",
+  "bashkit.*",
+  "torch",
+  "torch.*",
+  "transformers",
+  "transformers.*",
+  "yaml",
 ]
 ignore_missing_imports = true

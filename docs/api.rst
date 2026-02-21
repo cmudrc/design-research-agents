@@ -57,6 +57,18 @@ LLM Clients and Selection
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.VllmServerLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.OllamaLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.SglangServerLLMClient
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.ModelSelector
    :members:
    :undoc-members:

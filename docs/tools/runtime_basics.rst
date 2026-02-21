@@ -23,12 +23,15 @@ Built-in core tools
 -------------------
 
 - Math: ``calculator``
+- Python: ``python.sandbox``
 - Text: ``text.word_count``, ``text.extract_json``, ``text.diff``
 - Filesystem: ``fs.list_dir``, ``fs.read_text``, ``fs.write_text``, ``fs.glob``,
   ``fs.stat``, ``fs.hash``
 - Search/git: ``search.ripgrep``, ``git.status``, ``git.diff``, ``git.log``,
   ``git.show``
 - Data/shell: ``data.load_csv``, ``data.describe``, ``bash.exec``
+- Memory: ``memory.search``, ``memory.write``, ``memory.stats``
+- Evaluation: ``eval.decision_matrix``, ``eval.pairwise_rank``
 
 YAML config
 -----------

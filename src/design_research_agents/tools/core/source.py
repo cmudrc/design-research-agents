@@ -10,9 +10,12 @@ from design_research_agents.tools.sources.inprocess_source import InProcessToolS
 
 from .bash_tools import register_bash_tools
 from .data_tools import register_data_tools
+from .evaluation_tools import register_evaluation_tools
 from .fs_tools import register_fs_tools
 from .git_tools import register_git_tools
 from .math_tools import register_math_tools
+from .memory_tools import register_memory_tools
+from .python_tools import register_python_tools
 from .search_tools import register_search_tools
 from .text_tools import register_text_tools
 
@@ -26,7 +29,7 @@ class CoreToolSource:
         """Initialize core source and register default built-in tools.
 
         Args:
-            policy: Parameter value.
+            policy: Runtime tool policy used to validate side effects and artifact paths.
         """
         self._policy = policy
         self._source = InProcessToolSource(source_id=self.source_id)
@@ -36,17 +39,20 @@ class CoreToolSource:
         """Run register default tools."""
         register_math_tools(self._source)
         register_text_tools(self._source)
+        register_python_tools(self._source)
+        register_evaluation_tools(self._source)
         register_fs_tools(self._source, policy=self._policy)
         register_search_tools(self._source, policy=self._policy)
         register_git_tools(self._source, policy=self._policy)
         register_data_tools(self._source, policy=self._policy)
+        register_memory_tools(self._source, policy=self._policy)
         register_bash_tools(self._source)
 
     def list_tools(self) -> Sequence[ToolSpec]:
         """List all core tools after validating policy compatibility.
 
         Returns:
-            The resulting value.
+            Registered core tool specs that are allowed by the active policy.
         """
         specs = tuple(self._source.list_tools())
         for spec in specs:
@@ -64,13 +70,13 @@ class CoreToolSource:
         """Invoke one core tool with policy validation and artifact checks.
 
         Args:
-            tool_name: Parameter value.
-            input_dict: Parameter value.
-            request_id: Parameter value.
-            dependencies: Parameter value.
+            tool_name: Name of the registered core tool to invoke.
+            input_dict: Structured input payload for the selected tool.
+            request_id: Request identifier used for tracing and result metadata.
+            dependencies: Additional dependency payload exposed to tool handlers.
 
         Returns:
-            The resulting value.
+            Normalized tool result with policy checks applied.
         """
         spec = next(
             (candidate for candidate in self._source.list_tools() if candidate.name == tool_name),
@@ -99,8 +105,8 @@ class CoreToolSource:
         """Register an additional in-process core tool handler.
 
         Args:
-            spec: Parameter value.
-            handler: Parameter value.
+            spec: Tool specification describing the additional core tool.
+            handler: Callable handler that executes the tool behavior.
         """
         self._source.register_tool(spec=spec, handler=handler)  # type: ignore[arg-type]
 

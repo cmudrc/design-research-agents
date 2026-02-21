@@ -41,6 +41,9 @@ EXPECTED_PUBLIC_API = [
     "OpenAICompatibleHTTPLLMClient",
     "TransformersLocalLLMClient",
     "MlxLocalLLMClient",
+    "VllmServerLLMClient",
+    "OllamaLLMClient",
+    "SglangServerLLMClient",
     "ModelSelector",
     "Tracer",
 ]

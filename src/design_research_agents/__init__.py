@@ -36,6 +36,9 @@ _EXPORTS: Final[dict[str, str]] = {
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
     "TransformersLocalLLMClient": "design_research_agents.llm:TransformersLocalLLMClient",
     "MlxLocalLLMClient": "design_research_agents.llm:MlxLocalLLMClient",
+    "VllmServerLLMClient": "design_research_agents.llm:VllmServerLLMClient",
+    "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
+    "SglangServerLLMClient": "design_research_agents.llm:SglangServerLLMClient",
     "ModelSelector": "design_research_agents.model_selection:ModelSelector",
     "Tracer": "design_research_agents.tracing:Tracer",
 }
@@ -94,9 +97,12 @@ if TYPE_CHECKING:
     from .contracts import ToolStep as ToolStep
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MlxLocalLLMClient as MlxLocalLLMClient
+    from .llm import OllamaLLMClient as OllamaLLMClient
     from .llm import OpenAICompatibleHTTPLLMClient as OpenAICompatibleHTTPLLMClient
     from .llm import OpenAIServiceLLMClient as OpenAIServiceLLMClient
+    from .llm import SglangServerLLMClient as SglangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
+    from .llm import VllmServerLLMClient as VllmServerLLMClient
     from .model_selection import ModelSelector as ModelSelector
     from .tools import CallableTool as CallableTool
     from .tools import McpServer as McpServer

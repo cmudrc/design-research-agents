@@ -35,7 +35,8 @@ Examples
 
 - ``examples/clients/openai_service_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `OpenAI API <https://developers.openai.com/api/reference/overview>`_
+- Docs: `OpenAI API reference <https://developers.openai.com/api/reference/overview>`_
+- Homepage: `OpenAI <https://openai.com/>`_

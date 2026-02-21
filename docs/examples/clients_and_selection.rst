@@ -17,6 +17,12 @@ Client configuration scripts
   Public API: ``TransformersLocalLLMClient``.
 - ``examples/clients/mlx_local_client.py``
   Public API: ``MlxLocalLLMClient``.
+- ``examples/clients/vllm_server_client.py``
+  Public API: ``VllmServerLLMClient``.
+- ``examples/clients/ollama_local_client.py``
+  Public API: ``OllamaLLMClient``.
+- ``examples/clients/sglang_server_client.py``
+  Public API: ``SglangServerLLMClient``.
 
 Observe: ``llm_call.response_has_text``, backend/capability fields, and
 ``trace.trace_path``.

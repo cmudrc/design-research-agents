@@ -10,7 +10,7 @@ result payloads with trace metadata.
 - `multi_step_direct_llm_agent.py`
   - `MultiStepAgent(mode="direct")` with CONTINUE/STOP progression.
 - `multi_step_json_tool_calling_agent.py`
-  - `MultiStepAgent(mode="json")` with callable-tool risk scoring.
+  - `MultiStepAgent(mode="json")` with explicit allowlisted core tools.
 - `multi_step_code_tool_calling_agent.py`
   - `MultiStepAgent(mode="code")` with tool-backed code action steps.
 - `multi_step_json_with_memory.py`
