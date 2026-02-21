@@ -250,16 +250,56 @@ def select_tool_choice(
     if parsed_tool_call is None:
         return None
 
-    allowed_names = {choice.tool_name for choice in choices}
-    raw_tool_name = parsed_tool_call.get("tool_name")
-    if not isinstance(raw_tool_name, str):
+    selection_payload = _resolve_selection_payload(parsed_tool_call)
+    if selection_payload is None:
         return None
-
-    selected_name = raw_tool_name.strip()
+    selected_name, source, reason = selection_payload
+    allowed_names = {choice.tool_name for choice in choices}
     if selected_name not in allowed_names:
         return None
     selected_choice = next(choice for choice in choices if choice.tool_name == selected_name)
-    return selected_choice, "model", "validated model tool_name"
+    return selected_choice, source, reason
+
+
+def _resolve_selection_payload(
+    parsed_tool_call: Mapping[str, object],
+) -> tuple[str, str, str] | None:
+    """Resolve normalized tool-name selection payload from structured model output.
+
+    Args:
+        parsed_tool_call: Parsed tool-call mapping from model output text or metadata.
+
+    Returns:
+        Tuple of ``(tool_name, source, reason)`` when a selection can be resolved.
+    """
+    raw_action = parsed_tool_call.get("action")
+    if isinstance(raw_action, str):
+        normalized_action = raw_action.strip().upper()
+        if normalized_action and normalized_action != "TOOL_CALL":
+            return None
+
+    raw_tool_name = parsed_tool_call.get("tool_name")
+    if isinstance(raw_tool_name, str) and raw_tool_name.strip():
+        return raw_tool_name.strip(), "model", "validated model tool_name"
+
+    raw_legacy_name = parsed_tool_call.get("name")
+    if isinstance(raw_legacy_name, str) and raw_legacy_name.strip():
+        return (
+            raw_legacy_name.strip(),
+            "model_legacy_name",
+            "validated legacy `name` selection",
+        )
+
+    raw_tool_names = parsed_tool_call.get("tool_names")
+    if isinstance(raw_tool_names, Sequence) and not isinstance(raw_tool_names, (str, bytes)):
+        for candidate_name in raw_tool_names:
+            if isinstance(candidate_name, str) and candidate_name.strip():
+                return (
+                    candidate_name.strip(),
+                    "model_legacy_tool_names",
+                    "validated legacy `tool_names` selection",
+                )
+    return None
 
 
 def resolve_tool_input(

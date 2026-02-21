@@ -85,6 +85,45 @@ class _EmptyRuntime(ToolRuntime):
         return ToolResult(tool_name="none", ok=False, result={}, error="no tools")
 
 
+class _CalculatorRuntime(ToolRuntime):
+    def list_tools(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                name="calculator",
+                description="Evaluate arithmetic expressions",
+                input_schema={
+                    "type": "object",
+                    "required": ["expression"],
+                    "properties": {"expression": {"type": "string"}},
+                    "additionalProperties": False,
+                },
+                output_schema={"type": "object", "additionalProperties": True},
+            ),
+        )
+
+    def invoke(
+        self,
+        tool_name: str,
+        input_dict: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del request_id, dependencies
+        if tool_name != "calculator":
+            return ToolResult(tool_name=tool_name, ok=False, result={}, error="unknown")
+        expression = str(input_dict.get("expression", ""))
+        try:
+            result = float(eval(expression, {"__builtins__": {}}, {}))
+        except Exception as exc:  # pragma: no cover - defensive safety for malformed expressions.
+            return ToolResult(tool_name="calculator", ok=False, result={}, error=str(exc))
+        return ToolResult(
+            tool_name="calculator",
+            ok=True,
+            result={"expression": expression, "result": result},
+        )
+
+
 def test_json_action_step_runner_success_path() -> None:
     runner = JsonActionStepRunner(
         llm_client=SequenceLLMClient(
@@ -102,6 +141,39 @@ def test_json_action_step_runner_success_path() -> None:
     assert len(result.tool_results) == 1
     assert result.tool_results[0].tool_name == "sum"
     assert result.output["workflow"]["success"] is True
+
+
+def test_json_action_step_runner_accepts_legacy_tool_selection_payload_shape() -> None:
+    runner = JsonActionStepRunner(
+        llm_client=SequenceLLMClient(
+            response_texts=['{"action":"TOOL_CALL","tool_names":["sum"],"reason":"legacy payload"}']
+        ),
+        tool_runtime=_ActionRuntime(),
+    )
+
+    result = runner.run("Compute 1 + 2")
+
+    assert result.success is True
+    assert result.output["tool_name"] == "sum"
+    assert result.output["tool_output"] == {"value": 0}
+
+
+def test_json_action_step_runner_retries_after_controller_style_payload() -> None:
+    runner = JsonActionStepRunner(
+        llm_client=SequenceLLMClient(
+            response_texts=[
+                '{"continue": true, "thought": "Need to pick one tool."}',
+                '{"tool_name":"sum","tool_input":{"a":3,"b":4}}',
+            ]
+        ),
+        tool_runtime=_ActionRuntime(),
+    )
+
+    result = runner.run("Compute 3 + 4")
+
+    assert result.success is True
+    assert result.output["tool_name"] == "sum"
+    assert result.output["tool_output"] == {"value": 7}
 
 
 def test_json_action_step_runner_invalid_selection_and_tool_failure() -> None:
@@ -293,6 +365,23 @@ def test_code_action_step_runner_success_and_failure_modes() -> None:
     assert execution_failure.success is False
     assert "execution failed" in str(execution_failure.output["error"]).lower()
     assert execution_failure.metadata["stage"] == "code_execution"
+
+    recovery_runner = CodeActionStepRunner(
+        llm_client=SequenceLLMClient(
+            response_texts=['readme = call_tool("fs.read_text", {"path":"README.md"})']
+        ),
+        tool_runtime=_CalculatorRuntime(),
+        default_tools=({"tool_name": "calculator"},),
+    )
+    recovery_result = recovery_runner.run(
+        "Compute two design metrics: (12 * (4 + 1)) and (60 / 3)."
+    )
+    assert recovery_result.success is True
+    assert recovery_result.output["final_output"]["result"] == 20.0
+    assert len(recovery_result.tool_results) == 2
+    assert all(
+        tool_result.tool_name == "calculator" for tool_result in recovery_result.tool_results
+    )
 
     no_tools_runner = CodeActionStepRunner(
         llm_client=SequenceLLMClient(response_texts=[]),
