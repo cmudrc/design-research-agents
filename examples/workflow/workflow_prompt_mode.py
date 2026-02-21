@@ -1,4 +1,4 @@
-"""Run traced ``Workflow(input_mode="prompt")`` for design-brief routing.
+"""Run traced prompt-input ``Workflow`` for design-brief routing.
 
 Expected observations:
 - agent and template branches both produce finalized title/summary payloads.
@@ -122,7 +122,6 @@ def main() -> None:
     workflow = Workflow(
         tool_runtime=tool_runtime,
         steps=workflow_steps,
-        input_mode="prompt",
         tracer=tracer,
     )
 

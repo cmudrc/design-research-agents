@@ -163,7 +163,7 @@ class _WorkflowDelegateRaises:
 
 
 class _WorkflowObjectDelegateSuccess:
-    _input_mode = "prompt"
+    _input_schema = None
 
     def run(
         self,

@@ -210,7 +210,7 @@ class JsonActionStepRunner(Agent):
         return Workflow(
             tool_runtime=self._tool_runtime,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             steps=steps,
             default_execution_mode="sequential",
             default_failure_policy="skip_dependents",

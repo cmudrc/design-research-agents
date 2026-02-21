@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import ClassVar
 
 import pytest
 
@@ -43,7 +44,7 @@ class _RunnerDelegate:
 
 
 class _WorkflowPromptObject:
-    _input_mode = "prompt"
+    _input_schema = None
 
     def __init__(self) -> None:
         self.input_data: str | Mapping[str, object] | None = None
@@ -63,7 +64,7 @@ class _WorkflowPromptObject:
 
 
 class _WorkflowSchemaObject:
-    _input_mode = "schema"
+    _input_schema: ClassVar[dict[str, object]] = {"type": "object"}
 
     def __init__(self) -> None:
         self.input_data: str | Mapping[str, object] | None = None
@@ -82,8 +83,8 @@ class _WorkflowSchemaObject:
         return ExecutionResult(success=True, output={"ok": True})
 
 
-class _BadModeWorkflowObject:
-    _input_mode = "bad-mode"
+class _BadSchemaWorkflowObject:
+    _input_schema = "bad-schema"
 
     def run(
         self,
@@ -99,7 +100,7 @@ class _BadModeWorkflowObject:
 
 
 class _BadResultWorkflowObject:
-    _input_mode = "prompt"
+    _input_schema = None
 
     def run(
         self,
@@ -191,10 +192,10 @@ def test_invoke_delegate_workflow_object_schema_mode() -> None:
     assert delegate.input_data.get("delegate_context") == {"k": 1}
 
 
-def test_invoke_delegate_rejects_bad_workflow_input_mode() -> None:
-    with pytest.raises(TypeError, match="input mode"):
+def test_invoke_delegate_rejects_bad_workflow_input_schema() -> None:
+    with pytest.raises(TypeError, match="input schema"):
         delegate_impl._invoke_workflow_object_delegate(
-            delegate=_BadModeWorkflowObject(),  # type: ignore[arg-type]
+            delegate=_BadSchemaWorkflowObject(),  # type: ignore[arg-type]
             prompt="task prompt",
             step_context={},
             request_id="req-1",
@@ -222,6 +223,7 @@ def test_invoke_delegate_rejects_missing_run() -> None:
 
 def test_delegate_type_guards_cover_runner_and_object_paths() -> None:
     assert delegate_impl._is_workflow_object_delegate(_WorkflowPromptObject()) is True
+    assert delegate_impl._is_workflow_object_delegate(_BadSchemaWorkflowObject()) is False
     assert delegate_impl._is_workflow_object_delegate(_RunnerDelegate()) is False
     assert delegate_impl._is_workflow_delegate_runner(_RunnerDelegate()) is True
     assert delegate_impl._is_workflow_delegate_runner(_AgentDelegate()) is False

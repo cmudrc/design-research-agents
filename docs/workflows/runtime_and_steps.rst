@@ -67,19 +67,23 @@ Reusable facade
 
 ``Workflow`` is the high-level constructor-first facade for user-defined graphs:
 
-- ``Workflow(input_mode='prompt')`` for string prompt input.
-- ``Workflow(input_mode='schema')`` for mapping input with optional schema validation.
+- ``Workflow(input_schema=None)`` (default) for string prompt input.
+- ``Workflow(input_schema={...})`` for mapping input with schema validation.
+- ``Workflow(output_schema={...})`` to validate canonical ``output.final_output``.
 - ``AgentStep`` delegates are provided directly on each step object.
 
 Input mode contracts
 --------------------
 
-- ``input_mode='prompt'`` accepts non-empty string input only.
+- ``input_schema=None`` accepts non-empty string input only.
   It rejects non-string values and blank/whitespace-only prompts.
   Prompt input is provided to step context under ``prompt``.
-- ``input_mode='schema'`` accepts mapping input only.
-  It optionally validates payloads against ``input_schema``.
+- ``input_schema={...}`` accepts mapping input only.
+  It validates payloads against ``input_schema``.
   Schema input is provided to step context under ``inputs``.
+- ``output_schema={...}`` validates ``output.final_output`` when workflow execution succeeds.
+  Use ``scalar(...)``, ``typed_dict(...)``, and ``list_of(...)`` from
+  ``design_research_agents.workflow`` for concise schema composition.
 - Both modes support constructor-level run defaults and per-run overrides.
   They return ``ExecutionResult`` with consistent workflow metadata.
 - Workflow-native agents and patterns normalize run payloads to a

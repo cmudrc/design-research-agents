@@ -250,7 +250,7 @@ class ReflexionPattern(Agent):
         self.workflow = Workflow(
             tool_runtime=self._tool_runtime,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             base_context={"prompt": prompt},
             steps=[
                 LoopStep(

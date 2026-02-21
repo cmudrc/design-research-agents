@@ -586,6 +586,10 @@ class WorkflowRuntime(WorkflowRunner):
         ):
             return self._skip_step_result(step_id=step_id, reason="skipped_upstream_failure")
 
+        raw_output_schema = base_context.get("_workflow_output_schema")
+        resolved_output_schema = (
+            raw_output_schema if isinstance(raw_output_schema, Mapping) else None
+        )
         step_context = build_step_context(
             base_context=base_context,
             step_id=step_id,
@@ -594,6 +598,8 @@ class WorkflowRuntime(WorkflowRunner):
             request_id=request_id,
             execution_mode=execution_mode,
             failure_policy=failure_policy,
+            is_terminal_step=not prepared.dependents.get(step_id),
+            output_schema=resolved_output_schema,
         )
         step_result = self._execute_step(
             step=step,
@@ -842,7 +848,7 @@ class WorkflowRuntime(WorkflowRunner):
         *,
         step_results: Mapping[str, WorkflowStepResult],
         execution_order: Sequence[str],
-    ) -> dict[str, object]:
+    ) -> object:
         """Select one canonical final output payload from step results.
 
         Args:
@@ -850,13 +856,15 @@ class WorkflowRuntime(WorkflowRunner):
             execution_order: Step execution order.
 
         Returns:
-            Output payload from the last successful completed step, when available.
+            Canonical final output payload from the last successful completed step.
         """
         for step_id in reversed(execution_order):
             step_result = step_results.get(step_id)
             if step_result is None:
                 continue
             if step_result.status == "completed" and step_result.success:
+                if "final_output" in step_result.output:
+                    return step_result.output["final_output"]
                 return dict(step_result.output)
         return {}
 

@@ -37,7 +37,7 @@ def main() -> None:
         tool_runtime=None,
         memory_store=store,
         tracer=make_tracer(),
-        input_mode="schema",
+        input_schema={"type": "object"},
         steps=[
             MemoryWriteStep(
                 step_id="seed_constraints",

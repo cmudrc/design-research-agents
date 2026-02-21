@@ -2,8 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import pytest
+
 from design_research_agents.agent import DirectLLMCall
+from design_research_agents.contracts.execution import ExecutionResult
 from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse
+from design_research_agents.contracts.workflow import WorkflowStepResult
+from design_research_agents.implementations.agents import direct_llm_call as direct_llm_impl
 from tests.helpers.workflow_stubs import SequenceLLMClient
 
 
@@ -21,6 +26,15 @@ class _CaptureGenerateClient:
             text="captured",
             provider="capture",
         )
+
+
+class _RaisingGenerateClient:
+    def default_model(self) -> str:
+        return "raising-model"
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        del request
+        raise RuntimeError("boom")
 
 
 def test_direct_llm_call_returns_workflow_first_result() -> None:
@@ -72,3 +86,115 @@ def test_direct_llm_call_builds_expected_llm_request_metadata() -> None:
         LLMMessage(role="system", content="You are concise."),
         LLMMessage(role="user", content="Summarize this."),
     ]
+
+
+def test_direct_llm_call_rejects_invalid_max_tokens() -> None:
+    with pytest.raises(ValueError, match="max_tokens"):
+        DirectLLMCall(llm_client=_CaptureGenerateClient(), max_tokens=0)
+
+
+def test_direct_llm_call_prepare_request_step_validation_errors() -> None:
+    agent = DirectLLMCall(llm_client=_CaptureGenerateClient())
+
+    with pytest.raises(TypeError, match="schema input mapping"):
+        agent._prepare_request_step({})
+
+    with pytest.raises(TypeError, match="normalized_input must be a mapping"):
+        agent._prepare_request_step({"inputs": {"normalized_input": "not-a-mapping"}})
+
+
+def test_direct_llm_call_dependency_helpers_cover_fallbacks() -> None:
+    assert direct_llm_impl._dependency_output(context={}, step_id="prepare_request") == {}
+    assert direct_llm_impl._dependency_output(
+        context={"dependency_results": {"prepare_request": {"output": {"k": 1}}}},
+        step_id="prepare_request",
+    ) == {"k": 1}
+    assert (
+        direct_llm_impl._dependency_output(
+            context={"dependency_results": {"prepare_request": {"output": "not-mapping"}}},
+            step_id="prepare_request",
+        )
+        == {}
+    )
+
+    assert direct_llm_impl._int_or_default(True, default=9) == 1
+    assert direct_llm_impl._int_or_default(7, default=9) == 7
+    assert direct_llm_impl._int_or_default("8", default=9) == 8
+    assert direct_llm_impl._int_or_default("bad", default=9) == 9
+    assert direct_llm_impl._int_or_default(object(), default=9) == 9
+
+
+def test_direct_llm_call_workflow_failure_raiser_paths() -> None:
+    with pytest.raises(ValueError, match="bad-step"):
+        direct_llm_impl._raise_workflow_failure(
+            ExecutionResult(
+                success=False,
+                output={},
+                execution_order=["failed_step"],
+                step_results={
+                    "failed_step": WorkflowStepResult(
+                        step_id="failed_step",
+                        status="failed",
+                        success=False,
+                        error="bad-step",
+                    )
+                },
+            )
+        )
+
+    with pytest.raises(RuntimeError, match="failed_step"):
+        direct_llm_impl._raise_workflow_failure(
+            ExecutionResult(
+                success=False,
+                output={},
+                execution_order=["failed_step"],
+                step_results={
+                    "failed_step": WorkflowStepResult(
+                        step_id="failed_step",
+                        status="failed",
+                        success=False,
+                        error=None,
+                    )
+                },
+            )
+        )
+
+    with pytest.raises(RuntimeError, match="execution failed"):
+        direct_llm_impl._raise_workflow_failure(
+            ExecutionResult(
+                success=False,
+                output={},
+                execution_order=[],
+                step_results={},
+            )
+        )
+
+
+def test_direct_llm_call_call_and_finalize_step_validation_paths() -> None:
+    agent = DirectLLMCall(llm_client=_RaisingGenerateClient())
+    with pytest.raises(TypeError, match="Prepared request payload is invalid"):
+        agent._call_model_step(
+            {"dependency_results": {"prepare_request": {"output": {"resolved_model": 7}}}}
+        )
+
+    with pytest.raises(RuntimeError, match="boom"):
+        agent._call_model_step(
+            {
+                "dependency_results": {
+                    "prepare_request": {
+                        "output": {
+                            "resolved_model": "raising-model",
+                            "llm_request": LLMRequest(
+                                messages=[LLMMessage(role="user", content="x")],
+                                model="raising-model",
+                            ),
+                            "messages": [],
+                            "message_source": "prompt",
+                        }
+                    }
+                }
+            }
+        )
+
+    with pytest.raises(TypeError, match="missing LLM request/response payload"):
+        agent._finalize_step({"dependency_results": {}})

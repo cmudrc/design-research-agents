@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Literal
 
 from design_research_agents.contracts.memory import MemoryStore
 from design_research_agents.contracts.tools import ToolRuntime
@@ -22,8 +21,6 @@ from design_research_agents.workflow.internal import (
 )
 
 from .internal.workflow_runtime import WorkflowRuntime
-
-WorkflowInputMode = Literal["prompt", "schema"]
 
 
 def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
@@ -56,7 +53,7 @@ def _normalize_prompt(input_data: object) -> str:
         ValueError: If input is not a non-empty string.
     """
     if not isinstance(input_data, str):
-        raise ValueError("Workflow configured with input_mode='prompt' requires string input.")
+        raise ValueError("Workflow configured without input_schema requires string input.")
     normalized_prompt = input_data.strip()
     if not normalized_prompt:
         raise ValueError("Workflow prompt input must be a non-empty string.")
@@ -78,7 +75,7 @@ def _normalize_inputs(input_data: object) -> dict[str, object]:
     if input_data is None:
         return {}
     if not isinstance(input_data, Mapping):
-        raise ValueError("Workflow configured with input_mode='schema' requires mapping input.")
+        raise ValueError("Workflow configured with input_schema requires mapping input.")
     return dict(input_data)
 
 
@@ -91,8 +88,8 @@ class Workflow:
         tool_runtime: ToolRuntime | None = None,
         memory_store: MemoryStore | None = None,
         steps: Sequence[WorkflowStep],
-        input_mode: WorkflowInputMode = "prompt",
         input_schema: Mapping[str, object] | None = None,
+        output_schema: Mapping[str, object] | None = None,
         prompt_context_key: str = "prompt",
         base_context: Mapping[str, object] | None = None,
         default_execution_mode: WorkflowExecutionMode = "sequential",
@@ -107,8 +104,10 @@ class Workflow:
             tool_runtime: Tool runtime used by ``ToolStep`` executions.
             memory_store: Optional memory store used by memory step executions.
             steps: Static workflow step graph to execute for each run.
-            input_mode: Input normalization mode (``prompt`` or ``schema``).
-            input_schema: Optional schema enforced when ``input_mode='schema'``.
+            input_schema: Optional schema used to infer input mode and validate mapped input.
+                When omitted, workflow expects prompt-string input.
+            output_schema: Optional schema enforced against ``output.final_output`` when the run
+                succeeds.
             prompt_context_key: Context key used to store normalized prompt input.
             base_context: Base context merged into every run context.
             default_execution_mode: Default runtime step scheduling mode.
@@ -120,12 +119,9 @@ class Workflow:
         Raises:
             ValueError: If constructor inputs are inconsistent.
         """
-        normalized_mode: WorkflowInputMode = input_mode
-        if normalized_mode not in {"prompt", "schema"}:
-            raise ValueError("input_mode must be either 'prompt' or 'schema'.")
         normalized_prompt_context_key = prompt_context_key.strip()
-        if normalized_mode == "prompt" and not normalized_prompt_context_key:
-            raise ValueError("prompt_context_key must be non-empty for input_mode='prompt'.")
+        if input_schema is None and not normalized_prompt_context_key:
+            raise ValueError("prompt_context_key must be non-empty when input_schema is omitted.")
 
         self._runtime = WorkflowRuntime(
             tool_runtime=tool_runtime,
@@ -133,8 +129,8 @@ class Workflow:
             tracer=tracer,
         )
         self._steps = _normalize_steps(steps)
-        self._input_mode = normalized_mode
-        self._input_schema = input_schema
+        self._input_schema = dict(input_schema) if input_schema is not None else None
+        self._output_schema = dict(output_schema) if output_schema is not None else None
         self._prompt_context_key = normalized_prompt_context_key or "prompt"
         self._base_context = dict(base_context or {})
         self._default_execution_mode = default_execution_mode
@@ -151,10 +147,10 @@ class Workflow:
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute one workflow run with input interpreted by ``input_mode``.
+        """Execute one workflow run with input mode inferred from ``input_schema``.
 
         Args:
-            input_data: Prompt string or schema mapping depending on ``input_mode``.
+            input_data: Prompt string when ``input_schema`` is omitted; otherwise schema mapping.
             execution_mode: Optional per-run execution mode override.
             failure_policy: Optional per-run failure policy override.
             request_id: Optional explicit request id for tracing/correlation.
@@ -168,7 +164,7 @@ class Workflow:
             default_prefix=self._default_request_id_prefix,
         )
         context = dict(self._base_context)
-        if self._input_mode == "prompt":
+        if self._input_schema is None:
             normalized_prompt = _normalize_prompt(input_data)
             context[self._prompt_context_key] = normalized_prompt
         else:
@@ -179,8 +175,10 @@ class Workflow:
                 location="inputs",
             )
             context["inputs"] = normalized_inputs
+        if self._output_schema is not None:
+            context["_workflow_output_schema"] = dict(self._output_schema)
 
-        return self._runtime.run(
+        workflow_result = self._runtime.run(
             self._steps,
             context=context,
             execution_mode=execution_mode or self._default_execution_mode,
@@ -191,9 +189,15 @@ class Workflow:
                 run_dependencies=dependencies,
             ),
         )
+        if workflow_result.success:
+            validate_payload_against_schema(
+                payload=workflow_result.output.get("final_output"),
+                schema=self._output_schema,
+                location="output.final_output",
+            )
+        return workflow_result
 
 
 __all__ = [
     "Workflow",
-    "WorkflowInputMode",
 ]

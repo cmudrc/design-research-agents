@@ -137,7 +137,7 @@ class NetworkedPattern(Agent):
         workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             steps=[
                 LoopStep(
                     step_id="network_loop",

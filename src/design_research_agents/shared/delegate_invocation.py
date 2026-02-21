@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TypeGuard
+from typing import Any, TypeGuard, cast
 
 from design_research_agents.contracts.execution import ExecutionResult
 from design_research_agents.contracts.workflow import (
@@ -89,15 +89,15 @@ def _invoke_workflow_object_delegate(
     dependencies: Mapping[str, object],
 ) -> ExecutionResult:
     """Invoke a raw ``Workflow``-like delegate with input-mode adaptation."""
-    input_mode = str(getattr(delegate, "_input_mode", "")).strip().lower()
-    if input_mode == "prompt":
+    input_schema = getattr(delegate, "_input_schema", None)
+    if input_schema is None:
         workflow_input: str | Mapping[str, object] | None = prompt
-    elif input_mode == "schema":
+    elif isinstance(input_schema, Mapping):
         workflow_input = {"prompt": prompt, "delegate_context": dict(step_context)}
     else:
         raise TypeError(
-            "Workflow delegate must expose internal input mode via _input_mode "
-            "as either 'prompt' or 'schema'."
+            "Workflow delegate must expose internal input schema via _input_schema "
+            "as either a mapping or None."
         )
     workflow_result = delegate.run(
         workflow_input,
@@ -113,13 +113,13 @@ def _invoke_workflow_object_delegate(
 
 def _is_workflow_object_delegate(delegate: WorkflowDelegate) -> TypeGuard[WorkflowObjectDelegate]:
     """Return whether delegate is a raw workflow object."""
-    input_mode = getattr(delegate, "_input_mode", None)
-    if not isinstance(input_mode, str):
+    if not hasattr(delegate, "_input_schema"):
+        return False
+    input_schema = cast(Any, delegate)._input_schema
+    if input_schema is not None and not isinstance(input_schema, Mapping):
         return False
     run_callable = getattr(delegate, "run", None)
-    if not callable(run_callable):
-        return False
-    return input_mode.strip().lower() in {"prompt", "schema"}
+    return callable(run_callable)
 
 
 def _is_workflow_delegate_runner(

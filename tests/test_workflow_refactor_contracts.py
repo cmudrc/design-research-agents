@@ -46,7 +46,7 @@ def test_workflow_rejects_agents_registry_constructor_kwarg() -> None:
     with pytest.raises(TypeError):
         Workflow(
             tool_runtime=None,
-            input_mode="schema",
+            input_schema={},
             steps=[LogicStep(step_id="ok", handler=lambda _context: {"ok": True})],
             agents={},  # type: ignore[call-arg]
         )
@@ -62,7 +62,6 @@ def test_workflow_accepts_pattern_delegate_on_agent_step() -> None:
     )
     workflow = Workflow(
         tool_runtime=None,
-        input_mode="prompt",
         steps=[
             AgentStep(
                 step_id="delegate_pattern",
@@ -93,7 +92,7 @@ def test_workflow_artifact_contract_serializes_and_tracks_provenance() -> None:
 
     workflow = Workflow(
         tool_runtime=None,
-        input_mode="schema",
+        input_schema={},
         steps=[
             LogicStep(
                 step_id="produce_artifacts",

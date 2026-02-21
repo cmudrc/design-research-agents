@@ -417,7 +417,7 @@ class RouterPattern(Agent):
         self.workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             base_context={"prompt": prompt},
             steps=[
                 LogicStep(step_id="agent_routing_selection", handler=callbacks.run_selection),

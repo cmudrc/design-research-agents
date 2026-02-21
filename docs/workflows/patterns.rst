@@ -11,7 +11,7 @@ Available reusable workflow patterns:
 - ``BlackboardPattern``: networked coordination with explicit shared board semantics.
 - ``TreeSearchPattern``: generator/evaluator reasoning over beam-searched candidates.
 - ``RagReasoningPattern``: retrieval-augmented reasoning via memory workflow steps.
-- ``Workflow``: reusable user-defined graph with ``input_mode='schema'`` or ``input_mode='prompt'``.
+- ``Workflow``: reusable user-defined graph with inferred input mode from ``input_schema``.
 
 These workflow patterns are reference implementations built on first-class
 workflow primitives: ``LogicStep``, ``ToolStep``, ``AgentStep``, and

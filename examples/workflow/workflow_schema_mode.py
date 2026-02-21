@@ -1,4 +1,4 @@
-"""Run traced ``Workflow(input_mode="schema")`` for design dataset checks.
+"""Run traced schema-input ``Workflow`` for design dataset checks.
 
 Expected observations:
 - ``strict_run`` and ``relaxed_run`` both produce report artifact paths.
@@ -122,7 +122,6 @@ def main() -> None:
                 },
             ),
         ],
-        input_mode="schema",
         input_schema=INPUT_SCHEMA,
     )
 

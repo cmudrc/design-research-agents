@@ -102,7 +102,7 @@ def run_workflow_loop(
     workflow = Workflow(
         tool_runtime=None,
         tracer=tracer,
-        input_mode="schema",
+        input_schema={"type": "object"},
         steps=[
             LoopStep(
                 step_id="agent_loop",

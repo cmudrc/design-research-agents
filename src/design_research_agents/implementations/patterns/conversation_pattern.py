@@ -457,7 +457,7 @@ class ConversationPattern(Agent):
         self.workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             steps=[
                 LoopStep(
                     step_id="conversation_loop",

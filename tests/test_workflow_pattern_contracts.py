@@ -167,8 +167,8 @@ def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
     assert "default_request_id_prefix" in routing_params
 
     workflow_params = inspect.signature(Workflow.__init__).parameters
-    assert "input_mode" in workflow_params
     assert "input_schema" in workflow_params
+    assert "output_schema" in workflow_params
     assert "prompt_context_key" in workflow_params
     assert "default_execution_mode" in workflow_params
     assert "default_dependencies" in workflow_params

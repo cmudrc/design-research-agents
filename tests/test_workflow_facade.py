@@ -21,7 +21,7 @@ from design_research_agents.contracts.workflow import (
 )
 from design_research_agents.schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import DebatePattern, Workflow
+from design_research_agents.workflow import DebatePattern, Workflow, list_of, scalar, typed_dict
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 
@@ -193,7 +193,6 @@ def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
     workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=_pure_dataset_steps(),
-        input_mode="schema",
         input_schema=_pure_input_schema(),
     )
 
@@ -220,7 +219,6 @@ def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
     workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=_pure_dataset_steps(),
-        input_mode="schema",
         input_schema=_pure_input_schema(),
     )
 
@@ -245,7 +243,7 @@ def test_workflow_schema_mode_without_schema_allows_arbitrary_inputs() -> None:
                 handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
             )
         ],
-        input_mode="schema",
+        input_schema={},
     )
 
     result = workflow.run({"free_form": {"a": 1, "b": 2}}, request_id="test-pure-free")
@@ -269,7 +267,6 @@ def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
     workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=_mixed_branching_steps(delegate=writer_agent),
-        input_mode="prompt",
         base_context={"audience": "research"},
     )
 
@@ -309,7 +306,6 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
     workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=custom_steps,
-        input_mode="prompt",
         base_context={"base_tag": "custom"},
     )
 
@@ -329,7 +325,6 @@ def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
     writer_agent = StaticJsonDraftAgent(payload={"title": "loop title"})
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        input_mode="prompt",
         steps=[
             LoopStep(
                 step_id="agent_loop",
@@ -356,7 +351,6 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
     capture_agent = CaptureDependenciesAgent()
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        input_mode="prompt",
         steps=[
             AgentStep(step_id="delegate", delegate=capture_agent, prompt="Run"),
             LogicStep(
@@ -389,7 +383,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
 def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        input_mode="schema",
+        input_schema={},
         steps=[
             LogicStep(
                 step_id="inspect",
@@ -406,6 +400,81 @@ def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
     assert str(workflow_meta["request_id"]).startswith("pure-default:")
     assert workflow_meta["execution_mode"] == "dag"
     assert workflow_meta["failure_policy"] == "propagate_failed_state"
+
+
+def test_workflow_infers_prompt_mode_when_input_schema_is_omitted() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[LogicStep(step_id="echo", handler=lambda context: {"prompt": context["prompt"]})],
+    )
+
+    result = workflow.run("hello")
+    assert result.success
+    assert result.step_results["echo"].output["prompt"] == "hello"
+
+    with pytest.raises(ValueError, match="without input_schema"):
+        workflow.run({"not": "prompt"})
+
+
+def test_workflow_infers_schema_mode_when_input_schema_is_provided() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        input_schema={},
+        steps=[
+            LogicStep(
+                step_id="echo_inputs",
+                handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
+            )
+        ],
+    )
+
+    result = workflow.run({"k": 1})
+    assert result.success
+    assert result.step_results["echo_inputs"].output["inputs_snapshot"]["k"] == 1
+
+    with pytest.raises(ValueError, match="with input_schema"):
+        workflow.run("prompt input")
+
+
+def test_workflow_output_schema_validation_supports_helpers() -> None:
+    output_schema = list_of(
+        typed_dict(
+            required={"id": scalar("integer")},
+            optional={"label": scalar("string")},
+        )
+    )
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(
+                step_id="emit",
+                handler=lambda _context: {
+                    "final_output": [{"id": 1, "label": "alpha"}, {"id": 2}],
+                },
+            )
+        ],
+        output_schema=output_schema,
+    )
+
+    result = workflow.run("emit rows")
+    assert result.success
+    assert result.output["final_output"] == [{"id": 1, "label": "alpha"}, {"id": 2}]
+
+
+def test_workflow_output_schema_validation_raises_on_invalid_payload() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(
+                step_id="emit",
+                handler=lambda _context: {"final_output": [{"id": "not-int"}]},
+            )
+        ],
+        output_schema=list_of(typed_dict(required={"id": scalar("integer")})),
+    )
+
+    with pytest.raises(SchemaValidationError, match="output\\.final_output\\[0\\]\\.id"):
+        workflow.run("emit invalid rows")
 
 
 def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:

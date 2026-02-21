@@ -29,7 +29,7 @@ def main() -> None:
     workflow = Workflow(
         tool_runtime=None,
         tracer=make_tracer(),
-        input_mode="schema",
+        input_schema={"type": "object"},
         steps=[
             ModelStep(
                 step_id="design_tradeoff_model",

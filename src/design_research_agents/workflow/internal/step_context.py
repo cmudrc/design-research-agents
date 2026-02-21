@@ -24,6 +24,8 @@ def build_step_context(
     request_id: str,
     execution_mode: WorkflowExecutionMode,
     failure_policy: WorkflowFailurePolicy,
+    is_terminal_step: bool,
+    output_schema: Mapping[str, object] | None,
 ) -> dict[str, object]:
     """Build per-step context including normalized dependency result payloads.
 
@@ -35,6 +37,8 @@ def build_step_context(
         request_id: Workflow request id for correlation metadata.
         execution_mode: Effective step scheduling mode.
         failure_policy: Effective dependency failure policy.
+        is_terminal_step: Whether the step has no downstream dependents in the graph.
+        output_schema: Optional workflow-level output schema for terminal model-step guidance.
 
     Returns:
         Step-local context mapping with dependency and workflow metadata.
@@ -60,6 +64,8 @@ def build_step_context(
         "execution_mode": execution_mode,
         "failure_policy": failure_policy,
         "dependency_count": len(step_dependencies),
+        "is_terminal_step": is_terminal_step,
+        "output_schema": dict(output_schema) if output_schema is not None else None,
     }
     return context
 

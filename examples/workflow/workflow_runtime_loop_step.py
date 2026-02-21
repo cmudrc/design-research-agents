@@ -54,7 +54,7 @@ def main() -> None:
     request_id = "example-workflow-loop-design-001"
     workflow = Workflow(
         tool_runtime=None,
-        input_mode="schema",
+        input_schema={"type": "object"},
         tracer=make_tracer(),
         steps=[
             LoopStep(

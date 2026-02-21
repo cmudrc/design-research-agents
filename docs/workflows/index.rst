@@ -16,8 +16,8 @@ Quick chooser
 - Need proposal and critique loop: use ``ReflexionPattern``.
 - Need two LLMs to converse with role-specific prompts/clients: use ``ConversationPattern``.
 - Need intent-based delegate routing: use ``RouterPattern``.
-- Need user-defined step graph: use ``Workflow`` with ``input_mode='schema'`` or
-  ``input_mode='prompt'``.
+- Need user-defined step graph: use ``Workflow`` with inferred input mode
+  (``input_schema=None`` for prompt input, ``input_schema={...}`` for mapping input).
 
 Pages
 -----

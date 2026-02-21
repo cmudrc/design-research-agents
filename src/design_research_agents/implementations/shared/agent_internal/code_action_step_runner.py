@@ -220,7 +220,7 @@ class CodeActionStepRunner(Agent):
         return Workflow(
             tool_runtime=None,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             steps=[
                 LogicStep(step_id="resolve_inputs", handler=self._resolve_inputs_handler),
                 LogicStep(

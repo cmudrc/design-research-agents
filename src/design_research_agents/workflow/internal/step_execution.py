@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from design_research_agents.contracts.llm import LLMChatParams, LLMRequest, LLMResponse
 from design_research_agents.contracts.memory import (
@@ -235,6 +235,10 @@ def run_model_step(
     """Execute one model step and return normalized workflow step result."""
     try:
         llm_request = _build_model_request(step=step, step_context=step_context)
+        llm_request = _apply_terminal_output_schema(
+            llm_request=llm_request,
+            step_context=step_context,
+        )
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,
@@ -279,6 +283,25 @@ def run_model_step(
         output=output,
         metadata={"stage": "execution", "step_kind": "model"},
     )
+
+
+def _apply_terminal_output_schema(
+    *,
+    llm_request: LLMRequest,
+    step_context: Mapping[str, object],
+) -> LLMRequest:
+    """Apply workflow output schema to terminal model requests when unset."""
+    workflow_context = step_context.get("_workflow")
+    if not isinstance(workflow_context, Mapping):
+        return llm_request
+    if not bool(workflow_context.get("is_terminal_step", False)):
+        return llm_request
+    if llm_request.response_schema is not None:
+        return llm_request
+    raw_output_schema = workflow_context.get("output_schema")
+    if not isinstance(raw_output_schema, Mapping):
+        return llm_request
+    return replace(llm_request, response_schema=dict(raw_output_schema))
 
 
 def run_delegate_batch_step(

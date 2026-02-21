@@ -93,7 +93,8 @@ class DirectLLMCall(Agent):
             Final agent result payload.
 
         Raises:
-            Exception: Raised when execution fails.
+            RuntimeError: If the internal workflow fails to complete successfully.
+            TypeError: If workflow finalize output is missing the expected ``LLMResponse`` payload.
         """
         execution_context = prepare_agent_execution(
             prompt=prompt,
@@ -175,7 +176,7 @@ class DirectLLMCall(Agent):
         return Workflow(
             tool_runtime=None,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             steps=[
                 LogicStep(step_id="prepare_request", handler=self._prepare_request_step),
                 LogicStep(

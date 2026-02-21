@@ -298,7 +298,7 @@ class PlannerExecutorPattern(Agent):
         self.workflow = Workflow(
             tool_runtime=self._tool_runtime,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             base_context={"prompt": prompt},
             steps=[
                 LoopStep(
@@ -399,7 +399,7 @@ class PlannerExecutorPattern(Agent):
         planner_workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             base_context={"prompt": prompt},
             steps=[
                 ModelStep(

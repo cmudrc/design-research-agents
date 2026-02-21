@@ -169,7 +169,7 @@ class RagReasoningPattern(Agent):
             tool_runtime=None,
             memory_store=self._memory_store,
             tracer=self._tracer,
-            input_mode="schema",
+            input_schema={"type": "object"},
             base_context={"prompt": prompt},
             steps=workflow_steps,
         )

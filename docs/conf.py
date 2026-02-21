@@ -92,7 +92,7 @@ html_static_path = ["_static"]
 
 html_logo = "drc.png"
 html_theme_options = {
-    'logo_only': True,
+    "logo_only": True,
 }
 
 # Linkcheck tuning for stable CI behavior.
