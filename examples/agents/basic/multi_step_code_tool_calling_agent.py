@@ -1,23 +1,20 @@
-"""Runnable example showing one ``MultiStepAgent(mode="code")`` execution lifecycle.
+"""Run traced ``MultiStepAgent(mode="code")`` for design-metric analysis.
 
-The script demonstrates iterative continuation/step execution over a short
-multi-step task and prints the final structured result payload.
+Expected observations:
+- ``step_outputs_count`` is non-zero for iterative code-action execution.
+- ``tool_results_count`` shows runtime tool usage.
+- ``trace.trace_path`` points to emitted trace JSONL.
 """
 
-import json
+from __future__ import annotations
 
-from design_research_agents import (
-    LlamaCppServerLLMClient,
-    MultiStepAgent,
-    Toolbox,
-)
+from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox
+from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
-    """Execute one multi-step run and print the resulting ``ExecutionResult``.
-
-    Demonstrates iterative planning/execution behavior with a bounded step count.
-    """
+    """Execute one multi-step code-mode run and print compact result."""
+    request_id = "example-multi-step-code-design-001"
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     try:
@@ -28,32 +25,33 @@ def main() -> None:
             max_steps=3,
             normalize_generated_code_per_step=True,
             default_tools_per_step=({"tool_name": "calculator"},),
+            tracer=make_tracer(),
         )
         result = agent.run(
             prompt=(
-                "No imports. Use call_tool only. In one or more steps, compute 12 * (4 + 1) "
-                "and then compute 60 / 3. Return a compact final_output dict with both values."
+                "No imports. Use call_tool only. Compute two design-review metrics using "
+                "calculator: (12 * (4 + 1)) and then (60 / 3). Return final_output with both."
             ),
-            request_id="example-multi-step-agent-001",
+            request_id=request_id,
         )
     finally:
         llm_client.close()
 
     output = result.output if isinstance(result.output, dict) else {}
     payload = {
+        "example": "agents/basic/multi_step_code_tool_calling_agent.py",
         "success": result.success,
         "terminated_reason": output.get("terminated_reason"),
         "steps_executed": output.get("steps_executed"),
-        "step_outputs_count": (
-            len(output.get("step_outputs", []))
-            if isinstance(output.get("step_outputs"), list)
-            else 0
-        ),
+        "step_outputs_count": len(output.get("step_outputs", []))
+        if isinstance(output.get("step_outputs"), list)
+        else 0,
         "tool_results_count": len(result.tool_results),
         "final_output": output.get("final_output"),
         "error": output.get("error"),
+        "trace": trace_info(request_id),
     }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    print_json(payload)
 
 
 if __name__ == "__main__":

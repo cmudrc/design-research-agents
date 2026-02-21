@@ -1,16 +1,14 @@
 ## Optimization Examples
 
-This folder demonstrates optimization-oriented agent runs with callable tools.
+This folder contains traced optimization-oriented agent runs tied to
+engineering-design interpretation.
 
-## What Each Example Demonstrates
+## Scripts
 
 - `multi_step_tool_router_1d_optimization.py`
-  - `MultiStepAgent(mode="json")` router special-case with separate
-    `optimizer.increase_x` and `optimizer.decrease_x` tools to minimize `f(x)=x^2`.
+  - `MultiStepAgent(mode="json")` minimizing `f(x)=x^2` with LLM-selected tools.
 
 ## Quick Start
-
-Run from repository root:
 
 ```bash
 PYTHONPATH=src python3 examples/optimization/multi_step_tool_router_1d_optimization.py
@@ -18,7 +16,5 @@ PYTHONPATH=src python3 examples/optimization/multi_step_tool_router_1d_optimizat
 
 ## Expected Outputs
 
-- The script prints a JSON envelope.
-- The multi-step example includes `step_outputs`, stop/final metadata, and
-  controller diagnostics (`terminated_reason`, non-improving-step detection,
-  `best_seen`, and a `memory_tail` snapshot).
+- JSON envelope with objective history, best-seen point, and final step metadata.
+- Trace metadata pointing to JSONL run artifact.

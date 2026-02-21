@@ -142,13 +142,14 @@ class LlamaCppServerBackend:
 
         if spec is None:
             raise RuntimeError(
-                "llama-cpp server dependency is missing. Install with: pip install -e '.[local]'"
+                "llama-cpp server dependency is missing. "
+                "Install with: pip install -e '.[llama_cpp]'"
             )
 
         if self.hf_model_repo_id and find_spec("huggingface_hub") is None:
             raise RuntimeError(
                 "huggingface-hub is required when hf_model_repo_id is set. "
-                "Install with: pip install -e '.[local]'"
+                "Install with: pip install -e '.[llama_cpp]'"
             )
         self._resolve_hf_model_name()
 
@@ -258,7 +259,7 @@ class LlamaCppServerBackend:
                 raise RuntimeError(
                     "llama-cpp server exited before becoming ready. "
                     "Ensure llama-cpp-python[server] is installed "
-                    "(pip install -e '.[local]') and server model options are valid."
+                    "(pip install -e '.[llama_cpp]') and server model options are valid."
                 )
 
             try:

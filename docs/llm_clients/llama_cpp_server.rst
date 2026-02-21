@@ -28,7 +28,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install local extras: ``pip install -e \".[local]\"``
+- Install llama.cpp backend extras: ``pip install -e \".[llama_cpp]\"``
 - Ensure local model download/runtime prerequisites are available.
 
 Model notes for local runs

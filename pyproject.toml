@@ -41,12 +41,33 @@ dev = [
     "sphinx>=7.4",
     "sphinx-rtd-theme>=2.0",
 ]
+llama_cpp = [
+    "huggingface-hub>=0.24",
+    "llama-cpp-python[server]>=0.2.90",
+]
+mlx = [
+    "mlx-lm>=0.14",
+]
+transformers = [
+    "huggingface-hub>=0.24",
+    "torch>=2.10",
+    "transformers>=4.44",
+]
+full = [
+    "huggingface-hub>=0.24",
+    "llama-cpp-python[server]>=0.2.90",
+    "mlx-lm>=0.14",
+    "torch>=2.10",
+    "transformers>=4.44",
+]
+
+# Backward-compatible alias for all optional runtime backend extras.
 local = [
     "huggingface-hub>=0.24",
     "llama-cpp-python[server]>=0.2.90",
     "mlx-lm>=0.14",
+    "torch>=2.10",
     "transformers>=4.44",
-    "jsonschema>=4.21",
 ]
 
 # Use src-layout packaging.

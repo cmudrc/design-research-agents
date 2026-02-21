@@ -29,7 +29,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install local extras: ``pip install -e \".[local]\"``
+- Install transformers backend extras: ``pip install -e \".[transformers]\"``
 - Sufficient local CPU/GPU memory for selected model
 
 Model notes for local runs

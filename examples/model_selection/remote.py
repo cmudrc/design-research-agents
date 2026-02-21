@@ -1,17 +1,27 @@
-"""Runnable example showing remote model selection under heavy load.
+"""Run traced remote-favoring model selection under heavy local load.
 
-The script uses a fixed hardware profile with high load to prefer remote
-selection and prints the decision.
+Expected observations:
+- decision reflects remote-capable choice when local load is constrained.
+- rationale explains speed/latency policy tradeoff.
+- ``trace.trace_path`` points to emitted trace JSONL.
 """
 
+from __future__ import annotations
+
+from dataclasses import asdict
+
 from design_research_agents import ModelSelector
+from design_research_agents.shared.example_support import (
+    print_json,
+    run_traced_callable,
+    trace_info,
+)
 
 
-def main() -> None:
-    """Select a remote model when local hardware is overloaded."""
+def _select_remote() -> dict[str, object]:
     selector = ModelSelector()
     decision = selector.select(
-        task="Handle a fast-paced live chat session.",
+        task="Handle a fast design triage chat during incident response.",
         priority="speed",
         max_latency_ms=800,
         hardware_profile={
@@ -26,7 +36,22 @@ def main() -> None:
         },
         output="decision",
     )
-    print(decision)
+    return asdict(decision)
+
+
+def main() -> None:
+    """Run traced remote-favoring model selection and print decision."""
+    request_id = "example-model-selection-remote-design-001"
+    payload = run_traced_callable(
+        agent_name="ExamplesModelSelectionRemote",
+        request_id=request_id,
+        input_payload={"scenario": "remote-selection"},
+        function=_select_remote,
+    )
+    assert isinstance(payload, dict)
+    payload["example"] = "model_selection/remote.py"
+    payload["trace"] = trace_info(request_id)
+    print_json(payload)
 
 
 if __name__ == "__main__":

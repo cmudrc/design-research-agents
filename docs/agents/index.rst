@@ -42,6 +42,7 @@ Decision table
 Examples
 --------
 
+- :doc:`/examples/agents`
 - ``examples/agents/basic/README.md``
 
 Pages

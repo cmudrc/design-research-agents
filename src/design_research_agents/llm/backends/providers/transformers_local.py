@@ -38,17 +38,17 @@ class TransformersLocalBackend(BaseLLMBackend):
         """Configure local Transformers backend and deferred model loading.
 
         Args:
-            name: Parameter value.
-            model_id: Parameter value.
-            default_model: Parameter value.
-            device: Parameter value.
-            dtype: Parameter value.
-            quantization: Parameter value.
-            trust_remote_code: Parameter value.
-            revision: Parameter value.
-            config_hash: Parameter value.
-            max_retries: Parameter value.
-            model_patterns: Parameter value.
+            name: Unique backend name for tracing and routing.
+            model_id: Hugging Face model identifier to load locally.
+            default_model: Default model returned by ``default_model()``.
+            device: Optional explicit target device (for example ``cpu``).
+            dtype: Optional explicit torch dtype string (for example ``float16``).
+            quantization: Quantization mode (``none``, ``8bit``, ``4bit``).
+            trust_remote_code: Whether to allow model-defined remote code.
+            revision: Optional model revision or branch name.
+            config_hash: Stable hash of backend config inputs.
+            max_retries: Maximum retry attempts for request execution.
+            model_patterns: Optional glob-like patterns for selector routing.
         """
         super().__init__(
             name=name,
@@ -72,7 +72,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         """Return capabilities inferred from installed Transformers features.
 
         Returns:
-            The resulting value.
+            Capability metadata for this backend instance.
         """
         return BackendCapabilities(
             streaming=_streaming_available(),
@@ -86,42 +86,42 @@ class TransformersLocalBackend(BaseLLMBackend):
         """Return static health status for configured backend.
 
         Returns:
-            The resulting value.
+            Healthy backend status when configuration is valid.
         """
         return BackendStatus(ok=True, message="Transformers backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
-        """Run generate.
+        """Generate a non-streaming response from the local model.
 
         Args:
-            request: Parameter value.
+            request: Normalized request including messages and generation limits.
 
         Returns:
-            The resulting value.
+            Completed response text and metadata.
         """
         tokenizer, model = self._ensure_model()
         prompt = _format_prompt(request, tokenizer)
         inputs = tokenizer(prompt, return_tensors="pt")
         inputs = _move_to_device(inputs, model)
         input_length = inputs["input_ids"].shape[-1]
-        output_ids = model.generate(
+        generation_kwargs = {
             **inputs,
-            max_new_tokens=request.max_tokens or 256,
-            temperature=request.temperature if request.temperature is not None else 0.7,
-            do_sample=request.temperature is not None and request.temperature > 0,
-        )
+            "max_new_tokens": request.max_tokens or 256,
+            **_generation_control_kwargs(request.temperature),
+        }
+        output_ids = model.generate(**generation_kwargs)
         generated_ids = output_ids[0][input_length:]
         text = tokenizer.decode(generated_ids, skip_special_tokens=True)
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        """Run stream.
+        """Generate and yield streaming deltas from the local model.
 
         Args:
-            request: Parameter value.
+            request: Normalized request including messages and generation limits.
 
         Yields:
-            The yielded values.
+            Incremental text chunks emitted by the streamer.
         """
         tokenizer, model = self._ensure_model()
         try:
@@ -140,8 +140,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         generation_kwargs = {
             **inputs,
             "max_new_tokens": request.max_tokens or 256,
-            "temperature": (request.temperature if request.temperature is not None else 0.7),
-            "do_sample": request.temperature is not None and request.temperature > 0,
+            **_generation_control_kwargs(request.temperature),
             "streamer": streamer,
         }
 
@@ -153,13 +152,13 @@ class TransformersLocalBackend(BaseLLMBackend):
         thread.join(timeout=1.0)
 
     def _ensure_model(self) -> tuple[Any, Any]:
-        """Run ensure model.
+        """Load tokenizer/model once and reuse cached instances.
 
         Returns:
-            The resulting value.
+            Tuple of ``(tokenizer, model)`` for generation calls.
 
         Raises:
-            Exception: Raised when execution fails.
+            RuntimeError: If ``transformers`` is not installed.
         """
         if self._model is not None and self._tokenizer is not None:
             return self._tokenizer, self._model
@@ -196,14 +195,14 @@ class TransformersLocalBackend(BaseLLMBackend):
 
 
 def _format_prompt(request: LLMRequest, tokenizer: Any) -> str:
-    """Run format prompt.
+    """Format request messages into one prompt string.
 
     Args:
-        request: Parameter value.
-        tokenizer: Parameter value.
+        request: Request carrying user/system messages.
+        tokenizer: Tokenizer that may expose ``apply_chat_template``.
 
     Returns:
-        The resulting value.
+        Prompt string suitable for model generation.
     """
     messages = [{"role": message.role, "content": message.content} for message in request.messages]
     if hasattr(tokenizer, "apply_chat_template"):
@@ -220,16 +219,17 @@ def _format_prompt(request: LLMRequest, tokenizer: Any) -> str:
 
 
 def _resolve_dtype(dtype: str) -> Any:
-    """Run resolve dtype.
+    """Resolve a supported dtype name to a torch dtype object.
 
     Args:
-        dtype: Parameter value.
+        dtype: Dtype name such as ``float16``, ``bfloat16``, or ``float32``.
 
     Returns:
-        The resulting value.
+        Torch dtype constant matching ``dtype``.
 
     Raises:
-        Exception: Raised when execution fails.
+        RuntimeError: If torch is not installed.
+        ValueError: If ``dtype`` is unsupported.
     """
     try:
         import torch
@@ -248,13 +248,13 @@ def _resolve_dtype(dtype: str) -> Any:
 
 
 def _quantization_kwargs(quantization: str) -> dict[str, Any]:
-    """Run quantization kwargs.
+    """Translate quantization mode into ``from_pretrained`` kwargs.
 
     Args:
-        quantization: Parameter value.
+        quantization: Requested quantization level.
 
     Returns:
-        The resulting value.
+        Keyword arguments for model loading.
     """
     if quantization == "8bit":
         return {"load_in_8bit": True}
@@ -263,15 +263,29 @@ def _quantization_kwargs(quantization: str) -> dict[str, Any]:
     return {}
 
 
+def _generation_control_kwargs(temperature: float | None) -> dict[str, Any]:
+    """Return generation controls derived from one optional temperature override.
+
+    When temperature is omitted we defer to the model generation config.
+    A non-positive temperature requests greedy decoding, so we also neutralize
+    sampling-only knobs to avoid Transformers warning about ignored flags.
+    """
+    if temperature is None:
+        return {}
+    if temperature > 0:
+        return {"do_sample": True, "temperature": float(temperature)}
+    return {"do_sample": False, "temperature": 1.0, "top_p": 1.0, "top_k": 50}
+
+
 def _move_to_device(inputs: dict[str, Any], model: Any) -> dict[str, Any]:
-    """Run move to device.
+    """Move tokenized inputs onto the model device when available.
 
     Args:
-        inputs: Parameter value.
-        model: Parameter value.
+        inputs: Tokenizer output mapping.
+        model: Model object that may expose ``device``.
 
     Returns:
-        The resulting value.
+        Possibly device-moved tensor mapping.
     """
     device = getattr(model, "device", None)
     if device is None:
@@ -283,7 +297,7 @@ def _streaming_available() -> bool:
     """Run streaming available.
 
     Returns:
-        The resulting value.
+        ``True`` when ``TextIteratorStreamer`` can be imported.
     """
     try:
         from transformers import TextIteratorStreamer

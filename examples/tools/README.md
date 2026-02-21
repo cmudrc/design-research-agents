@@ -1,20 +1,18 @@
 ## Tool Runtime Examples
 
-These examples focus on `Toolbox` behavior across different tool
-sources.
+These examples exercise traced `Toolbox` behavior across core, script, and MCP
+sources for design-analysis workflows.
 
-## What Each Example Demonstrates
+## Scripts
 
 - `mcp_minimal.py`
-  - Minimal MCP-only runtime with canonical namespaced tool calls.
+  - Traced MCP-only runtime and namespaced invocation.
 - `source_fusion_story.py`
-  - One run combining core tools, script tools, and MCP tools into a single report.
+  - Traced multi-source run combining core/script/MCP tools.
 - `script_tools/README.md`
-  - Script-tool examples colocated under `examples/tools/script_tools`.
+  - Script-tool examples and direct execution commands.
 
 ## Quick Start
-
-Run from repository root:
 
 ```bash
 PYTHONPATH=src python3 examples/tools/mcp_minimal.py
@@ -26,15 +24,6 @@ JSON
 
 ## Expected Outputs
 
-- `mcp_minimal.py` prints a compact JSON report with MCP tool inventory and sample results.
-- `source_fusion_story.py` prints a combined report and writes artifacts under
-  `artifacts/examples`.
-- Script-tool examples print one JSON envelope and write artifacts under
-  `artifacts/repo_quickscan` or `artifacts/rubric_score`.
-
-## Troubleshooting
-
-- MCP startup failures:
-  - Confirm `PYTHONPATH=src` and that MCP dependencies are installed.
-- Missing script tools in `source_fusion_story.py`:
-  - Verify `examples/tools/script_tools` exists and script tool paths are valid.
+- Compact JSON report payloads.
+- Artifacts written under `artifacts/examples` and script-tool artifact folders.
+- Trace metadata in each output payload.

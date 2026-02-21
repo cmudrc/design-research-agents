@@ -19,7 +19,7 @@ help:
 	@echo "Common targets:"
 	@echo "  install           Install runtime dependencies (editable)."
 	@echo "  install-dev       Install contributor tooling (editable)."
-	@echo "  install-all       Install contributor + local backend extras."
+	@echo "  install-all       Install contributor + all optional backend extras."
 	@echo "  qa                Fast local checks: lint, fmt-check, type, unit."
 	@echo "  qa-full           Full gate: qa + structure/docstrings + coverage."
 	@echo "  examples-smoke    Deterministic smoke checks for key examples."
@@ -46,10 +46,10 @@ install-dev:
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev]"
 
-# Install editable package with contributor tooling and optional local extras.
+# Install editable package with contributor tooling and all optional backend extras.
 install-all:
 	$(PIP) install --upgrade pip
-	$(PIP) install -e ".[dev,local]"
+	$(PIP) install -e ".[dev,full]"
 
 # Run lint checks without modifying files.
 lint: check-python

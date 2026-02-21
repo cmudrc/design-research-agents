@@ -1,19 +1,14 @@
 ## Agent Examples
 
-This folder demonstrates the core agent interfaces and execution styles used in
-the project.
+These examples cover traced agent entrypoints and multi-step execution modes for
+engineering-design tasks.
 
 ## Subfolders
 
 - `examples/agents/basic`
-  - Non-streaming runs for the major agent types.
-  - See `examples/agents/basic/README.md`.
-
-## When To Use What
-
-- Use `basic` examples to validate agent behavior and result payload structure.
+  - Non-streaming runs for direct, multi-step direct/json/code, and memory-enabled JSON mode.
 
 ## Notes
 
-- Examples are intended to run from repository root with `PYTHONPATH=src`.
+- Every script emits trace metadata.
 - Most agent examples use `LlamaCppServerLLMClient()` by default.

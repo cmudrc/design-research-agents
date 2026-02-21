@@ -1,14 +1,23 @@
-"""Configure ``OpenAICompatibleHTTPLLMClient`` for local or remote endpoints."""
+"""Run a traced representative ``OpenAICompatibleHTTPLLMClient`` chat call.
+
+Expected observations:
+- output includes one representative chat completion under ``llm_call``.
+- ``llm_call.response_has_text`` is ``true``.
+- ``trace.trace_path`` points to emitted trace JSONL.
+"""
 
 from __future__ import annotations
 
-import json
-
 from design_research_agents import OpenAICompatibleHTTPLLMClient
+from design_research_agents.shared.example_support import (
+    print_json,
+    run_representative_chat,
+    run_traced_callable,
+    trace_info,
+)
 
 
-def main() -> None:
-    """Build a fully configured OpenAI-compatible HTTP client and print settings."""
+def _build_payload() -> dict[str, object]:
     client = OpenAICompatibleHTTPLLMClient(
         name="local-openai-compat",
         base_url="http://127.0.0.1:8011/v1",
@@ -20,9 +29,18 @@ def main() -> None:
     )
     backend = client._backend
     capabilities = backend.capabilities()
-    payload = {
+    llm_call = run_representative_chat(
+        client=client,
+        prompt="Provide one sentence on balancing latency and quality in design review assistants.",
+        deterministic_response=(
+            "Use fast drafts for iteration, then escalate critical decisions to "
+            "higher-quality models."
+        ),
+    )
+    return {
         "client_class": client.__class__.__name__,
         "default_model": client.default_model(),
+        "llm_call": llm_call,
         "backend": {
             "name": backend.name,
             "kind": backend.kind,
@@ -39,7 +57,21 @@ def main() -> None:
             "max_context_tokens": capabilities.max_context_tokens,
         },
     }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+
+
+def main() -> None:
+    """Run traced OpenAI-compatible client call payload."""
+    request_id = "example-clients-openai-compatible-call-001"
+    payload = run_traced_callable(
+        agent_name="ExamplesOpenAICompatClientCall",
+        request_id=request_id,
+        input_payload={"scenario": "openai-compatible-client-call"},
+        function=_build_payload,
+    )
+    assert isinstance(payload, dict)
+    payload["example"] = "clients/openai_compatible_http_client.py"
+    payload["trace"] = trace_info(request_id)
+    print_json(payload)
 
 
 if __name__ == "__main__":

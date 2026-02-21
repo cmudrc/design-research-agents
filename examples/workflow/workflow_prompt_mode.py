@@ -1,21 +1,57 @@
-"""Runnable example for ``Workflow`` in prompt-input mode."""
+"""Run traced ``Workflow(input_mode="prompt")`` for design-brief routing.
 
-import json
+Expected observations:
+- agent and template branches both produce finalized title/summary payloads.
+- ``execution_order`` shows branch-specific step execution.
+- trace metadata is present for each run.
+"""
+
+from __future__ import annotations
 
 from design_research_agents import (
+    AgentStep,
     DirectLLMCall,
     LlamaCppServerLLMClient,
+    LogicStep,
     Toolbox,
+    ToolStep,
     Workflow,
 )
-from design_research_agents.contracts import AgentStep, LogicStep, ToolStep
+from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+
+
+def _summarize_run(result: object, request_id: str) -> dict[str, object]:
+    if not hasattr(result, "success") or not hasattr(result, "output"):
+        return {
+            "success": False,
+            "error": "unexpected result type",
+            "trace": trace_info(request_id),
+        }
+    output = result.output if isinstance(result.output, dict) else {}
+    final_output = output.get("final_output")
+    if isinstance(final_output, dict):
+        compact_final_output = {
+            "branch": final_output.get("branch"),
+            "title": final_output.get("title"),
+            "summary": final_output.get("summary"),
+        }
+    else:
+        compact_final_output = final_output
+    return {
+        "success": result.success,
+        "execution_order": list(result.execution_order),
+        "final_output": compact_final_output,
+        "error": output.get("error"),
+        "trace": trace_info(request_id),
+    }
 
 
 def main() -> None:
-    """Run the configured mixed workflow twice to demonstrate reusable routing."""
+    """Run reusable prompt-mode workflow for two routed design requests."""
+    tracer = make_tracer()
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
-    writer_agent = DirectLLMCall(llm_client=llm_client)
+    writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
     workflow_steps = [
         LogicStep(
@@ -37,7 +73,7 @@ def main() -> None:
             delegate=writer_agent,
             dependencies=("router",),
             prompt_builder=lambda context: (
-                "Write one JSON object with keys title and summary for this request: "
+                "Write one JSON object with keys title and summary for this design request: "
                 f"{context['prompt']}"
             ),
         ),
@@ -68,7 +104,7 @@ def main() -> None:
             step_id="draft_template",
             dependencies=("router",),
             handler=lambda context: {
-                "title": "Template fallback brief",
+                "title": "Template fallback design brief",
                 "summary": f"Template mode output for: {context['prompt']}",
             },
         ),
@@ -87,55 +123,31 @@ def main() -> None:
         tool_runtime=tool_runtime,
         steps=workflow_steps,
         input_mode="prompt",
+        tracer=tracer,
     )
 
-    agent_result = workflow.run(
-        "Write a research brief for synthesis findings on prototype onboarding friction.",
-        request_id="example-mixed-workflow-agent-branch",
-    )
-    template_result = workflow.run(
-        "template: Draft a deterministic fallback brief for accessibility review findings.",
-        request_id="example-mixed-workflow-template-branch",
-    )
-
-    def _summarize_run(result: object) -> dict[str, object]:
-        """Return compact summary for one workflow run.
-
-        Args:
-            result: Workflow execution result object.
-
-        Returns:
-            Compact summary payload.
-        """
-        if not hasattr(result, "success") or not hasattr(result, "output"):
-            return {"success": False, "error": "unexpected result type"}
-        output = result.output if isinstance(result.output, dict) else {}
-        final_output = output.get("final_output")
-        if isinstance(final_output, dict):
-            compact_final_output = {
-                "branch": final_output.get("branch"),
-                "title": final_output.get("title"),
-                "summary": final_output.get("summary"),
-            }
-        else:
-            compact_final_output = final_output
-        return {
-            "success": result.success,
-            "execution_order": result.execution_order,
-            "final_output": compact_final_output,
-            "error": output.get("error"),
-        }
-
-    print(
-        json.dumps(
-            {
-                "agent_branch_run": _summarize_run(agent_result),
-                "template_branch_run": _summarize_run(template_result),
-            },
-            ensure_ascii=True,
-            indent=2,
-            sort_keys=True,
+    agent_request_id = "example-workflow-prompt-design-agent-001"
+    template_request_id = "example-workflow-prompt-design-template-001"
+    try:
+        agent_result = workflow.run(
+            "Draft a design brief for reducing onboarding friction in a medical-device setup flow.",
+            request_id=agent_request_id,
         )
+        template_result = workflow.run(
+            (
+                "template: Produce a deterministic fallback brief for "
+                "manufacturability review findings."
+            ),
+            request_id=template_request_id,
+        )
+    finally:
+        llm_client.close()
+
+    print_json(
+        {
+            "agent_branch_run": _summarize_run(agent_result, agent_request_id),
+            "template_branch_run": _summarize_run(template_result, template_request_id),
+        }
     )
 
 

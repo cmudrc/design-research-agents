@@ -28,7 +28,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install local extras: ``pip install -e \".[local]\"``
+- Install MLX backend extras: ``pip install -e \".[mlx]\"``
 - Apple silicon environment with MLX stack available
 
 Model notes for local runs

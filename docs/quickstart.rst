@@ -44,11 +44,14 @@ Path B: Local (privacy-first)
 
 Use this when you want local execution and are willing to manage local runtime/model setup.
 
-1. Install local extras:
+1. Install backend-specific extras for local inference:
 
 .. code-block:: bash
 
-   pip install -e ".[dev,local]"
+   pip install -e ".[dev,llama_cpp]"      # managed llama.cpp server client
+   # or: pip install -e ".[dev,transformers]"  # in-process transformers backend
+   # or: pip install -e ".[dev,mlx]"           # Apple MLX backend
+   # or: pip install -e ".[dev,full]"          # all optional backend extras
 
 2. Run one agent call with the managed llama.cpp server client:
 
@@ -72,6 +75,7 @@ Checks and Docs
 Next Steps
 ----------
 
+- Scenario-driven examples and expected outputs: :doc:`examples/index`
 - Explore runnable examples: ``examples/README.md``
 - LLM client setup details: :doc:`llm_clients/index`
 - Agent behavior tradeoffs: :doc:`agents/index`

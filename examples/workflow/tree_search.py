@@ -1,21 +1,21 @@
-"""Runnable example for ``TreeSearchPattern`` reasoning."""
+"""Run traced ``TreeSearchPattern`` for design concept selection.
+
+Expected observations:
+- search evaluates deterministic candidates across depths.
+- ``final_output`` identifies best-scoring concept branch.
+- ``trace.trace_path`` points to emitted trace JSONL.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.workflow import TreeSearchPattern
+from design_research_agents import TreeSearchPattern
+from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
 
 
 def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:
-    """Generate deterministic child candidates for one search depth.
-
-    Args:
-        context: Delegate input containing task/depth metadata.
-
-    Returns:
-        Candidate payloads for the requested depth.
-    """
+    """Generate deterministic design candidates for one search depth."""
     depth = int(context.get("depth", 0))
     if depth == 1:
         return [
@@ -29,14 +29,7 @@ def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:
 
 
 def _evaluator(context: Mapping[str, object]) -> float:
-    """Return a deterministic score for a candidate payload.
-
-    Args:
-        context: Delegate input containing one candidate.
-
-    Returns:
-        Candidate score hint converted to float.
-    """
+    """Return deterministic score for one candidate payload."""
     candidate = context.get("candidate")
     if isinstance(candidate, Mapping):
         score = candidate.get("score_hint")
@@ -46,16 +39,30 @@ def _evaluator(context: Mapping[str, object]) -> float:
 
 
 def main() -> None:
-    """Run one tree-search reasoning workflow and print result."""
+    """Run one tree-search workflow and print JSON summary."""
+    request_id = "example-workflow-tree-search-design-001"
     pattern = TreeSearchPattern(
         generator_delegate=_generator,
         evaluator_delegate=_evaluator,
         max_depth=2,
         branch_factor=2,
         beam_width=1,
+        tracer=make_tracer(),
     )
-    result = pattern.run("Find a robust concept architecture.")
-    print(result.asdict())
+    result = pattern.run(
+        "Find the most robust concept architecture for a serviceable edge-device enclosure.",
+        request_id=request_id,
+    )
+    output = result.output if isinstance(result.output, dict) else {}
+    payload = {
+        "example": "workflow/tree_search.py",
+        "success": result.success,
+        "final_output": output.get("final_output"),
+        "best_candidate": output.get("best_candidate"),
+        "error": output.get("error"),
+        "trace": trace_info(request_id),
+    }
+    print_json(payload)
 
 
 if __name__ == "__main__":

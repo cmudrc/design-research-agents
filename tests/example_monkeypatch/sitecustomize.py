@@ -50,30 +50,20 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         '{"continue": false, "thought": "Task complete."}',
     ),
-    "examples/agents/basic/multi_step_tool_router_agent.py": (
-        (
-            '{"action":"TOOL_CALL","tool_names":["calculator"],'
-            '"tool_input":{"expression":"12 * (4 + 1)"},"reason":"Compute result."}'
-        ),
-        '{"action":"STOP","final_output":{"result":60.0},"reason":"Task complete."}',
-    ),
     "examples/optimization/multi_step_tool_router_1d_optimization.py": (
+        '{"continue": true, "thought": "Start descending toward zero."}',
         (
-            '{"action":"TOOL_CALL","tool_names":["optimizer.decrease_x"],'
-            '"tool_input":{"step":1},"reason":"Decrease x toward zero."}'
+            '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},'
+            '"reason":"Decrease x toward zero."}'
         ),
+        '{"continue": true, "thought": "Still above zero, continue decreasing."}',
         (
-            '{"action":"TOOL_CALL","tool_names":["optimizer.decrease_x"],'
-            '"tool_input":{"step":1},"reason":"Still positive, keep decreasing."}'
+            '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},'
+            '"reason":"Keep moving toward zero."}'
         ),
-        (
-            '{"action":"TOOL_CALL","tool_names":["optimizer.decrease_x"],'
-            '"tool_input":{"step":1},"reason":"One more step reaches x=0."}'
-        ),
-        (
-            '{"action":"STOP","final_output":{"best_x":0.0,"best_objective":0.0,'
-            '"converged":true},"reason":"No one-step improvement remains."}'
-        ),
+        '{"continue": true, "thought": "One more decrease should reach zero."}',
+        ('{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Reach x=0."}'),
+        '{"continue": false, "thought": "No better one-step move remains."}',
     ),
     "examples/agents/basic/multi_step_direct_llm_agent.py": (
         (

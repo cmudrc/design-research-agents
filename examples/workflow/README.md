@@ -1,79 +1,43 @@
-## Workflow Runtime Examples
+## Workflow Examples
 
-These entrypoints exercise orchestration-level flows, including reusable
-workflow patterns exposed through `design_research_agents.workflow`.
-Most pattern classes follow agent-like reuse semantics:
-initialize once, then call `.run(...)` repeatedly with per-run input.
+These entrypoints cover traced orchestration flows and reusable patterns for
+engineering-design tasks.
 
-## What Each Example Demonstrates
+## Coverage Highlights
+
+- Public patterns: `ConversationPattern`, `DebatePattern`, `PlannerExecutorPattern`,
+  `ReflexionPattern`, `RouterPattern`, `NetworkedPattern`, `BlackboardPattern`,
+  `TreeSearchPattern`, `RagReasoningPattern`.
+- Public workflow step classes demonstrated directly, including:
+  `LogicStep`, `ToolStep`, `AgentStep`, `LoopStep`, `ModelStep`,
+  `DelegateBatchStep`, `MemoryReadStep`, `MemoryWriteStep`.
+
+## Scripts
 
 - `workflow_runtime.py`
-  - Advanced/internal `WorkflowRuntime` orchestration with composed steps.
 - `workflow_runtime_loop_step.py`
-  - Advanced/internal `WorkflowRuntime` orchestration with a composable top-level `LoopStep`.
-- `plan_execute.py`
-  - Planner + executor pattern using runtime tools.
-- `propose_critic.py`
-  - Propose/critique revision loop.
-- `agent_routing.py`
-  - Intent/agent routing with delegate execution.
-- `debate_pattern.py`
-  - Structured affirmative/negative debate with judged synthesis.
-- `conversation_pattern.py`
-  - Two-speaker brainstorming loop with role-specific prompts.
-- `workflow_schema_mode.py`
-  - User-defined `Workflow` with `input_mode="schema"` for structured input payloads.
 - `workflow_prompt_mode.py`
-  - User-defined `Workflow` with `input_mode="prompt"` for string prompt payloads.
+- `workflow_schema_mode.py`
+- `workflow_model_step_design_tradeoff.py`
+- `workflow_delegate_and_memory_steps.py`
+- `plan_execute.py`
+- `propose_critic.py`
+- `agent_routing.py`
+- `debate_pattern.py`
+- `conversation_pattern.py`
 - `networked_blackboard.py`
-  - Peer-only `BlackboardPattern` orchestration without a central coordinator.
 - `tree_search.py`
-  - `TreeSearchPattern` beam-style candidate generation and evaluation.
 - `rag_reasoning.py`
-  - `RagReasoningPattern` chaining memory read, delegated reasoning, and optional write-back.
 
 ## Quick Start
 
-Run from repository root:
-
 ```bash
 PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
-PYTHONPATH=src python3 examples/workflow/workflow_runtime_loop_step.py
-PYTHONPATH=src python3 examples/workflow/plan_execute.py
-PYTHONPATH=src python3 examples/workflow/propose_critic.py
-PYTHONPATH=src python3 examples/workflow/agent_routing.py
-PYTHONPATH=src python3 examples/workflow/debate_pattern.py
-PYTHONPATH=src python3 examples/workflow/conversation_pattern.py
-PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
-PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
-PYTHONPATH=src python3 examples/workflow/networked_blackboard.py
-PYTHONPATH=src python3 examples/workflow/tree_search.py
-PYTHONPATH=src python3 examples/workflow/rag_reasoning.py
+PYTHONPATH=src python3 examples/workflow/workflow_model_step_design_tradeoff.py
+PYTHONPATH=src python3 examples/workflow/workflow_delegate_and_memory_steps.py
 ```
-
-## Implementation Mapping
-
-- `workflow_runtime.py` (internal `WorkflowRuntime`) -> `examples/workflow/workflow_runtime.py`
-- `workflow_runtime_loop_step.py` (`LoopStep`) -> `examples/workflow/workflow_runtime_loop_step.py`
-- `plan_execute.py` (`PlannerExecutorPattern`) -> `examples/workflow/plan_execute.py`
-- `propose_critic.py` (`ReflexionPattern`) -> `examples/workflow/propose_critic.py`
-- `agent_routing.py` (`RouterPattern`) -> `examples/workflow/agent_routing.py`
-- `debate_pattern.py` (`DebatePattern`) -> `examples/workflow/debate_pattern.py`
-- `conversation_pattern.py` (`ConversationPattern`) -> `examples/workflow/conversation_pattern.py`
-- `workflow_schema_mode.py` (`Workflow` in `schema` mode) -> `examples/workflow/workflow_schema_mode.py`
-- `workflow_prompt_mode.py` (`Workflow` in `prompt` mode) -> `examples/workflow/workflow_prompt_mode.py`
-- `networked_blackboard.py` (`BlackboardPattern`) -> `examples/workflow/networked_blackboard.py`
-- `tree_search.py` (`TreeSearchPattern`) -> `examples/workflow/tree_search.py`
-- `rag_reasoning.py` (`RagReasoningPattern`) -> `examples/workflow/rag_reasoning.py`
 
 ## Expected Outputs
 
-- Scripts print structured workflow or runtime result payloads.
-- Some flows generate artifacts under `artifacts/examples`.
-
-## Troubleshooting
-
-- Missing local backend dependencies:
-  - Install local extras: `pip install -e '.[local]'`.
-- LLM startup timeouts:
-  - Increase local backend startup timeout in your LLM config if needed.
+- Each script prints run summaries with key orchestration fields.
+- All scripts include trace metadata.

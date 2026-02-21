@@ -50,7 +50,7 @@ Requires Python 3.12+.
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-pip install -e ".[dev,local]"
+pip install -e ".[dev,full]"
 make test
 make run-example
 ```

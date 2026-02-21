@@ -1,15 +1,25 @@
-"""Configure ``LlamaCppServerLLMClient`` with explicit local-server settings."""
+"""Run a traced representative ``LlamaCppServerLLMClient`` chat call.
+
+Expected observations:
+- output includes one representative chat completion under ``llm_call``.
+- ``llm_call.response_has_text`` is ``true``.
+- ``trace.trace_path`` points to emitted trace JSONL.
+"""
 
 from __future__ import annotations
 
-import json
 import sys
 
 from design_research_agents.llm.clients import LlamaCppServerLLMClient
+from design_research_agents.shared.example_support import (
+    print_json,
+    run_representative_chat,
+    run_traced_callable,
+    trace_info,
+)
 
 
-def main() -> None:
-    """Build a fully configured local llama-cpp client and print settings."""
+def _build_payload() -> dict[str, object]:
     client = LlamaCppServerLLMClient(
         name="llama-local-dev",
         model="Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
@@ -28,9 +38,17 @@ def main() -> None:
     try:
         backend = client._backend
         server = client._llama_server
-        payload = {
+        llm_call = run_representative_chat(
+            client=client,
+            prompt="In one sentence, explain a key tradeoff in engineering design reviews.",
+            deterministic_response=(
+                "Tradeoff: strict review gates improve reliability but can slow delivery speed."
+            ),
+        )
+        return {
             "client_class": client.__class__.__name__,
             "default_model": client.default_model(),
+            "llm_call": llm_call,
             "backend": {
                 "name": backend.name,
                 "kind": backend.kind,
@@ -50,9 +68,23 @@ def main() -> None:
                 "extra_server_args": list(server.extra_server_args),
             },
         }
-        print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
     finally:
         client.close()
+
+
+def main() -> None:
+    """Run traced llama-cpp client call payload."""
+    request_id = "example-clients-llama-cpp-call-001"
+    payload = run_traced_callable(
+        agent_name="ExamplesLlamaCppClientCall",
+        request_id=request_id,
+        input_payload={"scenario": "llama-cpp-client-call"},
+        function=_build_payload,
+    )
+    assert isinstance(payload, dict)
+    payload["example"] = "clients/llama_cpp_server_client.py"
+    payload["trace"] = trace_info(request_id)
+    print_json(payload)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,10 @@
-"""Source-fusion runtime example combining core, script, and MCP tools."""
+"""Run traced source-fusion runtime example across core/script/MCP tool sources.
+
+Expected observations:
+- output includes script/core/MCP metrics over the same input text.
+- report artifact path is written under ``artifacts/examples``.
+- ``trace.trace_path`` points to emitted trace JSONL.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +12,12 @@ import json
 import sys
 from collections.abc import Mapping
 
-from design_research_agents import Toolbox
-from design_research_agents.tools.config import McpServer, ScriptTool
+from design_research_agents import McpServer, ScriptTool, Toolbox
+from design_research_agents.shared.example_support import (
+    print_json,
+    run_traced_callable,
+    trace_info,
+)
 
 
 def _invoke_dict(
@@ -15,19 +25,6 @@ def _invoke_dict(
     tool_name: str,
     tool_input_payload: Mapping[str, object],
 ) -> dict[str, object]:
-    """Run invoke dict.
-
-    Args:
-        runtime: Parameter value.
-        tool_name: Parameter value.
-        tool_input_payload: Parameter value.
-
-    Returns:
-        The resulting value.
-
-    Raises:
-        Exception: Raised when execution fails.
-    """
     tool_result = runtime.invoke(
         tool_name,
         tool_input_payload,
@@ -44,8 +41,19 @@ def _invoke_dict(
     return tool_result.result
 
 
-def main() -> None:
-    """Run a deterministic multi-source story and persist a JSON artifact."""
+def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
+    counts = {"core": 0, "script": 0, "mcp": 0}
+    for spec in runtime.list_tools():
+        if spec.name.startswith("script::"):
+            counts["script"] += 1
+        elif spec.name.startswith("local_core::"):
+            counts["mcp"] += 1
+        else:
+            counts["core"] += 1
+    return counts
+
+
+def _run_report() -> dict[str, object]:
     runtime = Toolbox(
         workspace_root=".",
         enable_core_tools=True,
@@ -77,49 +85,45 @@ def main() -> None:
         ),
     )
 
-    story_text = (
-        "We combined core, script, and mcp tools to create one deterministic research report "
-        "for the runtime examples folder."
+    source_text = (
+        "Design review checklist: verify latch durability, reduce assembly time, "
+        "and keep maintenance steps field-serviceable."
     )
 
     try:
+        source_tool_counts = _source_tool_counts(runtime)
         write_result = _invoke_dict(
             runtime,
             "fs.write_text",
             {
-                "path": "artifacts/examples/source_fusion_story_text.txt",
-                "content": story_text,
+                "path": "artifacts/examples/source_fusion_story_input.txt",
+                "content": source_text,
                 "overwrite": True,
             },
         )
         script_score = _invoke_dict(
             runtime,
             "script::rubric_score",
-            {"text": story_text, "max_score": 20},
+            {"text": source_text, "max_score": 20},
         )
-        mcp_stats = _invoke_dict(runtime, "local_core::text.word_count", {"text": story_text})
-        source_hits = _invoke_dict(
-            runtime,
-            "search.ripgrep",
-            {
-                "query": "Toolbox",
-                "root": "src/design_research_agents/tools",
-                "max_matches": 5,
-            },
-        )
-        combined = _invoke_dict(
+        core_stats = _invoke_dict(runtime, "text.word_count", {"text": source_text})
+        mcp_stats = _invoke_dict(runtime, "local_core::text.word_count", {"text": source_text})
+        score_percent = _invoke_dict(
             runtime,
             "local_core::calculator",
-            {"expression": f"{script_score['score']} + {mcp_stats['word_count']}"},
+            {"expression": (f"({script_score['score']} / {script_score['max_score']}) * 100")},
         )
 
         report = {
-            "story_path": write_result["path"],
+            "input_path": write_result["path"],
+            "source_tool_counts": source_tool_counts,
             "script_score": script_score["score"],
             "script_max_score": script_score["max_score"],
+            "core_word_count": core_stats["word_count"],
             "mcp_word_count": mcp_stats["word_count"],
-            "source_hit_count": source_hits["count"],
-            "combined_metric": combined["result"],
+            "word_count_match": core_stats["word_count"] == mcp_stats["word_count"],
+            "score_percent": score_percent["result"],
+            "script_trace_path": script_score.get("trace_path"),
         }
         report_write = _invoke_dict(
             runtime,
@@ -134,7 +138,22 @@ def main() -> None:
     finally:
         runtime.close()
 
-    print(json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True))
+    return report
+
+
+def main() -> None:
+    """Run traced multi-source report generation."""
+    request_id = "example-tools-source-fusion-design-001"
+    report = run_traced_callable(
+        agent_name="ExamplesSourceFusion",
+        request_id=request_id,
+        input_payload={"scenario": "source-fusion-design"},
+        function=_run_report,
+    )
+    assert isinstance(report, dict)
+    report["example"] = "tools/source_fusion_story.py"
+    report["trace"] = trace_info(request_id)
+    print_json(report)
 
 
 if __name__ == "__main__":

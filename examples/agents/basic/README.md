@@ -1,50 +1,32 @@
 ## Basic Agent Examples
 
-These examples run one complete non-streaming call per script and print an
-`ExecutionResult`.
+These scripts run one complete non-streaming call per example and print compact
+result payloads with trace metadata.
 
-## What Each Example Demonstrates
+## Examples
 
 - `direct_llm_call.py`
-  - One direct LLM completion without tool calling.
-- `multi_step_code_tool_calling_agent.py`
-  - `MultiStepAgent(mode="code")`: multi-step ReAct loop using generated code actions.
-- `multi_step_json_tool_calling_agent.py`
-  - `MultiStepAgent(mode="json")`: multi-step ReAct loop using JSON tool-call actions.
-- `multi_step_json_with_memory.py`
-  - `MultiStepAgent(mode="json")` with local memory retrieval and write-back.
-- `multi_step_tool_router_agent.py`
-  - `MultiStepAgent(mode="json")` router special-case where each step is TOOL_CALL or STOP.
+  - `DirectLLMCall` for one engineering-design objective prompt.
 - `multi_step_direct_llm_agent.py`
-  - `MultiStepAgent(mode="direct")` with CONTINUE/STOP decisions.
+  - `MultiStepAgent(mode="direct")` with CONTINUE/STOP progression.
+- `multi_step_json_tool_calling_agent.py`
+  - `MultiStepAgent(mode="json")` with callable-tool risk scoring.
+- `multi_step_code_tool_calling_agent.py`
+  - `MultiStepAgent(mode="code")` with tool-backed code action steps.
+- `multi_step_json_with_memory.py`
+  - `MultiStepAgent(mode="json")` with memory retrieval/write-back.
 
 ## Quick Start
 
-Run from repository root:
-
 ```bash
 PYTHONPATH=src python3 examples/agents/basic/direct_llm_call.py
-PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
-PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
-PYTHONPATH=src python3 examples/agents/basic/multi_step_json_with_memory.py
-PYTHONPATH=src python3 examples/agents/basic/multi_step_tool_router_agent.py
 PYTHONPATH=src python3 examples/agents/basic/multi_step_direct_llm_agent.py
+PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
+PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
+PYTHONPATH=src python3 examples/agents/basic/multi_step_json_with_memory.py
 ```
 
 ## Expected Outputs
 
-- Each script prints one `ExecutionResult` payload.
-- For tool-calling examples, `tool_results` should contain at least one tool invocation.
-- For multi-step examples, metadata should show continuation/iteration behavior.
-
-## Notes
-
-- Most examples default to a live local `llama-cpp-server` endpoint.
-- They print `ExecutionResult` payloads directly for quick inspection.
-
-## Troubleshooting
-
-- Missing local backend dependencies:
-  - Install local extras: `pip install -e '.[local]'`.
-- Timeouts on first run:
-  - Local model server startup can take longer while loading weights.
+- `success`, termination/final output fields, and run summary metadata.
+- `trace.trace_path` for each run.

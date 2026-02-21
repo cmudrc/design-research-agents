@@ -33,6 +33,7 @@ Get started
 -----------
 
 - :doc:`quickstart` for a fast, end-to-end example.
+- :doc:`examples/index` for scenario-driven runnable examples and expected observations.
 - :doc:`llm_clients/index` to choose local or remote client backends.
 - :doc:`tools/index` for unified runtime + MCP + script tools.
 - :doc:`agents/index` to understand agent execution tradeoffs.
@@ -47,6 +48,7 @@ Get started
    :hidden:
 
    quickstart
+   examples/index
    philosophy
    llm_clients/index
    tools/index

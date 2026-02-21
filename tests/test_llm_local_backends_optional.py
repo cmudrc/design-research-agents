@@ -73,6 +73,20 @@ def test_transformers_streaming_available_detection(
     assert transformers_local._streaming_available() is False
 
 
+def test_transformers_generation_control_kwargs() -> None:
+    assert transformers_local._generation_control_kwargs(None) == {}
+    assert transformers_local._generation_control_kwargs(0.2) == {
+        "do_sample": True,
+        "temperature": 0.2,
+    }
+    assert transformers_local._generation_control_kwargs(0.0) == {
+        "do_sample": False,
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "top_k": 50,
+    }
+
+
 def test_mlx_prompt_fallback_and_streaming_support(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -154,3 +168,34 @@ def test_mlx_generate_stream_kwarg_and_import_error(
 
     monkeypatch.setattr(builtins, "__import__", _fake_import)
     assert mlx_local._mlx_supports_streaming() is False
+
+
+def test_mlx_generate_uses_sampler_when_sample_utils_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_module = ModuleType("mlx_lm")
+    fake_module.__path__ = []  # Mark as package so submodule import path is valid.
+    fake_sample_utils = ModuleType("mlx_lm.sample_utils")
+    calls: list[dict[str, object]] = []
+
+    def _generate_no_stream(
+        model: object,
+        tokenizer: object,
+        prompt: str,
+        **kwargs: object,
+    ) -> str:
+        del model, tokenizer, prompt
+        calls.append(dict(kwargs))
+        return "ok"
+
+    def _make_sampler(temp: float) -> object:
+        return {"sampler_temp": temp}
+
+    fake_module.generate = _generate_no_stream
+    fake_sample_utils.make_sampler = _make_sampler
+    monkeypatch.setitem(sys.modules, "mlx_lm", fake_module)
+    monkeypatch.setitem(sys.modules, "mlx_lm.sample_utils", fake_sample_utils)
+
+    assert mlx_local._mlx_generate(object(), object(), "p", max_tokens=10, temperature=0.2) == "ok"
+    assert calls[-1]["sampler"] == {"sampler_temp": 0.2}
+    assert "temp" not in calls[-1]

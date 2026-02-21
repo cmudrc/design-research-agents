@@ -1,14 +1,23 @@
-"""Configure ``MlxLocalLLMClient`` with explicit local MLX settings."""
+"""Run a traced representative ``MlxLocalLLMClient`` chat call.
+
+Expected observations:
+- output includes one representative chat completion under ``llm_call``.
+- ``llm_call.response_has_text`` is ``true``.
+- ``trace.trace_path`` points to emitted trace JSONL.
+"""
 
 from __future__ import annotations
 
-import json
-
 from design_research_agents import MlxLocalLLMClient
+from design_research_agents.shared.example_support import (
+    print_json,
+    run_representative_chat,
+    run_traced_callable,
+    trace_info,
+)
 
 
-def main() -> None:
-    """Build a fully configured MLX local client and print settings."""
+def _build_payload() -> dict[str, object]:
     client = MlxLocalLLMClient(
         name="mlx-local-dev",
         model_id="mlx-community/Qwen2.5-1.5B-Instruct-4bit",
@@ -19,9 +28,17 @@ def main() -> None:
     )
     backend = client._backend
     capabilities = backend.capabilities()
-    payload = {
+    llm_call = run_representative_chat(
+        client=client,
+        prompt="Give one concise guideline for maintainable design telemetry schemas.",
+        deterministic_response=(
+            "Keep schema fields stable, documented, and versioned for comparability."
+        ),
+    )
+    return {
         "client_class": client.__class__.__name__,
         "default_model": client.default_model(),
+        "llm_call": llm_call,
         "backend": {
             "name": backend.name,
             "kind": backend.kind,
@@ -38,7 +55,21 @@ def main() -> None:
             "max_context_tokens": capabilities.max_context_tokens,
         },
     }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+
+
+def main() -> None:
+    """Run traced MLX client call payload."""
+    request_id = "example-clients-mlx-local-call-001"
+    payload = run_traced_callable(
+        agent_name="ExamplesMlxClientCall",
+        request_id=request_id,
+        input_payload={"scenario": "mlx-local-client-call"},
+        function=_build_payload,
+    )
+    assert isinstance(payload, dict)
+    payload["example"] = "clients/mlx_local_client.py"
+    payload["trace"] = trace_info(request_id)
+    print_json(payload)
 
 
 if __name__ == "__main__":

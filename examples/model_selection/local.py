@@ -1,18 +1,27 @@
-"""Runnable example showing cost-constrained local model selection.
+"""Run traced local-first model selection for a design summarization task.
 
-The script uses a fixed hardware profile and a strict cost cap to keep
-selection on a local model, then prints the decision.
+Expected observations:
+- decision indicates local-capable candidate under strict cost constraints.
+- output contains provider/model rationale fields.
+- ``trace.trace_path`` points to emitted trace JSONL.
 """
 
+from __future__ import annotations
+
+from dataclasses import asdict
+
 from design_research_agents import ModelSelector
+from design_research_agents.shared.example_support import (
+    print_json,
+    run_traced_callable,
+    trace_info,
+)
 
 
-def main() -> None:
-    """Select a local model under a tight cost cap and print the decision."""
+def _select_local() -> dict[str, object]:
     selector = ModelSelector()
-    # Cost cap below the remote floor keeps selection local.
     decision = selector.select(
-        task="Summarize a research memo for stakeholders.",
+        task="Summarize engineering design review findings for stakeholders.",
         priority="quality",
         max_cost_usd=0.01,
         hardware_profile={
@@ -27,7 +36,22 @@ def main() -> None:
         },
         output="decision",
     )
-    print(decision)
+    return asdict(decision)
+
+
+def main() -> None:
+    """Run traced local-first model selection and print decision."""
+    request_id = "example-model-selection-local-design-001"
+    payload = run_traced_callable(
+        agent_name="ExamplesModelSelectionLocal",
+        request_id=request_id,
+        input_payload={"scenario": "local-selection"},
+        function=_select_local,
+    )
+    assert isinstance(payload, dict)
+    payload["example"] = "model_selection/local.py"
+    payload["trace"] = trace_info(request_id)
+    print_json(payload)
 
 
 if __name__ == "__main__":

@@ -62,7 +62,8 @@ class MlxLocalBackend(BaseLLMBackend):
         """Return capabilities inferred from installed MLX version.
 
         Returns:
-            The resulting value.
+            Backend capability flags for streaming, tools, JSON behavior,
+            and other runtime limits.
         """
         return BackendCapabilities(
             streaming=_mlx_supports_streaming(),
@@ -76,18 +77,18 @@ class MlxLocalBackend(BaseLLMBackend):
         """Return static health state for configured MLX backend.
 
         Returns:
-            The resulting value.
+            A healthy status when configuration is valid.
         """
         return BackendStatus(ok=True, message="MLX backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
-        """Run generate.
+        """Generate a non-streaming completion for one request.
 
         Args:
-            request: Parameter value.
+            request: Normalized request payload containing messages and options.
 
         Returns:
-            The resulting value.
+            Completed response text with provider/model metadata.
         """
         model, tokenizer = self._ensure_model()
         prompt = _format_prompt(request, tokenizer)
@@ -102,13 +103,13 @@ class MlxLocalBackend(BaseLLMBackend):
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        """Run stream.
+        """Generate and yield streaming text deltas for one request.
 
         Args:
-            request: Parameter value.
+            request: Normalized request payload containing messages and options.
 
         Yields:
-            The yielded values.
+            Incremental text chunks from model output.
         """
         model, tokenizer = self._ensure_model()
         prompt = _format_prompt(request, tokenizer)
@@ -129,13 +130,14 @@ class MlxLocalBackend(BaseLLMBackend):
                 yield LLMDelta(text_delta=str(chunk))
 
     def _ensure_model(self) -> tuple[Any, Any]:
-        """Run ensure model.
+        """Lazily load and cache the MLX model/tokenizer pair.
 
         Returns:
-            The resulting value.
+            Tuple of loaded ``(model, tokenizer)`` objects.
 
         Raises:
-            Exception: Raised when execution fails.
+            RuntimeError: If ``mlx-lm`` is unavailable or load returns
+                an unexpected shape.
         """
         if self._model is not None and self._tokenizer is not None:
             return self._model, self._tokenizer
@@ -156,14 +158,14 @@ class MlxLocalBackend(BaseLLMBackend):
 
 
 def _format_prompt(request: LLMRequest, tokenizer: Any | None) -> str:
-    """Run format prompt.
+    """Format chat messages into a model prompt string.
 
     Args:
-        request: Parameter value.
-        tokenizer: Parameter value.
+        request: LLM request containing ordered chat messages.
+        tokenizer: Optional tokenizer with ``apply_chat_template`` support.
 
     Returns:
-        The resulting value.
+        Prompt text ready for MLX generation.
     """
     messages = [{"role": message.role, "content": message.content} for message in request.messages]
     if tokenizer is not None and hasattr(tokenizer, "apply_chat_template"):
@@ -188,25 +190,32 @@ def _mlx_generate(
     temperature: float | None,
     stream: bool | None = None,
 ) -> str | Iterator[str]:
-    """Run mlx generate.
+    """Call ``mlx_lm.generate`` with backward-compatible sampling kwargs.
 
     Args:
-        model: Parameter value.
-        tokenizer: Parameter value.
-        prompt: Parameter value.
-        max_tokens: Parameter value.
-        temperature: Parameter value.
-        stream: Parameter value.
+        model: Loaded MLX model instance.
+        tokenizer: Tokenizer paired with ``model``.
+        prompt: Prompt string to complete.
+        max_tokens: Maximum completion token budget.
+        temperature: Optional sampling temperature override.
+        stream: Optional streaming flag if supported by installed ``mlx-lm``.
 
     Returns:
-        The resulting value.
+        Either a full string completion or an iterator of streamed chunks.
     """
     from mlx_lm import generate
 
+    temp_value = float(temperature if temperature is not None else 0.7)
     kwargs: dict[str, Any] = {
         "max_tokens": max_tokens,
-        "temp": temperature if temperature is not None else 0.7,
     }
+    try:
+        from mlx_lm.sample_utils import make_sampler
+    except ImportError:
+        # Backward-compatible path for mlx-lm versions that still accept ``temp`` directly.
+        kwargs["temp"] = temp_value
+    else:
+        kwargs["sampler"] = make_sampler(temp_value)
     if stream is not None and "stream" in inspect.signature(generate).parameters:
         kwargs["stream"] = stream
     return cast(str | Iterator[str], generate(model, tokenizer, prompt, **kwargs))
@@ -216,7 +225,7 @@ def _mlx_supports_streaming() -> bool:
     """Run mlx supports streaming.
 
     Returns:
-        The resulting value.
+        ``True`` when installed ``mlx_lm.generate`` exposes a ``stream`` kwarg.
     """
     try:
         from mlx_lm import generate

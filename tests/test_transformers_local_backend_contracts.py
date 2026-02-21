@@ -106,6 +106,10 @@ def test_transformers_local_backend_generate_and_caching(monkeypatch: pytest.Mon
 
     response = backend._generate(_request())
     assert response.text == "decoded-output"
+    assert model.generate_calls
+    first_call = model.generate_calls[0]
+    assert "temperature" not in first_call
+    assert "do_sample" not in first_call
     assert calls == {"tokenizer": 1, "model": 1}
     assert captured_model_kwargs["load_in_8bit"] is True
     assert captured_model_kwargs["device_map"] == "auto"
@@ -116,6 +120,50 @@ def test_transformers_local_backend_generate_and_caching(monkeypatch: pytest.Mon
 
     backend._ensure_model()
     assert calls == {"tokenizer": 1, "model": 1}
+
+
+def test_transformers_local_backend_generate_temperature_controls() -> None:
+    tokenizer = _FakeTokenizer()
+    model = _FakeModel()
+    backend = TransformersLocalBackend(
+        name="local-transformers",
+        model_id="demo-model",
+        default_model="demo-model",
+        device=None,
+        dtype=None,
+        quantization="none",
+        trust_remote_code=False,
+        revision=None,
+        config_hash="cfg",
+    )
+    backend._tokenizer = tokenizer
+    backend._model = model
+
+    backend._generate(
+        LLMRequest(
+            messages=[LLMMessage(role="user", content="hi")],
+            model="demo",
+            temperature=0.3,
+        )
+    )
+    sampled_call = model.generate_calls[-1]
+    assert sampled_call["do_sample"] is True
+    assert sampled_call["temperature"] == 0.3
+    assert "top_p" not in sampled_call
+    assert "top_k" not in sampled_call
+
+    backend._generate(
+        LLMRequest(
+            messages=[LLMMessage(role="user", content="hi")],
+            model="demo",
+            temperature=0.0,
+        )
+    )
+    greedy_call = model.generate_calls[-1]
+    assert greedy_call["do_sample"] is False
+    assert greedy_call["temperature"] == 1.0
+    assert greedy_call["top_p"] == 1.0
+    assert greedy_call["top_k"] == 50
 
 
 def test_transformers_local_backend_stream_import_error_returns_empty(

@@ -1,82 +1,74 @@
-"""Runnable example for ``BlackboardPattern`` peer coordination."""
+"""Run traced ``NetworkedPattern`` and ``BlackboardPattern`` design coordination.
+
+Expected observations:
+- both peer-only patterns execute and report termination reasons.
+- blackboard run reports message count and convergence status.
+- ``trace`` metadata is present for both runs.
+"""
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
-
-from design_research_agents.contracts import Agent, ExecutionResult
-from design_research_agents.workflow import BlackboardPattern
+from design_research_agents import BlackboardPattern, NetworkedPattern
+from design_research_agents.shared.deterministic_design_helpers import FixedDesignPeerAgent
+from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
 
 
-class FixedPeerAgent(Agent):
-    """Deterministic peer used for blackboard demonstration."""
-
-    def __init__(self, *, message: str, stop: bool = False) -> None:
-        """Store fixed contribution payload for this peer.
-
-        Args:
-            message: Message this peer contributes each round.
-            stop: Whether this peer signals stop.
-        """
-        self._message = message
-        self._stop = stop
-
-    def run(
-        self,
-        prompt: str,
-        *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
-    ) -> ExecutionResult:
-        """Return one fixed peer contribution.
-
-        Args:
-            prompt: Peer prompt payload.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Returns:
-            Deterministic peer contribution.
-        """
-        del prompt, request_id, dependencies
-        return ExecutionResult(
-            output={
-                "messages": [self._message],
-                "proposals": {},
-                "decisions": {},
-                "stop": self._stop,
-            },
-            success=True,
-            tool_results=[],
-            model_response=None,
-            metadata={"peer": self._message},
-        )
-
-
-def main() -> None:
-    """Run one blackboard coordination workflow and print result."""
-    pattern = BlackboardPattern(
-        peers={
-            "peer_b": FixedPeerAgent(message="peer_b proposes option B"),
-            "peer_a": FixedPeerAgent(message="peer_a proposes option A"),
-        },
-        max_rounds=3,
-        stability_rounds=2,
-    )
-    result = pattern.run("Compare two concept options and converge.")
+def _summarize(result: object, request_id: str) -> dict[str, object]:
+    if not hasattr(result, "success") or not hasattr(result, "output"):
+        return {"success": False, "error": "unexpected result", "trace": trace_info(request_id)}
     output = result.output if isinstance(result.output, dict) else {}
     blackboard = output.get("blackboard")
-    messages = blackboard.get("messages") if isinstance(blackboard, dict) else None
-    payload = {
+    messages = blackboard.get("messages") if isinstance(blackboard, dict) else []
+    return {
         "success": result.success,
         "terminated_reason": output.get("terminated_reason"),
         "rounds_executed": output.get("rounds_executed"),
         "message_count": len(messages) if isinstance(messages, list) else 0,
         "final_output": output.get("final_output"),
         "error": output.get("error"),
+        "trace": trace_info(request_id),
     }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+
+
+def main() -> None:
+    """Run one networked and one blackboard coordination pass."""
+    tracer = make_tracer()
+
+    network_request_id = "example-workflow-networked-pattern-design-001"
+    networked = NetworkedPattern(
+        peers={
+            "peer_b": FixedDesignPeerAgent(messages=["peer_b proposes modular latch"]),
+            "peer_a": FixedDesignPeerAgent(messages=["peer_a proposes captive screw rail"]),
+        },
+        max_rounds=2,
+        tracer=tracer,
+    )
+    network_result = networked.run(
+        "Coordinate candidate mechanisms for a field-serviceable sensor enclosure.",
+        request_id=network_request_id,
+    )
+
+    blackboard_request_id = "example-workflow-blackboard-pattern-design-001"
+    blackboard = BlackboardPattern(
+        peers={
+            "peer_b": FixedDesignPeerAgent(messages=["peer_b proposes option B"]),
+            "peer_a": FixedDesignPeerAgent(messages=["peer_a proposes option A"]),
+        },
+        max_rounds=3,
+        stability_rounds=2,
+        tracer=tracer,
+    )
+    blackboard_result = blackboard.run(
+        "Compare two concept options and converge on a serviceable design direction.",
+        request_id=blackboard_request_id,
+    )
+
+    print_json(
+        {
+            "networked_pattern": _summarize(network_result, network_request_id),
+            "blackboard_pattern": _summarize(blackboard_result, blackboard_request_id),
+        }
+    )
 
 
 if __name__ == "__main__":
