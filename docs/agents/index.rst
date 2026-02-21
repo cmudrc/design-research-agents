@@ -39,6 +39,16 @@ Decision table
      - ``MultiStepAgent(mode="code")``
      - ReAct-style loop with code actions
 
+Background references
+---------------------
+
+- `ReAct <https://arxiv.org/abs/2210.03629>`_
+- `Toolformer <https://arxiv.org/abs/2302.04761>`_
+- `MRKL Systems <https://arxiv.org/abs/2205.00445>`_
+
+These references are for conceptual grounding; behavior is defined by the
+contracts and implementation in this repository.
+
 Examples
 --------
 

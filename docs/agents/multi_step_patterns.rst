@@ -35,6 +35,14 @@ Patterns
 - Constructor kwargs expose continuation/step prompt overrides, alternatives
   placement, and per-step memory-tail controls.
 
+Background references
+---------------------
+
+- `ReAct <https://arxiv.org/abs/2210.03629>`_
+
+This reference is for conceptual grounding only; behavior is defined by this
+repository's contracts and implementation.
+
 Continuation and limits
 -----------------------
 

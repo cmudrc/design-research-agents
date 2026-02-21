@@ -30,6 +30,15 @@ RAG orchestration
 2. ``AgentStep`` reasoning delegate (with retrieved context injection)
 3. ``MemoryWriteStep`` (optional write-back)
 
+Background references
+---------------------
+
+- `Retrieval-Augmented Generation (RAG) <https://arxiv.org/abs/2005.11401>`_
+
+The original RAG formulation combines a retriever and generator with
+non-parametric memory; this project implements a workflow-level retrieval and
+context-injection pattern.
+
 Example
 -------
 

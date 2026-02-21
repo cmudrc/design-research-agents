@@ -293,7 +293,31 @@ def test_json_tool_helpers_cover_choice_resolution_and_tool_input_precedence() -
     selected = select_tool_choice(parsed_tool_call=parsed_text, choices=choices)
     assert selected is not None
     assert selected[0].tool_name == "calculator"
+    assert selected[1] == "model"
     assert select_tool_choice(parsed_tool_call={"tool_name": "missing"}, choices=choices) is None
+    assert (
+        select_tool_choice(
+            parsed_tool_call={"action": "STOP", "tool_name": "calculator"},
+            choices=choices,
+        )
+        is None
+    )
+
+    legacy_name = select_tool_choice(
+        parsed_tool_call={"action": "TOOL_CALL", "name": "calculator"},
+        choices=choices,
+    )
+    assert legacy_name is not None
+    assert legacy_name[0].tool_name == "calculator"
+    assert legacy_name[1] == "model_legacy_name"
+
+    legacy_names = select_tool_choice(
+        parsed_tool_call={"action": "TOOL_CALL", "tool_names": [1, " text.word_count "]},
+        choices=choices,
+    )
+    assert legacy_names is not None
+    assert legacy_names[0].tool_name == "text.word_count"
+    assert legacy_names[1] == "model_legacy_tool_names"
 
     resolved_from_model = resolve_tool_input(
         selected_choice=choices[0],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 
 from design_research_agents.contracts.agent import Agent
@@ -48,6 +49,9 @@ from design_research_agents.implementations.shared.agent_internal.prompt_overrid
     render_template_text,
     resolve_prompt_text,
 )
+from design_research_agents.implementations.shared.agent_internal.tool_input import (
+    resolve_known_tool_input,
+)
 from design_research_agents.implementations.shared.agent_internal.workflow_first_envelope import (
     build_workflow_first_output,
 )
@@ -66,6 +70,9 @@ from .code_action_step_workflow_helpers import (
     llm_response_or_none,
     mapping_or_empty,
 )
+
+_DISALLOWED_TOOL_ERROR_FRAGMENT = "is not in the allowed tool list"
+_ARITHMETIC_CANDIDATE_PATTERN = re.compile(r"^[0-9\.\+\-\*\/%\(\)\s]+$")
 
 
 class CodeActionStepRunner(Agent):
@@ -154,7 +161,8 @@ class CodeActionStepRunner(Agent):
             Final agent result payload.
 
         Raises:
-            Exception: Raised when execution fails.
+            RuntimeError: If the workflow omits required finalize-step output.
+            TypeError: If finalize output does not contain an ``ExecutionResult`` payload.
         """
         execution_context = prepare_agent_execution(
             prompt=prompt,
@@ -495,6 +503,21 @@ class CodeActionStepRunner(Agent):
                 tool_results=tool_results,
             )
         except Exception as exc:
+            recovered_output = self._recover_from_execution_error(
+                execution_error=exc,
+                prompt=str(resolved.get("prompt", "")),
+                normalized_input=mapping_or_empty(resolved.get("normalized_input")),
+                request_id=str(resolved.get("request_id", "")),
+                dependencies=mapping_or_empty(resolved.get("dependencies")),
+                allowed_tools=allowed_tools,
+                tool_results=tool_results,
+                llm_response=llm_response,
+                generated_code=code_text,
+                raw_generated_code=generated.get("raw_generated_code"),
+                code_normalization=generated.get("code_normalization"),
+            )
+            if recovered_output is not None:
+                return recovered_output
             return {
                 "success": False,
                 "error": f"Sandboxed code execution failed: {exc}",
@@ -525,6 +548,153 @@ class CodeActionStepRunner(Agent):
             "tool_results": tool_results,
             "code_normalization": mapping_or_empty(generated.get("code_normalization")),
         }
+
+    def _recover_from_execution_error(
+        self,
+        *,
+        execution_error: Exception,
+        prompt: str,
+        normalized_input: Mapping[str, object],
+        request_id: str,
+        dependencies: Mapping[str, object],
+        allowed_tools: Sequence[AllowedTool],
+        tool_results: list[ToolResult],
+        llm_response: LLMResponse,
+        generated_code: str,
+        raw_generated_code: object,
+        code_normalization: object,
+    ) -> Mapping[str, object] | None:
+        """Attempt guardrail-safe fallback execution for disallowed tool calls.
+
+        Args:
+            execution_error: Underlying execution exception from sandbox runtime.
+            prompt: Prompt text associated with this code step.
+            normalized_input: Normalized step input payload.
+            request_id: Request id for runtime tool calls.
+            dependencies: Dependency mapping for runtime tool calls.
+            allowed_tools: Allowed tool descriptors for this step.
+            tool_results: Mutable step-level tool result collector.
+            llm_response: Model response that produced the generated code.
+            generated_code: Generated code text.
+            raw_generated_code: Raw generated code text before normalization.
+            code_normalization: Optional code-normalization metadata payload.
+
+        Returns:
+            Successful execute-step payload when recovery succeeds, else ``None``.
+        """
+        error_text = str(execution_error)
+        if _DISALLOWED_TOOL_ERROR_FRAGMENT not in error_text:
+            return None
+        if tool_results:
+            return None
+
+        recovered_final_output = self._resolve_known_tool_recovery_output(
+            prompt=prompt,
+            normalized_input=normalized_input,
+            request_id=request_id,
+            dependencies=dependencies,
+            allowed_tools=allowed_tools,
+            tool_results=tool_results,
+        )
+        if recovered_final_output is None:
+            return None
+
+        emit_guardrail_decision(
+            guardrail="tool_call_allowed_recovery",
+            decision="recover",
+            reason="used known-tool fallback after disallowed tool call",
+            details={
+                "allowed_tools": [allowed_tool.tool_name for allowed_tool in allowed_tools],
+                "error": error_text,
+            },
+        )
+        payload: dict[str, object] = {
+            "success": True,
+            "model_response": llm_response,
+            "generated_code": generated_code,
+            "final_output": recovered_final_output,
+            "tool_results": tool_results,
+            "code_normalization": mapping_or_empty(code_normalization),
+        }
+        if isinstance(raw_generated_code, str):
+            payload["raw_generated_code"] = raw_generated_code
+        return payload
+
+    def _resolve_known_tool_recovery_output(
+        self,
+        *,
+        prompt: str,
+        normalized_input: Mapping[str, object],
+        request_id: str,
+        dependencies: Mapping[str, object],
+        allowed_tools: Sequence[AllowedTool],
+        tool_results: list[ToolResult],
+    ) -> dict[str, object] | None:
+        """Run a deterministic fallback plan when exactly one known tool is allowed.
+
+        Args:
+            prompt: Prompt text associated with this code step.
+            normalized_input: Normalized step input payload.
+            request_id: Request id for runtime tool calls.
+            dependencies: Dependency mapping for runtime tool calls.
+            allowed_tools: Allowed tool descriptors for this step.
+            tool_results: Mutable step-level tool result collector.
+
+        Returns:
+            Final output mapping when fallback execution succeeds, else ``None``.
+        """
+        if len(allowed_tools) != 1:
+            return None
+        selected_tool_name = allowed_tools[0].tool_name
+        fallback_tool_results: list[ToolResult] = []
+
+        if selected_tool_name == "calculator":
+            expressions = _resolve_calculator_expressions(
+                prompt=prompt,
+                input_payload=normalized_input,
+            )
+            if not expressions:
+                return None
+
+            calculator_results: list[dict[str, object]] = []
+            for expression in expressions:
+                tool_result = self._tool_runtime.invoke(
+                    selected_tool_name,
+                    {"expression": expression},
+                    request_id=request_id,
+                    dependencies=dependencies,
+                )
+                fallback_tool_results.append(tool_result)
+                if not tool_result.ok or not isinstance(tool_result.result, Mapping):
+                    return None
+                calculator_results.append(dict(tool_result.result))
+            tool_results.extend(fallback_tool_results)
+
+            if len(calculator_results) == 1:
+                return calculator_results[0]
+            return {
+                "results": calculator_results,
+                "result": calculator_results[-1].get("result"),
+            }
+
+        known_tool_input = resolve_known_tool_input(
+            tool_name=selected_tool_name,
+            input_payload={**dict(normalized_input), "prompt": prompt},
+        )
+        if known_tool_input is None:
+            return None
+
+        tool_result = self._tool_runtime.invoke(
+            selected_tool_name,
+            known_tool_input,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        fallback_tool_results.append(tool_result)
+        if not tool_result.ok or not isinstance(tool_result.result, Mapping):
+            return None
+        tool_results.extend(fallback_tool_results)
+        return dict(tool_result.result)
 
     def _finalize_handler(self, context: Mapping[str, object]) -> Mapping[str, object]:
         """Assemble final agent result from staged workflow outputs.
@@ -706,7 +876,7 @@ class CodeActionStepRunner(Agent):
             LLM response containing the generated code.
 
         Raises:
-            Exception: Raised when execution fails.
+            Exception: Propagated when the underlying LLM client chat request fails.
         """
         tool_lines: list[str] = []
         for allowed_tool in allowed_tools:
@@ -757,6 +927,99 @@ class CodeActionStepRunner(Agent):
             raise
         finish_model_call(model_span_id, response=response)
         return response
+
+
+def _resolve_calculator_expressions(
+    *,
+    prompt: str,
+    input_payload: Mapping[str, object],
+) -> list[str]:
+    """Resolve arithmetic expressions for deterministic calculator fallback.
+
+    Args:
+        prompt: Prompt text that may contain arithmetic expressions.
+        input_payload: Step input payload that may include expression overrides.
+
+    Returns:
+        Ordered list of normalized arithmetic expressions.
+    """
+    candidates: list[str] = []
+    raw_expressions = input_payload.get("expressions")
+    if isinstance(raw_expressions, Sequence) and not isinstance(raw_expressions, (str, bytes)):
+        for raw_expression in raw_expressions:
+            if isinstance(raw_expression, str):
+                candidates.append(raw_expression)
+
+    raw_expression = input_payload.get("expression")
+    if isinstance(raw_expression, str):
+        candidates.append(raw_expression)
+
+    candidates.extend(_extract_parenthesized_expressions(prompt))
+    if not candidates:
+        known_tool_input = resolve_known_tool_input(
+            tool_name="calculator",
+            input_payload={**dict(input_payload), "prompt": prompt},
+        )
+        expression = (
+            known_tool_input.get("expression") if isinstance(known_tool_input, Mapping) else None
+        )
+        if isinstance(expression, str):
+            candidates.append(expression)
+
+    normalized_candidates: list[str] = []
+    for candidate in candidates:
+        normalized_expression = _normalize_arithmetic_expression(candidate)
+        if normalized_expression is not None:
+            normalized_candidates.append(normalized_expression)
+    return list(dict.fromkeys(normalized_candidates))
+
+
+def _extract_parenthesized_expressions(text: str) -> list[str]:
+    """Extract balanced parenthesized substrings from text in encounter order.
+
+    Args:
+        text: Source text that may contain arithmetic expressions.
+
+    Returns:
+        Parenthesized substring candidates.
+    """
+    expressions: list[str] = []
+    depth = 0
+    start_index: int | None = None
+    for index, char in enumerate(text):
+        if char == "(":
+            if depth == 0:
+                start_index = index
+            depth += 1
+            continue
+        if char != ")" or depth == 0:
+            continue
+        depth -= 1
+        if depth == 0 and start_index is not None:
+            expressions.append(text[start_index : index + 1])
+            start_index = None
+    return expressions
+
+
+def _normalize_arithmetic_expression(candidate: str) -> str | None:
+    """Normalize one arithmetic-expression candidate when it matches safe heuristics.
+
+    Args:
+        candidate: Candidate expression text.
+
+    Returns:
+        Normalized expression string, or ``None`` when candidate is not arithmetic.
+    """
+    normalized = candidate.strip().strip(".,;:")
+    if not normalized:
+        return None
+    if not any(operator in normalized for operator in "+-*/%"):
+        return None
+    if not any(character.isdigit() for character in normalized):
+        return None
+    if _ARITHMETIC_CANDIDATE_PATTERN.fullmatch(normalized) is None:
+        return None
+    return normalized
 
 
 __all__ = [

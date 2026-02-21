@@ -22,6 +22,8 @@ Observability and bells and whistles
 Background references
 ---------------------
 
+Background references (conceptual grounding):
+
 - `Plan-and-Solve Prompting <https://arxiv.org/abs/2305.04091>`_
 - `Reflexion <https://arxiv.org/abs/2303.11366>`_
 - `Tree of Thoughts <https://arxiv.org/abs/2305.10601>`_

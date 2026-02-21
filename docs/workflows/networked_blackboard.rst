@@ -36,6 +36,17 @@ The reducer merges per-peer contributions by channel, appends immutable message
 history entries, computes ``state_hash``, and can declare convergence when the
 hash stays unchanged for configured stability rounds.
 
+Background references
+---------------------
+
+- `AutoGen <https://arxiv.org/abs/2308.08155>`_
+- `CAMEL <https://arxiv.org/abs/2303.17760>`_
+- `MetaGPT <https://arxiv.org/abs/2308.00352>`_
+- `ChatDev <https://arxiv.org/abs/2307.07924>`_
+
+These are examples of LLM multi-agent coordination; our patterns are
+framework-native and intentionally minimal.
+
 Example
 -------
 

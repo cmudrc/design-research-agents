@@ -298,6 +298,36 @@ class JsonActionStepRunner(Agent):
             parsed_tool_call=parsed_tool_call,
             choices=choices,
         )
+        if tool_selection is None and _should_retry_tool_selection(parsed_tool_call):
+            emit_guardrail_decision(
+                guardrail="tool_selection_output",
+                decision="retry",
+                reason="controller-style payload received while selecting tool",
+                details={"stage": "tool_selection"},
+            )
+            retry_span_id = start_model_call(
+                model=resolved_model,
+                messages=model_messages,
+                params=llm_request,
+                metadata={"agent": "JsonActionStepRunner", "phase": "tool_selection_retry"},
+            )
+            try:
+                retry_response = request_tool_call_response(
+                    llm_client=self._llm_client,
+                    llm_request=llm_request,
+                )
+            except Exception as exc:
+                finish_model_call(retry_span_id, error=str(exc), model=resolved_model)
+            else:
+                finish_model_call(retry_span_id, response=retry_response)
+                llm_response = retry_response
+                parsed_tool_call = parse_tool_call_from_response(llm_response)
+                if parsed_tool_call is None:
+                    parsed_tool_call = parse_tool_call(llm_response.text)
+                tool_selection = select_tool_choice(
+                    parsed_tool_call=parsed_tool_call,
+                    choices=choices,
+                )
 
         available_tools = [choice.tool_name for choice in choices]
         if tool_selection is None:
@@ -668,6 +698,27 @@ def _tool_step_id(tool_name: str) -> str:
     sanitized = [ch if ch.isalnum() else "_" for ch in tool_name]
     suffix = "".join(sanitized).strip("_") or "tool"
     return f"invoke_{suffix}"
+
+
+def _should_retry_tool_selection(parsed_tool_call: Mapping[str, object] | None) -> bool:
+    """Return whether selection should retry after receiving controller-style payload.
+
+    Args:
+        parsed_tool_call: Parsed model payload for current selection attempt.
+
+    Returns:
+        ``True`` when payload shape looks like continuation/controller output.
+    """
+    if not isinstance(parsed_tool_call, Mapping):
+        return False
+    continue_value = parsed_tool_call.get("continue")
+    if isinstance(continue_value, bool):
+        return True
+    decision_value = parsed_tool_call.get("decision")
+    return isinstance(decision_value, str) and decision_value.strip().upper() in {
+        "CONTINUE",
+        "STOP",
+    }
 
 
 __all__ = [
