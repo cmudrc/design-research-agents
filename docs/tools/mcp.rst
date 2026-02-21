@@ -11,7 +11,7 @@ Run the built-in server:
 
 .. code-block:: bash
 
-   dra mcp serve
+   python -m design_research_agents.mcp_server
 
 Integration steps
 -----------------
@@ -19,22 +19,38 @@ Integration steps
 1. Confirm target server supports stdio MCP tool methods.
 2. Add a server entry under ``mcp.servers``.
 3. Use a unique ``id``; that becomes tool namespace prefix.
-4. Verify with ``dra mcp ping``.
+4. Verify tools are exposed via ``Toolbox.list_tools()``.
 5. Invoke as ``<id>::<tool_name>``.
 
-CLI helpers
------------
+Programmatic helpers
+--------------------
 
-.. code-block:: bash
+.. code-block:: python
 
-   dra mcp ping --server <id> --config tool_runtime.yaml
-   dra mcp call <tool_name> --json '{"arg":"value"}' --config tool_runtime.yaml
+   from design_research_agents import McpServer, Toolbox
+
+   runtime = Toolbox(
+       mcp_servers=(
+           McpServer(
+               id="local_core",
+               command=("python3", "-m", "design_research_agents.mcp_server"),
+           ),
+       )
+   )
+   names = [spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::")]
+   result = runtime.invoke(
+       "local_core::calculator",
+       {"expression": "2 + 2"},
+       request_id="docs-mcp",
+       dependencies={},
+   )
+   runtime.close()
 
 Troubleshooting
 ---------------
 
 - ``Server '<id>' is not configured``: validate ``mcp.enabled`` and server id.
-- ``Unknown MCP tool '<name>'``: run ``dra mcp ping --server <id>``.
+- ``Unknown MCP tool '<name>'``: inspect ``Toolbox.list_tools()`` for available names.
 - Timeouts: increase ``timeout_s``.
 - Missing env vars: set both ``env_allowlist`` and ``env`` entries.
 

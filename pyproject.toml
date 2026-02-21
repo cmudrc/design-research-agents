@@ -36,9 +36,6 @@ Homepage = "https://cmudrc.github.io/design-research-agents/"
 Repository = "https://github.com/cmudrc/design-research-agents"
 Issues = "https://github.com/cmudrc/design-research-agents/issues"
 
-[project.scripts]
-dra = "design_research_agents.cli:main"
-
 # Optional deps / extras.
 [project.optional-dependencies]
 

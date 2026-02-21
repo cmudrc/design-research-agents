@@ -17,4 +17,3 @@ Public usage should prefer the curated top-level exports in :doc:`/api`.
    schemas
    prompts
    mcp_server
-   cli
