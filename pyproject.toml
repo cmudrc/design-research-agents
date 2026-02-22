@@ -28,7 +28,6 @@ dependencies = [
   "jsonschema>=4.23",
   "mcp>=1.6",
   "openai>=1.40",
-  "pyyaml>=6.0",
 ]
 
 [project.urls]
@@ -125,7 +124,7 @@ markers = [
 
 # Ruff settings for lint/format targets.
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 src = ["src", "tests", "examples"]
 
@@ -178,6 +177,5 @@ module = [
   "torch.*",
   "transformers",
   "transformers.*",
-  "yaml",
 ]
 ignore_missing_imports = true

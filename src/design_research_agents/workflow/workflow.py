@@ -4,23 +4,22 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.memory import MemoryStore
-from design_research_agents.contracts.tools import ToolRuntime
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._memory import MemoryStore
+from design_research_agents._contracts._tools import ToolRuntime
+from design_research_agents._contracts._workflow import (
     ExecutionResult,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
     WorkflowStep,
 )
-from design_research_agents.schemas import validate_payload_against_schema
-from design_research_agents.tracing import Tracer
-from design_research_agents.workflow.internal import (
+from design_research_agents._runtime._common._run_defaults import (
     merge_dependencies,
     normalize_request_id_prefix,
     resolve_request_id_with_prefix,
 )
-
-from .internal.workflow_runtime import WorkflowRuntime
+from design_research_agents._runtime._workflow._engine import WorkflowRuntime
+from design_research_agents._schemas import validate_payload_against_schema
+from design_research_agents._tracing import Tracer
 
 
 def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:

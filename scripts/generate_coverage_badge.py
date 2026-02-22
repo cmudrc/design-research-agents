@@ -14,10 +14,10 @@ def _pick_color(percent: int) -> str:
     """Run pick color.
 
     Args:
-        percent: Parameter value.
+        percent: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if percent >= 90:
         return "#4c1"  # brightgreen
@@ -36,10 +36,10 @@ def _text_width(text: str) -> int:
     """Approximate text width in badge pixels.
 
     Args:
-        text: Parameter value.
+        text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return 10 + (len(text) * 6)
 
@@ -48,12 +48,12 @@ def _render_badge(label: str, message: str, color: str) -> str:
     """Run render badge.
 
     Args:
-        label: Parameter value.
-        message: Parameter value.
-        color: Parameter value.
+        label: Input value for this parameter.
+        message: Input value for this parameter.
+        color: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     label_width = _text_width(label)
     message_width = _text_width(message)
@@ -92,13 +92,13 @@ def _read_percent_display(path: Path) -> int:
     """Run read percent display.
 
     Args:
-        path: Parameter value.
+        path: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
 
     Raises:
-        Exception: Raised when execution fails.
+        Exception: Raised when this operation cannot complete.
     """
     data = json.loads(path.read_text(encoding="utf-8"))
     totals = data.get("totals", {})

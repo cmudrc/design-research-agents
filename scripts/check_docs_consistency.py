@@ -29,9 +29,29 @@ API_AUTODOC_DIRECTIVE_PATTERN = re.compile(
 )
 API_AUTOSUMMARY_ENTRY_PATTERN = re.compile(r"^design_research_agents\.([A-Za-z_][A-Za-z0-9_]*)$")
 INTERNAL_MODULE_PATTERN = re.compile(
-    r"\bdesign_research_agents\.implementations(?:\.[A-Za-z0-9_]+)*\b"
+    r"\bdesign_research_agents\.(?:"
+    r"implementations|_implementations|_runtime"
+    r"|_[A-Za-z0-9][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*"
+    r"|llm\._[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*"
+    r"|llm\.clients\._[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*"
+    r"|tools\._[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*"
+    r")\b"
 )
 STALE_SOURCE_PATH_PATTERN = re.compile(r"\bsrc/design_research_agents/[A-Za-z0-9_./-]*")
+INTERNAL_REFERENCE_DOC_PATHS = {
+    "docs/reference/contracts.rst",
+    "docs/reference/memory.rst",
+    "docs/reference/model_selection.rst",
+    "docs/reference/tracing.rst",
+    "docs/reference/prompts.rst",
+    "docs/reference/schemas.rst",
+    "docs/reference/mcp_server.rst",
+    "docs/reference/shared.rst",
+}
+ALLOWED_USER_DOC_INTERNAL_REFERENCES = {
+    "docs/tools/mcp.rst": ("design_research_agents._mcp_server",),
+    "docs/api.rst": ("design_research_agents._contracts",),
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -68,9 +88,7 @@ def _scan_files(repo_root: Path) -> list[Path]:
         files.extend(
             path
             for path in sorted(docs_root.rglob("*"))
-            if path.is_file()
-            and path.suffix in SCAN_FILE_SUFFIXES
-            and "/_build/" not in path.as_posix()
+            if path.is_file() and path.suffix in SCAN_FILE_SUFFIXES and "/_build/" not in path.as_posix()
         )
     examples_root = repo_root / "examples"
     if examples_root.exists():
@@ -219,8 +237,7 @@ def _find_export_mismatch_violations(repo_root: Path) -> list[Violation]:
         violations.append(
             Violation(
                 category="api-doc-missing-export",
-                detail="docs/api.rst is missing rendered export coverage for: "
-                + ", ".join(missing),
+                detail="docs/api.rst is missing rendered export coverage for: " + ", ".join(missing),
             )
         )
 
@@ -253,8 +270,15 @@ def _find_internal_module_boundary_violations(
     for path in files:
         text = path.read_text(encoding="utf-8")
         rel = path.relative_to(repo_root).as_posix()
+        if rel in INTERNAL_REFERENCE_DOC_PATHS:
+            continue
         for match in INTERNAL_MODULE_PATTERN.finditer(text):
             matched_path = match.group(0)
+            allowed_prefixes = ALLOWED_USER_DOC_INTERNAL_REFERENCES.get(rel, ())
+            if rel.startswith("docs/llm_clients/"):
+                allowed_prefixes = (*allowed_prefixes, "design_research_agents._contracts")
+            if any(matched_path.startswith(prefix) for prefix in allowed_prefixes):
+                continue
             key = (rel, matched_path)
             if key in seen:
                 continue

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse
-from design_research_agents.contracts.workflow import ModelStep
-from design_research_agents.workflow.internal.step_execution import run_model_step
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse
+from design_research_agents._contracts._workflow import ModelStep
+from design_research_agents._runtime._workflow._executors._common import run_model_step
 
 
 class _GenerateModelClient:

@@ -9,15 +9,15 @@ from dataclasses import asdict
 import pytest
 
 import design_research_agents
-from design_research_agents.contracts import (
+from design_research_agents._contracts import (
     ExecutionResult,
     LLMResponse,
     ToolCostHints,
     ToolResult,
     ToolSpec,
 )
-from design_research_agents.schemas import SCHEMA_NAMES, load_schema
-from design_research_agents.schemas.validation import (
+from design_research_agents._schemas import SCHEMA_NAMES, load_schema
+from design_research_agents._schemas._validation import (
     SchemaValidationError,
     validate_payload_against_schema,
 )

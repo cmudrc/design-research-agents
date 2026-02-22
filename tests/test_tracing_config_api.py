@@ -4,8 +4,8 @@ import importlib
 import sys
 
 import design_research_agents as dra
-from design_research_agents.tracing import Tracer
-from design_research_agents.tracing.context import finish_trace_run, start_trace_run
+from design_research_agents._tracing import Tracer
+from design_research_agents._tracing._context import finish_trace_run, start_trace_run
 
 
 def test_start_trace_run_without_tracer_is_disabled() -> None:
@@ -60,7 +60,7 @@ def test_disabled_tracer_skips_trace_creation(tmp_path) -> None:
 
 
 def test_traceconfig_not_publicly_exported() -> None:
-    tracing_module = importlib.import_module("design_research_agents.tracing")
+    tracing_module = importlib.import_module("design_research_agents._tracing")
     assert "TraceConfig" not in dra.__all__
     assert not hasattr(dra, "TraceConfig")
     assert not hasattr(tracing_module, "TraceConfig")

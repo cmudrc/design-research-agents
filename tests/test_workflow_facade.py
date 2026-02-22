@@ -8,18 +8,18 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMMessage,
     LLMResponse,
 )
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._workflow import (
     AgentStep,
     LogicStep,
     LoopStep,
     ToolStep,
 )
-from design_research_agents.schemas import SchemaValidationError
+from design_research_agents._schemas import SchemaValidationError
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import DebatePattern, Workflow, list_of, scalar, typed_dict
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
@@ -68,12 +68,8 @@ def _pure_dataset_steps() -> list[LogicStep | ToolStep]:
             step_id="quality_gate",
             dependencies=("describe_dataset", "load_sample"),
             handler=lambda context: {
-                "rows": context["dependency_results"]["describe_dataset"]["output"]["result"][
-                    "rows"
-                ],
-                "sample_count": context["dependency_results"]["load_sample"]["output"]["result"][
-                    "count"
-                ],
+                "rows": context["dependency_results"]["describe_dataset"]["output"]["result"]["rows"],
+                "sample_count": context["dependency_results"]["load_sample"]["output"]["result"]["count"],
                 "threshold": context["inputs"]["max_missing_ratio_per_column"],
                 "required_columns": context["inputs"]["required_columns"],
             },
@@ -98,9 +94,7 @@ def _pure_dataset_steps() -> list[LogicStep | ToolStep]:
             step_id="finalize",
             dependencies=("persist_report",),
             handler=lambda context: {
-                "report_path": context["dependency_results"]["persist_report"]["output"]["result"][
-                    "path"
-                ]
+                "report_path": context["dependency_results"]["persist_report"]["output"]["result"]["path"]
             },
         ),
     ]
@@ -132,11 +126,7 @@ def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | AgentStep | 
         LogicStep(
             step_id="router",
             handler=lambda context: {
-                "route": (
-                    "template_path"
-                    if str(context["prompt"]).lower().startswith("template:")
-                    else "agent_path"
-                )
+                "route": ("template_path" if str(context["prompt"]).lower().startswith("template:") else "agent_path")
             },
             route_map={
                 "agent_path": ("draft_agent",),
@@ -154,9 +144,7 @@ def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | AgentStep | 
             tool_name="text.extract_json",
             dependencies=("draft_agent",),
             input_builder=lambda context: {
-                "text": context["dependency_results"]["draft_agent"]["output"]["output"][
-                    "model_text"
-                ]
+                "text": context["dependency_results"]["draft_agent"]["output"]["output"]["model_text"]
             },
         ),
         LogicStep(
@@ -164,9 +152,7 @@ def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | AgentStep | 
             dependencies=("parse_agent_json",),
             handler=lambda context: {
                 "branch": "agent",
-                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"][
-                    "json"
-                ].get("title", ""),
+                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get("title", ""),
             },
         ),
         LogicStep(
@@ -261,9 +247,7 @@ def test_workflow_requires_non_empty_steps() -> None:
 
 
 def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
-    writer_agent = StaticJsonDraftAgent(
-        payload={"title": "Agent title", "summary": "Agent summary"}
-    )
+    writer_agent = StaticJsonDraftAgent(payload={"title": "Agent title", "summary": "Agent summary"})
     workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=_mixed_branching_steps(delegate=writer_agent),
@@ -297,9 +281,7 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
             handler=lambda context: {
                 "base_tag": context["base_tag"],
                 "prompt_seen": context["prompt"],
-                "model_text": context["dependency_results"]["delegate"]["output"]["output"][
-                    "model_text"
-                ],
+                "model_text": context["dependency_results"]["delegate"]["output"]["output"]["model_text"],
             },
         ),
     ]
@@ -316,9 +298,7 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
 
     assert result.success
     assert result.step_results["finalize"].output["base_tag"] == "custom"
-    assert result.step_results["finalize"].output["prompt_seen"] == (
-        "Produce a short custom mixed-workflow brief."
-    )
+    assert result.step_results["finalize"].output["prompt_seen"] == ("Produce a short custom mixed-workflow brief.")
 
 
 def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:

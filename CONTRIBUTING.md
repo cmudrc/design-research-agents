@@ -34,9 +34,9 @@ docs, and pre-commit tooling.
 Run these before opening a pull request:
 
 ```bash
-make format
+make fmt
 make lint
-make typecheck
+make type
 make docstrings-check
 make test
 make docs

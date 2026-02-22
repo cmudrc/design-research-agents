@@ -2,7 +2,7 @@ Script Tools
 ============
 
 Script tools are explicit ``ScriptTool`` entries passed to ``Toolbox`` or loaded
-from ``script_tools`` YAML config. Each tool points to a local ``.py`` or ``.sh``
+from ``script_tools`` runtime config. Each tool points to a local ``.py`` or ``.sh``
 script and uses a JSON stdin/stdout envelope contract.
 
 Execution contract

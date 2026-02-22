@@ -5,9 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse, ToolCall
-from design_research_agents.contracts.tools import ToolSpec
-from design_research_agents.implementations.shared.agent_internal.direct_llm_agent_helpers import (
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse, ToolCall
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents._implementations._shared._agent_internal._direct_llm_agent_helpers import (
     build_success_result,
     extract_max_tokens,
     extract_messages,
@@ -16,7 +16,7 @@ from design_research_agents.implementations.shared.agent_internal.direct_llm_age
     generate_response,
     merge_provider_options,
 )
-from design_research_agents.implementations.shared.agent_internal.json_tool_agent_helpers import (
+from design_research_agents._implementations._shared._agent_internal._json_tool_agent_helpers import (
     ToolChoice,
     build_tool_call_prompt,
     build_tool_choices_text,
@@ -31,7 +31,7 @@ from design_research_agents.implementations.shared.agent_internal.json_tool_agen
     select_tool_choice,
     tool_call_response_schema,
 )
-from design_research_agents.implementations.shared.agent_internal.prompt_alternatives import (
+from design_research_agents._implementations._shared._agent_internal._prompt_alternatives import (
     append_alternatives_block,
     build_alternatives_block,
     build_user_prompt_alternatives_block,
@@ -40,7 +40,7 @@ from design_research_agents.implementations.shared.agent_internal.prompt_alterna
     normalize_alternatives_prompt_target,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.implementations.shared.agent_internal.tool_input import (
+from design_research_agents._implementations._shared._agent_internal._tool_input import (
     infer_expression,
     resolve_known_tool_input,
 )
@@ -99,10 +99,7 @@ def test_direct_llm_message_and_parameter_extractors_cover_fallbacks() -> None:
         default_system_prompt="default",
     )
     assert source == "messages"
-    assert any(
-        message.role == "system" and "Available alternatives" in message.content
-        for message in messages
-    )
+    assert any(message.role == "system" and "Available alternatives" in message.content for message in messages)
 
     prompt_messages, prompt_source = extract_messages(
         input_payload={"prompt": "task", "alternatives": ["a", 1]},
@@ -112,9 +109,7 @@ def test_direct_llm_message_and_parameter_extractors_cover_fallbacks() -> None:
     assert prompt_messages[0].role == "system"
     assert prompt_messages[-1].role == "user"
 
-    assert extract_response_schema({"response_schema": {"type": "object", 1: "x"}}) == {
-        "type": "object"
-    }
+    assert extract_response_schema({"response_schema": {"type": "object", 1: "x"}}) == {"type": "object"}
     assert extract_response_schema({"response_schema": "bad"}) is None
 
     assert extract_temperature(input_payload={"temperature": "0.2"}, default_value=0.7) == 0.2
@@ -159,14 +154,8 @@ def test_prompt_alternatives_helpers_cover_targets_and_rendering() -> None:
     with pytest.raises(ValueError, match="alternatives_prompt_target"):
         normalize_alternatives_prompt_target("bad")
 
-    assert (
-        resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "bad"})
-        == "user"
-    )
-    assert (
-        resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "system"})
-        == "system"
-    )
+    assert resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "bad"}) == "user"
+    assert resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "system"}) == "system"
 
     assert (
         append_alternatives_block(
@@ -303,21 +292,20 @@ def test_json_tool_helpers_cover_choice_resolution_and_tool_input_precedence() -
         is None
     )
 
-    legacy_name = select_tool_choice(
-        parsed_tool_call={"action": "TOOL_CALL", "name": "calculator"},
-        choices=choices,
+    assert (
+        select_tool_choice(
+            parsed_tool_call={"action": "TOOL_CALL", "name": "calculator"},
+            choices=choices,
+        )
+        is None
     )
-    assert legacy_name is not None
-    assert legacy_name[0].tool_name == "calculator"
-    assert legacy_name[1] == "model_legacy_name"
-
-    legacy_names = select_tool_choice(
-        parsed_tool_call={"action": "TOOL_CALL", "tool_names": [1, " text.word_count "]},
-        choices=choices,
+    assert (
+        select_tool_choice(
+            parsed_tool_call={"action": "TOOL_CALL", "tool_names": [1, " text.word_count "]},
+            choices=choices,
+        )
+        is None
     )
-    assert legacy_names is not None
-    assert legacy_names[0].tool_name == "text.word_count"
-    assert legacy_names[1] == "model_legacy_tool_names"
 
     resolved_from_model = resolve_tool_input(
         selected_choice=choices[0],

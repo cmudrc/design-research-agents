@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 
 from design_research_agents import VllmServerLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -46,9 +46,7 @@ def _build_payload() -> dict[str, object]:
         llm_call = run_representative_chat(
             client=client,
             prompt="Provide one sentence on why local serving helps reproducible benchmarking.",
-            deterministic_response=(
-                "Local serving reduces backend drift and improves benchmark reproducibility."
-            ),
+            deterministic_response=("Local serving reduces backend drift and improves benchmark reproducibility."),
         )
         return {
             "client_class": client.__class__.__name__,

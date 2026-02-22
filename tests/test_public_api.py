@@ -8,7 +8,7 @@ import pytest
 
 import design_research_agents as dra
 import design_research_agents.tools as dra_tools
-from design_research_agents import contracts as dra_contracts
+from design_research_agents import _contracts as dra_contracts
 
 EXPECTED_PUBLIC_API = [
     "__version__",
@@ -78,5 +78,10 @@ def test_removed_contract_symbol_is_not_top_level() -> None:
         exec("from design_research_agents import LLMMessage", {}, {})
 
 
-def test_contract_symbol_is_available_from_contracts_namespace() -> None:
+def test_contract_symbol_is_available_from_internal_contracts_namespace() -> None:
     assert dra_contracts.LLMMessage.__name__ == "LLMMessage"
+
+
+def test_legacy_contracts_namespace_is_removed() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("design_research_agents.contracts")

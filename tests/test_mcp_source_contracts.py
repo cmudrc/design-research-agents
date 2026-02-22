@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-import design_research_agents.tools.sources.mcp_source as mcp_source
-from design_research_agents.tools.config import McpConfig, McpServer
-from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
-from design_research_agents.tools.sources.mcp_source import McpProtocolError, McpToolSource
+import design_research_agents.tools._sources._mcp_source as mcp_source
+from design_research_agents.tools._config import McpConfig, McpServer
+from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents.tools._sources._mcp_source import McpProtocolError, McpToolSource
 
 pytestmark = pytest.mark.contract
 
@@ -145,9 +145,7 @@ def test_mcp_source_invoke_handles_client_exceptions(tmp_path: Path) -> None:
             del tool_name, arguments
             raise RuntimeError("call failed")
 
-    source._clients["alpha"] = _RaisingClient(
-        tools=[{"name": "sum", "inputSchema": {"type": "object"}}]
-    )
+    source._clients["alpha"] = _RaisingClient(tools=[{"name": "sum", "inputSchema": {"type": "object"}}])
     result = source.invoke("alpha::sum", {}, request_id="req", dependencies={})
     assert result.ok is False
     assert "call failed" in str(result.error)

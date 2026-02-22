@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from design_research_agents.tools import Toolbox
-from design_research_agents.tools.config import ScriptTool
+from design_research_agents.tools._config import ScriptTool
 
 
 def _rubric_script() -> ScriptTool:

@@ -5,14 +5,14 @@ from urllib.error import HTTPError
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMInvalidRequestError,
     LLMProviderError,
     LLMRateLimitError,
 )
-from design_research_agents.llm.backends.providers import (
-    sglang_local,
-    sglang_server,
+from design_research_agents.llm._backends._providers import (
+    _sglang_local,
+    _sglang_server,
 )
 from design_research_agents.llm.clients import SglangServerLLMClient
 from tests._llm_openai_backends_test_helpers import request
@@ -26,8 +26,8 @@ class _ResponseContext:
         return iter(self._lines)
 
 
-def test_sglang_local_backend_payload_and_chat_url() -> None:
-    backend = sglang_local.SglangLocalBackend(
+def test__sglang_local_backend_payload_and_chat_url() -> None:
+    backend = _sglang_local.SglangLocalBackend(
         name="sglang",
         base_url="https://host/api",
         default_model="demo-model",
@@ -48,8 +48,8 @@ def test_sglang_local_backend_payload_and_chat_url() -> None:
     assert payload["seed"] == 123
 
 
-def test_sglang_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
-    backend = sglang_local.SglangLocalBackend(
+def test__sglang_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = _sglang_local.SglangLocalBackend(
         name="sglang",
         base_url="http://127.0.0.1:30000/v1",
         default_model="demo-model",
@@ -57,7 +57,7 @@ def test_sglang_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatc
         config_hash="cfg",
     )
     monkeypatch.setattr(
-        sglang_local,
+        _sglang_local,
         "_post_json_with_retry",
         lambda *args, **kwargs: {
             "choices": [
@@ -95,7 +95,7 @@ def test_sglang_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatc
         b"\n",
     ]
     monkeypatch.setattr(
-        sglang_local,
+        _sglang_local,
         "_post_stream_with_retry",
         lambda *args, **kwargs: _ResponseContext(lines=lines),
     )
@@ -106,7 +106,7 @@ def test_sglang_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatc
     assert deltas[2].usage_delta is not None
 
 
-def test_sglang_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test__sglang_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     outcomes = [LLMRateLimitError("rate"), {"ok": True}]
     sleeps: list[float] = []
 
@@ -116,9 +116,9 @@ def test_sglang_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
             raise outcome
         return outcome
 
-    monkeypatch.setattr(sglang_local, "_post_json", _flaky_post_json)
-    monkeypatch.setattr(sglang_local.time, "sleep", lambda seconds: sleeps.append(seconds))
-    parsed = sglang_local._post_json_with_retry(
+    monkeypatch.setattr(_sglang_local, "_post_json", _flaky_post_json)
+    monkeypatch.setattr(_sglang_local.time, "sleep", lambda seconds: sleeps.append(seconds))
+    parsed = _sglang_local._post_json_with_retry(
         "http://unit",
         {"a": 1},
         timeout_seconds=1.0,
@@ -128,12 +128,12 @@ def test_sglang_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert sleeps == [0.5]
 
     monkeypatch.setattr(
-        sglang_local,
+        _sglang_local,
         "_post_json",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("bad")),
     )
     with pytest.raises(LLMInvalidRequestError):
-        sglang_local._post_json_with_retry(
+        _sglang_local._post_json_with_retry(
             "http://unit",
             {},
             timeout_seconds=1.0,
@@ -149,19 +149,19 @@ def test_sglang_http_error_and_response_parser() -> None:
         hdrs=None,
         fp=None,
     )
-    mapped = sglang_local._http_error(http_error)
+    mapped = _sglang_local._http_error(http_error)
     assert mapped.__class__.__name__ == "LLMAuthError"
 
     with pytest.raises(LLMInvalidRequestError, match="no choices"):
-        sglang_local._parse_completion_response({}, request(), provider="sglang")
+        _sglang_local._parse_completion_response({}, request(), provider="sglang")
 
-    assert sglang_local._extract_tool_call_deltas("bad") == []
+    assert _sglang_local._extract_tool_call_deltas("bad") == []
 
 
 def test_sglang_server_backend_command_and_dependency_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    backend = sglang_server.SglangServerBackend(
+    backend = _sglang_server.SglangServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         host="0.0.0.0",
         port=9003,
@@ -173,7 +173,7 @@ def test_sglang_server_backend_command_and_dependency_errors(
     assert "Qwen/Qwen2.5-1.5B-Instruct" in command
     assert "--tp-size" in command
 
-    monkeypatch.setattr(sglang_server, "find_spec", lambda _name: None)
+    monkeypatch.setattr(_sglang_server, "find_spec", lambda _name: None)
     with pytest.raises(RuntimeError, match="SGLang dependency is missing"):
         backend._ensure_server_dependency()
 
@@ -181,7 +181,7 @@ def test_sglang_server_backend_command_and_dependency_errors(
 def test_sglang_server_wait_until_ready_and_timeout_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    backend = sglang_server.SglangServerBackend(
+    backend = _sglang_server.SglangServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         startup_timeout_seconds=1.0,
         poll_interval_seconds=0.001,
@@ -221,11 +221,11 @@ def test_sglang_server_wait_until_ready_and_timeout_paths(
             raise TimeoutError("timed out")
         return _ReadyResponse()
 
-    monkeypatch.setattr(sglang_server, "urlopen", _flaky_probe)
+    monkeypatch.setattr(_sglang_server, "urlopen", _flaky_probe)
     backend._wait_until_ready()
     assert attempts["count"] == 2
 
-    timeout_backend = sglang_server.SglangServerBackend(
+    timeout_backend = _sglang_server.SglangServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         startup_timeout_seconds=0.01,
         poll_interval_seconds=0.001,
@@ -236,14 +236,14 @@ def test_sglang_server_wait_until_ready_and_timeout_paths(
         del timeout
         raise TimeoutError("t")
 
-    monkeypatch.setattr(sglang_server, "urlopen", _timeout_probe)
-    monkeypatch.setattr(sglang_server.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(_sglang_server, "urlopen", _timeout_probe)
+    monkeypatch.setattr(_sglang_server.time, "sleep", lambda _seconds: None)
     with pytest.raises(RuntimeError, match="Timed out waiting for SGLang server readiness"):
         timeout_backend._wait_until_ready()
 
 
 def test_sglang_server_close_forces_kill_when_terminate_stalls() -> None:
-    backend = sglang_server.SglangServerBackend(
+    backend = _sglang_server.SglangServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
     )
 
@@ -305,9 +305,9 @@ def test_sglang_client_constructor_and_modes() -> None:
         )
 
 
-def test_sglang_local_backend_requires_valid_timeout_and_base_url() -> None:
+def test__sglang_local_backend_requires_valid_timeout_and_base_url() -> None:
     with pytest.raises(ValueError, match="base_url"):
-        sglang_local.SglangLocalBackend(
+        _sglang_local.SglangLocalBackend(
             name="x",
             base_url=" ",
             default_model="m",
@@ -315,7 +315,7 @@ def test_sglang_local_backend_requires_valid_timeout_and_base_url() -> None:
             config_hash="cfg",
         )
     with pytest.raises(ValueError, match="request_timeout_seconds"):
-        sglang_local.SglangLocalBackend(
+        _sglang_local.SglangLocalBackend(
             name="x",
             base_url="http://127.0.0.1:30000/v1",
             default_model="m",
@@ -326,12 +326,12 @@ def test_sglang_local_backend_requires_valid_timeout_and_base_url() -> None:
 
 def test_sglang_retry_stream_non_retryable_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        sglang_local,
+        _sglang_local,
         "_post_stream",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("bad")),
     )
     with pytest.raises(LLMInvalidRequestError):
-        sglang_local._post_stream_with_retry(
+        _sglang_local._post_stream_with_retry(
             "http://unit",
             {},
             timeout_seconds=1.0,
@@ -339,12 +339,12 @@ def test_sglang_retry_stream_non_retryable_error(monkeypatch: pytest.MonkeyPatch
         )
 
     monkeypatch.setattr(
-        sglang_local,
+        _sglang_local,
         "_post_stream",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMProviderError("offline")),
     )
     with pytest.raises(LLMProviderError):
-        sglang_local._post_stream_with_retry(
+        _sglang_local._post_stream_with_retry(
             "http://unit",
             {},
             timeout_seconds=1.0,

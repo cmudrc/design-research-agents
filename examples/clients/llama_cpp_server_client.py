@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import sys
 
-from design_research_agents.llm.clients import LlamaCppServerLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
     trace_info,
 )
+from design_research_agents.llm.clients import LlamaCppServerLLMClient
 
 
 def _build_payload() -> dict[str, object]:
@@ -41,9 +41,7 @@ def _build_payload() -> dict[str, object]:
         llm_call = run_representative_chat(
             client=client,
             prompt="In one sentence, explain a key tradeoff in engineering design reviews.",
-            deterministic_response=(
-                "Tradeoff: strict review gates improve reliability but can slow delivery speed."
-            ),
+            deterministic_response=("Tradeoff: strict review gates improve reliability but can slow delivery speed."),
         )
         return {
             "client_class": client.__class__.__name__,

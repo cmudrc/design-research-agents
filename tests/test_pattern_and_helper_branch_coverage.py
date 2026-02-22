@@ -4,14 +4,14 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMResponse
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.implementations.patterns import agent_routing as routing_impl
-from design_research_agents.implementations.shared.agent_internal import (
-    code_action_step_workflow_helpers as code_helpers,
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMResponse
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._implementations._patterns import _agent_routing as routing_impl
+from design_research_agents._implementations._shared._agent_internal import (
+    _code_action_step_workflow_helpers as code_helpers,
 )
-from design_research_agents.implementations.shared.workflow_internal.pattern_runtime import (
+from design_research_agents._runtime._patterns._run_context import (
     WorkflowBudgetTracker,
 )
 
@@ -52,9 +52,7 @@ def test_code_action_step_workflow_helpers_cover_success_and_failure_branches() 
     assert code_helpers.assert_success_handler(finalized_success) == {"ok": True}
 
     with pytest.raises(TypeError, match="Finalize step"):
-        code_helpers.assert_success_handler(
-            {"dependency_results": {"finalize": {"output": {"agent_result": "bad"}}}}
-        )
+        code_helpers.assert_success_handler({"dependency_results": {"finalize": {"output": {"agent_result": "bad"}}}})
 
     with pytest.raises(ValueError, match="boom"):
         code_helpers.assert_success_handler(

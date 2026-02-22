@@ -19,7 +19,6 @@ def test_unified_runtime_lists_expected_core_tools() -> None:
     runtime = Toolbox()
     names = {spec.name for spec in runtime.list_tools()}
 
-    assert "calculator" in names
     assert "python.sandbox" in names
     assert "text.word_count" in names
     assert "bash.exec" in names
@@ -36,19 +35,19 @@ def test_unified_runtime_lists_expected_core_tools() -> None:
     assert "eval.confidence_fuse" not in names
 
 
-def test_calculator_invocation() -> None:
+def test_text_word_count_invocation() -> None:
     runtime = Toolbox()
 
     result = runtime.invoke(
-        "calculator",
-        {"expression": "6 * 7"},
+        "text.word_count",
+        {"text": "design research agents"},
         request_id="unit-test",
         dependencies={},
     )
 
     assert result.ok is True
     assert isinstance(result.result, dict)
-    assert result.result["result"] == 42.0
+    assert result.result["word_count"] == 3
 
 
 def test_fs_write_is_restricted_to_artifacts_by_default(tmp_path: Path) -> None:
@@ -98,9 +97,7 @@ def test_python_sandbox_invocation() -> None:
         "python.sandbox",
         {
             "code": (
-                "values = context['values']\n"
-                "result = {'sum': sum(values), 'mean': mean(values)}\n"
-                "print('done')\n"
+                "values = context['values']\nresult = {'sum': sum(values), 'mean': mean(values)}\nprint('done')\n"
             ),
             "context": {"values": [1, 2, 3]},
         },

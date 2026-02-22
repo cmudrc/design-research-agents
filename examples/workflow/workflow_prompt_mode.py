@@ -17,7 +17,7 @@ from design_research_agents import (
     ToolStep,
     Workflow,
 )
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def _summarize_run(result: object, request_id: str) -> dict[str, object]:
@@ -57,11 +57,7 @@ def main() -> None:
         LogicStep(
             step_id="router",
             handler=lambda context: {
-                "route": (
-                    "template_path"
-                    if str(context["prompt"]).lower().startswith("template:")
-                    else "agent_path"
-                )
+                "route": ("template_path" if str(context["prompt"]).lower().startswith("template:") else "agent_path")
             },
             route_map={
                 "agent_path": ("draft_agent",),
@@ -73,8 +69,7 @@ def main() -> None:
             delegate=writer_agent,
             dependencies=("router",),
             prompt_builder=lambda context: (
-                "Write one JSON object with keys title and summary for this design request: "
-                f"{context['prompt']}"
+                f"Write one JSON object with keys title and summary for this design request: {context['prompt']}"
             ),
         ),
         ToolStep(
@@ -82,9 +77,7 @@ def main() -> None:
             tool_name="text.extract_json",
             dependencies=("draft_agent",),
             input_builder=lambda context: {
-                "text": context["dependency_results"]["draft_agent"]["output"]["output"][
-                    "model_text"
-                ]
+                "text": context["dependency_results"]["draft_agent"]["output"]["output"]["model_text"]
             },
         ),
         LogicStep(
@@ -92,12 +85,10 @@ def main() -> None:
             dependencies=("parse_agent_json",),
             handler=lambda context: {
                 "branch": "agent",
-                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"][
-                    "json"
-                ].get("title", ""),
-                "summary": context["dependency_results"]["parse_agent_json"]["output"]["result"][
-                    "json"
-                ].get("summary", ""),
+                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get("title", ""),
+                "summary": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get(
+                    "summary", ""
+                ),
             },
         ),
         LogicStep(
@@ -133,10 +124,7 @@ def main() -> None:
             request_id=agent_request_id,
         )
         template_result = workflow.run(
-            (
-                "template: Produce a deterministic fallback brief for "
-                "manufacturability review findings."
-            ),
+            ("template: Produce a deterministic fallback brief for manufacturability review findings."),
             request_id=template_request_id,
         )
     finally:

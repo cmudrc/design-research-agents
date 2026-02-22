@@ -3,15 +3,15 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.agent import MultiStepAgent
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMMessage,
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents.contracts.termination import TERMINATED_MAX_STEPS_REACHED
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._termination import TERMINATED_MAX_STEPS_REACHED
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.tools import Toolbox
 
 
@@ -104,8 +104,8 @@ def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
         responses=[
             json.dumps(
                 {
-                    "tool_name": "calculator",
-                    "tool_input": {"expression": "6 * 7"},
+                    "tool_name": "text.word_count",
+                    "tool_input": {"text": "design research"},
                 }
             ),
         ]
@@ -117,12 +117,12 @@ def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
         max_steps=1,
     )
 
-    result = agent.run("Compute 6 * 7.")
+    result = agent.run("Count words in a short phrase.")
 
     assert result.success is True
     assert result.output["steps_executed"] == 1
     assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
-    assert result.output["final_output"]["result"] == 42.0
+    assert result.output["final_output"]["word_count"] == 2
     assert len(result.tool_results) == 1
     assert llm_client.chat_calls == 1
 
@@ -133,8 +133,8 @@ def test_multi_step_code_one_step_mode_runs_single_code_step() -> None:
             json.dumps({"continue": True, "thought": "run one step"}),
             "\n".join(
                 [
-                    'calc = call_tool("calculator", {"expression": "9 * 9"})',
-                    'final_output = {"result": calc["result"]}',
+                    'stats = call_tool("text.word_count", {"text": "design research"})',
+                    'final_output = {"result": stats["word_count"]}',
                 ]
             ),
         ]
@@ -146,11 +146,11 @@ def test_multi_step_code_one_step_mode_runs_single_code_step() -> None:
         max_steps=1,
     )
 
-    result = agent.run("Compute 9 * 9.")
+    result = agent.run("Count words in a short phrase.")
 
     assert result.success is True
     assert result.output["steps_executed"] == 1
     assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
-    assert result.output["final_output"] == {"result": 81.0}
+    assert result.output["final_output"] == {"result": 2}
     assert len(result.tool_results) == 1
     assert llm_client.chat_calls == 2

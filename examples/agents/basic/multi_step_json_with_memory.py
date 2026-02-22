@@ -11,12 +11,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from design_research_agents import MultiStepAgent, Toolbox
-from design_research_agents.contracts import MemoryWriteRecord
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
-from design_research_agents.shared.deterministic_design_helpers import (
+from design_research_agents._contracts import MemoryWriteRecord
+from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
+from design_research_agents._shared._deterministic_design_helpers import (
     DeterministicSequenceLLMClient,
 )
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
@@ -43,7 +43,7 @@ def main() -> None:
     llm_client = DeterministicSequenceLLMClient(
         responses=[
             '{"continue": true, "thought": "start"}',
-            '{"tool_name": "calculator", "tool_input": {"expression": "12 * (4 + 1)"}}',
+            '{"tool_name": "text.word_count", "tool_input": {"text": "design context memory"}}',
             '{"continue": false, "thought": "done"}',
         ]
     )
@@ -59,7 +59,7 @@ def main() -> None:
         tracer=make_tracer(),
     )
     result = agent.run(
-        "Compute one design-check metric and retain the observation history.",
+        "Compute one design-check text metric and retain the observation history.",
         request_id=request_id,
     )
     output = result.output if isinstance(result.output, dict) else {}
@@ -68,9 +68,7 @@ def main() -> None:
         "success": result.success,
         "terminated_reason": output.get("terminated_reason"),
         "steps_executed": output.get("steps_executed"),
-        "memory_items": (
-            len(output.get("memory", [])) if isinstance(output.get("memory"), list) else 0
-        ),
+        "memory_items": (len(output.get("memory", [])) if isinstance(output.get("memory"), list) else 0),
         "tool_results_count": len(result.tool_results),
         "final_output": output.get("final_output"),
         "error": output.get("error"),

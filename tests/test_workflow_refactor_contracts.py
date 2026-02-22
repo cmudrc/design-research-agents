@@ -6,14 +6,14 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
+from design_research_agents._contracts._workflow import (
     AgentStep,
     LogicStep,
     WorkflowArtifact,
     WorkflowArtifactSource,
 )
-from design_research_agents.implementations.patterns.tree_search import TreeSearchPattern
+from design_research_agents._implementations._patterns._tree_search import TreeSearchPattern
 from design_research_agents.workflow import Workflow
 
 
@@ -135,9 +135,7 @@ def test_workflow_artifact_contract_serializes_and_tracks_provenance() -> None:
 def test_pattern_outputs_include_workflow_first_envelope_fields() -> None:
     pattern = TreeSearchPattern(
         generator_delegate=lambda _context: [{"name": "alpha", "score_hint": 0.5}],
-        evaluator_delegate=lambda context: float(
-            dict(context.get("candidate", {})).get("score_hint", 0.0)
-        ),
+        evaluator_delegate=lambda context: float(dict(context.get("candidate", {})).get("score_hint", 0.0)),
         max_depth=1,
         branch_factor=1,
         beam_width=1,

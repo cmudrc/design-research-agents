@@ -16,7 +16,7 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import OllamaLLMClient
-   from design_research_agents.contracts import LLMChatParams, LLMMessage
+   from design_research_agents._contracts import LLMChatParams, LLMMessage
 
    client = OllamaLLMClient()
    response = client.chat(

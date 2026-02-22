@@ -2,7 +2,7 @@
 
 Expected observations:
 - ``mcp_tool_count`` is non-zero.
-- ``direct_result`` contains calculator output.
+- ``direct_result`` contains text metric output.
 - ``trace.trace_path`` points to emitted trace JSONL.
 """
 
@@ -12,7 +12,7 @@ import sys
 from collections.abc import Mapping
 
 from design_research_agents import McpServer, Toolbox
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_traced_callable,
     trace_info,
@@ -38,7 +38,7 @@ def _run_report() -> dict[str, object]:
         mcp_servers=(
             McpServer(
                 id="local_core",
-                command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+                command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},
                 timeout_s=20,
             ),
@@ -47,17 +47,15 @@ def _run_report() -> dict[str, object]:
         enable_core_tools=False,
     )
     try:
-        mcp_tools = sorted(
-            spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::")
-        )
-        direct = _invoke_dict(runtime, "local_core::calculator", {"expression": "(9 + 3) / 2"})
+        mcp_tools = sorted(spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::"))
+        direct = _invoke_dict(runtime, "local_core::text.word_count", {"text": "design research"})
     finally:
         runtime.close()
 
     return {
         "mcp_tool_count": len(mcp_tools),
         "sample_tools": mcp_tools[:5],
-        "direct_result": direct["result"],
+        "direct_result": direct["word_count"],
     }
 
 

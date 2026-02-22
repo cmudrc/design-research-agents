@@ -6,8 +6,8 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest
-from design_research_agents.llm.backends.providers.transformers_local import (
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest
+from design_research_agents.llm._backends._providers._transformers_local import (
     TransformersLocalBackend,
     _move_to_device,
 )

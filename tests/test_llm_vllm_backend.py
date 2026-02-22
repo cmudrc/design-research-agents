@@ -5,14 +5,14 @@ from urllib.error import HTTPError
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMInvalidRequestError,
     LLMProviderError,
     LLMRateLimitError,
 )
-from design_research_agents.llm.backends.providers import (
-    vllm_local,
-    vllm_server,
+from design_research_agents.llm._backends._providers import (
+    _vllm_local,
+    _vllm_server,
 )
 from design_research_agents.llm.clients import VllmServerLLMClient
 from tests._llm_openai_backends_test_helpers import request
@@ -26,8 +26,8 @@ class _ResponseContext:
         return iter(self._lines)
 
 
-def test_vllm_local_backend_payload_and_chat_url() -> None:
-    backend = vllm_local.VllmLocalBackend(
+def test__vllm_local_backend_payload_and_chat_url() -> None:
+    backend = _vllm_local.VllmLocalBackend(
         name="vllm",
         base_url="https://host/api",
         default_model="demo-model",
@@ -48,8 +48,8 @@ def test_vllm_local_backend_payload_and_chat_url() -> None:
     assert payload["seed"] == 123
 
 
-def test_vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
-    backend = vllm_local.VllmLocalBackend(
+def test__vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = _vllm_local.VllmLocalBackend(
         name="vllm",
         base_url="http://127.0.0.1:8002/v1",
         default_model="demo-model",
@@ -57,7 +57,7 @@ def test_vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch)
         config_hash="cfg",
     )
     monkeypatch.setattr(
-        vllm_local,
+        _vllm_local,
         "_post_json_with_retry",
         lambda *args, **kwargs: {
             "choices": [
@@ -95,7 +95,7 @@ def test_vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch)
         b"\n",
     ]
     monkeypatch.setattr(
-        vllm_local,
+        _vllm_local,
         "_post_stream_with_retry",
         lambda *args, **kwargs: _ResponseContext(lines=lines),
     )
@@ -106,7 +106,7 @@ def test_vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch)
     assert deltas[2].usage_delta is not None
 
 
-def test_vllm_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test__vllm_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     outcomes = [LLMRateLimitError("rate"), {"ok": True}]
     sleeps: list[float] = []
 
@@ -116,9 +116,9 @@ def test_vllm_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
             raise outcome
         return outcome
 
-    monkeypatch.setattr(vllm_local, "_post_json", _flaky_post_json)
-    monkeypatch.setattr(vllm_local.time, "sleep", lambda seconds: sleeps.append(seconds))
-    parsed = vllm_local._post_json_with_retry(
+    monkeypatch.setattr(_vllm_local, "_post_json", _flaky_post_json)
+    monkeypatch.setattr(_vllm_local.time, "sleep", lambda seconds: sleeps.append(seconds))
+    parsed = _vllm_local._post_json_with_retry(
         "http://unit",
         {"a": 1},
         timeout_seconds=1.0,
@@ -128,12 +128,12 @@ def test_vllm_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert sleeps == [0.5]
 
     monkeypatch.setattr(
-        vllm_local,
+        _vllm_local,
         "_post_json",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("bad")),
     )
     with pytest.raises(LLMInvalidRequestError):
-        vllm_local._post_json_with_retry(
+        _vllm_local._post_json_with_retry(
             "http://unit",
             {},
             timeout_seconds=1.0,
@@ -149,19 +149,19 @@ def test_vllm_http_error_and_response_parser() -> None:
         hdrs=None,
         fp=None,
     )
-    mapped = vllm_local._http_error(http_error)
+    mapped = _vllm_local._http_error(http_error)
     assert mapped.__class__.__name__ == "LLMAuthError"
 
     with pytest.raises(LLMInvalidRequestError, match="no choices"):
-        vllm_local._parse_completion_response({}, request(), provider="vllm")
+        _vllm_local._parse_completion_response({}, request(), provider="vllm")
 
-    assert vllm_local._extract_tool_call_deltas("bad") == []
+    assert _vllm_local._extract_tool_call_deltas("bad") == []
 
 
 def test_vllm_server_backend_command_and_dependency_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    backend = vllm_server.VllmServerBackend(
+    backend = _vllm_server.VllmServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         api_model="qwen2.5-1.5b-instruct",
         host="0.0.0.0",
@@ -174,7 +174,7 @@ def test_vllm_server_backend_command_and_dependency_errors(
     assert "qwen2.5-1.5b-instruct" in command
     assert "--dtype" in command
 
-    monkeypatch.setattr(vllm_server, "find_spec", lambda _name: None)
+    monkeypatch.setattr(_vllm_server, "find_spec", lambda _name: None)
     with pytest.raises(RuntimeError, match="vLLM dependency is missing"):
         backend._ensure_server_dependency()
 
@@ -182,7 +182,7 @@ def test_vllm_server_backend_command_and_dependency_errors(
 def test_vllm_server_wait_until_ready_and_timeout_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    backend = vllm_server.VllmServerBackend(
+    backend = _vllm_server.VllmServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         api_model="qwen2.5-1.5b-instruct",
         startup_timeout_seconds=1.0,
@@ -223,11 +223,11 @@ def test_vllm_server_wait_until_ready_and_timeout_paths(
             raise TimeoutError("timed out")
         return _ReadyResponse()
 
-    monkeypatch.setattr(vllm_server, "urlopen", _flaky_probe)
+    monkeypatch.setattr(_vllm_server, "urlopen", _flaky_probe)
     backend._wait_until_ready()
     assert attempts["count"] == 2
 
-    timeout_backend = vllm_server.VllmServerBackend(
+    timeout_backend = _vllm_server.VllmServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         api_model="qwen2.5-1.5b-instruct",
         startup_timeout_seconds=0.01,
@@ -239,14 +239,14 @@ def test_vllm_server_wait_until_ready_and_timeout_paths(
         del timeout
         raise TimeoutError("t")
 
-    monkeypatch.setattr(vllm_server, "urlopen", _timeout_probe)
-    monkeypatch.setattr(vllm_server.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(_vllm_server, "urlopen", _timeout_probe)
+    monkeypatch.setattr(_vllm_server.time, "sleep", lambda _seconds: None)
     with pytest.raises(RuntimeError, match="Timed out waiting for vLLM server readiness"):
         timeout_backend._wait_until_ready()
 
 
 def test_vllm_server_close_forces_kill_when_terminate_stalls() -> None:
-    backend = vllm_server.VllmServerBackend(
+    backend = _vllm_server.VllmServerBackend(
         model="Qwen/Qwen2.5-1.5B-Instruct",
         api_model="qwen2.5-1.5b-instruct",
     )
@@ -310,9 +310,9 @@ def test_vllm_client_constructor_and_modes() -> None:
         )
 
 
-def test_vllm_local_backend_requires_valid_timeout_and_base_url() -> None:
+def test__vllm_local_backend_requires_valid_timeout_and_base_url() -> None:
     with pytest.raises(ValueError, match="base_url"):
-        vllm_local.VllmLocalBackend(
+        _vllm_local.VllmLocalBackend(
             name="x",
             base_url=" ",
             default_model="m",
@@ -320,7 +320,7 @@ def test_vllm_local_backend_requires_valid_timeout_and_base_url() -> None:
             config_hash="cfg",
         )
     with pytest.raises(ValueError, match="request_timeout_seconds"):
-        vllm_local.VllmLocalBackend(
+        _vllm_local.VllmLocalBackend(
             name="x",
             base_url="http://127.0.0.1:8002/v1",
             default_model="m",
@@ -331,12 +331,12 @@ def test_vllm_local_backend_requires_valid_timeout_and_base_url() -> None:
 
 def test_vllm_retry_stream_non_retryable_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
-        vllm_local,
+        _vllm_local,
         "_post_stream",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("bad")),
     )
     with pytest.raises(LLMInvalidRequestError):
-        vllm_local._post_stream_with_retry(
+        _vllm_local._post_stream_with_retry(
             "http://unit",
             {},
             timeout_seconds=1.0,
@@ -344,12 +344,12 @@ def test_vllm_retry_stream_non_retryable_error(monkeypatch: pytest.MonkeyPatch) 
         )
 
     monkeypatch.setattr(
-        vllm_local,
+        _vllm_local,
         "_post_stream",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMProviderError("offline")),
     )
     with pytest.raises(LLMProviderError):
-        vllm_local._post_stream_with_retry(
+        _vllm_local._post_stream_with_retry(
             "http://unit",
             {},
             timeout_seconds=1.0,

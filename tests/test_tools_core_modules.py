@@ -7,19 +7,17 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.memory import MemoryWriteRecord
-from design_research_agents.memory import EmbeddingProvider, SQLiteMemoryStore
-from design_research_agents.tools.core import (
-    bash_tools,
-    evaluation_tools,
-    fs_tools,
-    git_tools,
-    memory_tools,
-    python_tools,
-    search_tools,
-    text_tools,
-)
-from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents._contracts._memory import MemoryWriteRecord
+from design_research_agents._memory import EmbeddingProvider, SQLiteMemoryStore
+from design_research_agents.tools._core import _bash_tools as bash_tools
+from design_research_agents.tools._core import _evaluation_tools as evaluation_tools
+from design_research_agents.tools._core import _fs_tools as fs_tools
+from design_research_agents.tools._core import _git_tools as git_tools
+from design_research_agents.tools._core import _memory_tools as memory_tools
+from design_research_agents.tools._core import _python_tools as python_tools
+from design_research_agents.tools._core import _search_tools as search_tools
+from design_research_agents.tools._core import _text_tools as text_tools
+from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
 
 
 def _policy(tmp_path: Path) -> ToolPolicy:
@@ -66,9 +64,7 @@ def test_search_prefers_rg_when_available(tmp_path: Path, monkeypatch: pytest.Mo
     assert called == ["rg"]
 
 
-def test_search_uses_python_fallback_when_rg_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_search_uses_python_fallback_when_rg_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "a.txt").write_text("alpha\n", encoding="utf-8")
     monkeypatch.setattr(search_tools, "which", lambda _name: None)
     result = search_tools._search(
@@ -79,9 +75,7 @@ def test_search_uses_python_fallback_when_rg_missing(
     assert result["count"] == 1
 
 
-def test_search_with_rg_parses_matches_and_keeps_context_flags(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_search_with_rg_parses_matches_and_keeps_context_flags(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
@@ -227,9 +221,7 @@ def test_fs_helpers_cover_read_write_stat_hash_and_glob(tmp_path: Path) -> None:
         fs_tools._hash({"path": "dir/a.txt", "algo": "__invalid_algo__"}, policy=policy)
 
 
-def test_git_helpers_build_expected_arguments_and_errors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_git_helpers_build_expected_arguments_and_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     policy = _policy(tmp_path)
@@ -242,12 +234,7 @@ def test_git_helpers_build_expected_arguments_and_errors(
     monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
 
     assert git_tools._git_status({"repo": "repo"}, policy=policy)["status"] == "ok"
-    assert (
-        git_tools._git_diff({"repo": "repo", "staged": True, "pathspec": "a.py"}, policy=policy)[
-            "diff"
-        ]
-        == "ok"
-    )
+    assert git_tools._git_diff({"repo": "repo", "staged": True, "pathspec": "a.py"}, policy=policy)["diff"] == "ok"
     assert git_tools._git_log({"repo": "repo", "max_commits": 7}, policy=policy)["log"] == "ok"
     assert git_tools._git_show({"repo": "repo", "rev": "HEAD~1"}, policy=policy)["show"] == "ok"
 
@@ -259,9 +246,7 @@ def test_git_helpers_build_expected_arguments_and_errors(
         git_tools._git_show({"repo": "repo", "rev": "   "}, policy=policy)
 
 
-def test_run_git_merges_stderr_and_appends_truncated_marker(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_git_merges_stderr_and_appends_truncated_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     policy = ToolPolicy(

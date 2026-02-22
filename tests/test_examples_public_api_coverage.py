@@ -24,11 +24,7 @@ def _public_symbols() -> tuple[str, ...]:
             break
         if isinstance(node, ast.Assign) and len(node.targets) == 1:
             target = node.targets[0]
-            if (
-                isinstance(target, ast.Name)
-                and target.id == "_EXPORTS"
-                and isinstance(node.value, ast.Dict)
-            ):
+            if isinstance(target, ast.Name) and target.id == "_EXPORTS" and isinstance(node.value, ast.Dict):
                 export_dict = node.value
                 break
 
@@ -70,9 +66,7 @@ def _explicit_imported_symbols(module: ast.Module, exports: set[str]) -> set[str
         if not isinstance(node, ast.ImportFrom):
             continue
         module_name = node.module or ""
-        if module_name != "design_research_agents" and not module_name.startswith(
-            "design_research_agents."
-        ):
+        if module_name != "design_research_agents" and not module_name.startswith("design_research_agents."):
             continue
         for alias in node.names:
             imported_name = alias.name

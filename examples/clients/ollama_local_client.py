@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import OllamaLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -44,8 +44,7 @@ def _build_payload() -> dict[str, object]:
             client=client,
             prompt="Give one sentence on when to use local model pull automation.",
             deterministic_response=(
-                "Use automated local pulls when startup reliability matters more than "
-                "cold-start time."
+                "Use automated local pulls when startup reliability matters more than cold-start time."
             ),
         )
         return {

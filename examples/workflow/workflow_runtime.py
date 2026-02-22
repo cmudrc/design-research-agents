@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import LogicStep, Workflow
-from design_research_agents.shared.example_support import make_tracer, trace_info
+from design_research_agents._shared._example_support import make_tracer, trace_info
 
 
 def main() -> None:
@@ -33,9 +33,7 @@ def main() -> None:
     payload = {
         "success": result.success,
         "execution_order": list(result.execution_order),
-        "final_output": (
-            result.output.get("final_output") if isinstance(result.output, dict) else None
-        ),
+        "final_output": (result.output.get("final_output") if isinstance(result.output, dict) else None),
         "trace": trace_info(request_id),
     }
     print(payload)

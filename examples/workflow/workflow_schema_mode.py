@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from design_research_agents import LogicStep, Toolbox, ToolStep, Workflow
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -90,14 +90,8 @@ def main() -> None:
                 step_id="quality_gate",
                 dependencies=("describe_dataset", "load_sample"),
                 handler=lambda context: {
-                    "row_count": (
-                        context["dependency_results"]["describe_dataset"]["output"]["result"][
-                            "rows"
-                        ]
-                    ),
-                    "sample_count": (
-                        context["dependency_results"]["load_sample"]["output"]["result"]["count"]
-                    ),
+                    "row_count": (context["dependency_results"]["describe_dataset"]["output"]["result"]["rows"]),
+                    "sample_count": (context["dependency_results"]["load_sample"]["output"]["result"]["count"]),
                     "required_columns": context["inputs"]["required_columns"],
                     "threshold": context["inputs"]["max_missing_ratio_per_column"],
                 },
@@ -116,9 +110,7 @@ def main() -> None:
                 step_id="finalize",
                 dependencies=("persist_report",),
                 handler=lambda context: {
-                    "report_path": (
-                        context["dependency_results"]["persist_report"]["output"]["result"]["path"]
-                    )
+                    "report_path": (context["dependency_results"]["persist_report"]["output"]["result"]["path"])
                 },
             ),
         ],

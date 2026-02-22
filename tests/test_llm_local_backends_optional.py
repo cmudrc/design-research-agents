@@ -6,8 +6,8 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest
-from design_research_agents.llm.backends.providers import mlx_local, transformers_local
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest
+from design_research_agents.llm._backends._providers import _mlx_local, _transformers_local
 
 
 def _request() -> LLMRequest:
@@ -15,15 +15,15 @@ def _request() -> LLMRequest:
 
 
 def test_transformers_quantization_and_prompt_fallback() -> None:
-    assert transformers_local._quantization_kwargs("8bit") == {"load_in_8bit": True}
-    assert transformers_local._quantization_kwargs("4bit") == {"load_in_4bit": True}
-    assert transformers_local._quantization_kwargs("none") == {}
+    assert _transformers_local._quantization_kwargs("8bit") == {"load_in_8bit": True}
+    assert _transformers_local._quantization_kwargs("4bit") == {"load_in_4bit": True}
+    assert _transformers_local._quantization_kwargs("none") == {}
 
     class _BadTokenizer:
         def apply_chat_template(self, *_args: object, **_kwargs: object) -> str:
             raise RuntimeError("boom")
 
-    prompt = transformers_local._format_prompt(_request(), _BadTokenizer())
+    prompt = _transformers_local._format_prompt(_request(), _BadTokenizer())
     assert "user: hello" in prompt
 
 
@@ -32,11 +32,11 @@ def test_transformers_resolve_dtype_success_and_error(
 ) -> None:
     fake_torch = SimpleNamespace(float16="f16", bfloat16="bf16", float32="f32")
     monkeypatch.setitem(sys.modules, "torch", fake_torch)
-    assert transformers_local._resolve_dtype("float16") == "f16"
-    assert transformers_local._resolve_dtype("bfloat16") == "bf16"
-    assert transformers_local._resolve_dtype("float32") == "f32"
+    assert _transformers_local._resolve_dtype("float16") == "f16"
+    assert _transformers_local._resolve_dtype("bfloat16") == "bf16"
+    assert _transformers_local._resolve_dtype("float32") == "f32"
     with pytest.raises(ValueError, match="Unsupported dtype"):
-        transformers_local._resolve_dtype("int8")
+        _transformers_local._resolve_dtype("int8")
 
 
 def test_transformers_resolve_dtype_import_error(
@@ -51,7 +51,7 @@ def test_transformers_resolve_dtype_import_error(
 
     monkeypatch.setattr(builtins, "__import__", _fake_import)
     with pytest.raises(RuntimeError, match="torch is required"):
-        transformers_local._resolve_dtype("float16")
+        _transformers_local._resolve_dtype("float16")
 
 
 def test_transformers_streaming_available_detection(
@@ -60,7 +60,7 @@ def test_transformers_streaming_available_detection(
     fake = ModuleType("transformers")
     fake.TextIteratorStreamer = object
     monkeypatch.setitem(sys.modules, "transformers", fake)
-    assert transformers_local._streaming_available() is True
+    assert _transformers_local._streaming_available() is True
 
     real_import = builtins.__import__
 
@@ -70,16 +70,16 @@ def test_transformers_streaming_available_detection(
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", _fake_import)
-    assert transformers_local._streaming_available() is False
+    assert _transformers_local._streaming_available() is False
 
 
 def test_transformers_generation_control_kwargs() -> None:
-    assert transformers_local._generation_control_kwargs(None) == {}
-    assert transformers_local._generation_control_kwargs(0.2) == {
+    assert _transformers_local._generation_control_kwargs(None) == {}
+    assert _transformers_local._generation_control_kwargs(0.2) == {
         "do_sample": True,
         "temperature": 0.2,
     }
-    assert transformers_local._generation_control_kwargs(0.0) == {
+    assert _transformers_local._generation_control_kwargs(0.0) == {
         "do_sample": False,
         "temperature": 1.0,
         "top_p": 1.0,
@@ -94,7 +94,7 @@ def test_mlx_prompt_fallback_and_streaming_support(
         def apply_chat_template(self, *_args: object, **_kwargs: object) -> str:
             raise RuntimeError("boom")
 
-    prompt = mlx_local._format_prompt(_request(), _BadTokenizer())
+    prompt = _mlx_local._format_prompt(_request(), _BadTokenizer())
     assert "user: hello" in prompt
 
     fake_module = ModuleType("mlx_lm")
@@ -111,7 +111,7 @@ def test_mlx_prompt_fallback_and_streaming_support(
 
     fake_module.generate = _generate_with_stream
     monkeypatch.setitem(sys.modules, "mlx_lm", fake_module)
-    assert mlx_local._mlx_supports_streaming() is True
+    assert _mlx_local._mlx_supports_streaming() is True
 
 
 def test_mlx_generate_stream_kwarg_and_import_error(
@@ -133,7 +133,7 @@ def test_mlx_generate_stream_kwarg_and_import_error(
     fake_module.generate = _generate_no_stream
     monkeypatch.setitem(sys.modules, "mlx_lm", fake_module)
 
-    assert mlx_local._mlx_generate(object(), object(), "p", max_tokens=10, temperature=0.2) == "ok"
+    assert _mlx_local._mlx_generate(object(), object(), "p", max_tokens=10, temperature=0.2) == "ok"
     assert "stream" not in calls[-1]
 
     def _generate_with_stream(
@@ -151,12 +151,7 @@ def test_mlx_generate_stream_kwarg_and_import_error(
         return "ok"
 
     fake_module.generate = _generate_with_stream
-    assert (
-        mlx_local._mlx_generate(
-            object(), object(), "p", max_tokens=10, temperature=0.2, stream=True
-        )
-        == "ok"
-    )
+    assert _mlx_local._mlx_generate(object(), object(), "p", max_tokens=10, temperature=0.2, stream=True) == "ok"
     assert calls[-1]["stream"] is True
 
     real_import = builtins.__import__
@@ -167,7 +162,7 @@ def test_mlx_generate_stream_kwarg_and_import_error(
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", _fake_import)
-    assert mlx_local._mlx_supports_streaming() is False
+    assert _mlx_local._mlx_supports_streaming() is False
 
 
 def test_mlx_generate_uses_sampler_when_sample_utils_available(
@@ -196,6 +191,6 @@ def test_mlx_generate_uses_sampler_when_sample_utils_available(
     monkeypatch.setitem(sys.modules, "mlx_lm", fake_module)
     monkeypatch.setitem(sys.modules, "mlx_lm.sample_utils", fake_sample_utils)
 
-    assert mlx_local._mlx_generate(object(), object(), "p", max_tokens=10, temperature=0.2) == "ok"
+    assert _mlx_local._mlx_generate(object(), object(), "p", max_tokens=10, temperature=0.2) == "ok"
     assert calls[-1]["sampler"] == {"sampler_temp": 0.2}
     assert "temp" not in calls[-1]

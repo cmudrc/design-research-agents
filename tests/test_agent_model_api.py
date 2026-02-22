@@ -5,15 +5,15 @@ from collections.abc import Iterator
 
 import pytest
 
-from design_research_agents.agent import (
-    DirectLLMCall,
-    MultiStepAgent,
-)
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
     LLMRequest,
+)
+from design_research_agents.agent import (
+    DirectLLMCall,
+    MultiStepAgent,
 )
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import (

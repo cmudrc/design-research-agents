@@ -7,15 +7,15 @@ from collections.abc import Mapping
 
 import pytest
 
-from design_research_agents.contracts.agent import Agent, ExecutionResult
-from design_research_agents.contracts.memory import MemorySearchQuery, MemoryWriteRecord
-from design_research_agents.implementations.patterns import (
-    rag_reasoning as rag_reasoning_impl,
+from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._memory import MemorySearchQuery, MemoryWriteRecord
+from design_research_agents._implementations._patterns import (
+    _rag_reasoning as rag_reasoning_impl,
 )
-from design_research_agents.implementations.patterns import (
-    tree_search as tree_search_impl,
+from design_research_agents._implementations._patterns import (
+    _tree_search as tree_search_impl,
 )
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
+from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
 from design_research_agents.workflow import RagReasoningPattern, TreeSearchPattern
 
 
@@ -164,16 +164,10 @@ def test_tree_search_pattern_supports_agent_delegates() -> None:
 
 
 def test_tree_search_helpers_cover_candidate_score_and_conversion_branches() -> None:
-    assert tree_search_impl._extract_candidate_list({"candidates": [{"x": 1}, object()]}) == [
-        {"x": 1}
-    ]
+    assert tree_search_impl._extract_candidate_list({"candidates": [{"x": 1}, object()]}) == [{"x": 1}]
     assert tree_search_impl._extract_candidate_list({"candidate": "single"}) == ["single"]
-    assert tree_search_impl._extract_candidate_list(
-        {"model_text": json.dumps([{"a": 1}, 2, None])}
-    ) == [{"a": 1}, 2]
-    assert tree_search_impl._extract_candidate_list(
-        {"model_text": json.dumps({"candidate": {"b": 2}})}
-    ) == [{"b": 2}]
+    assert tree_search_impl._extract_candidate_list({"model_text": json.dumps([{"a": 1}, 2, None])}) == [{"a": 1}, 2]
+    assert tree_search_impl._extract_candidate_list({"model_text": json.dumps({"candidate": {"b": 2}})}) == [{"b": 2}]
     assert tree_search_impl._extract_candidate_list({"model_text": "not-json"}) == []
 
     assert tree_search_impl._extract_score({"score": 1}) == 1.0

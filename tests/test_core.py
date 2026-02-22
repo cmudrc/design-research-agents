@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     BackendCapabilities,
     BackendStatus,
     LLMChatParams,
@@ -13,7 +13,7 @@ from design_research_agents.contracts.llm import (
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents.llm.backends.base import BaseLLMBackend
+from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm.clients import (
     LlamaCppServerLLMClient,
     MlxLocalLLMClient,

@@ -4,13 +4,13 @@ from collections.abc import Sequence
 
 import pytest
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMResponse
-from design_research_agents.contracts.memory import MemoryRecord, MemoryWriteRecord
-from design_research_agents.contracts.termination import SOURCE_INVALID_PAYLOAD
-from design_research_agents.contracts.tools import ToolResult, ToolSpec
-from design_research_agents.implementations.shared.agent_internal import (
-    multi_step_code_runtime_helpers as code_runtime,
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMResponse
+from design_research_agents._contracts._memory import MemoryRecord, MemoryWriteRecord
+from design_research_agents._contracts._termination import SOURCE_INVALID_PAYLOAD
+from design_research_agents._contracts._tools import ToolResult, ToolSpec
+from design_research_agents._implementations._shared._agent_internal import (
+    _multi_step_code_runtime_helpers as code_runtime,
 )
 
 pytestmark = pytest.mark.contract
@@ -273,6 +273,4 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
     assert stop_state["should_continue"] is False
     assert stop_state["fatal_error"] is not None
 
-    assert code_runtime.is_no_tool_call_step_failure(
-        error="Generated code must call at least one tool."
-    )
+    assert code_runtime.is_no_tool_call_step_failure(error="Generated code must call at least one tool.")

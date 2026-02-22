@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import MlxLocalLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -31,9 +31,7 @@ def _build_payload() -> dict[str, object]:
     llm_call = run_representative_chat(
         client=client,
         prompt="Give one concise guideline for maintainable design telemetry schemas.",
-        deterministic_response=(
-            "Keep schema fields stable, documented, and versioned for comparability."
-        ),
+        deterministic_response=("Keep schema fields stable, documented, and versioned for comparability."),
     )
     return {
         "client_class": client.__class__.__name__,

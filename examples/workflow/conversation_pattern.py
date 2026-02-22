@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from design_research_agents import ConversationPattern, LlamaCppServerLLMClient, Tracer
-from design_research_agents.shared.example_support import print_json, trace_info
+from design_research_agents._shared._example_support import print_json, trace_info
 
 
 def main() -> None:
@@ -31,12 +31,10 @@ def main() -> None:
             speaker_a_name="Concept Designer",
             speaker_b_name="Validation Engineer",
             speaker_a_system_prompt=(
-                "You are Concept Designer. Propose practical ideas for a field-serviceable "
-                "sensor enclosure."
+                "You are Concept Designer. Propose practical ideas for a field-serviceable sensor enclosure."
             ),
             speaker_b_system_prompt=(
-                "You are Validation Engineer. Stress-test ideas for manufacturability, safety, "
-                "and maintenance time."
+                "You are Validation Engineer. Stress-test ideas for manufacturability, safety, and maintenance time."
             ),
             tracer=tracer,
         )

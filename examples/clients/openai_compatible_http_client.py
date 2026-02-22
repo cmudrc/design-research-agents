@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import OpenAICompatibleHTTPLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -33,8 +33,7 @@ def _build_payload() -> dict[str, object]:
         client=client,
         prompt="Provide one sentence on balancing latency and quality in design review assistants.",
         deterministic_response=(
-            "Use fast drafts for iteration, then escalate critical decisions to "
-            "higher-quality models."
+            "Use fast drafts for iteration, then escalate critical decisions to higher-quality models."
         ),
     )
     return {

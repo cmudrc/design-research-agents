@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 
-from design_research_agents.contracts.agent import Agent
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._agent import Agent
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
@@ -14,8 +14,8 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._workflow import (
     ExecutionResult,
     WorkflowStepResult,
 )

@@ -2,20 +2,20 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.llm import (
-    OpenAICompatibleHTTPLLMClient,
-    OpenAIServiceLLMClient,
-    TransformersLocalLLMClient,
-)
-from design_research_agents.model_selection import ModelSelector
-from design_research_agents.model_selection.catalog import ModelCatalog
-from design_research_agents.model_selection.hardware import HardwareProfile
-from design_research_agents.model_selection.types import (
+from design_research_agents._model_selection import ModelSelector
+from design_research_agents._model_selection._catalog import ModelCatalog
+from design_research_agents._model_selection._hardware import HardwareProfile
+from design_research_agents._model_selection._types import (
     ModelCostHint,
     ModelLatencyHint,
     ModelMemoryHint,
     ModelSelectionDecision,
     ModelSpec,
+)
+from design_research_agents.llm import (
+    OpenAICompatibleHTTPLLMClient,
+    OpenAIServiceLLMClient,
+    TransformersLocalLLMClient,
 )
 
 
@@ -36,9 +36,7 @@ def _make_model(
         format="gguf" if provider == "llama_cpp" else "api",
         quantization="q4_k_m" if provider == "llama_cpp" else None,
         memory_hint=(
-            ModelMemoryHint(min_ram_gb=min_ram_gb, min_vram_gb=None, note="test")
-            if min_ram_gb is not None
-            else None
+            ModelMemoryHint(min_ram_gb=min_ram_gb, min_vram_gb=None, note="test") if min_ram_gb is not None else None
         ),
         latency_hint=ModelLatencyHint(tier="medium"),
         cost_hint=ModelCostHint(tier="low", usd_per_1k_tokens=0.0),
@@ -283,9 +281,7 @@ def test_hardware_profile_accepts_mapping_input() -> None:
         ("cpu_count", True),
     ),
 )
-def test_hardware_profile_mapping_rejects_invalid_numeric_values(
-    field_name: str, value: object
-) -> None:
+def test_hardware_profile_mapping_rejects_invalid_numeric_values(field_name: str, value: object) -> None:
     remote_model = _make_model(
         model_id="gpt-4o-mini",
         provider="openai",

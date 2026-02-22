@@ -18,10 +18,10 @@ from design_research_agents import (
     MemoryWriteStep,
     Workflow,
 )
-from design_research_agents.contracts import DelegateBatchCall, MemoryWriteRecord
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
-from design_research_agents.shared.deterministic_design_helpers import FixedDesignPeerAgent
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._contracts import DelegateBatchCall, MemoryWriteRecord
+from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
+from design_research_agents._shared._deterministic_design_helpers import FixedDesignPeerAgent
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
@@ -71,10 +71,7 @@ def main() -> None:
                     DelegateBatchCall(
                         call_id="manufacturing_peer",
                         delegate=FixedDesignPeerAgent(
-                            messages=[
-                                "Use captive screws with standardized head type for faster "
-                                "maintenance."
-                            ]
+                            messages=["Use captive screws with standardized head type for faster maintenance."]
                         ),
                         prompt=(
                             "Propose manufacturing-friendly maintenance improvements using "
@@ -85,10 +82,7 @@ def main() -> None:
                     DelegateBatchCall(
                         call_id="reliability_peer",
                         delegate=FixedDesignPeerAgent(
-                            messages=[
-                                "Add gasket alignment features to preserve ingress protection "
-                                "after service."
-                            ]
+                            messages=["Add gasket alignment features to preserve ingress protection after service."]
                         ),
                         prompt="Propose reliability-focused maintenance improvements.",
                     ),
@@ -98,12 +92,8 @@ def main() -> None:
                 step_id="finalize",
                 dependencies=("read_constraints", "peer_batch"),
                 handler=lambda context: {
-                    "constraints_found": (
-                        context["dependency_results"]["read_constraints"]["output"]["count"]
-                    ),
-                    "delegate_calls": len(
-                        context["dependency_results"]["peer_batch"]["output"].get("results", [])
-                    ),
+                    "constraints_found": (context["dependency_results"]["read_constraints"]["output"]["count"]),
+                    "delegate_calls": len(context["dependency_results"]["peer_batch"]["output"].get("results", [])),
                     "final_delegate_output": (
                         context["dependency_results"]["peer_batch"]["output"].get("final_output")
                     ),

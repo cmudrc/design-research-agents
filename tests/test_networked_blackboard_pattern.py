@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.contracts.agent import Agent, ExecutionResult
+from design_research_agents._contracts._agent import Agent, ExecutionResult
 from design_research_agents.workflow import BlackboardPattern, NetworkedPattern
 
 

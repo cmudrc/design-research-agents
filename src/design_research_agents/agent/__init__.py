@@ -6,8 +6,8 @@ from importlib import import_module
 from typing import Final
 
 _EXPORTS: Final[dict[str, str]] = {
-    "DirectLLMCall": "design_research_agents.implementations.agents:DirectLLMCall",
-    "MultiStepAgent": "design_research_agents.implementations.agents:MultiStepAgent",
+    "DirectLLMCall": "design_research_agents._implementations._agents:DirectLLMCall",
+    "MultiStepAgent": "design_research_agents._implementations._agents:MultiStepAgent",
 }
 
 __all__ = list(_EXPORTS.keys())

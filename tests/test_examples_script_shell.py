@@ -18,9 +18,7 @@ def test_script_shell_example_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     env = dict(os.environ)
     existing_pythonpath = env.get("PYTHONPATH")
     test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"
-    env["PYTHONPATH"] = (
-        f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
-    )
+    env["PYTHONPATH"] = f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
 
     completed = subprocess.run(
         ["bash", str(example_path)],

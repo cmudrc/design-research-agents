@@ -4,8 +4,7 @@ from collections.abc import Iterator, Mapping
 
 import pytest
 
-from design_research_agents.agent import MultiStepAgent
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
@@ -13,7 +12,8 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.agent import MultiStepAgent
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import PlannerExecutorPattern
 
@@ -129,9 +129,7 @@ def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target()
     with pytest.raises(ValueError, match="alternatives_prompt_target"):
         MultiStepAgent(
             mode="json",
-            llm_client=_SequenceLLMClient(
-                response_texts=['{"tool_name":"calculator","tool_input":{}}']
-            ),
+            llm_client=_SequenceLLMClient(response_texts=['{"tool_name":"calculator","tool_input":{}}']),
             tool_runtime=Toolbox(),
             alternatives_prompt_target="invalid",
         )
@@ -140,9 +138,7 @@ def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target()
 def test_multi_step_json_agent_rejects_unmatched_allowed_tools() -> None:
     agent = MultiStepAgent(
         mode="json",
-        llm_client=_SequenceLLMClient(
-            response_texts=['{"tool_name":"calculator","tool_input":{},"reason":"x"}']
-        ),
+        llm_client=_SequenceLLMClient(response_texts=['{"tool_name":"calculator","tool_input":{},"reason":"x"}']),
         tool_runtime=_ArglessToolRuntime(),
         allowed_tools=["unknown_tool"],
     )
@@ -164,17 +160,17 @@ def test_plan_execute_workflow_template_override_supports_task_prompt_variable()
     workflow = PlannerExecutorPattern(
         llm_client=_SequenceLLMClient(
             response_texts=[
-                '{"steps":[{"step_id":"one","instruction":"Compute 6 * 7.",'
-                '"success_criteria":"Return result"}]}',
+                '{"steps":[{"step_id":"one","instruction":"Count words in a short phrase.",'
+                '"success_criteria":"Return word count"}]}',
                 '{"continue": true, "thought": "run step"}',
-                'calc = call_tool("calculator", {"expression": "6 * 7"})\n'
-                'final_output = {"result": calc["result"]}',
+                'stats = call_tool("text.word_count", {"text": "design research"})\n'
+                'final_output = {"result": stats["word_count"]}',
             ]
         ),
         tool_runtime=Toolbox(),
         planner_user_prompt_template="Task block:\n$task_prompt",
     )
-    result = workflow.run("Compute 6 * 7.")
+    result = workflow.run("Count words in design research.")
     assert result.success
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from design_research_agents.contracts.memory import MemorySearchQuery, MemoryWriteRecord
-from design_research_agents.memory import EmbeddingProvider, SQLiteMemoryStore
+from design_research_agents._contracts._memory import MemorySearchQuery, MemoryWriteRecord
+from design_research_agents._memory import EmbeddingProvider, SQLiteMemoryStore
 
 
 class _StaticEmbeddingProvider(EmbeddingProvider):

@@ -15,7 +15,7 @@ from design_research_agents import (
     RouterPattern,
     Toolbox,
 )
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
@@ -43,18 +43,14 @@ def main() -> None:
         },
         alternative_descriptions={
             "direct_llm_agent": "Use for concise textual design summaries with no runtime tools.",
-            "json_tool_agent": (
-                "Use for design requests needing runtime calculations or tool calls."
-            ),
+            "json_tool_agent": ("Use for design requests needing runtime text analysis or tool calls."),
         },
         tracer=tracer,
     )
 
     try:
         result = workflow.run(
-            prompt=(
-                "Calculate this design score expression and return the numeric result: 12 * (4 + 1)"
-            ),
+            prompt=("Count the words in this design phrase and return the tool result: modular field service workflow"),
             request_id=request_id,
         )
     finally:

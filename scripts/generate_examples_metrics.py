@@ -58,11 +58,7 @@ def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
     export_dict: ast.Dict | None = None
 
     for node in module.body:
-        if (
-            isinstance(node, ast.AnnAssign)
-            and isinstance(node.target, ast.Name)
-            and node.target.id == "_EXPORTS"
-        ):
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "_EXPORTS":
             if isinstance(node.value, ast.Dict):
                 export_dict = node.value
             break
@@ -126,9 +122,7 @@ def _collect_explicit_imported_exports(module: ast.Module, export_set: set[str])
         if not isinstance(node, ast.ImportFrom):
             continue
         module_name = node.module or ""
-        if module_name != "design_research_agents" and not module_name.startswith(
-            "design_research_agents."
-        ):
+        if module_name != "design_research_agents" and not module_name.startswith("design_research_agents."):
             continue
         for alias in node.names:
             imported_name = alias.name

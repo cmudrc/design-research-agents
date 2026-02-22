@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
@@ -24,13 +24,14 @@ def main() -> None:
             tool_runtime=tool_runtime,
             max_steps=3,
             normalize_generated_code_per_step=True,
-            default_tools_per_step=({"tool_name": "calculator"},),
+            default_tools_per_step=({"tool_name": "text.word_count"},),
             tracer=make_tracer(),
         )
         result = agent.run(
             prompt=(
                 "No imports. Use call_tool only. Compute two design-review metrics using "
-                "calculator: (12 * (4 + 1)) and then (60 / 3). Return final_output with both."
+                "text.word_count on these phrases: 'design review metrics' and "
+                "'runtime tool boundaries'. Return final_output with both counts."
             ),
             request_id=request_id,
         )

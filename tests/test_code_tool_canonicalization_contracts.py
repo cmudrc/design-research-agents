@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.contracts.tools import ToolSpec
-from design_research_agents.implementations.shared.agent_internal.code_tool_agent_parsing import (
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents._implementations._shared._agent_internal._code_tool_agent_parsing import (
     AllowedTool,
     canonicalize_generated_code,
     compile_default_allowed_tools,

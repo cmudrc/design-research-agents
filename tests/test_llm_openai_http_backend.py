@@ -6,13 +6,13 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMInvalidRequestError,
     LLMMessage,
     LLMProviderError,
 )
-from design_research_agents.llm.backends.providers import (
-    openai_compatible_http as oai_http,
+from design_research_agents.llm._backends._providers import (
+    _openai_compatible_http as oai_http,
 )
 from tests._llm_openai_backends_test_helpers import caps, request, tool
 
@@ -217,20 +217,14 @@ def test_openai_http_post_helpers_and_response_parsers(
             object(),
         ]
     )
-    assert message_payloads == [
-        {"role": "user", "content": "hello", "name": "alice", "tool_call_id": "tc1"}
-    ]
+    assert message_payloads == [{"role": "user", "content": "hello", "name": "alice", "tool_call_id": "tc1"}]
 
-    assert oai_http._format_response_format(request(response_format={"type": "json_object"})) == {
-        "type": "json_object"
-    }
+    assert oai_http._format_response_format(request(response_format={"type": "json_object"})) == {"type": "json_object"}
     assert oai_http._format_response_format(request(response_schema={"type": "object"})) == {
         "type": "json_schema",
         "json_schema": {"name": "response", "schema": {"type": "object"}},
     }
     assert oai_http._format_response_format(request()) is None
 
-    assert (
-        oai_http._extract_tool_call_deltas([{"id": "c1", "function": {"name": "x"}}])[0].name == "x"
-    )
+    assert oai_http._extract_tool_call_deltas([{"id": "c1", "function": {"name": "x"}}])[0].name == "x"
     assert oai_http._extract_tool_call_deltas("bad") == []

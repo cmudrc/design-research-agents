@@ -48,8 +48,7 @@ def test_implementation_paths_are_bucketed_as_implementation() -> None:
 
     assert exit_code == 1
     assert any(
-        "src/design_research_agents/implementations/patterns/example.py" in line
-        and "category=implementation" in line
+        "src/design_research_agents/implementations/patterns/example.py" in line and "category=implementation" in line
         for line in output_lines
     )
 

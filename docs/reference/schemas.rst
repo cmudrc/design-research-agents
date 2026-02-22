@@ -1,9 +1,10 @@
 Schema Modules
 ==============
 
-This page lists all modules in this package area, including internal modules.
+This page lists internal schema-validation modules. These underscored module
+paths are documented for contributor visibility and are not API-stable.
 
-.. automodule:: design_research_agents.schemas.validation
+.. automodule:: design_research_agents._schemas._validation
    :members:
    :undoc-members:
    :no-index:

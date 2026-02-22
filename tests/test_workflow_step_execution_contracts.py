@@ -4,20 +4,20 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMMessage,
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents.contracts.memory import (
+from design_research_agents._contracts._memory import (
     MemoryRecord,
     MemorySearchQuery,
     MemoryWriteRecord,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._workflow import (
     AgentStep,
     DelegateBatchCall,
     DelegateBatchStep,
@@ -26,7 +26,7 @@ from design_research_agents.contracts.workflow import (
     ModelStep,
     ToolStep,
 )
-from design_research_agents.workflow.internal.step_execution import (
+from design_research_agents._runtime._workflow._executors._common import (
     run_agent_step,
     run_delegate_batch_step,
     run_memory_read_step,

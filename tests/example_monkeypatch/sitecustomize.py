@@ -14,7 +14,7 @@ _DETERMINISTIC_MODE = os.environ.get("DRA_EXAMPLE_LLM_MODE", "").strip().lower()
 
 if _DETERMINISTIC_MODE:
     import design_research_agents.llm as llm_module
-    from design_research_agents.contracts.llm import (
+    from design_research_agents._contracts._llm import (
         LLMChatParams,
         LLMDelta,
         LLMMessage,
@@ -31,8 +31,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             [
                 'readme = call_tool("fs.read_text", {"path": "README.md", "max_bytes": 2400})',
                 'stats = call_tool("text.word_count", {"text": readme["text"]})',
-                'diff_result = call_tool("text.diff", {"a": "core tools only", '
-                '"b": "core + script + mcp tools"})',
+                'diff_result = call_tool("text.diff", {"a": "core tools only", "b": "core + script + mcp tools"})',
                 "final_output = {",
                 '    "word_count": stats["word_count"],',
                 '    "line_count": stats["line_count"],',
@@ -52,24 +51,15 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     ),
     "examples/optimization/multi_step_tool_router_1d_optimization.py": (
         '{"continue": true, "thought": "Start descending toward zero."}',
-        (
-            '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},'
-            '"reason":"Decrease x toward zero."}'
-        ),
+        ('{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Decrease x toward zero."}'),
         '{"continue": true, "thought": "Still above zero, continue decreasing."}',
-        (
-            '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},'
-            '"reason":"Keep moving toward zero."}'
-        ),
+        ('{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Keep moving toward zero."}'),
         '{"continue": true, "thought": "One more decrease should reach zero."}',
         ('{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Reach x=0."}'),
         '{"continue": false, "thought": "No better one-step move remains."}',
     ),
     "examples/agents/basic/multi_step_direct_llm_agent.py": (
-        (
-            '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.",'
-            '"reason":"Need final wording."}'
-        ),
+        ('{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.","reason":"Need final wording."}'),
         '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
     ),
     "examples/workflow/plan_execute.py": (
@@ -82,8 +72,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         '{"continue": true, "thought": "Run the first execution step."}',
         "\n".join(
             [
-                'csv_text = "tool,source\\ncalculator,core\\nrubric_score,script\\n'
-                'text.word_count,mcp\\n"',
+                'csv_text = "tool,source\\ntext.word_count,core\\nrubric_score,script\\ntext.word_count,mcp\\n"',
                 'write_result = call_tool("fs.write_text", {"path": '
                 '"artifacts/examples/plan_execute_runtime_inventory.csv", "content": csv_text, '
                 '"overwrite": True})',
@@ -103,20 +92,14 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     ),
     "examples/workflow/propose_critic.py": (
         "Draft v1: simple proposal.",
-        (
-            '{"approved": false, "feedback": "Add more detail.", '
-            '"revision_goals": ["expand rationale"]}'
-        ),
+        ('{"approved": false, "feedback": "Add more detail.", "revision_goals": ["expand rationale"]}'),
         "Draft v2: proposal with more detail.",
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
     "examples/workflow/agent_routing.py": (
-        (
-            '{"action":"TOOL_CALL","tool_names":["json_tool_agent"],'
-            '"reason":"Arithmetic request uses tools."}'
-        ),
-        '{"continue": true, "thought": "Select one arithmetic tool call."}',
-        '{"tool_name":"calculator","tool_input":{"expression":"12 * (4 + 1)"}}',
+        ('{"action":"TOOL_CALL","tool_names":["json_tool_agent"],"reason":"Text-analysis request uses tools."}'),
+        '{"continue": true, "thought": "Select one text tool call."}',
+        '{"tool_name":"text.word_count","tool_input":{"text":"modular field service workflow"}}',
     ),
     "examples/workflow/debate_pattern.py": (
         "Local models improve data control and predictable costs for many research workloads.",
@@ -127,10 +110,7 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
     ),
     "examples/workflow/conversation_pattern.py": (
-        (
-            "Use a hand-crank dual-roller shelling stage with food-safe rubber rollers and a "
-            "winnowing chute."
-        ),
+        ("Use a hand-crank dual-roller shelling stage with food-safe rubber rollers and a winnowing chute."),
         (
             "Add a threaded gap adjuster and quick-release side plates so farmers can tune roller "
             "spacing and clean jams quickly."
@@ -162,23 +142,17 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
     ),
     "examples/agents/streaming/multi_step_json_tool_calling_agent_stream.py": (
         '{"continue": true, "thought": "Run one action step."}',
-        (
-            '{"tool_name":"text.word_count","tool_input":{"text":"README measured"},'
-            '"reason":"Compute compact metric."}'
-        ),
+        ('{"tool_name":"text.word_count","tool_input":{"text":"README measured"},"reason":"Compute compact metric."}'),
     ),
     "examples/agents/streaming/multi_step_tool_router_agent_stream.py": (
         (
-            '{"action":"TOOL_CALL","tool_names":["calculator"],'
-            '"tool_input":{"expression":"12 * (4 + 1)"},"reason":"Compute result."}'
+            '{"action":"TOOL_CALL","tool_names":["text.word_count"],'
+            '"tool_input":{"text":"modular field service workflow"},"reason":"Compute metric."}'
         ),
-        '{"action":"STOP","final_output":{"result":60.0},"reason":"done"}',
+        '{"action":"STOP","final_output":{"word_count":4},"reason":"done"}',
     ),
     "examples/agents/streaming/multi_step_direct_llm_agent_stream.py": (
-        (
-            '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.",'
-            '"reason":"Need final wording."}'
-        ),
+        ('{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.","reason":"Need final wording."}'),
         '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
     ),
 }
@@ -254,9 +228,7 @@ if _DETERMINISTIC_MODE:
             script_name = Path(sys.argv[0]).name
             responses = _SCRIPT_RESPONSES.get(script_name)
         if responses is None:
-            raise RuntimeError(
-                f"No deterministic LLM response profile configured for '{example_id}'."
-            )
+            raise RuntimeError(f"No deterministic LLM response profile configured for '{example_id}'.")
         return _DeterministicExampleClient(response_texts=responses)
 
     class _DeterministicCapabilities:

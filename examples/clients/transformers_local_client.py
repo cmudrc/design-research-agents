@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import TransformersLocalLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -35,9 +35,7 @@ def _build_payload() -> dict[str, object]:
     llm_call = run_representative_chat(
         client=client,
         prompt="Provide one sentence on why deterministic local runs aid design reproducibility.",
-        deterministic_response=(
-            "Deterministic local runs make design comparisons repeatable across experiments."
-        ),
+        deterministic_response=("Deterministic local runs make design comparisons repeatable across experiments."),
     )
     return {
         "client_class": client.__class__.__name__,

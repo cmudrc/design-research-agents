@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.llm import EmbeddingResult, LLMCapabilityError
-from design_research_agents.memory.embedding import LLMEmbeddingProvider
+from design_research_agents._contracts._llm import EmbeddingResult, LLMCapabilityError
+from design_research_agents._memory._embedding import LLMEmbeddingProvider
 
 pytestmark = pytest.mark.contract
 
@@ -49,9 +49,7 @@ def test_embedding_provider_direct_embed_and_backend_embed_paths() -> None:
 
 def test_embedding_provider_handles_capability_and_runtime_errors() -> None:
     provider = LLMEmbeddingProvider(
-        llm_client=SimpleNamespace(
-            embed=lambda _texts: (_ for _ in ()).throw(LLMCapabilityError("nope"))
-        ),
+        llm_client=SimpleNamespace(embed=lambda _texts: (_ for _ in ()).throw(LLMCapabilityError("nope"))),
         enable_lexical_fallback=True,
     )
     assert provider.embed(["hello"]) is None
@@ -66,9 +64,7 @@ def test_embedding_provider_handles_capability_and_runtime_errors() -> None:
 
 def test_embedding_provider_accepts_embedding_result_and_validates_counts() -> None:
     provider = LLMEmbeddingProvider(
-        llm_client=SimpleNamespace(
-            embed=lambda texts: EmbeddingResult(vectors=[[1, 2] for _ in texts])
-        ),
+        llm_client=SimpleNamespace(embed=lambda texts: EmbeddingResult(vectors=[[1, 2] for _ in texts])),
     )
     assert provider.embed(["a", "b"]) == [[1.0, 2.0], [1.0, 2.0]]
 

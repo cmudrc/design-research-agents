@@ -5,21 +5,19 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Final
 
-from .schema_helpers import list_of, scalar, typed_dict
+from ._schema_helpers import list_of, scalar, typed_dict
 from .workflow import Workflow
 
 _EXPORTS: Final[dict[str, str]] = {
-    "BlackboardPattern": "design_research_agents.implementations.patterns:BlackboardPattern",
-    "ConversationPattern": "design_research_agents.implementations.patterns:ConversationPattern",
-    "DebatePattern": "design_research_agents.implementations.patterns:DebatePattern",
-    "NetworkedPattern": "design_research_agents.implementations.patterns:NetworkedPattern",
-    "PlannerExecutorPattern": (
-        "design_research_agents.implementations.patterns:PlannerExecutorPattern"
-    ),
-    "RagReasoningPattern": "design_research_agents.implementations.patterns:RagReasoningPattern",
-    "ReflexionPattern": "design_research_agents.implementations.patterns:ReflexionPattern",
-    "RouterPattern": "design_research_agents.implementations.patterns:RouterPattern",
-    "TreeSearchPattern": "design_research_agents.implementations.patterns:TreeSearchPattern",
+    "BlackboardPattern": "design_research_agents._implementations._patterns:BlackboardPattern",
+    "ConversationPattern": "design_research_agents._implementations._patterns:ConversationPattern",
+    "DebatePattern": "design_research_agents._implementations._patterns:DebatePattern",
+    "NetworkedPattern": "design_research_agents._implementations._patterns:NetworkedPattern",
+    "PlannerExecutorPattern": ("design_research_agents._implementations._patterns:PlannerExecutorPattern"),
+    "RagReasoningPattern": "design_research_agents._implementations._patterns:RagReasoningPattern",
+    "ReflexionPattern": "design_research_agents._implementations._patterns:ReflexionPattern",
+    "RouterPattern": "design_research_agents._implementations._patterns:RouterPattern",
+    "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }
 
 __all__ = ["Workflow", "scalar", "list_of", "typed_dict", *_EXPORTS.keys()]

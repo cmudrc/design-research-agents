@@ -3,13 +3,15 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.implementations.patterns import debate_pattern as debate_impl
-from design_research_agents.implementations.patterns import planner_executor_pattern as planner_impl
-from design_research_agents.implementations.patterns.debate_pattern import DebatePattern
-from design_research_agents.implementations.patterns.planner_executor_pattern import (
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._implementations._patterns import _debate_pattern as debate_impl
+from design_research_agents._implementations._patterns import (
+    _planner_executor_pattern as planner_impl,
+)
+from design_research_agents._implementations._patterns._debate_pattern import DebatePattern
+from design_research_agents._implementations._patterns._planner_executor_pattern import (
     PlannerExecutorPattern,
 )
 
@@ -73,18 +75,12 @@ class _SingleToolRuntime(ToolRuntime):
 
 
 def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> None:
-    assert planner_impl._extract_planner_payload({"steps": [{"step_id": "x"}]}) == {
-        "steps": [{"step_id": "x"}]
+    assert planner_impl._extract_planner_payload({"steps": [{"step_id": "x"}]}) == {"steps": [{"step_id": "x"}]}
+    assert planner_impl._extract_planner_payload({"final_output": {"steps": [{"step_id": "y"}]}}) == {
+        "steps": [{"step_id": "y"}]
     }
     assert planner_impl._extract_planner_payload(
-        {"final_output": {"steps": [{"step_id": "y"}]}}
-    ) == {"steps": [{"step_id": "y"}]}
-    assert planner_impl._extract_planner_payload(
-        {
-            "final_output": json.dumps(
-                {"steps": [{"step_id": "z", "instruction": "i", "success_criteria": "c"}]}
-            )
-        }
+        {"final_output": json.dumps({"steps": [{"step_id": "z", "instruction": "i", "success_criteria": "c"}]})}
     ) == {"steps": [{"step_id": "z", "instruction": "i", "success_criteria": "c"}]}
     assert planner_impl._extract_planner_payload(
         {
@@ -182,9 +178,11 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
 
 
 def test_debate_pattern_delegate_and_helper_branches() -> None:
-    assert debate_impl._extract_delegate_verdict(
-        {"winner": "tie", "rationale": "r", "synthesis": "s"}
-    ) == {"winner": "tie", "rationale": "r", "synthesis": "s"}
+    assert debate_impl._extract_delegate_verdict({"winner": "tie", "rationale": "r", "synthesis": "s"}) == {
+        "winner": "tie",
+        "rationale": "r",
+        "synthesis": "s",
+    }
     assert debate_impl._extract_delegate_verdict(
         {
             "final_output": {

@@ -5,8 +5,8 @@ from typing import ClassVar
 
 import pytest
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.workflow.internal import delegate_invocation as delegate_impl
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._runtime._common import _delegate_invocation as delegate_impl
 
 
 class _AgentDelegate:

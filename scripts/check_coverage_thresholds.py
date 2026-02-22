@@ -154,9 +154,7 @@ def main() -> int:
             failures.append(f"{package_name} coverage has no measured statements")
             continue
         if package_percent < threshold:
-            failures.append(
-                f"{package_name} coverage {package_percent:.2f}% is below {threshold:.2f}%"
-            )
+            failures.append(f"{package_name} coverage {package_percent:.2f}% is below {threshold:.2f}%")
 
     if not failures:
         print("Coverage thresholds passed.")

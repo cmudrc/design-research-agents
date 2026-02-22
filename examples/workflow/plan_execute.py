@@ -17,7 +17,7 @@ from design_research_agents import (
     PlannerExecutorPattern,
     Toolbox,
 )
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:

@@ -4,24 +4,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMResponse
-from design_research_agents.contracts.tools import ToolResult, ToolSpec
-from design_research_agents.contracts.workflow import WorkflowStepResult
-from design_research_agents.implementations.shared.agent_internal import (
-    multi_step_json_runtime_helpers as json_runtime,
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMResponse
+from design_research_agents._contracts._tools import ToolResult, ToolSpec
+from design_research_agents._contracts._workflow import WorkflowStepResult
+from design_research_agents._implementations._shared._agent_internal import (
+    _multi_step_json_runtime_helpers as json_runtime,
 )
-from design_research_agents.implementations.shared.agent_internal import (
-    workflow_loop_orchestration as loop_orchestration,
+from design_research_agents._implementations._shared._agent_internal import (
+    _workflow_loop_orchestration as loop_orchestration,
 )
-from design_research_agents.implementations.shared.workflow_internal import loop_state, run_defaults
-from design_research_agents.implementations.shared.workflow_internal import (
-    planner_executor_helpers as planner_helpers,
+from design_research_agents._implementations._shared._workflow_internal import (
+    _planner_executor_helpers as planner_helpers,
 )
-from design_research_agents.implementations.shared.workflow_internal.pattern_runtime import (
+from design_research_agents._runtime._common import _run_defaults as canonical_run_defaults
+from design_research_agents._runtime._common import _run_defaults as run_defaults
+from design_research_agents._runtime._patterns import _loop_state as loop_state
+from design_research_agents._runtime._patterns._run_context import (
     WorkflowBudgetTracker,
 )
-from design_research_agents.shared import run_defaults as canonical_run_defaults
 
 
 def _tool_spec(name: str = "calculator") -> ToolSpec:
@@ -37,9 +38,7 @@ def _planner_callbacks(plan_steps: list[object]) -> planner_helpers.PlanExecuteL
     return planner_helpers.PlanExecuteLoopCallbacks(
         prompt="task",
         plan_steps=plan_steps,  # type: ignore[arg-type]
-        executor_step_prompt_template=(
-            "$task_prompt|$step_id|$instruction|$success_criteria|$prior_step_outputs_json"
-        ),
+        executor_step_prompt_template=("$task_prompt|$step_id|$instruction|$success_criteria|$prior_step_outputs_json"),
         request_id="req",
         dependencies={},
         budget_tracker=WorkflowBudgetTracker(),
@@ -97,9 +96,7 @@ def test_workflow_loop_orchestration_covers_iteration_parsing_and_failure_paths(
         max_iterations=4,
         initial_state={"count": 0},
         continue_predicate=lambda iteration, state: iteration <= 2,
-        iteration_handler=lambda iteration, state: {
-            "count": int(state.get("count", 0)) + iteration
-        },
+        iteration_handler=lambda iteration, state: {"count": int(state.get("count", 0)) + iteration},
         request_id="run",
         dependencies={},
     )
@@ -186,9 +183,7 @@ def test_planner_executor_helpers_cover_deserialization_and_callback_edge_cases(
     assert planner_helpers.deserialize_model_response("bad") is None
     assert planner_helpers.deserialize_model_response({"provider": "x"}) is None
 
-    callbacks = _planner_callbacks(
-        [{"step_id": "s1", "instruction": "do", "success_criteria": "done"}]
-    )
+    callbacks = _planner_callbacks([{"step_id": "s1", "instruction": "do", "success_criteria": "done"}])
     with pytest.raises(ValueError, match="Loop metadata is required"):
         callbacks.executor_prompt_builder({})
     with pytest.raises(ValueError, match="out of bounds"):
@@ -206,9 +201,7 @@ def test_planner_executor_helpers_cover_deserialization_and_callback_edge_cases(
     assert fallback_state == {}
 
     missing_step_state = callbacks.state_reducer({}, ExecutionResult(success=True), 1)
-    assert missing_step_state["step_results"][0]["error"].startswith(
-        "Workflow iteration did not include"
-    )
+    assert missing_step_state["step_results"][0]["error"].startswith("Workflow iteration did not include")
 
     iteration_step = WorkflowStepResult(
         step_id="execute_plan_step",

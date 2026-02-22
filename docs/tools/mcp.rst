@@ -11,7 +11,7 @@ Run the built-in server:
 
 .. code-block:: bash
 
-   python -m design_research_agents.mcp_server
+   python -m design_research_agents._mcp_server
 
 Integration steps
 -----------------
@@ -33,14 +33,14 @@ Programmatic helpers
        mcp_servers=(
            McpServer(
                id="local_core",
-               command=("python3", "-m", "design_research_agents.mcp_server"),
+               command=("python3", "-m", "design_research_agents._mcp_server"),
            ),
        )
    )
    names = [spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::")]
    result = runtime.invoke(
-       "local_core::calculator",
-       {"expression": "2 + 2"},
+       "local_core::text.word_count",
+       {"text": "design research"},
        request_id="docs-mcp",
        dependencies={},
    )

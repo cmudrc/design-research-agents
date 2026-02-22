@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
@@ -25,8 +25,7 @@ def main() -> None:
         )
         result = agent.run(
             prompt=(
-                "Draft then finalize a short design memo title for reducing maintenance time in "
-                "a modular lab rig."
+                "Draft then finalize a short design memo title for reducing maintenance time in a modular lab rig."
             ),
             request_id=request_id,
         )

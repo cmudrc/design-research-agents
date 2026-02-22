@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
+from design_research_agents._contracts._llm import (
+    LLMChatParams,
+    LLMMessage,
+    LLMRequest,
+    LLMResponse,
+)
+from design_research_agents._contracts._termination import TERMINATED_STEP_FAILURE
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.agent import MultiStepAgent
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMRequest, LLMResponse
-from design_research_agents.contracts.termination import TERMINATED_STEP_FAILURE
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
 
 
 class _SequenceLLMClient:

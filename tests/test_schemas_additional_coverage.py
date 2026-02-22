@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.schemas import load_schema
-from design_research_agents.schemas import validation as validation_module
-from design_research_agents.schemas.validation import (
+from design_research_agents._schemas import _validation as validation_module
+from design_research_agents._schemas import load_schema
+from design_research_agents._schemas._validation import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
@@ -16,7 +16,7 @@ def test_load_schema_rejects_unsupported_and_non_object_payloads(
     with pytest.raises(ValueError, match="Unsupported schema"):
         load_schema("unknown_schema")
 
-    monkeypatch.setattr("design_research_agents.schemas.json.load", lambda _handle: ["bad"])
+    monkeypatch.setattr("design_research_agents._schemas.json.load", lambda _handle: ["bad"])
     with pytest.raises(ValueError, match="must deserialize into an object"):
         load_schema("tool_spec")
 

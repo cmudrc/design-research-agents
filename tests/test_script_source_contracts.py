@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.tools.config import ScriptTool
-from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
-from design_research_agents.tools.sources.script_source import ScriptToolSource, _run_script_tool
+from design_research_agents.tools._config import ScriptTool
+from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents.tools._sources._script_source import ScriptToolSource, _run_script_tool
 
 pytestmark = pytest.mark.contract
 
@@ -92,9 +92,7 @@ def test_run_script_tool_rejects_disallowed_command_and_extension(tmp_path: Path
     assert "allowed_commands" in str(blocked_command.error)
 
 
-def test_run_script_tool_timeout_and_invalid_envelope_paths(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_script_tool_timeout_and_invalid_envelope_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     py_script = tmp_path / "tool.py"
     py_script.write_text("print('{}')\n", encoding="utf-8")
 

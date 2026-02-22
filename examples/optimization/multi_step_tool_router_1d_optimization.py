@@ -16,7 +16,7 @@ from design_research_agents import (
     MultiStepAgent,
     Toolbox,
 )
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     make_tracer,
     print_json,
     trace_info,

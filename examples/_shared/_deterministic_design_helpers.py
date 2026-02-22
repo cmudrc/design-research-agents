@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts import (
+from design_research_agents._contracts import (
     Agent,
     ExecutionResult,
     LLMChatParams,
@@ -105,9 +105,7 @@ class EchoDesignReasoningAgent(Agent):
         return ExecutionResult(
             output={
                 "summary": "Produced design recommendation from retrieved context.",
-                "recommendation": (
-                    "Prioritize maintainability checks and explicit testability criteria."
-                ),
+                "recommendation": ("Prioritize maintainability checks and explicit testability criteria."),
                 "prompt_chars": len(prompt),
             },
             success=True,

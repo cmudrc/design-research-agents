@@ -4,7 +4,7 @@ from collections.abc import Iterator, Sequence
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     BackendCapabilities,
     BackendStatus,
     LLMCapabilityError,
@@ -14,8 +14,8 @@ from design_research_agents.contracts.llm import (
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents.contracts.tools import ToolSpec
-from design_research_agents.llm.backends.base import (
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents.llm._backends._base import (
     BaseLLMBackend,
     _build_tool_call_schema,
     _matches_model_pattern,

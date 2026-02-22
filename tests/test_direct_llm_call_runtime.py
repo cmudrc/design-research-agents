@@ -4,11 +4,11 @@ from collections.abc import Sequence
 
 import pytest
 
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse
+from design_research_agents._contracts._workflow import WorkflowStepResult
+from design_research_agents._implementations._agents import _direct_llm_call as direct_llm_impl
 from design_research_agents.agent import DirectLLMCall
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse
-from design_research_agents.contracts.workflow import WorkflowStepResult
-from design_research_agents.implementations.agents import direct_llm_call as direct_llm_impl
 from tests.helpers.workflow_stubs import SequenceLLMClient
 
 
@@ -173,9 +173,7 @@ def test_direct_llm_call_workflow_failure_raiser_paths() -> None:
 def test_direct_llm_call_call_and_finalize_step_validation_paths() -> None:
     agent = DirectLLMCall(llm_client=_RaisingGenerateClient())
     with pytest.raises(TypeError, match="Prepared request payload is invalid"):
-        agent._call_model_step(
-            {"dependency_results": {"prepare_request": {"output": {"resolved_model": 7}}}}
-        )
+        agent._call_model_step({"dependency_results": {"prepare_request": {"output": {"resolved_model": 7}}}})
 
     with pytest.raises(RuntimeError, match="boom"):
         agent._call_model_step(

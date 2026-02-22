@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.contracts import MemoryRecord
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
-from design_research_agents.implementations.shared.agent_internal.multi_step_continuation import (
+from design_research_agents._contracts import MemoryRecord
+from design_research_agents._contracts._llm import LLMChatParams, LLMMessage
+from design_research_agents._implementations._shared._agent_internal._multi_step_continuation import (
     llm_should_continue,
 )
-from design_research_agents.implementations.shared.agent_internal.multi_step_memory import (
+from design_research_agents._implementations._shared._agent_internal._multi_step_memory import (
     retrieve_memory_context,
 )
-from design_research_agents.implementations.shared.agent_internal.response_schemas import (
+from design_research_agents._implementations._shared._agent_internal._response_schemas import (
     build_continuation_response_schema,
     build_multi_step_tool_router_response_schema,
     build_router_selection_response_schema,
@@ -50,12 +50,8 @@ class _EmptySearchStore:
 
 
 def test_schema_builders_cover_router_variants() -> None:
-    router_schema = build_router_selection_response_schema(
-        alternative_identifiers=("core", "remote")
-    )
-    tool_router_schema = build_multi_step_tool_router_response_schema(
-        tool_names=("tool_a", "tool_b")
-    )
+    router_schema = build_router_selection_response_schema(alternative_identifiers=("core", "remote"))
+    tool_router_schema = build_multi_step_tool_router_response_schema(tool_names=("tool_a", "tool_b"))
 
     assert router_schema["required"] == ["tool_names"]
     assert router_schema["properties"]["tool_names"]["items"]["enum"] == ["core", "remote"]
@@ -105,8 +101,7 @@ def test_llm_should_continue_reraises_chat_exception() -> None:
             retrieved_context="",
             continuation_system_prompt="decide continue",
             continuation_user_prompt_template=(
-                "Step {step_number}\nTask: {task_prompt}\nMemory: {memory_tail}\n"
-                "Context: {retrieved_context}"
+                "Step {step_number}\nTask: {task_prompt}\nMemory: {memory_tail}\nContext: {retrieved_context}"
             ),
             continuation_response_schema=build_continuation_response_schema(),
             continuation_memory_tail_items=3,

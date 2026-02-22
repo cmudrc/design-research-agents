@@ -4,8 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.tools.core import _helpers, evaluation_tools, memory_tools, python_tools
-from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents.tools._core import _evaluation_tools as evaluation_tools
+from design_research_agents.tools._core import _helpers
+from design_research_agents.tools._core import _memory_tools as memory_tools
+from design_research_agents.tools._core import _python_tools as python_tools
+from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
 
 
 def _policy(tmp_path: Path) -> ToolPolicy:

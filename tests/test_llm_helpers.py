@@ -4,7 +4,7 @@ import builtins
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMAuthError,
     LLMBadResponseError,
     LLMInvalidRequestError,
@@ -14,10 +14,10 @@ from design_research_agents.contracts.llm import (
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents.contracts.tools import ToolSpec
-from design_research_agents.llm.backends import utils as backend_utils
-from design_research_agents.llm.backends.errors import map_backend_exception
-from design_research_agents.llm.structured_output import (
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents.llm._backends import _utils as backend_utils
+from design_research_agents.llm._backends._errors import map_backend_exception
+from design_research_agents.llm._structured_output import (
     StructuredOutputResult,
     _build_json_instruction,
     _parse_json_strict,
@@ -53,15 +53,8 @@ def test_backend_utils_messages_usage_and_tool_calls() -> None:
     assert prompt == "system: rules\nuser: hello"
 
     assert backend_utils.parse_usage(None) is None
-    assert (
-        backend_utils.parse_usage(
-            {"prompt_tokens": 2.0, "completion_tokens": 1, "total_tokens": True}
-        )
-        is not None
-    )
-    usage = backend_utils.parse_usage(
-        {"prompt_tokens": 2.0, "completion_tokens": 1, "total_tokens": True}
-    )
+    assert backend_utils.parse_usage({"prompt_tokens": 2.0, "completion_tokens": 1, "total_tokens": True}) is not None
+    usage = backend_utils.parse_usage({"prompt_tokens": 2.0, "completion_tokens": 1, "total_tokens": True})
     assert usage is not None
     assert usage.prompt_tokens == 2
     assert usage.completion_tokens == 1

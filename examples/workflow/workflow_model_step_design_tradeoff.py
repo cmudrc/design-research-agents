@@ -9,21 +9,18 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import LogicStep, ModelStep, Workflow
-from design_research_agents.contracts import LLMMessage, LLMRequest
-from design_research_agents.shared.deterministic_design_helpers import (
+from design_research_agents._contracts import LLMMessage, LLMRequest
+from design_research_agents._shared._deterministic_design_helpers import (
     DeterministicSequenceLLMClient,
 )
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
     """Run model-step workflow and print compact design tradeoff summary."""
     request_id = "example-workflow-model-step-design-001"
     llm_client = DeterministicSequenceLLMClient(
-        responses=[
-            "Use a modular latch for faster maintenance; accept small cost "
-            "increase for serviceability."
-        ]
+        responses=["Use a modular latch for faster maintenance; accept small cost increase for serviceability."]
     )
 
     workflow = Workflow(
@@ -55,9 +52,9 @@ def main() -> None:
                 step_id="finalize",
                 dependencies=("design_tradeoff_model",),
                 handler=lambda context: {
-                    "tradeoff": context["dependency_results"]["design_tradeoff_model"]["output"][
-                        "parsed"
-                    ]["tradeoff_summary"]
+                    "tradeoff": context["dependency_results"]["design_tradeoff_model"]["output"]["parsed"][
+                        "tradeoff_summary"
+                    ]
                 },
             ),
         ],

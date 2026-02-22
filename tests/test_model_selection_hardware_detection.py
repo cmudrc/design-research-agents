@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.model_selection import hardware as hw
+from design_research_agents._model_selection import _hardware as hw
 
 
 def test_bytes_to_gib_and_load_average_fallback(
@@ -170,9 +170,7 @@ def test_run_command_success_failure_and_exceptions(
     monkeypatch.setattr(
         hw.subprocess,
         "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
-            subprocess.TimeoutExpired(cmd="x", timeout=1)
-        ),
+        lambda *args, **kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired(cmd="x", timeout=1)),
     )
     assert hw._run_command(["sleep", "9"]) is None
 

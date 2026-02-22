@@ -6,8 +6,8 @@ from collections.abc import Mapping
 
 import pytest
 
-from design_research_agents.contracts.memory import MemoryWriteRecord
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._memory import MemoryWriteRecord
+from design_research_agents._contracts._workflow import (
     AgentStep,
     LogicStep,
     LoopStep,
@@ -15,8 +15,8 @@ from design_research_agents.contracts.workflow import (
     MemoryWriteStep,
     ToolStep,
 )
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
-from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
+from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
+from design_research_agents._runtime._workflow._engine import WorkflowRuntime
 from tests.helpers.workflow_stubs import (
     StaticMarkerAgent,
     StaticWorkflowDelegateRunner,
@@ -56,9 +56,7 @@ def test_workflow_runtime_loop_step_stops_when_continue_predicate_returns_false(
                         handler=lambda context: {
                             "counter": int(
                                 (
-                                    context.get("loop_state")
-                                    if isinstance(context.get("loop_state"), Mapping)
-                                    else {}
+                                    context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}
                                 ).get("counter", 0)
                             )
                             + 1
@@ -99,9 +97,7 @@ def test_workflow_runtime_loop_step_terminates_at_max_iterations() -> None:
                         handler=lambda context: {
                             "counter": int(
                                 (
-                                    context.get("loop_state")
-                                    if isinstance(context.get("loop_state"), Mapping)
-                                    else {}
+                                    context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}
                                 ).get("counter", 0)
                             )
                             + 1
@@ -140,11 +136,9 @@ def test_workflow_runtime_loop_step_propagates_iteration_failures() -> None:
                         handler=lambda context: (
                             (_ for _ in ()).throw(RuntimeError("boom"))
                             if int(
-                                (
-                                    context.get("_loop")
-                                    if isinstance(context.get("_loop"), Mapping)
-                                    else {}
-                                ).get("iteration", 0)
+                                (context.get("_loop") if isinstance(context.get("_loop"), Mapping) else {}).get(
+                                    "iteration", 0
+                                )
                             )
                             == 2
                             else {"counter": 1}
@@ -184,9 +178,7 @@ def test_workflow_runtime_loop_step_carries_state_across_iterations() -> None:
                         handler=lambda context: {
                             "value": int(
                                 (
-                                    context.get("loop_state")
-                                    if isinstance(context.get("loop_state"), Mapping)
-                                    else {}
+                                    context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}
                                 ).get("value", 0)
                             )
                             * 2
@@ -325,11 +317,7 @@ def test_workflow_runtime_route_branching_skips_non_selected_branch() -> None:
 
 def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
     tool_runtime = StubToolRuntime(
-        handlers={
-            "adder_tool": lambda payload: {
-                "sum": float(payload.get("a", 0)) + float(payload.get("b", 0))
-            }
-        }
+        handlers={"adder_tool": lambda payload: {"sum": float(payload.get("a", 0)) + float(payload.get("b", 0))}}
     )
     workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
@@ -378,9 +366,7 @@ def test_workflow_runtime_agent_step_accepts_nested_workflow_delegate() -> None:
     assert result.success
     step_output = result.step_results["delegate"].output
     assert step_output["success"] is True
-    assert (
-        step_output["step_results"]["nested_logic"]["output"]["prompt_echo"] == "Route this prompt."
-    )
+    assert step_output["step_results"]["nested_logic"]["output"]["prompt_echo"] == "Route this prompt."
     assert result.step_results["delegate"].metadata["delegate_type"] == "workflow"
 
 
@@ -421,9 +407,7 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
         LogicStep(
             step_id="finalize",
             dependencies=("measure",),
-            handler=lambda ctx: {
-                "length": ctx["dependency_results"]["measure"]["output"]["result"]["length"]
-            },
+            handler=lambda ctx: {"length": ctx["dependency_results"]["measure"]["output"]["result"]["length"]},
         ),
     ]
 
@@ -491,9 +475,7 @@ def test_workflow_runtime_memory_steps_succeed_and_emit_standardized_outputs(
     steps = [
         MemoryWriteStep(
             step_id="write_memory",
-            records_builder=lambda context: [
-                {"content": "alpha design note", "metadata": {"kind": "note"}}
-            ],
+            records_builder=lambda context: [{"content": "alpha design note", "metadata": {"kind": "note"}}],
             namespace="research",
         ),
         MemoryReadStep(
@@ -543,9 +525,7 @@ def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(
         LogicStep(
             step_id="postprocess",
             dependencies=("read_memory",),
-            handler=lambda context: {
-                "count": context["dependency_results"]["read_memory"]["output"]["count"]
-            },
+            handler=lambda context: {"count": context["dependency_results"]["read_memory"]["output"]["count"]},
         ),
     ]
 

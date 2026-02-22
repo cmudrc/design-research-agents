@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from design_research_agents import LogicStep, LoopStep, Workflow
-from design_research_agents.contracts import ExecutionResult
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._contracts import ExecutionResult
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def _increment_handler(context: Mapping[str, object]) -> Mapping[str, object]:
@@ -84,9 +84,7 @@ def main() -> None:
         "success": result.success,
         "execution_order": list(result.execution_order),
         "loop_status": loop_step.output.get("terminated_reason") if loop_step else None,
-        "final_output": (
-            result.output.get("final_output") if isinstance(result.output, dict) else None
-        ),
+        "final_output": (result.output.get("final_output") if isinstance(result.output, dict) else None),
         "trace": trace_info(request_id),
     }
     print_json(payload)

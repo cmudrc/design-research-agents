@@ -4,13 +4,13 @@ import sys
 from pathlib import Path
 
 from design_research_agents.tools import Toolbox
-from design_research_agents.tools.config import CallableTool, McpServer, ScriptTool
+from design_research_agents.tools._config import CallableTool, McpServer, ScriptTool
 
 
 def _local_mcp_server(server_id: str = "local_core") -> McpServer:
     return McpServer(
         id=server_id,
-        command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+        command=(sys.executable, "-m", "design_research_agents._mcp_server"),
         env={"PYTHONPATH": "src"},
         timeout_s=20,
     )
@@ -42,7 +42,7 @@ def test_default_constructor_lists_core_tools() -> None:
     assert runtime.config.core_tools.enabled is True
     assert runtime.config.script_tools.enabled is False
     assert runtime.config.mcp.enabled is False
-    assert "calculator" in names
+    assert "text.word_count" in names
 
 
 def test_constructor_enables_script_tools() -> None:
@@ -93,9 +93,11 @@ def test_pathlike_workspace_root_is_normalized_and_runtime_still_invokes() -> No
 
     assert isinstance(runtime.config.core_tools.workspace_root, str)
     result = runtime.invoke(
-        "calculator",
-        {"expression": "2 + 2"},
+        "text.word_count",
+        {"text": "one two three"},
         request_id="init-api",
         dependencies={},
     )
     assert result.ok is True
+    assert isinstance(result.result, dict)
+    assert result.result["word_count"] == 3

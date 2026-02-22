@@ -6,14 +6,14 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from design_research_agents.contracts.llm import LLMInvalidRequestError, LLMProviderError
-from design_research_agents.llm.backends.providers import (
-    ollama_local,
-    ollama_server,
-    sglang_local,
-    sglang_server,
-    vllm_local,
-    vllm_server,
+from design_research_agents._contracts._llm import LLMInvalidRequestError, LLMProviderError
+from design_research_agents.llm._backends._providers import (
+    _ollama_local,
+    _ollama_server,
+    _sglang_local,
+    _sglang_server,
+    _vllm_local,
+    _vllm_server,
 )
 from tests._llm_openai_backends_test_helpers import request
 
@@ -53,8 +53,8 @@ class _ManagedServerStub:
 @pytest.mark.parametrize(
     ("module", "backend_cls", "default_model"),
     [
-        (vllm_local, vllm_local.VllmLocalBackend, "api-model"),
-        (sglang_local, sglang_local.SglangLocalBackend, "startup-model"),
+        (_vllm_local, _vllm_local.VllmLocalBackend, "api-model"),
+        (_sglang_local, _sglang_local.SglangLocalBackend, "startup-model"),
     ],
 )
 def test_openai_like_local_backends_cover_additional_branches(
@@ -117,8 +117,8 @@ def test_openai_like_local_backends_cover_additional_branches(
 @pytest.mark.parametrize(
     ("module", "error_message"),
     [
-        (vllm_local, "vLLM response must be a JSON object."),
-        (sglang_local, "SGLang response must be a JSON object."),
+        (_vllm_local, "vLLM response must be a JSON object."),
+        (_sglang_local, "SGLang response must be a JSON object."),
     ],
 )
 def test_openai_like_local_transport_helpers_cover_error_paths(
@@ -218,13 +218,13 @@ def test_openai_like_local_transport_helpers_cover_error_paths(
     ("factory", "create_fn", "module_name"),
     [
         (
-            lambda **kwargs: vllm_server.VllmServerBackend(model="m", api_model="a", **kwargs),
-            lambda: vllm_server.create_backend("m", api_model="a"),
+            lambda **kwargs: _vllm_server.VllmServerBackend(model="m", api_model="a", **kwargs),
+            lambda: _vllm_server.create_backend("m", api_model="a"),
             "vllm",
         ),
         (
-            lambda **kwargs: sglang_server.SglangServerBackend(model="m", **kwargs),
-            lambda: sglang_server.create_backend("m"),
+            lambda **kwargs: _sglang_server.SglangServerBackend(model="m", **kwargs),
+            lambda: _sglang_server.create_backend("m"),
             "sglang",
         ),
     ],
@@ -265,9 +265,9 @@ def test_openai_like_server_backends_cover_start_and_wait_paths(
     fresh = factory()
     monkeypatch.setattr(fresh, "_ensure_server_dependency", lambda: None)
     monkeypatch.setattr(
-        "design_research_agents.llm.backends.providers.vllm_server.subprocess.Popen"
+        "design_research_agents.llm._backends._providers._vllm_server.subprocess.Popen"
         if module_name == "vllm"
-        else "design_research_agents.llm.backends.providers.sglang_server.subprocess.Popen",
+        else "design_research_agents.llm._backends._providers._sglang_server.subprocess.Popen",
         lambda *args, **kwargs: spawned,
     )
     monkeypatch.setattr(fresh, "_wait_until_ready", lambda: started.update({"ready": True}))
@@ -289,9 +289,9 @@ def test_openai_like_server_backends_cover_start_and_wait_paths(
     auth_ready = factory(startup_timeout_seconds=0.1, poll_interval_seconds=0.001)
     auth_ready._process = _AliveProcess()  # type: ignore[assignment]
     target_module = (
-        "design_research_agents.llm.backends.providers.vllm_server"
+        "design_research_agents.llm._backends._providers._vllm_server"
         if module_name == "vllm"
-        else "design_research_agents.llm.backends.providers.sglang_server"
+        else "design_research_agents.llm._backends._providers._sglang_server"
     )
     monkeypatch.setattr(
         f"{target_module}.urlopen",
@@ -302,11 +302,11 @@ def test_openai_like_server_backends_cover_start_and_wait_paths(
     auth_ready._wait_until_ready()
 
 
-def test_ollama_local_additional_transport_and_parser_paths(
+def test__ollama_local_additional_transport_and_parser_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     managed = _ManagedServerStub()
-    backend = ollama_local.OllamaLocalBackend(
+    backend = _ollama_local.OllamaLocalBackend(
         name="ollama",
         base_url="http://127.0.0.1:11434/",
         default_model="demo",
@@ -325,7 +325,7 @@ def test_ollama_local_additional_transport_and_parser_paths(
         b'{"message":{"content":"ok"},"done":true}\n',
     ]
     monkeypatch.setattr(
-        ollama_local,
+        _ollama_local,
         "_post_stream_with_retry",
         lambda *args, **kwargs: _StreamResponse(lines=lines),
     )
@@ -334,30 +334,30 @@ def test_ollama_local_additional_transport_and_parser_paths(
     assert [delta.text_delta for delta in deltas if delta.text_delta] == ["ok"]
 
     monkeypatch.setattr(
-        ollama_local,
+        _ollama_local,
         "urlopen",
         lambda *_args, **_kwargs: _JsonResponse(text="[]"),
     )
     with pytest.raises(LLMInvalidRequestError, match="Ollama response must be a JSON object"):
-        ollama_local._post_json("http://unit", {"x": 1}, timeout_seconds=1.0)
+        _ollama_local._post_json("http://unit", {"x": 1}, timeout_seconds=1.0)
 
     monkeypatch.setattr(
-        ollama_local,
+        _ollama_local,
         "urlopen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(URLError("offline")),
     )
     with pytest.raises(LLMProviderError):
-        ollama_local._post_stream("http://unit", {"x": 1}, timeout_seconds=1.0)
+        _ollama_local._post_stream("http://unit", {"x": 1}, timeout_seconds=1.0)
 
-    parsed = ollama_local._parse_completion_response(
+    parsed = _ollama_local._parse_completion_response(
         {"message": "bad"},
         request(model="demo"),
         provider="ollama",
     )
     assert parsed.text == ""
-    assert ollama_local._parse_ollama_usage({}) is None
+    assert _ollama_local._parse_ollama_usage({}) is None
 
-    messages = ollama_local._format_messages(
+    messages = _ollama_local._format_messages(
         [
             SimpleNamespace(role="user", content="hello", name="alice"),
             SimpleNamespace(role="assistant", content=None),
@@ -366,24 +366,22 @@ def test_ollama_local_additional_transport_and_parser_paths(
     assert messages[0]["name"] == "alice"
     assert len(messages) == 1
 
-    deltas = ollama_local._extract_tool_call_deltas(
-        [None, {"function": {"name": "calc", "arguments": {"x": 1}}}]
-    )
+    deltas = _ollama_local._extract_tool_call_deltas([None, {"function": {"name": "calc", "arguments": {"x": 1}}}])
     assert deltas[0].call_id == "call_2"
     assert deltas[0].arguments_json_delta is not None
 
 
-def test_ollama_server_additional_start_and_validation_paths(
+def test__ollama_server_additional_start_and_validation_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with pytest.raises(ValueError, match="host must not be empty"):
-        ollama_server.OllamaServerBackend(host=" ")
+        _ollama_server.OllamaServerBackend(host=" ")
     with pytest.raises(ValueError, match="port must be > 0"):
-        ollama_server.OllamaServerBackend(port=0)
+        _ollama_server.OllamaServerBackend(port=0)
     with pytest.raises(ValueError, match="ollama_executable must not be empty"):
-        ollama_server.OllamaServerBackend(ollama_executable=" ")
+        _ollama_server.OllamaServerBackend(ollama_executable=" ")
 
-    backend = ollama_server.OllamaServerBackend(
+    backend = _ollama_server.OllamaServerBackend(
         auto_pull_model=True,
         default_model="qwen2.5:1.5b-instruct",
     )
@@ -406,7 +404,7 @@ def test_ollama_server_additional_start_and_validation_paths(
     backend.start()
 
     launched = {"pulled": False}
-    ready_backend = ollama_server.OllamaServerBackend(
+    ready_backend = _ollama_server.OllamaServerBackend(
         auto_pull_model=True,
         default_model="qwen2.5:1.5b-instruct",
     )
@@ -418,7 +416,7 @@ def test_ollama_server_additional_start_and_validation_paths(
         lambda _model: launched.update({"pulled": True}),
     )
     monkeypatch.setattr(
-        ollama_server.subprocess,
+        _ollama_server.subprocess,
         "Popen",
         lambda *args, **kwargs: _AliveProcess(),
     )
@@ -426,11 +424,11 @@ def test_ollama_server_additional_start_and_validation_paths(
     assert launched["pulled"] is True
     ready_backend.close()
 
-    not_initialized = ollama_server.OllamaServerBackend()
+    not_initialized = _ollama_server.OllamaServerBackend()
     with pytest.raises(RuntimeError, match="not initialized"):
         not_initialized._wait_until_ready()
 
-    exited = ollama_server.OllamaServerBackend(
+    exited = _ollama_server.OllamaServerBackend(
         startup_timeout_seconds=0.1,
         poll_interval_seconds=0.001,
     )
@@ -438,13 +436,13 @@ def test_ollama_server_additional_start_and_validation_paths(
     with pytest.raises(RuntimeError, match="exited before becoming ready"):
         exited._wait_until_ready()
 
-    auth_ready = ollama_server.OllamaServerBackend(
+    auth_ready = _ollama_server.OllamaServerBackend(
         startup_timeout_seconds=0.1,
         poll_interval_seconds=0.001,
     )
     auth_ready._process = _AliveProcess()  # type: ignore[assignment]
     monkeypatch.setattr(
-        ollama_server,
+        _ollama_server,
         "urlopen",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             HTTPError(url="http://unit", code=401, msg="auth", hdrs=None, fp=None)

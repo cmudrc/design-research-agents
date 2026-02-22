@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents.contracts.execution import ExecutionResult
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse
+from design_research_agents._contracts._workflow import (
     AgentStep,
     DelegateBatchStep,
     LogicStep,
@@ -12,9 +12,9 @@ from design_research_agents.contracts.workflow import (
     ModelStep,
     ToolStep,
 )
-from design_research_agents.tracing import context as tracing_context
-from design_research_agents.tracing.context import current_span_id
-from design_research_agents.workflow.internal import step_tracing
+from design_research_agents._runtime._workflow import _step_tracing as step_tracing
+from design_research_agents._tracing import _context as tracing_context
+from design_research_agents._tracing._context import current_span_id
 
 
 class _NoopDelegate:
@@ -97,9 +97,7 @@ def test_step_kind_labels_all_supported_step_types() -> None:
 def test_start_step_span_returns_none_without_active_session(monkeypatch) -> None:
     monkeypatch.setattr(step_tracing, "current_trace_session", lambda: None)
 
-    span_id = step_tracing.start_step_span(
-        step=ToolStep(step_id="tool", tool_name="sum"), step_id="tool"
-    )
+    span_id = step_tracing.start_step_span(step=ToolStep(step_id="tool", tool_name="sum"), step_id="tool")
 
     assert span_id is None
 

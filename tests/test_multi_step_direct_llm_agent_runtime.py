@@ -3,16 +3,16 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from design_research_agents.agent import MultiStepAgent
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.contracts.termination import (
+from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
+from design_research_agents._contracts._termination import (
     TERMINATED_CONTROLLER_INVALID_PAYLOAD,
     TERMINATED_MAX_STEPS_REACHED,
 )
-from design_research_agents.implementations.agents.multi_step_agent import (
+from design_research_agents._implementations._agents._multi_step_agent import (
     _coerce_state_records,
     _parse_controller_decision,
 )
+from design_research_agents.agent import MultiStepAgent
 
 
 class _SequenceLLMClient:
@@ -104,9 +104,7 @@ def test_multi_step_direct_llm_agent_max_steps_reached_on_all_continue() -> None
 
 
 def test_multi_step_direct_llm_agent_parser_helpers_are_strict() -> None:
-    parsed = _parse_controller_decision(
-        json.dumps({"decision": "stop", "content": "done", "final_output": "ok"})
-    )
+    parsed = _parse_controller_decision(json.dumps({"decision": "stop", "content": "done", "final_output": "ok"}))
     assert parsed is not None
     assert parsed.decision == "STOP"
     assert parsed.final_output == "ok"

@@ -15,7 +15,7 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import OpenAIServiceLLMClient
-   from design_research_agents.contracts import LLMChatParams, LLMMessage
+   from design_research_agents._contracts import LLMChatParams, LLMMessage
 
    client = OpenAIServiceLLMClient()
    response = client.chat(

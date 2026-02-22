@@ -42,9 +42,7 @@ def test_non_streaming_example_runs(
     env["DRA_EXAMPLE_ID"] = example_relpath.replace("\\", "/")
     existing_pythonpath = env.get("PYTHONPATH")
     test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"
-    env["PYTHONPATH"] = (
-        f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
-    )
+    env["PYTHONPATH"] = f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
 
     completed = subprocess.run(
         [sys.executable, str(example_path)],

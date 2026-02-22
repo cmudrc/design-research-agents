@@ -9,8 +9,8 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import BlackboardPattern, NetworkedPattern
-from design_research_agents.shared.deterministic_design_helpers import FixedDesignPeerAgent
-from design_research_agents.shared.example_support import make_tracer, print_json, trace_info
+from design_research_agents._shared._deterministic_design_helpers import FixedDesignPeerAgent
+from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def _summarize(result: object, request_id: str) -> dict[str, object]:

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.model_selection import ModelSelector
-from design_research_agents.model_selection.catalog import ModelCatalog
-from design_research_agents.model_selection.hardware import HardwareProfile
-from design_research_agents.model_selection.policy import (
+from design_research_agents._model_selection import ModelSelector
+from design_research_agents._model_selection._catalog import ModelCatalog
+from design_research_agents._model_selection._hardware import HardwareProfile
+from design_research_agents._model_selection._policy import (
     ModelSelectionPolicy,
     _apply_cost_constraints,
     _apply_provider_constraints,
@@ -15,7 +15,7 @@ from design_research_agents.model_selection.policy import (
     _should_prefer_remote,
     _vram_budget_gb,
 )
-from design_research_agents.model_selection.selector import (
+from design_research_agents._model_selection._selector import (
     _build_client_from_config,
     _coerce_hardware_profile,
     _coerce_load_average,
@@ -24,7 +24,7 @@ from design_research_agents.model_selection.selector import (
     _coerce_optional_int,
     _coerce_optional_str,
 )
-from design_research_agents.model_selection.types import (
+from design_research_agents._model_selection._types import (
     ModelCostHint,
     ModelLatencyHint,
     ModelMemoryHint,
@@ -51,9 +51,7 @@ def _model(
         else None
     )
     cost_hint = (
-        ModelCostHint(tier="low", usd_per_1k_tokens=usd_per_1k_tokens)
-        if usd_per_1k_tokens is not None
-        else None
+        ModelCostHint(tier="low", usd_per_1k_tokens=usd_per_1k_tokens) if usd_per_1k_tokens is not None else None
     )
     return ModelSpec(
         model_id=model_id,
@@ -107,10 +105,7 @@ def test_policy_helper_edge_paths_cover_remaining_branches() -> None:
     remote = _model(model_id="remote", provider="openai", usd_per_1k_tokens=0.5)
     unknown_cost = _model(model_id="remote-unknown", provider="openai", usd_per_1k_tokens=None)
 
-    assert (
-        _fits_ram_budget(_model(model_id="no-hint", provider="llama_cpp"), ram_budget_gb=1.0)
-        is True
-    )
+    assert _fits_ram_budget(_model(model_id="no-hint", provider="llama_cpp"), ram_budget_gb=1.0) is True
     assert _fits_ram_budget(local, ram_budget_gb=None) is True
     assert _should_prefer_remote(_hardware(load_average=None), config) is False
 
@@ -198,9 +193,7 @@ def test_policy_select_model_raises_for_empty_catalog_and_filtered_out_candidate
 
 
 def test_selector_error_paths_and_alias_branches() -> None:
-    selector = ModelSelector(
-        catalog=ModelCatalog(models=(_model(model_id="gpt", provider="openai"),))
-    )
+    selector = ModelSelector(catalog=ModelCatalog(models=(_model(model_id="gpt", provider="openai"),)))
     with pytest.raises(ValueError, match="output must be one of"):
         selector.select(task="summarize", output="invalid")  # type: ignore[arg-type]
 

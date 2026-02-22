@@ -1,34 +1,35 @@
 Tracing Modules
 ===============
 
-This page lists all modules in this package area, including internal modules.
+This page lists internal tracing modules. These underscored module paths are
+documented for contributor visibility and are not API-stable.
 
-.. automodule:: design_research_agents.tracing.config
+.. automodule:: design_research_agents._tracing._config
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.tracing.context
+.. automodule:: design_research_agents._tracing._context
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.tracing.emitters
+.. automodule:: design_research_agents._tracing._emitters
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.tracing.session
+.. automodule:: design_research_agents._tracing._session
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.tracing.sinks
+.. automodule:: design_research_agents._tracing._sinks
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.tracing.utils
+.. automodule:: design_research_agents._tracing._utils
    :members:
    :undoc-members:
    :no-index:

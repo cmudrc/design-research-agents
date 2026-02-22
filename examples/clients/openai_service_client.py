@@ -9,7 +9,7 @@ Expected observations:
 from __future__ import annotations
 
 from design_research_agents import OpenAIServiceLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -33,8 +33,7 @@ def _build_payload() -> dict[str, object]:
         client=client,
         prompt="In one sentence, when should engineering teams use multi-agent design critique?",
         deterministic_response=(
-            "Use multi-agent critique when decisions have high risk and need "
-            "diverse failure analysis."
+            "Use multi-agent critique when decisions have high risk and need diverse failure analysis."
         ),
     )
     return {

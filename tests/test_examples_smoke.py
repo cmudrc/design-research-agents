@@ -21,9 +21,7 @@ def _example_env(example_id: str) -> dict[str, str]:
     env["DRA_EXAMPLE_ID"] = example_id
     existing_pythonpath = env.get("PYTHONPATH")
     test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"
-    env["PYTHONPATH"] = (
-        f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
-    )
+    env["PYTHONPATH"] = f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
     return env
 
 

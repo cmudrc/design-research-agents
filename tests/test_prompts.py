@@ -5,7 +5,7 @@ Verifies prompt discoverability, substitution behavior, and error handling.
 
 import pytest
 
-from design_research_agents.prompts import PROMPT_NAMES, load_prompt, render_prompt
+from design_research_agents._prompts import PROMPT_NAMES, load_prompt, render_prompt
 
 
 def test_all_prompts_load_from_packaged_resources() -> None:

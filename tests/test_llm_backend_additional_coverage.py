@@ -7,7 +7,7 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     BackendCapabilities,
     BackendStatus,
     LLMDelta,
@@ -16,16 +16,16 @@ from design_research_agents.contracts.llm import (
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents.contracts.tools import ToolSpec
-from design_research_agents.llm.backends import base as base_module
-from design_research_agents.llm.backends.base import (
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents.llm._backends import _base as base_module
+from design_research_agents.llm._backends._base import (
     BaseLLMBackend,
     _matches_model_pattern,
     _parse_tool_calls,
 )
-from design_research_agents.llm.backends.providers.echo_test import EchoTestBackend
-from design_research_agents.llm.backends.providers.llama_cpp import LlamaCppBackend
-from design_research_agents.llm.backends.providers.mlx_local import MlxLocalBackend
+from design_research_agents.llm._backends._providers._echo_test import EchoTestBackend
+from design_research_agents.llm._backends._providers._llama_cpp import LlamaCppBackend
+from design_research_agents.llm._backends._providers._mlx_local import MlxLocalBackend
 
 
 def _request(
@@ -35,9 +35,7 @@ def _request(
     response_schema: dict[str, object] | None = None,
     messages: Sequence[LLMMessage] | None = None,
 ) -> LLMRequest:
-    resolved_messages = (
-        list(messages) if messages is not None else [LLMMessage(role="user", content="hello")]
-    )
+    resolved_messages = list(messages) if messages is not None else [LLMMessage(role="user", content="hello")]
     return LLMRequest(
         messages=resolved_messages,
         model=model,
@@ -206,23 +204,21 @@ def test_mlx_local_backend_stream_handles_string_outputs(monkeypatch: pytest.Mon
     )
     monkeypatch.setattr(backend, "_ensure_model", lambda: (object(), object()))
     monkeypatch.setattr(
-        "design_research_agents.llm.backends.providers.mlx_local._mlx_supports_streaming",
+        "design_research_agents.llm._backends._providers._mlx_local._mlx_supports_streaming",
         lambda: True,
     )
     monkeypatch.setattr(
-        "design_research_agents.llm.backends.providers.mlx_local._format_prompt",
+        "design_research_agents.llm._backends._providers._mlx_local._format_prompt",
         lambda request, tokenizer: "prompt",
     )
     monkeypatch.setattr(
-        "design_research_agents.llm.backends.providers.mlx_local._mlx_generate",
+        "design_research_agents.llm._backends._providers._mlx_local._mlx_generate",
         lambda *args, **kwargs: "single-chunk",
     )
-    assert [delta.text_delta for delta in backend.stream(_request(model="mlx-model"))] == [
-        "single-chunk"
-    ]
+    assert [delta.text_delta for delta in backend.stream(_request(model="mlx-model"))] == ["single-chunk"]
 
     monkeypatch.setattr(
-        "design_research_agents.llm.backends.providers.mlx_local._mlx_generate",
+        "design_research_agents.llm._backends._providers._mlx_local._mlx_generate",
         lambda *args, **kwargs: "",
     )
     assert list(backend.stream(_request(model="mlx-model"))) == []

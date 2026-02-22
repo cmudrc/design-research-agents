@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
-from design_research_agents.tracing import Tracer
-from design_research_agents.tracing.context import finish_trace_run, start_trace_run
+from design_research_agents._tracing import Tracer
+from design_research_agents._tracing._context import finish_trace_run, start_trace_run
 
 TRACE_DIR = Path("artifacts/examples/traces")
 

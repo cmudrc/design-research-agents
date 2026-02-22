@@ -11,6 +11,8 @@ from tokenize import COMMENT, generate_tokens
 
 IMPLEMENTATION_SEGMENTS = {
     ("src", "design_research_agents", "implementations"),
+    ("src", "design_research_agents", "_implementations"),
+    ("src", "design_research_agents", "_runtime"),
     ("src", "design_research_agents", "agent", "implementations"),
     ("src", "design_research_agents", "workflow", "implementations"),
 }

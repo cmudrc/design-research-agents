@@ -8,24 +8,24 @@ import json
 
 import pytest
 
-from design_research_agents.implementations.patterns.agent_routing import RouterPattern
-from design_research_agents.implementations.patterns.conversation_pattern import (
+from design_research_agents._implementations._patterns._agent_routing import RouterPattern
+from design_research_agents._implementations._patterns._conversation_pattern import (
     ConversationPattern,
 )
-from design_research_agents.implementations.patterns.networked_blackboard import (
+from design_research_agents._implementations._patterns._networked_blackboard import (
     BlackboardPattern,
     NetworkedPattern,
 )
-from design_research_agents.implementations.patterns.planner_executor_pattern import (
+from design_research_agents._implementations._patterns._planner_executor_pattern import (
     PlannerExecutorPattern,
 )
-from design_research_agents.implementations.patterns.rag_reasoning import (
+from design_research_agents._implementations._patterns._rag_reasoning import (
     RagReasoningPattern,
 )
-from design_research_agents.implementations.patterns.reflexion_pattern import (
+from design_research_agents._implementations._patterns._reflexion_pattern import (
     ReflexionPattern,
 )
-from design_research_agents.implementations.patterns.tree_search import (
+from design_research_agents._implementations._patterns._tree_search import (
     TreeSearchPattern,
 )
 from design_research_agents.tools import Toolbox
@@ -42,8 +42,8 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
                         "steps": [
                             {
                                 "step_id": "compute",
-                                "instruction": "Compute 6 * 7.",
-                                "success_criteria": "Return numeric result.",
+                                "instruction": "Count words in 'design research agents'.",
+                                "success_criteria": "Return word count.",
                             }
                         ]
                     }
@@ -51,8 +51,8 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
                 '{"continue": true, "thought": "execute first step"}',
                 "\n".join(
                     [
-                        'calc = call_tool("calculator", {"expression": "6 * 7"})',
-                        'final_output = {"result": calc["result"]}',
+                        'stats = call_tool("text.word_count", {"text": "design research agents"})',
+                        'final_output = {"result": stats["word_count"]}',
                     ]
                 ),
             ]
@@ -60,11 +60,11 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
         tool_runtime=Toolbox(),
         max_iterations=2,
     )
-    success_result = success_workflow.run("Compute 6 * 7.")
+    success_result = success_workflow.run("Count words in design research agents.")
     assert success_result.success
     assert success_workflow.workflow is not None
     assert success_result.output["steps_executed"] == 1
-    assert success_result.output["final_output"]["result"] == 42.0
+    assert success_result.output["final_output"]["result"] == 3
     assert success_result.output["terminated_reason"] == "completed"
     assert success_result.metadata["runtime"]["resolved_mode"] == "plan_execute"
 
@@ -72,7 +72,7 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
         llm_client=SequenceLLMClient(response_texts=["invalid plan payload"]),
         tool_runtime=Toolbox(),
     )
-    failure_result = failure_workflow.run("Compute 6 * 7.")
+    failure_result = failure_workflow.run("Count words in design research agents.")
     assert not failure_result.success
     assert failure_result.output["terminated_reason"] == "planner_invalid_json"
     assert failure_result.output["steps_executed"] == 0
@@ -120,9 +120,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
 
 def test_agent_routing_workflow_output_contract_success_and_failure_paths() -> None:
     success_workflow = RouterPattern(
-        llm_client=SequenceLLMClient(
-            response_texts=['{"tool_name":"alt_two","tool_input":{},"reason":"best fit"}']
-        ),
+        llm_client=SequenceLLMClient(response_texts=['{"tool_name":"alt_two","tool_input":{},"reason":"best fit"}']),
         tool_runtime=Toolbox(),
         alternatives={
             "alt_one": StaticMarkerAgent(marker="one"),

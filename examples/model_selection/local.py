@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from design_research_agents import ModelSelector
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_traced_callable,
     trace_info,

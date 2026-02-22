@@ -13,14 +13,14 @@ _EXPORTS: Final[dict[str, str]] = {
     "CallableTool": "design_research_agents.tools:CallableTool",
     "ScriptTool": "design_research_agents.tools:ScriptTool",
     "McpServer": "design_research_agents.tools:McpServer",
-    "LogicStep": "design_research_agents.contracts:LogicStep",
-    "ToolStep": "design_research_agents.contracts:ToolStep",
-    "AgentStep": "design_research_agents.contracts:AgentStep",
-    "ModelStep": "design_research_agents.contracts:ModelStep",
-    "DelegateBatchStep": "design_research_agents.contracts:DelegateBatchStep",
-    "LoopStep": "design_research_agents.contracts:LoopStep",
-    "MemoryReadStep": "design_research_agents.contracts:MemoryReadStep",
-    "MemoryWriteStep": "design_research_agents.contracts:MemoryWriteStep",
+    "LogicStep": "design_research_agents._contracts:LogicStep",
+    "ToolStep": "design_research_agents._contracts:ToolStep",
+    "AgentStep": "design_research_agents._contracts:AgentStep",
+    "ModelStep": "design_research_agents._contracts:ModelStep",
+    "DelegateBatchStep": "design_research_agents._contracts:DelegateBatchStep",
+    "LoopStep": "design_research_agents._contracts:LoopStep",
+    "MemoryReadStep": "design_research_agents._contracts:MemoryReadStep",
+    "MemoryWriteStep": "design_research_agents._contracts:MemoryWriteStep",
     "Workflow": "design_research_agents.workflow:Workflow",
     "ConversationPattern": "design_research_agents.workflow:ConversationPattern",
     "DebatePattern": "design_research_agents.workflow:DebatePattern",
@@ -39,8 +39,8 @@ _EXPORTS: Final[dict[str, str]] = {
     "VllmServerLLMClient": "design_research_agents.llm:VllmServerLLMClient",
     "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
     "SglangServerLLMClient": "design_research_agents.llm:SglangServerLLMClient",
-    "ModelSelector": "design_research_agents.model_selection:ModelSelector",
-    "Tracer": "design_research_agents.tracing:Tracer",
+    "ModelSelector": "design_research_agents._model_selection:ModelSelector",
+    "Tracer": "design_research_agents._tracing:Tracer",
 }
 
 __all__ = ["__version__", *_EXPORTS.keys()]
@@ -85,16 +85,18 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:
+    from ._contracts import AgentStep as AgentStep
+    from ._contracts import DelegateBatchStep as DelegateBatchStep
+    from ._contracts import LogicStep as LogicStep
+    from ._contracts import LoopStep as LoopStep
+    from ._contracts import MemoryReadStep as MemoryReadStep
+    from ._contracts import MemoryWriteStep as MemoryWriteStep
+    from ._contracts import ModelStep as ModelStep
+    from ._contracts import ToolStep as ToolStep
+    from ._model_selection import ModelSelector as ModelSelector
+    from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
-    from .contracts import AgentStep as AgentStep
-    from .contracts import DelegateBatchStep as DelegateBatchStep
-    from .contracts import LogicStep as LogicStep
-    from .contracts import LoopStep as LoopStep
-    from .contracts import MemoryReadStep as MemoryReadStep
-    from .contracts import MemoryWriteStep as MemoryWriteStep
-    from .contracts import ModelStep as ModelStep
-    from .contracts import ToolStep as ToolStep
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MlxLocalLLMClient as MlxLocalLLMClient
     from .llm import OllamaLLMClient as OllamaLLMClient
@@ -103,12 +105,10 @@ if TYPE_CHECKING:
     from .llm import SglangServerLLMClient as SglangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
     from .llm import VllmServerLLMClient as VllmServerLLMClient
-    from .model_selection import ModelSelector as ModelSelector
     from .tools import CallableTool as CallableTool
     from .tools import McpServer as McpServer
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
-    from .tracing import Tracer as Tracer
     from .workflow import BlackboardPattern as BlackboardPattern
     from .workflow import ConversationPattern as ConversationPattern
     from .workflow import DebatePattern as DebatePattern

@@ -11,7 +11,7 @@ from __future__ import annotations
 import sys
 
 from design_research_agents import SglangServerLLMClient
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_representative_chat,
     run_traced_callable,
@@ -46,8 +46,7 @@ def _build_payload() -> dict[str, object]:
             client=client,
             prompt="Provide one sentence on when SGLang-style serving helps local benchmarking.",
             deterministic_response=(
-                "SGLang-style serving helps when you need stable local throughput for "
-                "repeated tests."
+                "SGLang-style serving helps when you need stable local throughput for repeated tests."
             ),
         )
         return {

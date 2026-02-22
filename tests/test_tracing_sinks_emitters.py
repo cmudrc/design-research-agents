@@ -4,8 +4,9 @@ import io
 import json
 from pathlib import Path
 
-from design_research_agents.contracts.llm import LLMResponse
-from design_research_agents.tracing import emitters, sinks
+from design_research_agents._contracts._llm import LLMResponse
+from design_research_agents._tracing import _emitters as emitters
+from design_research_agents._tracing import _sinks as sinks
 
 
 class _FakeSession:

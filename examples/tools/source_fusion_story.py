@@ -13,7 +13,7 @@ import sys
 from collections.abc import Mapping
 
 from design_research_agents import McpServer, ScriptTool, Toolbox
-from design_research_agents.shared.example_support import (
+from design_research_agents._shared._example_support import (
     print_json,
     run_traced_callable,
     trace_info,
@@ -32,9 +32,7 @@ def _invoke_dict(
         dependencies={},
     )
     if not tool_result.ok:
-        message = (
-            tool_result.error.message if tool_result.error is not None else "unknown tool error"
-        )
+        message = tool_result.error.message if tool_result.error is not None else "unknown tool error"
         raise RuntimeError(f"{tool_name} failed: {message}")
     if not isinstance(tool_result.result, dict):
         raise RuntimeError(f"{tool_name} returned non-object payload.")
@@ -78,7 +76,7 @@ def _run_report() -> dict[str, object]:
         mcp_servers=(
             McpServer(
                 id="local_core",
-                command=(sys.executable, "-m", "design_research_agents.mcp_server"),
+                command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},
                 timeout_s=20,
             ),
@@ -108,11 +106,7 @@ def _run_report() -> dict[str, object]:
         )
         core_stats = _invoke_dict(runtime, "text.word_count", {"text": source_text})
         mcp_stats = _invoke_dict(runtime, "local_core::text.word_count", {"text": source_text})
-        score_percent = _invoke_dict(
-            runtime,
-            "local_core::calculator",
-            {"expression": (f"({script_score['score']} / {script_score['max_score']}) * 100")},
-        )
+        score_percent = (float(script_score["score"]) / float(script_score["max_score"])) * 100.0
 
         report = {
             "input_path": write_result["path"],
@@ -122,7 +116,7 @@ def _run_report() -> dict[str, object]:
             "core_word_count": core_stats["word_count"],
             "mcp_word_count": mcp_stats["word_count"],
             "word_count_match": core_stats["word_count"] == mcp_stats["word_count"],
-            "score_percent": score_percent["result"],
+            "score_percent": score_percent,
             "script_trace_path": script_score.get("trace_path"),
         }
         report_write = _invoke_dict(
