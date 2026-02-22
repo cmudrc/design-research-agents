@@ -8,11 +8,11 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
-from design_research_agents import LogicStep, LoopStep, Workflow
-from design_research_agents._contracts import ExecutionResult
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+from design_research_agents import LogicStep, LoopStep, Tracer, Workflow
 
 
 def _increment_handler(context: Mapping[str, object]) -> Mapping[str, object]:
@@ -40,22 +40,35 @@ def _snapshot_handler(context: Mapping[str, object]) -> Mapping[str, object]:
 
 def _state_reducer(
     state: Mapping[str, object],
-    iteration_result: ExecutionResult,
+    iteration_result: object,
     iteration: int,
 ) -> Mapping[str, object]:
     del state, iteration
+    step_results = getattr(iteration_result, "step_results", {})
+    if not isinstance(step_results, Mapping):
+        return {"counter": 0}
+    increment = step_results.get("increment")
+    increment_output = getattr(increment, "output", {})
+    if not isinstance(increment_output, Mapping):
+        return {"counter": 0}
     return {
-        "counter": int(iteration_result.step_results["increment"].output["counter"]),
+        "counter": int(increment_output.get("counter", 0)),
     }
 
 
 def main() -> None:
     """Run a small loop and print compact JSON summary."""
     request_id = "example-workflow-loop-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     workflow = Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
-        tracer=make_tracer(),
+        tracer=tracer,
         steps=[
             LoopStep(
                 step_id="design_counter_loop",
@@ -84,10 +97,10 @@ def main() -> None:
         "success": result.success,
         "execution_order": list(result.execution_order),
         "loop_status": loop_step.output.get("terminated_reason") if loop_step else None,
-        "final_output": (result.output.get("final_output") if isinstance(result.output, dict) else None),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from urllib.error import HTTPError
 
 import pytest
 
+from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._memory import (
     MemoryRecord,
     MemorySearchQuery,
@@ -302,3 +303,33 @@ def test_sqlite_memory_store_satisfies_memory_store_protocol(tmp_path) -> None:
 
     assert len(matches) == 1
     assert matches[0].content == "hello"
+
+
+def test_execution_result_convenience_accessors_and_to_json() -> None:
+    success_result = ExecutionResult(
+        success=True,
+        output={
+            "final_output": {"decision": "approve"},
+            "terminated_reason": "completed",
+        },
+    )
+    failure_result = ExecutionResult(
+        success=False,
+        output={
+            "error": {"message": "tool failed"},
+            "terminated_reason": "step_failure",
+        },
+    )
+
+    assert success_result.final_output == {"decision": "approve"}
+    assert success_result.terminated_reason == "completed"
+    assert success_result.error is None
+
+    assert failure_result.final_output is None
+    assert failure_result.terminated_reason == "step_failure"
+    assert failure_result.error == {"message": "tool failed"}
+
+    encoded = success_result.to_json()
+    assert '"final_output"' in encoded
+    assert '"terminated_reason"' in encoded
+    assert str(success_result) == encoded

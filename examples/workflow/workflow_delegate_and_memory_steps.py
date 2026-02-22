@@ -9,24 +9,31 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+from _support_deterministic import FixedDesignPeerAgent
 
 from design_research_agents import (
     DelegateBatchStep,
     LogicStep,
     MemoryReadStep,
     MemoryWriteStep,
+    Tracer,
     Workflow,
 )
-from design_research_agents._contracts import DelegateBatchCall, MemoryWriteRecord
-from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
-from design_research_agents._shared._deterministic_design_helpers import FixedDesignPeerAgent
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+from design_research_agents.memory import SQLiteMemoryStore
 
 
 def main() -> None:
     """Execute memory and delegate-batch primitives in one traced workflow."""
     request_id = "example-workflow-delegate-memory-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     db_path = Path("artifacts/examples/workflow_delegate_and_memory.sqlite3")
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
@@ -36,21 +43,21 @@ def main() -> None:
     workflow = Workflow(
         tool_runtime=None,
         memory_store=store,
-        tracer=make_tracer(),
+        tracer=tracer,
         input_schema={"type": "object"},
         steps=[
             MemoryWriteStep(
                 step_id="seed_constraints",
                 namespace="design_constraints",
                 records_builder=lambda _context: [
-                    MemoryWriteRecord(
-                        content="Constraint: reduce service time by at least 20 percent.",
-                        metadata={"kind": "constraint"},
-                    ),
-                    MemoryWriteRecord(
-                        content="Constraint: preserve ingress protection sealing.",
-                        metadata={"kind": "constraint"},
-                    ),
+                    {
+                        "content": "Constraint: reduce service time by at least 20 percent.",
+                        "metadata": {"kind": "constraint"},
+                    },
+                    {
+                        "content": "Constraint: preserve ingress protection sealing.",
+                        "metadata": {"kind": "constraint"},
+                    },
                 ],
             ),
             MemoryReadStep(
@@ -68,24 +75,24 @@ def main() -> None:
                 dependencies=("read_constraints",),
                 fail_fast=False,
                 calls_builder=lambda context: [
-                    DelegateBatchCall(
-                        call_id="manufacturing_peer",
-                        delegate=FixedDesignPeerAgent(
+                    {
+                        "call_id": "manufacturing_peer",
+                        "delegate": FixedDesignPeerAgent(
                             messages=["Use captive screws with standardized head type for faster maintenance."]
                         ),
-                        prompt=(
+                        "prompt": (
                             "Propose manufacturing-friendly maintenance improvements using "
                             "retrieved constraints count="
                             f"{context['dependency_results']['read_constraints']['output']['count']}."
                         ),
-                    ),
-                    DelegateBatchCall(
-                        call_id="reliability_peer",
-                        delegate=FixedDesignPeerAgent(
+                    },
+                    {
+                        "call_id": "reliability_peer",
+                        "delegate": FixedDesignPeerAgent(
                             messages=["Add gasket alignment features to preserve ingress protection after service."]
                         ),
-                        prompt="Propose reliability-focused maintenance improvements.",
-                    ),
+                        "prompt": "Propose reliability-focused maintenance improvements.",
+                    },
                 ],
             ),
             LogicStep(
@@ -105,16 +112,15 @@ def main() -> None:
     result = workflow.run({}, request_id=request_id)
     store.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "workflow/workflow_delegate_and_memory_steps.py",
         "success": result.success,
         "execution_order": list(result.execution_order),
-        "final_output": output.get("final_output"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -8,33 +8,48 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from design_research_agents import RagReasoningPattern
-from design_research_agents._contracts import MemoryWriteRecord
-from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
-from design_research_agents._shared._deterministic_design_helpers import EchoDesignReasoningAgent
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+from _support_deterministic import EchoDesignReasoningAgent
+
+from design_research_agents import RagReasoningPattern, Toolbox, Tracer
+from design_research_agents.memory import SQLiteMemoryStore
 
 
 def main() -> None:
     """Run one local RAG workflow and print compact JSON result."""
     request_id = "example-workflow-rag-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     db_path = Path.cwd() / "artifacts" / "examples" / "rag_reasoning_example.sqlite3"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
 
-    store = SQLiteMemoryStore(db_path=db_path)
-    store.write(
-        [
-            MemoryWriteRecord(
-                content="Design requirement: include graceful shutdown and runtime monitoring.",
-                metadata={"kind": "requirement"},
-            )
-        ],
-        namespace="design_examples",
+    seed_toolbox = Toolbox()
+    seed_toolbox.invoke_dict(
+        "memory.write",
+        {
+            "db_path": str(db_path),
+            "namespace": "design_examples",
+            "records": [
+                {
+                    "content": "Design requirement: include graceful shutdown and runtime monitoring.",
+                    "metadata": {"kind": "requirement"},
+                }
+            ],
+        },
+        request_id=f"{request_id}:seed_memory",
+        dependencies={},
     )
+    seed_toolbox.close()
+
+    store = SQLiteMemoryStore(db_path=db_path)
 
     pattern = RagReasoningPattern(
         reasoning_delegate=EchoDesignReasoningAgent(),
@@ -42,7 +57,7 @@ def main() -> None:
         memory_namespace="design_examples",
         memory_top_k=3,
         write_back=False,
-        tracer=make_tracer(),
+        tracer=tracer,
     )
     result = pattern.run(
         "Draft a concise architecture recommendation for a serviceable edge device.",
@@ -50,16 +65,15 @@ def main() -> None:
     )
     store.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "workflow/rag_reasoning.py",
         "success": result.success,
-        "final_output": output.get("final_output"),
-        "terminated_reason": output.get("terminated_reason"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "terminated_reason": result.terminated_reason,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

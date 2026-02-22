@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import design_research_agents.tools._registry as tool_registry
-from design_research_agents.tools import Toolbox
+from design_research_agents.tools import CallableTool, Toolbox
 
 
 def _bashkit_available() -> bool:
@@ -49,6 +49,49 @@ def test_text_word_count_invocation() -> None:
     assert result.ok is True
     assert isinstance(result.result, dict)
     assert result.result["word_count"] == 3
+
+
+def test_invoke_dict_returns_mapping_payload() -> None:
+    runtime = Toolbox()
+    payload = runtime.invoke_dict(
+        "text.word_count",
+        {"text": "design research agents"},
+        request_id="invoke-dict-success",
+        dependencies={},
+    )
+    assert payload["word_count"] == 3
+
+
+def test_invoke_dict_raises_on_failed_tool_result() -> None:
+    runtime = Toolbox()
+    with pytest.raises(RuntimeError, match="failed"):
+        runtime.invoke_dict(
+            "fs.write_text",
+            {"path": "outside.txt", "content": "blocked"},
+            request_id="invoke-dict-failure",
+            dependencies={},
+        )
+
+
+def test_invoke_dict_raises_on_non_mapping_tool_result() -> None:
+    runtime = Toolbox(
+        enable_core_tools=False,
+        callable_tools=(
+            CallableTool(
+                name="custom.scalar",
+                description="Return scalar",
+                handler=lambda _payload: 7,
+                output_schema={"type": "integer"},
+            ),
+        ),
+    )
+    with pytest.raises(RuntimeError, match="non-dict result"):
+        runtime.invoke_dict(
+            "custom.scalar",
+            {},
+            request_id="invoke-dict-non-dict",
+            dependencies={},
+        )
 
 
 def test_tool_registry_emits_observation_events(monkeypatch: pytest.MonkeyPatch) -> None:

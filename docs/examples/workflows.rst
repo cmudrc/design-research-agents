@@ -47,6 +47,8 @@ Reusable patterns
   Public API: ``RagReasoningPattern``.
 
 For each script, observe ``terminated_reason`` and ``trace.trace_path``.
+Examples instantiate ``Tracer(...)`` directly and emit trace metadata through
+``tracer.trace_info(request_id)``.
 
 Observed local run snippets (2026-02-21)
 ----------------------------------------

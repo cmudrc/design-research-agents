@@ -163,6 +163,51 @@ def test_default_model_raises_when_backend_default_missing() -> None:
         client.default_model()
 
 
+def test_single_backend_client_exposes_introspection_snapshots() -> None:
+    backend = _StubBackend(name="inspect-backend", default_model="inspect-model")
+    client = _SingleBackendLLMClient(
+        backend=backend,
+        config_snapshot={"request_timeout_seconds": 45.0},
+        server_snapshot={"host": "127.0.0.1", "port": 8002},
+    )
+
+    capabilities = client.capabilities()
+    assert capabilities.streaming is True
+
+    config_snapshot = client.config_snapshot()
+    assert config_snapshot["name"] == "inspect-backend"
+    assert config_snapshot["kind"] == "echo_test"
+    assert config_snapshot["default_model"] == "inspect-model"
+    assert config_snapshot["request_timeout_seconds"] == 45.0
+
+    server_snapshot = client.server_snapshot()
+    assert server_snapshot == {"host": "127.0.0.1", "port": 8002}
+
+    description = client.describe()
+    assert description["client_class"] == "_SingleBackendLLMClient"
+    assert description["default_model"] == "inspect-model"
+    assert isinstance(description["backend"], dict)
+    assert isinstance(description["capabilities"], dict)
+    assert description["server"] == {"host": "127.0.0.1", "port": 8002}
+
+
+def test_provider_client_config_snapshot_contains_provider_fields() -> None:
+    client = OpenAICompatibleHTTPLLMClient(
+        name="compat-test",
+        base_url="http://127.0.0.1:8010/v1",
+        default_model="qwen-test",
+        api_key_env="OPENAI_API_KEY",
+        api_key="test-key",
+        max_retries=5,
+    )
+    snapshot = client.config_snapshot()
+    assert snapshot["name"] == "compat-test"
+    assert snapshot["kind"] == "openai_compatible_http"
+    assert snapshot["base_url"] == "http://127.0.0.1:8010/v1"
+    assert snapshot["chat_url"] == "http://127.0.0.1:8010/v1/chat/completions"
+    assert snapshot["has_api_key"] is True
+
+
 def test_single_backend_client_emits_model_observation_events(monkeypatch: pytest.MonkeyPatch) -> None:
     backend = _StubBackend(name="trace-backend", default_model="trace-model")
     client = _SingleBackendLLMClient(backend=backend)

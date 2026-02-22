@@ -24,8 +24,9 @@ Client configuration scripts
 - ``examples/clients/sglang_server_client.py``
   Public API: ``SglangServerLLMClient``.
 
-Observe: ``llm_call.response_has_text``, backend/capability fields, and
-``trace.trace_path``.
+Observe: ``llm_call.response_has_text``, ``client.describe()`` metadata
+(``backend``/``capabilities``/``server``), and ``trace.trace_path`` from
+``tracer.trace_info(request_id)``.
 
 Model selection scripts
 -----------------------

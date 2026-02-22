@@ -8,31 +8,39 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import BlackboardPattern, NetworkedPattern
-from design_research_agents._shared._deterministic_design_helpers import FixedDesignPeerAgent
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+import json
+from pathlib import Path
+
+from _support_deterministic import FixedDesignPeerAgent
+
+from design_research_agents import BlackboardPattern, NetworkedPattern, Tracer
 
 
-def _summarize(result: object, request_id: str) -> dict[str, object]:
+def _summarize(result: object, request_id: str, tracer: Tracer) -> dict[str, object]:
     if not hasattr(result, "success") or not hasattr(result, "output"):
-        return {"success": False, "error": "unexpected result", "trace": trace_info(request_id)}
+        return {"success": False, "error": "unexpected result", "trace": tracer.trace_info(request_id)}
     output = result.output if isinstance(result.output, dict) else {}
     blackboard = output.get("blackboard")
     messages = blackboard.get("messages") if isinstance(blackboard, dict) else []
     return {
         "success": result.success,
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "rounds_executed": output.get("rounds_executed"),
         "message_count": len(messages) if isinstance(messages, list) else 0,
-        "final_output": output.get("final_output"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
 
 
 def main() -> None:
     """Run one networked and one blackboard coordination pass."""
-    tracer = make_tracer()
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
 
     network_request_id = "example-workflow-networked-pattern-design-001"
     networked = NetworkedPattern(
@@ -63,11 +71,16 @@ def main() -> None:
         request_id=blackboard_request_id,
     )
 
-    print_json(
-        {
-            "networked_pattern": _summarize(network_result, network_request_id),
-            "blackboard_pattern": _summarize(blackboard_result, blackboard_request_id),
-        }
+    print(
+        json.dumps(
+            {
+                "networked_pattern": _summarize(network_result, network_request_id, tracer),
+                "blackboard_pattern": _summarize(blackboard_result, blackboard_request_id, tracer),
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
     )
 
 

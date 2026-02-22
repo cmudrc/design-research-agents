@@ -8,13 +8,12 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import OpenAIServiceLLMClient
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_representative_chat,
-    run_traced_callable,
-    trace_info,
-)
+import json
+from pathlib import Path
+
+from _support_client_call import run_representative_chat
+
+from design_research_agents import OpenAIServiceLLMClient, Tracer
 
 
 def _build_payload() -> dict[str, object]:
@@ -27,8 +26,7 @@ def _build_payload() -> dict[str, object]:
         max_retries=4,
         model_patterns=("gpt-4o-mini", "gpt-4o-*"),
     )
-    backend = client._backend
-    capabilities = backend.capabilities()
+    description = client.describe()
     llm_call = run_representative_chat(
         client=client,
         prompt="In one sentence, when should engineering teams use multi-agent design critique?",
@@ -37,30 +35,25 @@ def _build_payload() -> dict[str, object]:
         ),
     )
     return {
-        "client_class": client.__class__.__name__,
-        "default_model": client.default_model(),
+        "client_class": description["client_class"],
+        "default_model": description["default_model"],
         "llm_call": llm_call,
-        "backend": {
-            "name": backend.name,
-            "kind": backend.kind,
-            "base_url": backend.base_url,
-            "max_retries": backend.max_retries,
-            "model_patterns": list(backend.model_patterns),
-        },
-        "capabilities": {
-            "streaming": capabilities.streaming,
-            "tool_calling": capabilities.tool_calling,
-            "json_mode": capabilities.json_mode,
-            "vision": capabilities.vision,
-            "max_context_tokens": capabilities.max_context_tokens,
-        },
+        "backend": description["backend"],
+        "capabilities": description["capabilities"],
+        "server": description["server"],
     }
 
 
 def main() -> None:
     """Run traced OpenAI service client call payload."""
     request_id = "example-clients-openai-service-call-001"
-    payload = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    payload = tracer.run_callable(
         agent_name="ExamplesOpenAIServiceClientCall",
         request_id=request_id,
         input_payload={"scenario": "openai-service-client-call"},
@@ -68,8 +61,8 @@ def main() -> None:
     )
     assert isinstance(payload, dict)
     payload["example"] = "clients/openai_service_client.py"
-    payload["trace"] = trace_info(request_id)
-    print_json(payload)
+    payload["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

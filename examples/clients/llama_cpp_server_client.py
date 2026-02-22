@@ -8,14 +8,13 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 import sys
+from pathlib import Path
 
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_representative_chat,
-    run_traced_callable,
-    trace_info,
-)
+from _support_client_call import run_representative_chat
+
+from design_research_agents import Tracer
 from design_research_agents.llm.clients import LlamaCppServerLLMClient
 
 
@@ -36,35 +35,19 @@ def _build_payload() -> dict[str, object]:
         model_patterns=("qwen2.5-*", "qwen2-*"),
     )
     try:
-        backend = client._backend
-        server = client._llama_server
+        description = client.describe()
         llm_call = run_representative_chat(
             client=client,
             prompt="In one sentence, explain a key tradeoff in engineering design reviews.",
             deterministic_response=("Tradeoff: strict review gates improve reliability but can slow delivery speed."),
         )
         return {
-            "client_class": client.__class__.__name__,
-            "default_model": client.default_model(),
+            "client_class": description["client_class"],
+            "default_model": description["default_model"],
             "llm_call": llm_call,
-            "backend": {
-                "name": backend.name,
-                "kind": backend.kind,
-                "max_retries": backend.max_retries,
-                "model_patterns": list(backend.model_patterns),
-            },
-            "server": {
-                "python_executable": server.python_executable,
-                "host": server.host,
-                "port": server.port,
-                "base_url": server.base_url,
-                "model": server.model,
-                "hf_model_repo_id": server.hf_model_repo_id,
-                "api_model": server.api_model,
-                "startup_timeout_seconds": server.startup_timeout_seconds,
-                "poll_interval_seconds": server.poll_interval_seconds,
-                "extra_server_args": list(server.extra_server_args),
-            },
+            "backend": description["backend"],
+            "capabilities": description["capabilities"],
+            "server": description["server"],
         }
     finally:
         client.close()
@@ -73,7 +56,13 @@ def _build_payload() -> dict[str, object]:
 def main() -> None:
     """Run traced llama-cpp client call payload."""
     request_id = "example-clients-llama-cpp-call-001"
-    payload = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    payload = tracer.run_callable(
         agent_name="ExamplesLlamaCppClientCall",
         request_id=request_id,
         input_payload={"scenario": "llama-cpp-client-call"},
@@ -81,8 +70,8 @@ def main() -> None:
     )
     assert isinstance(payload, dict)
     payload["example"] = "clients/llama_cpp_server_client.py"
-    payload["trace"] = trace_info(request_id)
-    print_json(payload)
+    payload["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

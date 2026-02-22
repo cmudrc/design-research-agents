@@ -8,13 +8,12 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import OllamaLLMClient
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_representative_chat,
-    run_traced_callable,
-    trace_info,
-)
+import json
+from pathlib import Path
+
+from _support_client_call import run_representative_chat
+
+from design_research_agents import OllamaLLMClient, Tracer
 
 
 def _build_payload() -> dict[str, object]:
@@ -38,8 +37,7 @@ def _build_payload() -> dict[str, object]:
         model_patterns=("qwen2.5:*", "llama3:*"),
     )
     try:
-        backend = client._backend
-        server = client._ollama_server
+        description = client.describe()
         llm_call = run_representative_chat(
             client=client,
             prompt="Give one sentence on when to use local model pull automation.",
@@ -48,25 +46,12 @@ def _build_payload() -> dict[str, object]:
             ),
         )
         return {
-            "client_class": client.__class__.__name__,
-            "default_model": client.default_model(),
+            "client_class": description["client_class"],
+            "default_model": description["default_model"],
             "llm_call": llm_call,
-            "backend": {
-                "name": backend.name,
-                "kind": backend.kind,
-                "base_url": backend.base_url,
-                "max_retries": backend.max_retries,
-                "model_patterns": list(backend.model_patterns),
-                "request_timeout_seconds": backend._request_timeout_seconds,
-            },
-            "server": {
-                "manage_server": server is not None,
-                "host": server.host if server is not None else None,
-                "port": server.port if server is not None else None,
-                "base_url": server.base_url if server is not None else None,
-                "auto_pull_model": server.auto_pull_model if server is not None else None,
-                "default_model": server.default_model if server is not None else None,
-            },
+            "backend": description["backend"],
+            "capabilities": description["capabilities"],
+            "server": description["server"],
         }
     finally:
         client.close()
@@ -75,7 +60,13 @@ def _build_payload() -> dict[str, object]:
 def main() -> None:
     """Run traced Ollama client call payload."""
     request_id = "example-clients-ollama-local-call-001"
-    payload = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    payload = tracer.run_callable(
         agent_name="ExamplesOllamaClientCall",
         request_id=request_id,
         input_payload={"scenario": "ollama-local-client-call"},
@@ -83,8 +74,8 @@ def main() -> None:
     )
     assert isinstance(payload, dict)
     payload["example"] = "clients/ollama_local_client.py"
-    payload["trace"] = trace_info(request_id)
-    print_json(payload)
+    payload["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -8,20 +8,28 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import LlamaCppServerLLMClient, ReflexionPattern, Toolbox
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+import json
+from pathlib import Path
+
+from design_research_agents import LlamaCppServerLLMClient, ReflexionPattern, Toolbox, Tracer
 
 
 def main() -> None:
     """Run propose/critique refinement orchestration with tracing."""
     request_id = "example-workflow-propose-critic-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     try:
         workflow = ReflexionPattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            tracer=make_tracer(),
+            tracer=tracer,
         )
         result = workflow.run(
             prompt=(
@@ -37,14 +45,14 @@ def main() -> None:
     payload = {
         "example": "workflow/propose_critic.py",
         "success": result.success,
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "approved": output.get("approved"),
         "critique_iterations": output.get("critique_iterations"),
         "proposal": output.get("proposal"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

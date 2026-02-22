@@ -1,5 +1,7 @@
 """Public LLM client entrypoints."""
 
+from design_research_agents._contracts import LLMMessage, LLMRequest
+
 from .clients import (
     LlamaCppServerLLMClient,
     MlxLocalLLMClient,
@@ -12,6 +14,8 @@ from .clients import (
 )
 
 __all__ = [
+    "LLMMessage",
+    "LLMRequest",
     "LlamaCppServerLLMClient",
     "MlxLocalLLMClient",
     "OllamaLLMClient",

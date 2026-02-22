@@ -49,6 +49,11 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
         ),
         '{"continue": false, "thought": "Task complete."}',
     ),
+    "examples/agents/basic/multi_step_json_with_memory.py": (
+        '{"continue": true, "thought": "start"}',
+        '{"tool_name": "text.word_count", "tool_input": {"text": "design context memory"}}',
+        '{"continue": false, "thought": "done"}',
+    ),
     "examples/optimization/multi_step_tool_router_1d_optimization.py": (
         '{"continue": true, "thought": "Start descending toward zero."}',
         ('{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Decrease x toward zero."}'),
@@ -129,6 +134,9 @@ _SCRIPT_RESPONSES: dict[str, tuple[str, ...]] = {
             '{"title":"Deterministic workflow memo","summary":"Use one runtime that fuses core, '
             'script, and MCP tools.","priority":"high"}'
         ),
+    ),
+    "examples/workflow/workflow_model_step_design_tradeoff.py": (
+        "Use a modular latch for faster maintenance; accept small cost increase for serviceability.",
     ),
     "examples/agents/streaming/multi_step_code_tool_calling_agent_stream.py": (
         '{"continue": true, "thought": "Run one action step."}',
@@ -278,9 +286,45 @@ if _DETERMINISTIC_MODE:
                 model_patterns=model_patterns,
                 extra_fields=extra_backend_fields,
             )
+            self._config_snapshot = {
+                "name": name,
+                "kind": kind,
+                "default_model": default_model,
+                "base_url": getattr(self._backend, "base_url", None),
+                "max_retries": max_retries,
+                "model_patterns": list(model_patterns),
+            }
+            for field_name, field_value in extra_backend_fields.items():
+                normalized_name = field_name[1:] if field_name.startswith("_") else field_name
+                self._config_snapshot[normalized_name] = field_value
 
         def default_model(self) -> str:
             return self._default_model
+
+        def capabilities(self) -> _DeterministicCapabilities:
+            return self._backend.capabilities()
+
+        def config_snapshot(self) -> dict[str, object]:
+            return dict(self._config_snapshot)
+
+        def server_snapshot(self) -> None:
+            return None
+
+        def describe(self) -> dict[str, object]:
+            capabilities = self.capabilities()
+            return {
+                "client_class": self.__class__.__name__,
+                "default_model": self.default_model(),
+                "backend": self.config_snapshot(),
+                "capabilities": {
+                    "streaming": capabilities.streaming,
+                    "tool_calling": capabilities.tool_calling,
+                    "json_mode": capabilities.json_mode,
+                    "vision": capabilities.vision,
+                    "max_context_tokens": capabilities.max_context_tokens,
+                },
+                "server": self.server_snapshot(),
+            }
 
         def close(self) -> None:
             return None

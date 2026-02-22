@@ -5,6 +5,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Final
 
+from design_research_agents._contracts import ExecutionResult
+
 from ._schema_helpers import list_of, scalar, typed_dict
 from .workflow import Workflow
 
@@ -20,7 +22,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }
 
-__all__ = ["Workflow", "scalar", "list_of", "typed_dict", *_EXPORTS.keys()]
+__all__ = ["Workflow", "ExecutionResult", "scalar", "list_of", "typed_dict", *_EXPORTS.keys()]
 
 
 def __getattr__(name: str) -> object:

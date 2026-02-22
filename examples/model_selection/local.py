@@ -8,14 +8,11 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
+from pathlib import Path
 
-from design_research_agents import ModelSelector
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_traced_callable,
-    trace_info,
-)
+from design_research_agents import ModelSelector, Tracer
 
 
 def _select_local() -> dict[str, object]:
@@ -42,7 +39,13 @@ def _select_local() -> dict[str, object]:
 def main() -> None:
     """Run traced local-first model selection and print decision."""
     request_id = "example-model-selection-local-design-001"
-    payload = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    payload = tracer.run_callable(
         agent_name="ExamplesModelSelectionLocal",
         request_id=request_id,
         input_payload={"scenario": "local-selection"},
@@ -50,8 +53,8 @@ def main() -> None:
     )
     assert isinstance(payload, dict)
     payload["example"] = "model_selection/local.py"
-    payload["trace"] = trace_info(request_id)
-    print_json(payload)
+    payload["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

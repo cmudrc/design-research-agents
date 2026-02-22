@@ -8,10 +8,10 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from design_research_agents import LogicStep, Toolbox, ToolStep, Workflow
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+from design_research_agents import LogicStep, Toolbox, ToolStep, Tracer, Workflow
 
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -33,21 +33,27 @@ INPUT_SCHEMA: dict[str, object] = {
 }
 
 
-def _summarize(result: object, request_id: str) -> dict[str, object]:
+def _summarize(result: object, request_id: str, tracer: Tracer) -> dict[str, object]:
     if not hasattr(result, "success") or not hasattr(result, "output"):
-        return {"success": False, "error": "unexpected result", "trace": trace_info(request_id)}
+        return {"success": False, "error": "unexpected result", "trace": tracer.trace_info(request_id)}
     output = result.output if isinstance(result.output, dict) else {}
     return {
         "success": result.success,
         "execution_order": list(result.execution_order),
         "final_output": output.get("final_output"),
         "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "trace": tracer.trace_info(request_id),
     }
 
 
 def main() -> None:
     """Run schema-mode workflow with strict and relaxed quality thresholds."""
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     dataset_path = Path("artifacts/examples/design_schema_dataset.csv")
     dataset_path.parent.mkdir(parents=True, exist_ok=True)
     dataset_path.write_text(
@@ -67,7 +73,7 @@ def main() -> None:
 
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        tracer=make_tracer(),
+        tracer=tracer,
         steps=[
             ToolStep(
                 step_id="describe_dataset",
@@ -143,11 +149,16 @@ def main() -> None:
         request_id=relaxed_request_id,
     )
 
-    print_json(
-        {
-            "strict_run": _summarize(strict_result, strict_request_id),
-            "relaxed_run": _summarize(relaxed_result, relaxed_request_id),
-        }
+    print(
+        json.dumps(
+            {
+                "strict_run": _summarize(strict_result, strict_request_id, tracer),
+                "relaxed_run": _summarize(relaxed_result, relaxed_request_id, tracer),
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
     )
 
 

@@ -8,29 +8,11 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 import sys
-from collections.abc import Mapping
+from pathlib import Path
 
-from design_research_agents import McpServer, Toolbox
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_traced_callable,
-    trace_info,
-)
-
-
-def _invoke_dict(
-    runtime: Toolbox,
-    tool_name: str,
-    payload: Mapping[str, object],
-) -> dict[str, object]:
-    result = runtime.invoke(tool_name, payload, request_id="example-mcp-minimal", dependencies={})
-    if not result.ok:
-        message = result.error.message if result.error is not None else "unknown tool error"
-        raise RuntimeError(f"{tool_name} failed: {message}")
-    if not isinstance(result.result, dict):
-        raise RuntimeError(f"{tool_name} returned non-object payload.")
-    return result.result
+from design_research_agents import McpServer, Toolbox, Tracer
 
 
 def _run_report() -> dict[str, object]:
@@ -48,7 +30,12 @@ def _run_report() -> dict[str, object]:
     )
     try:
         mcp_tools = sorted(spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::"))
-        direct = _invoke_dict(runtime, "local_core::text.word_count", {"text": "design research"})
+        direct = runtime.invoke_dict(
+            "local_core::text.word_count",
+            {"text": "design research"},
+            request_id="example-mcp-minimal",
+            dependencies={},
+        )
     finally:
         runtime.close()
 
@@ -62,7 +49,13 @@ def _run_report() -> dict[str, object]:
 def main() -> None:
     """Run traced MCP report generation and print JSON result."""
     request_id = "example-tools-mcp-minimal-design-001"
-    report = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    report = tracer.run_callable(
         agent_name="ExamplesMcpMinimal",
         request_id=request_id,
         input_payload={"scenario": "mcp-runtime-design"},
@@ -70,8 +63,8 @@ def main() -> None:
     )
     assert isinstance(report, dict)
     report["example"] = "tools/mcp_minimal.py"
-    report["trace"] = trace_info(request_id)
-    print_json(report)
+    report["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

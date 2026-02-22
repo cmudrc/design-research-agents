@@ -8,20 +8,28 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+import json
+from pathlib import Path
+
+from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Tracer
 
 
 def main() -> None:
     """Execute one multi-step direct run and print summary."""
     request_id = "example-multi-step-direct-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     try:
         agent = MultiStepAgent(
             mode="direct",
             llm_client=llm_client,
             max_steps=3,
-            tracer=make_tracer(),
+            tracer=tracer,
         )
         result = agent.run(
             prompt=(
@@ -36,13 +44,13 @@ def main() -> None:
     payload = {
         "example": "agents/basic/multi_step_direct_llm_agent.py",
         "success": result.success,
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "steps_executed": output.get("steps_executed"),
-        "final_output": output.get("final_output"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

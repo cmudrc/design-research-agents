@@ -8,17 +8,25 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import LogicStep, Workflow
-from design_research_agents._shared._example_support import make_tracer, trace_info
+import json
+from pathlib import Path
+
+from design_research_agents import LogicStep, Tracer, Workflow
 
 
 def main() -> None:
     """Run a minimal logic workflow and print literal payload."""
     request_id = "example-workflow-runtime-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     workflow = Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
-        tracer=make_tracer(),
+        tracer=tracer,
         steps=[
             LogicStep(
                 step_id="design_runtime_ready",
@@ -33,10 +41,10 @@ def main() -> None:
     payload = {
         "success": result.success,
         "execution_order": list(result.execution_order),
-        "final_output": (result.output.get("final_output") if isinstance(result.output, dict) else None),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "trace": tracer.trace_info(request_id),
     }
-    print(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

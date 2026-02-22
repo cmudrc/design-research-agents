@@ -36,6 +36,7 @@ Use the smallest useful check while iterating, then run full gates before merge.
   - `design_research_agents.agent`
   - `design_research_agents.workflow`
   - `design_research_agents.llm`
+  - `design_research_agents.memory`
   - `design_research_agents.tools`
 - Underscored module paths are internal/unstable (for example `_implementations`, `_runtime`, `_contracts`, `_tracing`, `_schemas`, `_memory`).
 - Prefer public imports in user-facing examples/docs. Use internal modules only when no public equivalent exists and the usage is intentional.

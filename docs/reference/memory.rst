@@ -1,15 +1,9 @@
 Memory Modules
 ==============
 
-This page lists internal memory modules. These underscored module paths are
-documented for contributor visibility and are not API-stable.
+This page lists stable public memory modules.
 
-.. automodule:: design_research_agents._memory._embedding
-   :members:
-   :undoc-members:
-   :no-index:
-
-.. automodule:: design_research_agents._memory._stores._sqlite_store
+.. automodule:: design_research_agents.memory
    :members:
    :undoc-members:
    :no-index:

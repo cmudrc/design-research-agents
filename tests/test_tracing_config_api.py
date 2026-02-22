@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 
 import design_research_agents as dra
 from design_research_agents._tracing import Tracer
@@ -64,3 +65,29 @@ def test_traceconfig_not_publicly_exported() -> None:
     assert "TraceConfig" not in dra.__all__
     assert not hasattr(dra, "TraceConfig")
     assert not hasattr(tracing_module, "TraceConfig")
+
+
+def test_tracer_run_callable_and_trace_info(tmp_path: Path) -> None:
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=tmp_path / "trace-run-callable",
+        enable_jsonl=True,
+        enable_console=False,
+    )
+    request_id = "trace-run-callable-request"
+    result = tracer.run_callable(
+        agent_name="TraceRunCallableAgent",
+        request_id=request_id,
+        input_payload={"mode": "test"},
+        function=lambda: {"ok": True, "value": 7},
+    )
+    assert result == {"ok": True, "value": 7}
+
+    trace_path = tracer.resolve_latest_trace_path(request_id)
+    assert isinstance(trace_path, str)
+    assert trace_path.endswith(".jsonl")
+
+    trace_info = tracer.trace_info(request_id)
+    assert trace_info["request_id"] == request_id
+    assert trace_info["trace_dir"] == str(tmp_path / "trace-run-callable")
+    assert trace_info["trace_path"] == trace_path

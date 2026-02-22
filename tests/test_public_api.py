@@ -7,7 +7,10 @@ import importlib
 import pytest
 
 import design_research_agents as dra
+import design_research_agents.llm as dra_llm
+import design_research_agents.memory as dra_memory
 import design_research_agents.tools as dra_tools
+import design_research_agents.workflow as dra_workflow
 from design_research_agents import _contracts as dra_contracts
 
 EXPECTED_PUBLIC_API = [
@@ -80,6 +83,20 @@ def test_removed_contract_symbol_is_not_top_level() -> None:
 
 def test_contract_symbol_is_available_from_internal_contracts_namespace() -> None:
     assert dra_contracts.LLMMessage.__name__ == "LLMMessage"
+
+
+def test_llm_module_exports_request_and_message_contracts() -> None:
+    assert dra_llm.LLMRequest.__name__ == "LLMRequest"
+    assert dra_llm.LLMMessage.__name__ == "LLMMessage"
+
+
+def test_memory_module_exports_public_memory_facade() -> None:
+    assert dra_memory.SQLiteMemoryStore.__name__ == "SQLiteMemoryStore"
+    assert dra_memory.LLMEmbeddingProvider.__name__ == "LLMEmbeddingProvider"
+
+
+def test_workflow_module_exports_execution_result_contract() -> None:
+    assert dra_workflow.ExecutionResult.__name__ == "ExecutionResult"
 
 
 def test_legacy_contracts_namespace_is_removed() -> None:

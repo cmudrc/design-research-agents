@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from hashlib import sha256
 
 from design_research_agents._contracts._llm import (
@@ -32,8 +32,6 @@ from .._backends._providers._ollama_local import OllamaLocalBackend
 from .._backends._providers._ollama_server import (
     create_backend as create_ollama_server,
 )
-from .._backends._providers._openai_compatible_http import OpenAICompatibleHTTPBackend
-from .._backends._providers._openai_service import OpenAIServiceBackend
 from .._backends._providers._sglang_local import SglangLocalBackend
 from .._backends._providers._sglang_server import (
     create_backend as create_sglang_server,
@@ -43,27 +41,54 @@ from .._backends._providers._vllm_local import VllmLocalBackend
 from .._backends._providers._vllm_server import (
     create_backend as create_vllm_server,
 )
-
-_OPENAI_COMPAT_CAPABILITIES = BackendCapabilities(
-    streaming=False,
-    tool_calling="best_effort",
-    json_mode="prompt+validate",
-    vision=False,
-    max_context_tokens=None,
+from ._snapshot_helpers import (
+    capabilities_to_dict,
+    llama_config_snapshot,
+    llama_server_snapshot,
+    mlx_config_snapshot,
+    normalize_snapshot_mapping,
+    ollama_config_snapshot,
+    ollama_server_snapshot,
+    sglang_config_snapshot,
+    sglang_server_snapshot,
+    transformers_config_snapshot,
+    vllm_config_snapshot,
+    vllm_server_snapshot,
 )
 
 
 class _SingleBackendLLMClient(LLMClient):
     """LLM client wrapper that delegates to one concrete backend."""
 
-    def __init__(self, *, backend: BaseLLMBackend) -> None:
+    def __init__(
+        self,
+        *,
+        backend: BaseLLMBackend,
+        config_snapshot: Mapping[str, object] | None = None,
+        server_snapshot: Mapping[str, object] | None = None,
+    ) -> None:
         """Initialize the client with a configured backend instance.
 
         Args:
             backend: The LLM backend instance to delegate calls to. This should be fully configured
                 and ready to use, as the client will not perform any additional setup.
+            config_snapshot: Additional client/backend config metadata fields.
+            server_snapshot: Managed server metadata fields when server lifecycle is owned.
         """
         self._backend = backend
+        snapshot: dict[str, object] = {
+            "name": backend.name,
+            "kind": backend.kind,
+            "default_model": backend.default_model,
+            "base_url": backend.base_url,
+            "config_hash": backend.config_hash,
+            "max_retries": backend.max_retries,
+            "model_patterns": list(backend.model_patterns),
+        }
+        if config_snapshot is not None:
+            snapshot.update(normalize_snapshot_mapping(config_snapshot))
+        self._config_snapshot = snapshot
+        self._server_snapshot = normalize_snapshot_mapping(server_snapshot) if server_snapshot is not None else None
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one response using the configured backend.
@@ -243,6 +268,46 @@ class _SingleBackendLLMClient(LLMClient):
             raise ValueError("LLM backend default_model is not configured.")
         return default_model
 
+    def capabilities(self) -> BackendCapabilities:
+        """Return declared backend capabilities for this client.
+
+        Returns:
+            Backend capability payload.
+        """
+        return self._backend.capabilities()
+
+    def config_snapshot(self) -> dict[str, object]:
+        """Return stable client/backend configuration metadata.
+
+        Returns:
+            Snapshot dictionary safe for diagnostics and example output.
+        """
+        return normalize_snapshot_mapping(self._config_snapshot)
+
+    def server_snapshot(self) -> dict[str, object] | None:
+        """Return managed-server metadata when this client owns a server.
+
+        Returns:
+            Server snapshot dictionary, or ``None`` when not managed.
+        """
+        if self._server_snapshot is None:
+            return None
+        return normalize_snapshot_mapping(self._server_snapshot)
+
+    def describe(self) -> dict[str, object]:
+        """Return composed client configuration and capability summary.
+
+        Returns:
+            JSON-serializable description of client runtime characteristics.
+        """
+        return {
+            "client_class": self.__class__.__name__,
+            "default_model": self.default_model(),
+            "backend": self.config_snapshot(),
+            "capabilities": capabilities_to_dict(self.capabilities()),
+            "server": self.server_snapshot(),
+        }
+
 
 class LlamaCppServerLLMClient(_SingleBackendLLMClient):
     """Client for a managed local ``llama_cpp.server`` backend."""
@@ -323,7 +388,20 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, api_model),
         )
-        super().__init__(backend=backend)
+        super().__init__(
+            backend=backend,
+            config_snapshot=llama_config_snapshot(
+                model=model,
+                hf_model_repo_id=hf_model_repo_id,
+                api_model=api_model,
+                context_window=context_window,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+                python_executable=python_executable,
+                extra_server_args=combined_server_args,
+            ),
+            server_snapshot=llama_server_snapshot(server=self._llama_server),
+        )
 
     def close(self) -> None:
         """Stop the managed local server process."""
@@ -425,7 +503,22 @@ class VllmServerLLMClient(_SingleBackendLLMClient):
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, api_model),
         )
-        super().__init__(backend=backend)
+        super().__init__(
+            backend=backend,
+            config_snapshot=vllm_config_snapshot(
+                model=model,
+                api_model=api_model,
+                host=host,
+                port=port,
+                manage_server=manage_server,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+                python_executable=python_executable,
+                extra_server_args=extra_server_args,
+                request_timeout_seconds=request_timeout_seconds,
+            ),
+            server_snapshot=vllm_server_snapshot(server=self._vllm_server),
+        )
 
     def close(self) -> None:
         """Stop the managed vLLM server process when present."""
@@ -513,7 +606,20 @@ class OllamaLLMClient(_SingleBackendLLMClient):
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, default_model),
         )
-        super().__init__(backend=backend)
+        super().__init__(
+            backend=backend,
+            config_snapshot=ollama_config_snapshot(
+                host=host,
+                port=port,
+                manage_server=manage_server,
+                ollama_executable=ollama_executable,
+                auto_pull_model=auto_pull_model,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+                request_timeout_seconds=request_timeout_seconds,
+            ),
+            server_snapshot=ollama_server_snapshot(server=self._ollama_server),
+        )
 
     def close(self) -> None:
         """Stop the managed Ollama daemon when present."""
@@ -615,7 +721,21 @@ class SglangServerLLMClient(_SingleBackendLLMClient):
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, model),
         )
-        super().__init__(backend=backend)
+        super().__init__(
+            backend=backend,
+            config_snapshot=sglang_config_snapshot(
+                model=model,
+                host=host,
+                port=port,
+                manage_server=manage_server,
+                startup_timeout_seconds=startup_timeout_seconds,
+                poll_interval_seconds=poll_interval_seconds,
+                python_executable=python_executable,
+                extra_server_args=extra_server_args,
+                request_timeout_seconds=request_timeout_seconds,
+            ),
+            server_snapshot=sglang_server_snapshot(server=self._sglang_server),
+        )
 
     def close(self) -> None:
         """Stop the managed SGLang server process when present."""
@@ -626,112 +746,6 @@ class SglangServerLLMClient(_SingleBackendLLMClient):
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
         """Best-effort managed server cleanup during garbage collection."""
         self.close()
-
-
-class OpenAIServiceLLMClient(_SingleBackendLLMClient):
-    """Client for the official OpenAI API backend."""
-
-    def __init__(
-        self,
-        *,
-        name: str = "openai",
-        default_model: str = "gpt-4o-mini",
-        api_key_env: str = "OPENAI_API_KEY",
-        api_key: str | None = None,
-        base_url: str | None = None,
-        max_retries: int = 2,
-        model_patterns: tuple[str, ...] | None = None,
-    ) -> None:
-        """Initialize an OpenAI service client with sensible defaults.
-
-        Args:
-            name: Logical name for this client instance, used in logging and provenance.
-            default_model: Default model name to use for requests that don't specify one.
-            api_key_env: Environment variable name to read the API key from if not provided
-                directly.
-            api_key: Optional API key string. If not provided, the client will attempt to read
-                the key from the environment variable specified by `api_key_env`.
-            base_url: Optional base URL for the OpenAI API endpoint, useful for testing or if
-                using a proxy. If None, defaults to the official OpenAI API URL.
-            max_retries: Number of times to retry a request in case of failure before giving up
-            model_patterns: Optional tuple of model name patterns supported by this client,
-                used for routing decisions. If None, defaults to (default_model,).
-        """
-        config_hash = _config_hash(
-            {
-                "kind": "openai_service",
-                "name": name,
-                "default_model": default_model,
-                "api_key_env": api_key_env,
-                "api_key": api_key,
-                "base_url": base_url,
-                "max_retries": max_retries,
-            }
-        )
-        backend = OpenAIServiceBackend(
-            name=name,
-            default_model=default_model,
-            api_key_env=api_key_env,
-            api_key=api_key,
-            base_url=base_url,
-            config_hash=config_hash,
-            max_retries=max_retries,
-            model_patterns=_resolve_model_patterns(model_patterns, default_model),
-        )
-        super().__init__(backend=backend)
-
-
-class OpenAICompatibleHTTPLLMClient(_SingleBackendLLMClient):
-    """Client for OpenAI-compatible HTTP endpoints."""
-
-    def __init__(
-        self,
-        *,
-        name: str = "openai-compatible",
-        base_url: str = "http://127.0.0.1:8001/v1",
-        default_model: str = "qwen2-1.5b-q4",
-        api_key_env: str = "OPENAI_API_KEY",
-        api_key: str | None = None,
-        max_retries: int = 2,
-        model_patterns: tuple[str, ...] | None = None,
-    ) -> None:
-        """Initialize an OpenAI-compatible HTTP client with sensible defaults.
-
-        Args:
-            name: Logical name for this client instance, used in logging and provenance.
-            base_url: Base URL for the OpenAI-compatible API endpoint.
-            default_model: Default model name to use for requests that don't specify one.
-            api_key_env: Environment variable name to read the API key from if not provided
-                directly.
-            api_key: Optional API key string. If not provided, the client will attempt to
-                read the key from the environment variable specified by `api_key_env`.
-            max_retries: Number of times to retry a request in case of failure before giving up.
-            model_patterns: Optional tuple of model name patterns supported by this client, used for
-                routing decisions. If None, defaults to (default_model,).
-        """
-        config_hash = _config_hash(
-            {
-                "kind": "openai_compatible_http",
-                "name": name,
-                "base_url": base_url,
-                "default_model": default_model,
-                "api_key_env": api_key_env,
-                "api_key": api_key,
-                "max_retries": max_retries,
-            }
-        )
-        backend = OpenAICompatibleHTTPBackend(
-            name=name,
-            base_url=base_url,
-            default_model=default_model,
-            api_key_env=api_key_env,
-            api_key=api_key,
-            capabilities=_OPENAI_COMPAT_CAPABILITIES,
-            config_hash=config_hash,
-            max_retries=max_retries,
-            model_patterns=_resolve_model_patterns(model_patterns, default_model),
-        )
-        super().__init__(backend=backend)
 
 
 class TransformersLocalLLMClient(_SingleBackendLLMClient):
@@ -801,7 +815,17 @@ class TransformersLocalLLMClient(_SingleBackendLLMClient):
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, default_model),
         )
-        super().__init__(backend=backend)
+        super().__init__(
+            backend=backend,
+            config_snapshot=transformers_config_snapshot(
+                model_id=model_id,
+                device=device,
+                dtype=dtype,
+                quantization=quantization,
+                trust_remote_code=trust_remote_code,
+                revision=revision,
+            ),
+        )
 
 
 class MlxLocalLLMClient(_SingleBackendLLMClient):
@@ -849,7 +873,10 @@ class MlxLocalLLMClient(_SingleBackendLLMClient):
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, default_model),
         )
-        super().__init__(backend=backend)
+        super().__init__(
+            backend=backend,
+            config_snapshot=mlx_config_snapshot(model_id=model_id, quantization=quantization),
+        )
 
 
 def _resolve_model_patterns(
@@ -887,9 +914,8 @@ __all__ = [
     "LlamaCppServerLLMClient",
     "MlxLocalLLMClient",
     "OllamaLLMClient",
-    "OpenAICompatibleHTTPLLMClient",
-    "OpenAIServiceLLMClient",
     "SglangServerLLMClient",
     "TransformersLocalLLMClient",
     "VllmServerLLMClient",
+    "_SingleBackendLLMClient",
 ]

@@ -8,16 +8,23 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, __version__
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+import json
+from pathlib import Path
+
+from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Tracer, __version__
 
 
 def main() -> None:
     """Execute one direct model call with explicit tracing."""
     request_id = "example-direct-llm-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     try:
-        tracer = make_tracer()
         agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         result = agent.run(
             prompt=(
@@ -34,12 +41,12 @@ def main() -> None:
         "example": "agents/basic/direct_llm_call.py",
         "package_version": __version__,
         "success": result.success,
-        "final_output": output.get("final_output"),
+        "final_output": result.final_output,
         "model": output.get("model"),
-        "terminated_reason": output.get("terminated_reason"),
-        "trace": trace_info(request_id),
+        "terminated_reason": result.terminated_reason,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

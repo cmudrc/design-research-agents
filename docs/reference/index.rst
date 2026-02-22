@@ -15,6 +15,7 @@ Guaranteed Public Modules
    agent
    workflow
    llm
+   memory
    tools
 
 Internal Modules (Underscored, Unstable)
@@ -27,7 +28,6 @@ internal and may change without compatibility guarantees.
    :maxdepth: 2
 
    contracts
-   memory
    model_selection
    tracing
    prompts

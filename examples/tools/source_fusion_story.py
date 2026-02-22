@@ -10,33 +10,9 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Mapping
+from pathlib import Path
 
-from design_research_agents import McpServer, ScriptTool, Toolbox
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_traced_callable,
-    trace_info,
-)
-
-
-def _invoke_dict(
-    runtime: Toolbox,
-    tool_name: str,
-    tool_input_payload: Mapping[str, object],
-) -> dict[str, object]:
-    tool_result = runtime.invoke(
-        tool_name,
-        tool_input_payload,
-        request_id="example-source-fusion",
-        dependencies={},
-    )
-    if not tool_result.ok:
-        message = tool_result.error.message if tool_result.error is not None else "unknown tool error"
-        raise RuntimeError(f"{tool_name} failed: {message}")
-    if not isinstance(tool_result.result, dict):
-        raise RuntimeError(f"{tool_name} returned non-object payload.")
-    return tool_result.result
+from design_research_agents import McpServer, ScriptTool, Toolbox, Tracer
 
 
 def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
@@ -90,22 +66,34 @@ def _run_report() -> dict[str, object]:
 
     try:
         source_tool_counts = _source_tool_counts(runtime)
-        write_result = _invoke_dict(
-            runtime,
+        write_result = runtime.invoke_dict(
             "fs.write_text",
             {
                 "path": "artifacts/examples/source_fusion_story_input.txt",
                 "content": source_text,
                 "overwrite": True,
             },
+            request_id="example-source-fusion",
+            dependencies={},
         )
-        script_score = _invoke_dict(
-            runtime,
+        script_score = runtime.invoke_dict(
             "script::rubric_score",
             {"text": source_text, "max_score": 20},
+            request_id="example-source-fusion",
+            dependencies={},
         )
-        core_stats = _invoke_dict(runtime, "text.word_count", {"text": source_text})
-        mcp_stats = _invoke_dict(runtime, "local_core::text.word_count", {"text": source_text})
+        core_stats = runtime.invoke_dict(
+            "text.word_count",
+            {"text": source_text},
+            request_id="example-source-fusion",
+            dependencies={},
+        )
+        mcp_stats = runtime.invoke_dict(
+            "local_core::text.word_count",
+            {"text": source_text},
+            request_id="example-source-fusion",
+            dependencies={},
+        )
         score_percent = (float(script_score["score"]) / float(script_score["max_score"])) * 100.0
 
         report = {
@@ -119,14 +107,15 @@ def _run_report() -> dict[str, object]:
             "score_percent": score_percent,
             "script_trace_path": script_score.get("trace_path"),
         }
-        report_write = _invoke_dict(
-            runtime,
+        report_write = runtime.invoke_dict(
             "fs.write_text",
             {
                 "path": "artifacts/examples/source_fusion_story_report.json",
                 "content": json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
                 "overwrite": True,
             },
+            request_id="example-source-fusion",
+            dependencies={},
         )
         report["report_path"] = report_write["path"]
     finally:
@@ -138,7 +127,13 @@ def _run_report() -> dict[str, object]:
 def main() -> None:
     """Run traced multi-source report generation."""
     request_id = "example-tools-source-fusion-design-001"
-    report = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    report = tracer.run_callable(
         agent_name="ExamplesSourceFusion",
         request_id=request_id,
         input_payload={"scenario": "source-fusion-design"},
@@ -146,8 +141,8 @@ def main() -> None:
     )
     assert isinstance(report, dict)
     report["example"] = "tools/source_fusion_story.py"
-    report["trace"] = trace_info(request_id)
-    print_json(report)
+    report["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

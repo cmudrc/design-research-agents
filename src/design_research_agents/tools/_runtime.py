@@ -193,6 +193,42 @@ class Toolbox(ToolRuntime):
             dependencies=dependencies,
         )
 
+    def invoke_dict(
+        self,
+        tool_name: str,
+        input_dict: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> dict[str, object]:
+        """Invoke one tool and require a successful dictionary payload.
+
+        Args:
+            tool_name: Name of the tool to invoke.
+            input_dict: Tool input payload mapping.
+            request_id: Request identifier associated with this invocation.
+            dependencies: Dependency payload mapping for this invocation.
+
+        Returns:
+            Tool result mapping.
+
+        Raises:
+            RuntimeError: If invocation fails or result payload is not a mapping.
+        """
+        result = self.invoke(
+            tool_name,
+            input_dict,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        if not result.ok:
+            message = result.error.message if result.error is not None else "unknown tool error"
+            raise RuntimeError(f"{tool_name} failed: {message}")
+        if not isinstance(result.result, Mapping):
+            result_type = type(result.result).__name__
+            raise RuntimeError(f"{tool_name} returned non-dict result ({result_type}).")
+        return {str(key): value for key, value in result.result.items()}
+
     def register_tool(self, *, spec: ToolSpec, handler: ToolHandler) -> None:
         """Register a custom in-process tool.
 

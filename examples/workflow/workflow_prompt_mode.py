@@ -8,6 +8,9 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from design_research_agents import (
     AgentStep,
     DirectLLMCall,
@@ -15,17 +18,17 @@ from design_research_agents import (
     LogicStep,
     Toolbox,
     ToolStep,
+    Tracer,
     Workflow,
 )
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
-def _summarize_run(result: object, request_id: str) -> dict[str, object]:
+def _summarize_run(result: object, request_id: str, tracer: Tracer) -> dict[str, object]:
     if not hasattr(result, "success") or not hasattr(result, "output"):
         return {
             "success": False,
             "error": "unexpected result type",
-            "trace": trace_info(request_id),
+            "trace": tracer.trace_info(request_id),
         }
     output = result.output if isinstance(result.output, dict) else {}
     final_output = output.get("final_output")
@@ -42,13 +45,18 @@ def _summarize_run(result: object, request_id: str) -> dict[str, object]:
         "execution_order": list(result.execution_order),
         "final_output": compact_final_output,
         "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "trace": tracer.trace_info(request_id),
     }
 
 
 def main() -> None:
     """Run reusable prompt-mode workflow for two routed design requests."""
-    tracer = make_tracer()
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
@@ -130,11 +138,16 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    print_json(
-        {
-            "agent_branch_run": _summarize_run(agent_result, agent_request_id),
-            "template_branch_run": _summarize_run(template_result, template_request_id),
-        }
+    print(
+        json.dumps(
+            {
+                "agent_branch_run": _summarize_run(agent_result, agent_request_id, tracer),
+                "template_branch_run": _summarize_run(template_result, template_request_id, tracer),
+            },
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
     )
 
 

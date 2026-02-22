@@ -8,18 +8,16 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
 from design_research_agents import (
     CallableTool,
     LlamaCppServerLLMClient,
     MultiStepAgent,
     Toolbox,
-)
-from design_research_agents._shared._example_support import (
-    make_tracer,
-    print_json,
-    trace_info,
+    Tracer,
 )
 
 
@@ -30,6 +28,12 @@ def _objective(x: float) -> float:
 def main() -> None:
     """Optimize ``x^2`` from ``x=3`` by letting the LLM choose each tool step."""
     request_id = "example-optimization-router-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     initial_x = 3.0
     x_value = initial_x
     history: list[float] = [initial_x]
@@ -101,7 +105,7 @@ def main() -> None:
             llm_client=llm_client,
             tool_runtime=tools,
             max_steps=6,
-            tracer=make_tracer(),
+            tracer=tracer,
         )
         result = agent.run(
             prompt=(
@@ -126,21 +130,21 @@ def main() -> None:
         "agent": "MultiStepAgent(mode=json)",
         "success": result.success,
         "objective": "x^2",
-        "final_output": output.get("final_output"),
+        "final_output": result.final_output,
         "best_seen": {
             "best_x": history[best_index],
             "best_objective": objective_history[best_index],
             "best_history_index": best_index,
         },
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "steps_executed": output.get("steps_executed"),
         "tool_results_count": len(result.tool_results),
         "memory_tail": memory[-6:] if isinstance(memory, list) else [],
         "history": history,
         "objective_history": objective_history,
-        "trace": trace_info(request_id),
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

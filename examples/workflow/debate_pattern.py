@@ -8,13 +8,21 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import DebatePattern, LlamaCppServerLLMClient, Toolbox
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+import json
+from pathlib import Path
+
+from design_research_agents import DebatePattern, LlamaCppServerLLMClient, Toolbox, Tracer
 
 
 def main() -> None:
     """Run one debate round with final judge verdict."""
     request_id = "example-workflow-debate-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     try:
@@ -22,7 +30,7 @@ def main() -> None:
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_rounds=1,
-            tracer=make_tracer(),
+            tracer=tracer,
         )
         result = workflow.run(
             prompt=(
@@ -38,14 +46,14 @@ def main() -> None:
     payload = {
         "example": "workflow/debate_pattern.py",
         "success": result.success,
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "rounds": output.get("rounds"),
         "winner": output.get("winner"),
         "verdict": output.get("verdict"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

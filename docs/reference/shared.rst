@@ -1,15 +1,7 @@
 Shared Modules
 ==============
 
-This page lists internal shared helper modules. These underscored module paths
-are documented for contributor visibility and are not API-stable.
-
-.. automodule:: design_research_agents._shared._deterministic_design_helpers
-   :members:
-   :undoc-members:
-   :no-index:
-
-.. automodule:: design_research_agents._shared._example_support
-   :members:
-   :undoc-members:
-   :no-index:
+The legacy ``design_research_agents._shared`` example helper modules were
+removed. Deterministic example fixtures now live under local
+``examples/*/_support_*.py`` modules and are intentionally outside the public
+package API.

@@ -8,20 +8,28 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from design_research_agents import (
     DirectLLMCall,
     LlamaCppServerLLMClient,
     MultiStepAgent,
     RouterPattern,
     Toolbox,
+    Tracer,
 )
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def main() -> None:
     """Route one design prompt to the best delegate and print summary."""
     request_id = "example-workflow-agent-routing-design-001"
-    tracer = make_tracer()
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
 
@@ -61,12 +69,12 @@ def main() -> None:
         "example": "workflow/agent_routing.py",
         "success": result.success,
         "selected_alternative": output.get("selected_alternative"),
-        "final_output": output.get("final_output"),
-        "terminated_reason": output.get("terminated_reason"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "terminated_reason": result.terminated_reason,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

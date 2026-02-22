@@ -8,15 +8,13 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 import sys
+from pathlib import Path
 
-from design_research_agents import VllmServerLLMClient
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_representative_chat,
-    run_traced_callable,
-    trace_info,
-)
+from _support_client_call import run_representative_chat
+
+from design_research_agents import Tracer, VllmServerLLMClient
 
 
 def _build_payload() -> dict[str, object]:
@@ -41,33 +39,19 @@ def _build_payload() -> dict[str, object]:
         model_patterns=("qwen2.5-*",),
     )
     try:
-        backend = client._backend
-        server = client._vllm_server
+        description = client.describe()
         llm_call = run_representative_chat(
             client=client,
             prompt="Provide one sentence on why local serving helps reproducible benchmarking.",
             deterministic_response=("Local serving reduces backend drift and improves benchmark reproducibility."),
         )
         return {
-            "client_class": client.__class__.__name__,
-            "default_model": client.default_model(),
+            "client_class": description["client_class"],
+            "default_model": description["default_model"],
             "llm_call": llm_call,
-            "backend": {
-                "name": backend.name,
-                "kind": backend.kind,
-                "base_url": backend.base_url,
-                "max_retries": backend.max_retries,
-                "model_patterns": list(backend.model_patterns),
-                "request_timeout_seconds": backend._request_timeout_seconds,
-            },
-            "server": {
-                "manage_server": server is not None,
-                "host": server.host if server is not None else None,
-                "port": server.port if server is not None else None,
-                "base_url": server.base_url if server is not None else None,
-                "model": server.model if server is not None else None,
-                "api_model": server.api_model if server is not None else None,
-            },
+            "backend": description["backend"],
+            "capabilities": description["capabilities"],
+            "server": description["server"],
         }
     finally:
         client.close()
@@ -76,7 +60,13 @@ def _build_payload() -> dict[str, object]:
 def main() -> None:
     """Run traced vLLM client call payload."""
     request_id = "example-clients-vllm-server-call-001"
-    payload = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    payload = tracer.run_callable(
         agent_name="ExamplesVllmClientCall",
         request_id=request_id,
         input_payload={"scenario": "vllm-server-client-call"},
@@ -84,8 +74,8 @@ def main() -> None:
     )
     assert isinstance(payload, dict)
     payload["example"] = "clients/vllm_server_client.py"
-    payload["trace"] = trace_info(request_id)
-    print_json(payload)
+    payload["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

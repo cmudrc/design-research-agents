@@ -8,10 +8,11 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
-from design_research_agents import TreeSearchPattern
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+from design_research_agents import Tracer, TreeSearchPattern
 
 
 def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:
@@ -41,13 +42,19 @@ def _evaluator(context: Mapping[str, object]) -> float:
 def main() -> None:
     """Run one tree-search workflow and print JSON summary."""
     request_id = "example-workflow-tree-search-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     pattern = TreeSearchPattern(
         generator_delegate=_generator,
         evaluator_delegate=_evaluator,
         max_depth=2,
         branch_factor=2,
         beam_width=1,
-        tracer=make_tracer(),
+        tracer=tracer,
     )
     result = pattern.run(
         "Find the most robust concept architecture for a serviceable edge-device enclosure.",
@@ -57,12 +64,12 @@ def main() -> None:
     payload = {
         "example": "workflow/tree_search.py",
         "success": result.success,
-        "final_output": output.get("final_output"),
+        "final_output": result.final_output,
         "best_candidate": output.get("best_candidate"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

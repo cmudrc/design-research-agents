@@ -50,7 +50,10 @@ def test_workflow_example_smoke_runs() -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
-    payload = ast.literal_eval(completed.stdout)
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        payload = ast.literal_eval(completed.stdout)
     assert payload["success"] is True
 
 

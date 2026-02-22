@@ -8,6 +8,7 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -16,8 +17,8 @@ from design_research_agents import (
     LlamaCppServerLLMClient,
     PlannerExecutorPattern,
     Toolbox,
+    Tracer,
 )
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
 
 
 def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:
@@ -37,7 +38,12 @@ def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:
 def main() -> None:
     """Run planner-executor orchestration with tracing."""
     request_id = "example-workflow-plan-execute-design-001"
-    tracer = make_tracer()
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox(
         callable_tools=(
@@ -71,14 +77,14 @@ def main() -> None:
     payload = {
         "example": "workflow/plan_execute.py",
         "success": result.success,
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "steps_executed": output.get("steps_executed"),
         "plan_step_count": len(plan_steps) if isinstance(plan_steps, list) else 0,
-        "final_output": output.get("final_output"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -8,74 +8,80 @@ Expected observations:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
-from design_research_agents import MultiStepAgent, Toolbox
-from design_research_agents._contracts import MemoryWriteRecord
-from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
-from design_research_agents._shared._deterministic_design_helpers import (
-    DeterministicSequenceLLMClient,
-)
-from design_research_agents._shared._example_support import make_tracer, print_json, trace_info
+from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
+from design_research_agents.memory import SQLiteMemoryStore
 
 
 def main() -> None:
     """Run one multi-step JSON tool call with memory retrieval and write-back."""
     request_id = "example-multi-step-json-memory-design-001"
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
     db_path = Path("artifacts/examples/multi_step_json_with_memory.sqlite3")
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
 
+    tool_runtime = Toolbox()
+    tool_runtime.invoke_dict(
+        "memory.write",
+        {
+            "db_path": str(db_path),
+            "namespace": "design_examples",
+            "records": [
+                {
+                    "content": (
+                        "Prior design note: target quick maintenance by minimizing tool changes and "
+                        "favoring reusable fasteners."
+                    )
+                }
+            ],
+        },
+        request_id=f"{request_id}:seed_memory",
+        dependencies={},
+    )
     store = SQLiteMemoryStore(db_path=db_path)
-    store.write(
-        [
-            MemoryWriteRecord(
-                content=(
-                    "Prior design note: target quick maintenance by minimizing tool changes and "
-                    "favoring reusable fasteners."
-                )
-            )
-        ],
-        namespace="design_examples",
-    )
-
-    llm_client = DeterministicSequenceLLMClient(
-        responses=[
-            '{"continue": true, "thought": "start"}',
-            '{"tool_name": "text.word_count", "tool_input": {"text": "design context memory"}}',
-            '{"continue": false, "thought": "done"}',
-        ]
-    )
+    llm_client = LlamaCppServerLLMClient()
     agent = MultiStepAgent(
         mode="json",
         llm_client=llm_client,
-        tool_runtime=Toolbox(),
+        tool_runtime=tool_runtime,
         max_steps=3,
         memory_store=store,
         memory_namespace="design_examples",
         memory_read_top_k=3,
         memory_write_observations=True,
-        tracer=make_tracer(),
+        tracer=tracer,
     )
-    result = agent.run(
-        "Compute one design-check text metric and retain the observation history.",
-        request_id=request_id,
-    )
+    try:
+        result = agent.run(
+            "Compute one design-check text metric and retain the observation history.",
+            request_id=request_id,
+        )
+    finally:
+        llm_client.close()
+        tool_runtime.close()
+        store.close()
     output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "agents/basic/multi_step_json_with_memory.py",
         "success": result.success,
-        "terminated_reason": output.get("terminated_reason"),
+        "terminated_reason": result.terminated_reason,
         "steps_executed": output.get("steps_executed"),
         "memory_items": (len(output.get("memory", [])) if isinstance(output.get("memory"), list) else 0),
         "tool_results_count": len(result.tool_results),
-        "final_output": output.get("final_output"),
-        "error": output.get("error"),
-        "trace": trace_info(request_id),
+        "final_output": result.final_output,
+        "error": result.error,
+        "trace": tracer.trace_info(request_id),
     }
-    print_json(payload)
-    store.close()
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

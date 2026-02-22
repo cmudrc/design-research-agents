@@ -8,13 +8,12 @@ Expected observations:
 
 from __future__ import annotations
 
-from design_research_agents import TransformersLocalLLMClient
-from design_research_agents._shared._example_support import (
-    print_json,
-    run_representative_chat,
-    run_traced_callable,
-    trace_info,
-)
+import json
+from pathlib import Path
+
+from _support_client_call import run_representative_chat
+
+from design_research_agents import Tracer, TransformersLocalLLMClient
 
 
 def _build_payload() -> dict[str, object]:
@@ -30,43 +29,32 @@ def _build_payload() -> dict[str, object]:
         max_retries=2,
         model_patterns=("Qwen/*", "qwen2.5-*"),
     )
-    backend = client._backend
-    capabilities = backend.capabilities()
+    description = client.describe()
     llm_call = run_representative_chat(
         client=client,
         prompt="Provide one sentence on why deterministic local runs aid design reproducibility.",
         deterministic_response=("Deterministic local runs make design comparisons repeatable across experiments."),
     )
     return {
-        "client_class": client.__class__.__name__,
-        "default_model": client.default_model(),
+        "client_class": description["client_class"],
+        "default_model": description["default_model"],
         "llm_call": llm_call,
-        "backend": {
-            "name": backend.name,
-            "kind": backend.kind,
-            "model_id": backend._model_id,
-            "device": backend._device,
-            "dtype": backend._dtype,
-            "quantization": backend._quantization,
-            "trust_remote_code": backend._trust_remote_code,
-            "revision": backend._revision,
-            "max_retries": backend.max_retries,
-            "model_patterns": list(backend.model_patterns),
-        },
-        "capabilities": {
-            "streaming": capabilities.streaming,
-            "tool_calling": capabilities.tool_calling,
-            "json_mode": capabilities.json_mode,
-            "vision": capabilities.vision,
-            "max_context_tokens": capabilities.max_context_tokens,
-        },
+        "backend": description["backend"],
+        "capabilities": description["capabilities"],
+        "server": description["server"],
     }
 
 
 def main() -> None:
     """Run traced Transformers client call payload."""
     request_id = "example-clients-transformers-local-call-001"
-    payload = run_traced_callable(
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    payload = tracer.run_callable(
         agent_name="ExamplesTransformersClientCall",
         request_id=request_id,
         input_payload={"scenario": "transformers-local-client-call"},
@@ -74,8 +62,8 @@ def main() -> None:
     )
     assert isinstance(payload, dict)
     payload["example"] = "clients/transformers_local_client.py"
-    payload["trace"] = trace_info(request_id)
-    print_json(payload)
+    payload["trace"] = tracer.trace_info(request_id)
+    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
