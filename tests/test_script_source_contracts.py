@@ -7,8 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
+import design_research_agents.tools._registry as tool_registry
 from design_research_agents.tools._config import ScriptTool
 from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents.tools._registry import ToolRegistry
 from design_research_agents.tools._sources._script_source import ScriptToolSource, _run_script_tool
 
 pytestmark = pytest.mark.contract
@@ -193,3 +195,44 @@ def test_run_script_tool_success_path_parses_envelope(tmp_path: Path) -> None:
     assert result.ok is True
     assert result.result == {"value": 4}
     assert len(result.artifacts) == 1
+
+
+def test_script_source_registry_emits_observation_events(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = tmp_path / "tool.py"
+    script.write_text(
+        "\n".join(
+            [
+                "import json, sys",
+                "_ = json.loads(sys.stdin.read() or '{}')",
+                "payload = {'ok': True, 'result': {'answer': 7}, 'artifacts': [], 'warnings': [], 'error': None}",
+                "print(json.dumps(payload))",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    source = ScriptToolSource(
+        script_tools=(_script_tool(tmp_path, path=str(script)),),
+        policy=_policy(tmp_path),
+    )
+    registry = ToolRegistry()
+    registry.add_source(source)
+
+    captured: dict[str, list[dict[str, object]]] = {"invocations": [], "results": []}
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_invocation_observed",
+        lambda **kwargs: captured["invocations"].append(dict(kwargs)),
+    )
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_result_observed",
+        lambda **kwargs: captured["results"].append(dict(kwargs)),
+    )
+
+    result = registry.invoke("script::tool", {"x": 1}, request_id="req-observed", dependencies={"d": 1})
+    assert result.ok is True
+    assert captured["invocations"]
+    assert captured["results"]
+    assert captured["invocations"][-1]["source_id"] == "script"
+    assert captured["results"][-1]["ok"] is True

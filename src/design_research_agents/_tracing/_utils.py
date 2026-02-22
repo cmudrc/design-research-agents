@@ -1,4 +1,4 @@
-"""Shared helpers for trace serialization and formatting."""
+"""Shared helpers for trace serialization, redaction, and formatting."""
 
 from __future__ import annotations
 
@@ -6,6 +6,17 @@ import dataclasses
 from collections.abc import Mapping
 from typing import Any, cast
 from uuid import uuid4
+
+_SENSITIVE_KEYS = {
+    "api_key",
+    "token",
+    "authorization",
+    "password",
+    "secret",
+    "access_token",
+    "refresh_token",
+}
+_PREVIEW_MAX_LEN = 2048
 
 
 def _normalize_value(value: object) -> object:
@@ -57,3 +68,38 @@ def _preview(value: object, *, max_len: int = 120) -> str:
     if len(text) <= max_len:
         return text
     return f"{text[: max_len - 3]}..."
+
+
+def _sanitize_trace_payload(value: object, *, max_string_len: int = _PREVIEW_MAX_LEN) -> object:
+    """Return one trace-safe payload with redaction and bounded string previews.
+
+    Args:
+        value: Arbitrary payload to sanitize.
+        max_string_len: Maximum length for rendered string fields.
+
+    Returns:
+        Redacted and bounded payload suitable for trace attributes.
+    """
+    return _sanitize_trace_value(value, max_string_len=max_string_len)
+
+
+def _sanitize_trace_value(value: object, *, max_string_len: int) -> object:
+    """Sanitize one arbitrary value for trace storage."""
+    normalized = _normalize_value(value)
+    if isinstance(normalized, Mapping):
+        sanitized: dict[str, object] = {}
+        for key, raw_val in normalized.items():
+            normalized_key = str(key)
+            if normalized_key.lower() in _SENSITIVE_KEYS:
+                sanitized[normalized_key] = "***REDACTED***"
+                continue
+            sanitized[normalized_key] = _sanitize_trace_value(raw_val, max_string_len=max_string_len)
+        return sanitized
+    if isinstance(normalized, list):
+        return [_sanitize_trace_value(item, max_string_len=max_string_len) for item in normalized]
+    if isinstance(normalized, str):
+        if len(normalized) <= max_string_len:
+            return normalized
+        preview_len = max(0, max_string_len - 16)
+        return f"{normalized[:preview_len]}...[truncated:{len(normalized)}]"
+    return normalized

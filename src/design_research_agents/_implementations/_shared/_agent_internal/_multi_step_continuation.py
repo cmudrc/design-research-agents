@@ -116,6 +116,7 @@ def llm_should_continue(
         metadata={
             "agent": agent_name,
             "phase": "continuation",
+            "step_id": f"continuation_step_{step_index + 1}",
         },
     )
     try:

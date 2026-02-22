@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import design_research_agents.tools._registry as tool_registry
 from design_research_agents.tools import Toolbox
 
 
@@ -48,6 +49,35 @@ def test_text_word_count_invocation() -> None:
     assert result.ok is True
     assert isinstance(result.result, dict)
     assert result.result["word_count"] == 3
+
+
+def test_tool_registry_emits_observation_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = Toolbox()
+    captured: dict[str, list[dict[str, object]]] = {"invocations": [], "results": []}
+
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_invocation_observed",
+        lambda **kwargs: captured["invocations"].append(dict(kwargs)),
+    )
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_result_observed",
+        lambda **kwargs: captured["results"].append(dict(kwargs)),
+    )
+
+    result = runtime.invoke(
+        "text.word_count",
+        {"text": "design research agents"},
+        request_id="unit-test-observed",
+        dependencies={"trace_id": "abc"},
+    )
+
+    assert result.ok is True
+    assert captured["invocations"]
+    assert captured["results"]
+    assert captured["invocations"][-1]["tool_name"] == "text.word_count"
+    assert captured["results"][-1]["ok"] is True
 
 
 def test_fs_write_is_restricted_to_artifacts_by_default(tmp_path: Path) -> None:

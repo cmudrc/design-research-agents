@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 
+import design_research_agents.tools._registry as tool_registry
 import design_research_agents.tools._sources._mcp_source as mcp_source
 from design_research_agents.tools._config import McpConfig, McpServer
 from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents.tools._registry import ToolRegistry
 from design_research_agents.tools._sources._mcp_source import McpProtocolError, McpToolSource
 
 pytestmark = pytest.mark.contract
@@ -149,6 +151,35 @@ def test_mcp_source_invoke_handles_client_exceptions(tmp_path: Path) -> None:
     result = source.invoke("alpha::sum", {}, request_id="req", dependencies={})
     assert result.ok is False
     assert "call failed" in str(result.error)
+
+
+def test_mcp_source_registry_emits_observation_events(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = McpToolSource(mcp_config=_config(), policy=_policy(tmp_path))
+    source._clients["alpha"] = _StubClient(
+        tools=[{"name": "sum", "inputSchema": {"type": "object"}}],
+        call_payload={"structuredContent": {"ok": True, "result": {"value": 3}}},
+    )
+
+    registry = ToolRegistry()
+    registry.add_source(source)
+    captured: dict[str, list[dict[str, object]]] = {"invocations": [], "results": []}
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_invocation_observed",
+        lambda **kwargs: captured["invocations"].append(dict(kwargs)),
+    )
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_result_observed",
+        lambda **kwargs: captured["results"].append(dict(kwargs)),
+    )
+
+    result = registry.invoke("alpha::sum", {"a": 1}, request_id="req-observed", dependencies={"x": 1})
+    assert result.ok is True
+    assert captured["invocations"]
+    assert captured["results"]
+    assert captured["invocations"][-1]["source_id"] == "mcp"
+    assert captured["results"][-1]["ok"] is True
 
 
 def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyPatch) -> None:

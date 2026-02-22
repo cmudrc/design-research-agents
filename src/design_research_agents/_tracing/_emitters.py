@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from ._context import current_span_id, current_trace_session
+from ._utils import _sanitize_trace_payload
 
 
 def start_model_call(
@@ -67,13 +68,25 @@ def finish_model_call(
         session.finish_span(
             "ModelCallFailed",
             span_id=span_id,
-            attributes={"error": error, "model": model_name},
+            attributes={
+                "error": error,
+                "model": model_name,
+                "usage": getattr(response, "usage", None) if response is not None else None,
+                "latency_ms": getattr(response, "latency_ms", None) if response is not None else None,
+            },
         )
         return
     session.finish_span(
         "ModelCallFinished",
         span_id=span_id,
-        attributes={"response": response, "model": getattr(response, "model", None)},
+        attributes={
+            "response": response,
+            "model": getattr(response, "model", None),
+            "usage": getattr(response, "usage", None),
+            "latency_ms": getattr(response, "latency_ms", None),
+            "finish_reason": getattr(response, "finish_reason", None),
+            "provider": getattr(response, "provider", None),
+        },
     )
 
 
@@ -93,6 +106,78 @@ def emit_model_token(span_id: str | None, *, delta_text: str) -> None:
         "ModelCallToken",
         span_id=span_id,
         attributes={"delta_text": delta_text},
+    )
+
+
+def emit_model_request_observed(
+    *,
+    source: str,
+    model: str | None,
+    request_payload: object,
+    metadata: Mapping[str, object] | None = None,
+) -> None:
+    """Emit one model request-observation event on the current span.
+
+    Args:
+        source: Source label for where the request was observed.
+        model: Model identifier when available.
+        request_payload: Raw request payload observed at this boundary.
+        metadata: Optional extra attributes to include.
+    """
+    session = current_trace_session()
+    if session is None:
+        return
+    span_id = current_span_id() or session.root_span_id
+    attributes: dict[str, object] = {
+        "source": source,
+        "model": model,
+        "request": _sanitize_trace_payload(request_payload),
+    }
+    if metadata:
+        attributes["metadata"] = _sanitize_trace_payload(dict(metadata))
+    session.emit_span_event(
+        "ModelRequestObserved",
+        span_id=span_id,
+        attributes=attributes,
+    )
+
+
+def emit_model_response_observed(
+    *,
+    source: str,
+    response_payload: object | None = None,
+    error: str | None = None,
+    metadata: Mapping[str, object] | None = None,
+) -> None:
+    """Emit one model response-observation event on the current span.
+
+    Args:
+        source: Source label for where the response was observed.
+        response_payload: Raw response payload observed at this boundary.
+        error: Optional error text when the call failed.
+        metadata: Optional extra attributes to include.
+    """
+    session = current_trace_session()
+    if session is None:
+        return
+    span_id = current_span_id() or session.root_span_id
+    attributes: dict[str, object] = {
+        "source": source,
+        "response": _sanitize_trace_payload(response_payload),
+        "error": error,
+    }
+    if response_payload is not None:
+        attributes["usage"] = _sanitize_trace_payload(getattr(response_payload, "usage", None))
+        attributes["latency_ms"] = _sanitize_trace_payload(getattr(response_payload, "latency_ms", None))
+        attributes["finish_reason"] = _sanitize_trace_payload(getattr(response_payload, "finish_reason", None))
+        attributes["provider"] = _sanitize_trace_payload(getattr(response_payload, "provider", None))
+        attributes["model"] = _sanitize_trace_payload(getattr(response_payload, "model", None))
+    if metadata:
+        attributes["metadata"] = _sanitize_trace_payload(dict(metadata))
+    session.emit_span_event(
+        "ModelResponseObserved",
+        span_id=span_id,
+        attributes=attributes,
     )
 
 
@@ -151,6 +236,7 @@ def finish_tool_call(
         span_id=span_id,
         attributes={
             "tool_name": tool_name,
+            "ok": True,
             "result": result,
         },
     )
@@ -175,7 +261,153 @@ def fail_tool_call(
     session.finish_span(
         "ToolCallFailed",
         span_id=span_id,
-        attributes={"tool_name": tool_name, "error": error},
+        attributes={"tool_name": tool_name, "ok": False, "error": error},
+    )
+
+
+def emit_tool_invocation_observed(
+    *,
+    tool_name: str,
+    source_id: str | None,
+    request_id: str,
+    tool_input: Mapping[str, object],
+    dependency_keys: Sequence[str],
+    metadata: Mapping[str, object] | None = None,
+) -> None:
+    """Emit one tool invocation-observation event on the current span.
+
+    Args:
+        tool_name: Routed tool name.
+        source_id: Source identifier where invocation is routed.
+        request_id: Invocation request id.
+        tool_input: Tool input payload observed before invocation.
+        dependency_keys: Sorted dependency keys visible to the tool.
+        metadata: Optional extra attributes to include.
+    """
+    session = current_trace_session()
+    if session is None:
+        return
+    span_id = current_span_id() or session.root_span_id
+    attributes: dict[str, object] = {
+        "tool_name": tool_name,
+        "source_id": source_id,
+        "request_id": request_id,
+        "tool_input": _sanitize_trace_payload(dict(tool_input)),
+        "dependency_keys": list(dependency_keys),
+    }
+    if metadata:
+        attributes["metadata"] = _sanitize_trace_payload(dict(metadata))
+    session.emit_span_event(
+        "ToolInvocationObserved",
+        span_id=span_id,
+        attributes=attributes,
+    )
+
+
+def emit_tool_result_observed(
+    *,
+    tool_name: str,
+    source_id: str | None,
+    ok: bool | None,
+    result_payload: object | None = None,
+    error: str | None = None,
+    metadata: Mapping[str, object] | None = None,
+) -> None:
+    """Emit one tool result-observation event on the current span.
+
+    Args:
+        tool_name: Routed tool name.
+        source_id: Source identifier where invocation was routed.
+        ok: Tool success flag when available.
+        result_payload: Tool result payload or partial metadata.
+        error: Optional failure message.
+        metadata: Optional extra attributes to include.
+    """
+    session = current_trace_session()
+    if session is None:
+        return
+    span_id = current_span_id() or session.root_span_id
+    attributes: dict[str, object] = {
+        "tool_name": tool_name,
+        "source_id": source_id,
+        "ok": ok,
+        "result": _sanitize_trace_payload(result_payload),
+        "error": error,
+    }
+    if metadata:
+        attributes["metadata"] = _sanitize_trace_payload(dict(metadata))
+    session.emit_span_event(
+        "ToolResultObserved",
+        span_id=span_id,
+        attributes=attributes,
+    )
+
+
+def emit_workflow_step_context(
+    *,
+    step_id: str,
+    step_type: str,
+    context: Mapping[str, object],
+) -> None:
+    """Emit workflow step context observed before execution.
+
+    Args:
+        step_id: Step identifier.
+        step_type: Step-kind label.
+        context: Full context mapping visible to the step.
+    """
+    session = current_trace_session()
+    if session is None:
+        return
+    span_id = current_span_id() or session.root_span_id
+    session.emit_span_event(
+        "WorkflowStepContextObserved",
+        span_id=span_id,
+        attributes={
+            "step_id": step_id,
+            "step_type": step_type,
+            "context": _sanitize_trace_payload(dict(context)),
+        },
+    )
+
+
+def emit_workflow_step_result(
+    *,
+    step_id: str,
+    step_type: str,
+    status: str,
+    success: bool,
+    output: Mapping[str, object],
+    error: str | None,
+    metadata: Mapping[str, object],
+) -> None:
+    """Emit workflow step result observed after execution.
+
+    Args:
+        step_id: Step identifier.
+        step_type: Step-kind label.
+        status: Result status.
+        success: Result success flag.
+        output: Step output payload.
+        error: Optional error text.
+        metadata: Result metadata payload.
+    """
+    session = current_trace_session()
+    if session is None:
+        return
+    span_id = current_span_id() or session.root_span_id
+    session.emit_span_event(
+        "WorkflowStepResultObserved",
+        span_id=span_id,
+        attributes={
+            "step_id": step_id,
+            "step_type": step_type,
+            "status": status,
+            "success": success,
+            "output": _sanitize_trace_payload(dict(output)),
+            "error": error,
+            "metadata": _sanitize_trace_payload(dict(metadata)),
+        },
     )
 
 

@@ -86,6 +86,26 @@ def test_emitters_noop_when_tracing_disabled(monkeypatch) -> None:
     assert emitters.start_model_call(model="m", messages=[], params={}) is None
     emitters.finish_model_call("span", response=None)
     emitters.emit_model_token("span", delta_text="x")
+    emitters.emit_model_request_observed(source="x", model="m", request_payload={})
+    emitters.emit_model_response_observed(source="x", response_payload={})
+    emitters.emit_tool_invocation_observed(
+        tool_name="t",
+        source_id="s",
+        request_id="r",
+        tool_input={},
+        dependency_keys=[],
+    )
+    emitters.emit_tool_result_observed(tool_name="t", source_id="s", ok=True)
+    emitters.emit_workflow_step_context(step_id="a", step_type="logic", context={})
+    emitters.emit_workflow_step_result(
+        step_id="a",
+        step_type="logic",
+        status="completed",
+        success=True,
+        output={},
+        error=None,
+        metadata={},
+    )
 
 
 def test_model_tool_and_decision_emitters(monkeypatch) -> None:
@@ -169,6 +189,49 @@ def test_model_tool_and_decision_emitters(monkeypatch) -> None:
         reason="invalid",
         details={"field": "x"},
     )
+    emitters.emit_model_request_observed(
+        source="unit",
+        model="m",
+        request_payload={
+            "prompt": "x" * 2500,
+            "api_key": "secret-value",
+            "nested": {"authorization": "Bearer token"},
+        },
+        metadata={"token": "123"},
+    )
+    emitters.emit_model_response_observed(
+        source="unit",
+        response_payload={"text": "ok"},
+        error=None,
+    )
+    emitters.emit_tool_invocation_observed(
+        tool_name="calculator",
+        source_id="custom",
+        request_id="req-1",
+        tool_input={"password": "hidden", "input": "1+1"},
+        dependency_keys=["a", "b"],
+    )
+    emitters.emit_tool_result_observed(
+        tool_name="calculator",
+        source_id="custom",
+        ok=False,
+        result_payload={"result": None},
+        error="failed",
+    )
+    emitters.emit_workflow_step_context(
+        step_id="s1",
+        step_type="logic",
+        context={"user_secret": "safe", "secret": "hidden"},
+    )
+    emitters.emit_workflow_step_result(
+        step_id="s1",
+        step_type="logic",
+        status="completed",
+        success=True,
+        output={"value": 1},
+        error=None,
+        metadata={"access_token": "abc"},
+    )
 
     event_types = [item[0] for item in session.event_calls]
     assert "RouterDecision" in event_types
@@ -176,3 +239,21 @@ def test_model_tool_and_decision_emitters(monkeypatch) -> None:
     assert "ToolSelectionDecision" in event_types
     assert "ContinuationDecision" in event_types
     assert "GuardrailDecision" in event_types
+    assert "ModelRequestObserved" in event_types
+    assert "ModelResponseObserved" in event_types
+    assert "ToolInvocationObserved" in event_types
+    assert "ToolResultObserved" in event_types
+    assert "WorkflowStepContextObserved" in event_types
+    assert "WorkflowStepResultObserved" in event_types
+
+    model_request_event = [event for event in session.event_calls if event[0] == "ModelRequestObserved"][-1]
+    request_payload = model_request_event[2]["request"]
+    assert isinstance(request_payload, dict)
+    assert request_payload["api_key"] == "***REDACTED***"
+    assert request_payload["nested"]["authorization"] == "***REDACTED***"
+    assert str(request_payload["prompt"]).endswith("...[truncated:2500]")
+
+    tool_event = [event for event in session.event_calls if event[0] == "ToolInvocationObserved"][-1]
+    tool_payload = tool_event[2]["tool_input"]
+    assert isinstance(tool_payload, dict)
+    assert tool_payload["password"] == "***REDACTED***"

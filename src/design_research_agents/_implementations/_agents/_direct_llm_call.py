@@ -278,6 +278,7 @@ class DirectLLMCall(Agent):
             metadata={
                 "agent": "DirectLLMCall",
                 "message_source": prepare_output.get("message_source", "prompt"),
+                "step_id": "call_model",
             },
         )
         try:

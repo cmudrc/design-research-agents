@@ -59,3 +59,30 @@ This observability contract applies to:
 - Tool-runtime examples
 - Client/model-selection config examples
 - Script-tool examples (Python and shell)
+
+Quick Trace Analysis Harness
+----------------------------
+
+You can summarize trace metrics with the built-in analysis harness:
+
+.. code-block:: bash
+
+   PYTHONPATH=src python3 scripts/analyze_traces.py \
+     --trace-dir artifacts/examples/traces
+
+JSON output is also available:
+
+.. code-block:: bash
+
+   PYTHONPATH=src python3 scripts/analyze_traces.py \
+     --trace-dir artifacts/examples/traces \
+     --json
+
+Default summary covers:
+
+- run success/failure counts
+- event counts by type
+- model calls and token totals
+- tool invocation success/failure counts
+- workflow step status counts
+- latency summaries and top errors

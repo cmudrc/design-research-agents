@@ -6,6 +6,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from design_research_agents._contracts._tools import ToolResult, ToolSpec
+from design_research_agents._tracing import (
+    emit_tool_invocation_observed,
+    emit_tool_result_observed,
+)
 
 from ._sources._base import ToolSource
 
@@ -78,32 +82,67 @@ class ToolRegistry:
         """
         self._rebuild_routes()
         route = self._routes.get(tool_name)
+        dependency_keys = sorted(str(key) for key in dependencies)
 
         if route is None:
-            return ToolResult(
+            unknown_result = ToolResult(
                 tool_name=tool_name,
                 ok=False,
                 error=f"Tool '{tool_name}' is not registered.",
             )
+            emit_tool_result_observed(
+                tool_name=tool_name,
+                source_id=None,
+                ok=False,
+                result_payload=unknown_result,
+                error=_resolve_error_message(unknown_result),
+            )
+            return unknown_result
 
         source = self._sources[route.source_id]
-        result = source.invoke(
-            route.source_tool_name,
-            input_dict,
-            request_id=request_id,
-            dependencies=dependencies,
-        )
-        if result.tool_name == tool_name:
-            return result
-        return ToolResult(
+        emit_tool_invocation_observed(
             tool_name=tool_name,
-            ok=result.ok,
-            result=result.result,
-            artifacts=result.artifacts,
-            warnings=result.warnings,
-            error=result.error,
-            metadata=result.metadata,
+            source_id=route.source_id,
+            request_id=request_id,
+            tool_input=input_dict,
+            dependency_keys=dependency_keys,
         )
+        try:
+            result = source.invoke(
+                route.source_tool_name,
+                input_dict,
+                request_id=request_id,
+                dependencies=dependencies,
+            )
+        except Exception as exc:
+            emit_tool_result_observed(
+                tool_name=tool_name,
+                source_id=route.source_id,
+                ok=False,
+                error=str(exc),
+            )
+            raise
+
+        if result.tool_name == tool_name:
+            normalized_result = result
+        else:
+            normalized_result = ToolResult(
+                tool_name=tool_name,
+                ok=result.ok,
+                result=result.result,
+                artifacts=result.artifacts,
+                warnings=result.warnings,
+                error=result.error,
+                metadata=result.metadata,
+            )
+        emit_tool_result_observed(
+            tool_name=tool_name,
+            source_id=route.source_id,
+            ok=normalized_result.ok,
+            result_payload=normalized_result,
+            error=_resolve_error_message(normalized_result),
+        )
+        return normalized_result
 
     def _rebuild_routes(self) -> None:
         """Run rebuild routes.
@@ -123,6 +162,13 @@ class ToolRegistry:
                 )
 
         self._routes = rebuilt_routes
+
+
+def _resolve_error_message(result: ToolResult) -> str | None:
+    """Return one normalized error message from a tool result payload."""
+    if result.error is None:
+        return None
+    return result.error.message
 
 
 __all__ = ["ToolRegistry"]

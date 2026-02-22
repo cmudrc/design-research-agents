@@ -25,7 +25,13 @@ from design_research_agents._contracts._workflow import (
     WorkflowStep,
     WorkflowStepResult,
 )
-from design_research_agents._tracing import Tracer, finish_trace_run, start_trace_run
+from design_research_agents._tracing import (
+    Tracer,
+    emit_workflow_step_context,
+    emit_workflow_step_result,
+    finish_trace_run,
+    start_trace_run,
+)
 
 from ._artifacts import collect_artifacts, dedupe_artifacts, resolve_final_output
 from ._executors._common import (
@@ -40,7 +46,7 @@ from ._executors._common import (
 from ._loop import run_loop_step
 from ._runtime_options import normalize_dependencies, resolve_request_id
 from ._step_context import build_step_context, has_upstream_failure, route_deactivations
-from ._step_tracing import activate_step_span, finish_step_span, start_step_span
+from ._step_tracing import activate_step_span, finish_step_span, start_step_span, step_kind
 from ._workflow_graph import (
     PreparedWorkflow,
     normalize_step_id,
@@ -341,6 +347,12 @@ class WorkflowRuntime(WorkflowRunner):
         """
         step_span_id = start_step_span(step=step, step_id=step_id)
         with activate_step_span(step_span_id):
+            resolved_step_type = step_kind(step)
+            emit_workflow_step_context(
+                step_id=step_id,
+                step_type=resolved_step_type,
+                context=step_context,
+            )
             if isinstance(step, LogicStep):
                 result = run_logic_step(step=step, step_id=step_id, step_context=step_context)
             elif isinstance(step, AgentStep):
@@ -399,6 +411,15 @@ class WorkflowRuntime(WorkflowRunner):
                     failure_policy=failure_policy,
                     dependencies=dependencies,
                 )
+            emit_workflow_step_result(
+                step_id=step_id,
+                step_type=resolved_step_type,
+                status=result.status,
+                success=result.success,
+                output=result.output,
+                error=result.error,
+                metadata=result.metadata,
+            )
 
         finish_step_span(
             span_id=step_span_id,

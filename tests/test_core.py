@@ -4,6 +4,7 @@ from collections.abc import Iterator
 
 import pytest
 
+import design_research_agents.llm.clients._shared as shared_client_module
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
     BackendStatus,
@@ -160,3 +161,29 @@ def test_default_model_raises_when_backend_default_missing() -> None:
 
     with pytest.raises(ValueError, match="default_model"):
         client.default_model()
+
+
+def test_single_backend_client_emits_model_observation_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = _StubBackend(name="trace-backend", default_model="trace-model")
+    client = _SingleBackendLLMClient(backend=backend)
+    captured: dict[str, list[dict[str, object]]] = {"requests": [], "responses": []}
+
+    monkeypatch.setattr(
+        shared_client_module,
+        "emit_model_request_observed",
+        lambda **kwargs: captured["requests"].append(dict(kwargs)),
+    )
+    monkeypatch.setattr(
+        shared_client_module,
+        "emit_model_response_observed",
+        lambda **kwargs: captured["responses"].append(dict(kwargs)),
+    )
+
+    request = LLMRequest(messages=[LLMMessage(role="user", content="hello")], model="trace-model")
+    _ = client.generate(request)
+    _ = list(client.stream(request))
+
+    assert len(captured["requests"]) >= 2
+    assert len(captured["responses"]) >= 2
+    assert captured["requests"][0]["source"] == "_SingleBackendLLMClient.generate"
+    assert captured["requests"][1]["source"] == "_SingleBackendLLMClient.stream"

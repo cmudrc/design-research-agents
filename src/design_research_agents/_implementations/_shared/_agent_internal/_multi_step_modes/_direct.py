@@ -233,6 +233,7 @@ class MultiStepDirectLLMAgent(Agent):
                 metadata={
                     "agent": "MultiStepDirectLLMAgent",
                     "phase": "controller_step",
+                    "step_id": f"controller_step_{step_number}",
                 },
             )
             try:

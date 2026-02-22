@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
 import pytest
 
@@ -17,6 +19,7 @@ from design_research_agents._contracts._workflow import (
 )
 from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
 from design_research_agents._runtime._workflow._engine import WorkflowRuntime
+from design_research_agents._tracing import Tracer
 from tests.helpers.workflow_stubs import (
     StaticMarkerAgent,
     StaticWorkflowDelegateRunner,
@@ -535,3 +538,25 @@ def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(
     assert result.success
     assert result.execution_order == ["read_memory", "postprocess"]
     assert result.step_results["postprocess"].output["count"] == 1
+
+
+def test_workflow_runtime_emits_step_context_and_result_events(tmp_path: Path) -> None:
+    tracer = Tracer(
+        trace_dir=tmp_path / "traces",
+        enable_jsonl=True,
+        enable_console=False,
+    )
+    workflow = WorkflowRuntime(tracer=tracer)
+    result = workflow.run(
+        [LogicStep(step_id="a", handler=lambda ctx: {"value": 1})],
+        execution_mode="sequential",
+        request_id="workflow-trace-test",
+    )
+    assert result.success
+
+    trace_files = sorted((tmp_path / "traces").glob("run_*_workflow-trace-test.jsonl"))
+    assert trace_files
+    events = [json.loads(line) for line in trace_files[-1].read_text(encoding="utf-8").splitlines() if line.strip()]
+    event_types = [str(event.get("event_type")) for event in events]
+    assert "WorkflowStepContextObserved" in event_types
+    assert "WorkflowStepResultObserved" in event_types

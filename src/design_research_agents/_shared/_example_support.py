@@ -10,7 +10,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
-from design_research_agents._contracts import LLMChatParams, LLMClient, LLMMessage, LLMResponse
+from design_research_agents._contracts import (
+    LLMChatParams,
+    LLMClient,
+    LLMMessage,
+    LLMResponse,
+)
 from design_research_agents._shared._deterministic_design_helpers import (
     DeterministicSequenceLLMClient,
 )
@@ -41,7 +46,7 @@ def make_tracer() -> Tracer:
         enabled=True,
         trace_dir=TRACE_DIR,
         enable_jsonl=True,
-        enable_console=False,
+        enable_console=True,
     )
 
 
@@ -86,7 +91,10 @@ def run_representative_chat(
     deterministic_mode = os.environ.get("DRA_EXAMPLE_LLM_MODE", "").strip().lower() == "deterministic"
     model = client.default_model()
     call_client: LLMClient = (
-        cast(LLMClient, DeterministicSequenceLLMClient(responses=(deterministic_response,)))
+        cast(
+            LLMClient,
+            DeterministicSequenceLLMClient(responses=(deterministic_response,)),
+        )
         if deterministic_mode
         else client
     )

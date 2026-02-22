@@ -17,6 +17,10 @@ from design_research_agents._contracts._llm import (
     LLMResponse,
     LLMStreamEvent,
 )
+from design_research_agents._tracing import (
+    emit_model_request_observed,
+    emit_model_response_observed,
+)
 
 from .._backends._base import BaseLLMBackend
 from .._backends._providers._llama_cpp import LlamaCppBackend
@@ -70,7 +74,27 @@ class _SingleBackendLLMClient(LLMClient):
         Returns:
             Normalized completion response.
         """
-        return self._backend.generate(request)
+        emit_model_request_observed(
+            source="_SingleBackendLLMClient.generate",
+            model=request.model,
+            request_payload=request,
+            metadata={"backend_name": self._backend.name, "backend_kind": self._backend.kind},
+        )
+        try:
+            response = self._backend.generate(request)
+        except Exception as exc:
+            emit_model_response_observed(
+                source="_SingleBackendLLMClient.generate",
+                error=str(exc),
+                metadata={"backend_name": self._backend.name, "backend_kind": self._backend.kind},
+            )
+            raise
+        emit_model_response_observed(
+            source="_SingleBackendLLMClient.generate",
+            response_payload=response,
+            metadata={"backend_name": self._backend.name, "backend_kind": self._backend.kind},
+        )
+        return response
 
     def chat(
         self,
@@ -112,7 +136,47 @@ class _SingleBackendLLMClient(LLMClient):
         Returns:
             Iterator yielding normalized response deltas.
         """
-        return self._backend.stream(request)
+        emit_model_request_observed(
+            source="_SingleBackendLLMClient.stream",
+            model=request.model,
+            request_payload=request,
+            metadata={"backend_name": self._backend.name, "backend_kind": self._backend.kind},
+        )
+        stream = self._backend.stream(request)
+
+        def _observed_stream() -> Iterator[LLMDelta]:
+            delta_count = 0
+            text_delta_count = 0
+            try:
+                for delta in stream:
+                    delta_count += 1
+                    if delta.text_delta:
+                        text_delta_count += 1
+                    yield delta
+            except Exception as exc:
+                emit_model_response_observed(
+                    source="_SingleBackendLLMClient.stream",
+                    error=str(exc),
+                    metadata={
+                        "backend_name": self._backend.name,
+                        "backend_kind": self._backend.kind,
+                        "delta_count": delta_count,
+                        "text_delta_count": text_delta_count,
+                    },
+                )
+                raise
+            emit_model_response_observed(
+                source="_SingleBackendLLMClient.stream",
+                response_payload=getattr(stream, "response", None),
+                metadata={
+                    "backend_name": self._backend.name,
+                    "backend_kind": self._backend.kind,
+                    "delta_count": delta_count,
+                    "text_delta_count": text_delta_count,
+                },
+            )
+
+        return _observed_stream()
 
     def stream_chat(
         self,

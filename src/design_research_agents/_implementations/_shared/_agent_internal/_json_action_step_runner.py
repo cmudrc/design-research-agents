@@ -277,7 +277,7 @@ class JsonActionStepRunner(Agent):
             model=resolved_model,
             messages=model_messages,
             params=llm_request,
-            metadata={"agent": "JsonActionStepRunner"},
+            metadata={"agent": "JsonActionStepRunner", "step_id": "tool_selection"},
         )
         try:
             llm_response = request_tool_call_response(
@@ -307,7 +307,11 @@ class JsonActionStepRunner(Agent):
                 model=resolved_model,
                 messages=model_messages,
                 params=llm_request,
-                metadata={"agent": "JsonActionStepRunner", "phase": "tool_selection_retry"},
+                metadata={
+                    "agent": "JsonActionStepRunner",
+                    "phase": "tool_selection_retry",
+                    "step_id": "tool_selection_retry",
+                },
             )
             try:
                 retry_response = request_tool_call_response(

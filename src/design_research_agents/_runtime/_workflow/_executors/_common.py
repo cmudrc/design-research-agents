@@ -26,6 +26,10 @@ from design_research_agents._contracts._workflow import (
     WorkflowStepResult,
 )
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
+from design_research_agents._tracing import (
+    emit_model_request_observed,
+    emit_model_response_observed,
+)
 
 from .._step_context import (
     build_invocation_dependencies,
@@ -236,6 +240,12 @@ def run_model_step(
             llm_request=llm_request,
             step_context=step_context,
         )
+        emit_model_request_observed(
+            source="WorkflowRuntime.run_model_step",
+            model=llm_request.model,
+            request_payload=llm_request,
+            metadata={"step_id": step_id},
+        )
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,
@@ -245,7 +255,17 @@ def run_model_step(
 
     try:
         model_response = _execute_model_request(step=step, llm_request=llm_request)
+        emit_model_response_observed(
+            source="WorkflowRuntime.run_model_step",
+            response_payload=model_response,
+            metadata={"step_id": step_id},
+        )
     except Exception as exc:
+        emit_model_response_observed(
+            source="WorkflowRuntime.run_model_step",
+            error=str(exc),
+            metadata={"step_id": step_id},
+        )
         return _failed_step_result(
             step_id=step_id,
             error=str(exc),
@@ -259,6 +279,12 @@ def run_model_step(
             step_context=step_context,
         )
     except Exception as exc:
+        emit_model_response_observed(
+            source="WorkflowRuntime.run_model_step.parse",
+            response_payload=model_response,
+            error=str(exc),
+            metadata={"step_id": step_id},
+        )
         return _failed_step_result(
             step_id=step_id,
             error=str(exc),

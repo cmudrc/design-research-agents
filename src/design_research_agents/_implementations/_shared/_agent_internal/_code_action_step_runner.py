@@ -901,7 +901,7 @@ class CodeActionStepRunner(Agent):
             model=model,
             messages=messages,
             params=llm_params,
-            metadata={"agent": "CodeActionStepRunner"},
+            metadata={"agent": "CodeActionStepRunner", "step_id": "code_generation"},
         )
         try:
             response = self._llm_client.chat(messages, model=model, params=llm_params)
