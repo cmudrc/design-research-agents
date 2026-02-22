@@ -72,7 +72,8 @@ jobs:
             repro-extras: "dev full"
           - os: macos-latest
             repro-python: "3.12"
-            repro-extras: "dev local"
+            # Avoid llama-cpp-python source builds on macOS CI (no official macOS wheels on PyPI).
+            repro-extras: "dev mlx transformers"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
