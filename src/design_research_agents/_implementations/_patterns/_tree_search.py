@@ -352,7 +352,7 @@ class TreeSearchPattern(Agent):
                     "best_candidate": best_candidate,
                     "best_score": best_score,
                 },
-                "workflow": workflow_result.asdict(),
+                "workflow": workflow_result.to_dict(),
                 "artifacts": workflow_result.output.get("artifacts", []),
                 "terminated_reason": str(
                     final_state.get(

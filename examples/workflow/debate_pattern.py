@@ -42,14 +42,14 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "workflow/debate_pattern.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "rounds": output.get("rounds"),
-        "winner": output.get("winner"),
-        "verdict": output.get("verdict"),
+        "final_output": result.final_output,
+        "rounds": result.output_value("rounds"),
+        "winner": result.output_value("winner"),
+        "verdict": result.output_value("verdict"),
         "error": result.error,
         "trace": tracer.trace_info(request_id),
     }

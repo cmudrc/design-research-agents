@@ -66,7 +66,7 @@ class HardwareProfile:
             platform_name=platform.system(),
         )
 
-    def asdict(self) -> dict[str, object]:
+    def to_dict(self) -> dict[str, object]:
         """Return a JSON-ready representation of the profile.
 
         Returns:
@@ -89,7 +89,7 @@ class HardwareProfile:
         Returns:
             Pretty-printed JSON string for the profile.
         """
-        return json.dumps(self.asdict(), indent=2, sort_keys=True, ensure_ascii=True)
+        return json.dumps(self.to_dict(), indent=2, sort_keys=True, ensure_ascii=True)
 
 
 class _WindowsMemoryStatus(Protocol):

@@ -79,7 +79,7 @@ def retrieve_memory_context(
     except Exception as exc:
         return "(none)", [], str(exc)
 
-    serialized_matches = [match.asdict() for match in matches]
+    serialized_matches = [match.to_dict() for match in matches]
     if not serialized_matches:
         return "(none)", [], None
 

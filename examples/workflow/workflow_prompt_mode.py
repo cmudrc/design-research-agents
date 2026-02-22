@@ -14,6 +14,7 @@ from pathlib import Path
 from design_research_agents import (
     AgentStep,
     DirectLLMCall,
+    ExecutionResult,
     LlamaCppServerLLMClient,
     LogicStep,
     Toolbox,
@@ -23,15 +24,8 @@ from design_research_agents import (
 )
 
 
-def _summarize_run(result: object, request_id: str, tracer: Tracer) -> dict[str, object]:
-    if not hasattr(result, "success") or not hasattr(result, "output"):
-        return {
-            "success": False,
-            "error": "unexpected result type",
-            "trace": tracer.trace_info(request_id),
-        }
-    output = result.output if isinstance(result.output, dict) else {}
-    final_output = output.get("final_output")
+def _summarize_run(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:
+    final_output = result.final_output
     if isinstance(final_output, dict):
         compact_final_output = {
             "branch": final_output.get("branch"),
@@ -41,10 +35,12 @@ def _summarize_run(result: object, request_id: str, tracer: Tracer) -> dict[str,
     else:
         compact_final_output = final_output
     return {
+        "example": "workflow/workflow_prompt_mode.py",
         "success": result.success,
         "execution_order": list(result.execution_order),
         "final_output": compact_final_output,
-        "error": output.get("error"),
+        "terminated_reason": result.terminated_reason,
+        "error": result.error,
         "trace": tracer.trace_info(request_id),
     }
 

@@ -41,14 +41,14 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "workflow/propose_critic.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "approved": output.get("approved"),
-        "critique_iterations": output.get("critique_iterations"),
-        "proposal": output.get("proposal"),
+        "final_output": result.final_output,
+        "approved": result.output_value("approved"),
+        "critique_iterations": result.output_value("critique_iterations"),
+        "proposal": result.output_value("proposal"),
         "error": result.error,
         "trace": tracer.trace_info(request_id),
     }

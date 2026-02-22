@@ -355,7 +355,7 @@ class PlannerExecutorPattern(Agent):
                 "step_results": step_results,
                 "final_output": final_output,
                 "terminated_reason": terminated_reason,
-                "workflow": loop_workflow_result.asdict(),
+                "workflow": loop_workflow_result.to_dict(),
                 "artifacts": loop_workflow_result.output.get("artifacts", []),
             },
             success=terminated_reason in {"completed", "max_iterations_reached"} and bool(step_results),

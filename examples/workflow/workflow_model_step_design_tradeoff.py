@@ -74,6 +74,7 @@ def main() -> None:
         "example": "workflow/workflow_model_step_design_tradeoff.py",
         "success": result.success,
         "final_output": result.final_output,
+        "terminated_reason": result.terminated_reason,
         "execution_order": list(result.execution_order),
         "error": result.error,
         "trace": tracer.trace_info(request_id),

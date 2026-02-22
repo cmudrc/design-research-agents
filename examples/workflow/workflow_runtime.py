@@ -39,9 +39,12 @@ def main() -> None:
     )
     result = workflow.run({}, execution_mode="sequential", request_id=request_id)
     payload = {
+        "example": "workflow/workflow_runtime.py",
         "success": result.success,
         "execution_order": list(result.execution_order),
         "final_output": result.final_output,
+        "terminated_reason": result.terminated_reason,
+        "error": result.error,
         "trace": tracer.trace_info(request_id),
     }
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))

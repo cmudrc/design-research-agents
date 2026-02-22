@@ -30,7 +30,7 @@ def build_workflow_first_output(
     merged_output["workflow"] = (
         dict(workflow_payload)
         if isinstance(workflow_payload, Mapping)
-        else workflow_result.asdict().get("output", {}).get("workflow", {})
+        else workflow_result.to_dict().get("output", {}).get("workflow", {})
     )
     merged_output["final_output"] = final_output
     if artifacts is None:

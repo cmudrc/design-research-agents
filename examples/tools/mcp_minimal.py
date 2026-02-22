@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import McpServer, Toolbox, Tracer
+from design_research_agents import McpServer, Toolbox, ToolResult, Tracer
 
 
 def _run_report() -> dict[str, object]:
@@ -30,12 +30,17 @@ def _run_report() -> dict[str, object]:
     )
     try:
         mcp_tools = sorted(spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::"))
-        direct = runtime.invoke_dict(
+        direct_result: ToolResult = runtime.invoke(
             "local_core::text.word_count",
             {"text": "design research"},
             request_id="example-mcp-minimal",
             dependencies={},
         )
+        if not direct_result.ok:
+            raise RuntimeError(f"MCP tool call failed: {direct_result.error!r}")
+        if not isinstance(direct_result.result, dict):
+            raise RuntimeError("MCP tool call returned non-dict payload.")
+        direct = direct_result.result
     finally:
         runtime.close()
 

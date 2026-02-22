@@ -662,7 +662,7 @@ def _build_debate_result(
 
     parsed_verdict = judge_output.get("verdict")
     normalized_verdict = dict(parsed_verdict) if isinstance(parsed_verdict, Mapping) else None
-    workflow_payload = workflow_result.asdict()
+    workflow_payload = workflow_result.to_dict()
     workflow_artifacts = workflow_result.output.get("artifacts", [])
     last_model_response = runtime_state.get("last_model_response")
     model_response = last_model_response if isinstance(last_model_response, LLMResponse) else None

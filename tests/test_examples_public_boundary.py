@@ -32,3 +32,15 @@ def test_client_examples_do_not_access_private_client_or_backend_attributes() ->
     pattern = re.compile(r"\bclient\._|\bbackend\._|\._vllm_server|\._ollama_server|\._sglang_server|\._llama_server")
     violations = _collect_violations(pattern=pattern, root=client_examples_root)
     assert violations == [], "\n".join(violations)
+
+
+def test_examples_do_not_use_result_output_isinstance_guard_pattern() -> None:
+    pattern = re.compile(r"result\.output if isinstance\(result\.output, dict\) else \{\}")
+    violations = _collect_violations(pattern=pattern, root=EXAMPLES_ROOT)
+    assert violations == [], "\n".join(violations)
+
+
+def test_examples_do_not_use_hasattr_result_guard_pattern() -> None:
+    pattern = re.compile(r"hasattr\(result,\s*[\"']success[\"']\)|unexpected result")
+    violations = _collect_violations(pattern=pattern, root=EXAMPLES_ROOT)
+    assert violations == [], "\n".join(violations)

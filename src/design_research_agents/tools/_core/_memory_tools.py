@@ -171,10 +171,10 @@ def _memory_search(
         if resolved.close_after:
             _close_store(resolved.store)
 
-    serialized_matches = [record.asdict() for record in matches]
+    serialized_matches = [record.to_dict() for record in matches]
     retrieval_mode = "hybrid_vector" if any(match.vector_score is not None for match in matches) else "lexical"
     return {
-        "query": query.asdict(),
+        "query": query.to_dict(),
         "matches": serialized_matches,
         "count": len(serialized_matches),
         "retrieval_mode": retrieval_mode,

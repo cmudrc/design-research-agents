@@ -52,12 +52,11 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "agents/basic/multi_step_json_tool_calling_agent.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "steps_executed": output.get("steps_executed"),
+        "steps_executed": result.output_value("steps_executed"),
         "tool_results_count": len(result.tool_results),
         "allowed_tools": list(_JSON_ALLOWED_TOOLS),
         "final_output": result.final_output,

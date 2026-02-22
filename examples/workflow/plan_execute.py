@@ -71,14 +71,13 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
-    plan_payload = output.get("plan")
+    plan_payload = result.output_dict("plan")
     plan_steps = plan_payload.get("steps") if isinstance(plan_payload, dict) else None
     payload = {
         "example": "workflow/plan_execute.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "steps_executed": output.get("steps_executed"),
+        "steps_executed": result.output_value("steps_executed"),
         "plan_step_count": len(plan_steps) if isinstance(plan_steps, list) else 0,
         "final_output": result.final_output,
         "error": result.error,

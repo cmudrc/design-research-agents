@@ -197,7 +197,7 @@ def run_agent_step(
         )
 
     agent_result = delegate_invocation.result
-    serialized_output = agent_result.asdict()
+    serialized_output = agent_result.to_dict()
     if not agent_result.success:
         if delegate_invocation.delegate_type == "workflow":
             error_message = "Nested workflow execution failed."
@@ -673,8 +673,8 @@ def run_memory_read_step(
         )
 
     output = {
-        "query": memory_query.asdict(),
-        "matches": [record.asdict() for record in matches],
+        "query": memory_query.to_dict(),
+        "matches": [record.to_dict() for record in matches],
         "count": len(matches),
         "namespace": memory_query.namespace,
     }

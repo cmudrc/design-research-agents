@@ -157,7 +157,7 @@ def attach_pattern_workflow(pattern: object, workflow: object) -> object:
 def build_workflow_output_payload(workflow_result: ExecutionResult) -> dict[str, object]:
     """Return standardized workflow payload envelope for pattern outputs."""
     return {
-        "workflow": workflow_result.asdict(),
+        "workflow": workflow_result.to_dict(),
         "artifacts": workflow_result.output.get("artifacts", []),
     }
 

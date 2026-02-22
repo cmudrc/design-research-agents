@@ -731,7 +731,7 @@ def _build_network_result(
             "rounds_executed": len(round_summaries),
             "terminated_reason": terminated_reason,
         },
-        "workflow": workflow_result.asdict(),
+        "workflow": workflow_result.to_dict(),
         "artifacts": workflow_result.output.get("artifacts", []),
     }
     if isinstance(failed_peer, str) and failed_peer:

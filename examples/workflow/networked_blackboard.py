@@ -13,19 +13,17 @@ from pathlib import Path
 
 from _support_deterministic import FixedDesignPeerAgent
 
-from design_research_agents import BlackboardPattern, NetworkedPattern, Tracer
+from design_research_agents import BlackboardPattern, ExecutionResult, NetworkedPattern, Tracer
 
 
-def _summarize(result: object, request_id: str, tracer: Tracer) -> dict[str, object]:
-    if not hasattr(result, "success") or not hasattr(result, "output"):
-        return {"success": False, "error": "unexpected result", "trace": tracer.trace_info(request_id)}
-    output = result.output if isinstance(result.output, dict) else {}
-    blackboard = output.get("blackboard")
+def _summarize(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:
+    blackboard = result.output_dict("blackboard")
     messages = blackboard.get("messages") if isinstance(blackboard, dict) else []
     return {
+        "example": "workflow/networked_blackboard.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "rounds_executed": output.get("rounds_executed"),
+        "rounds_executed": result.output_value("rounds_executed"),
         "message_count": len(messages) if isinstance(messages, list) else 0,
         "final_output": result.final_output,
         "error": result.error,

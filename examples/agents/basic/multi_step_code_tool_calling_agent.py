@@ -46,15 +46,13 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
+    step_outputs = result.output_list("step_outputs")
     payload = {
         "example": "agents/basic/multi_step_code_tool_calling_agent.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "steps_executed": output.get("steps_executed"),
-        "step_outputs_count": len(output.get("step_outputs", []))
-        if isinstance(output.get("step_outputs"), list)
-        else 0,
+        "steps_executed": result.output_value("steps_executed"),
+        "step_outputs_count": len(step_outputs),
         "tool_results_count": len(result.tool_results),
         "final_output": result.final_output,
         "error": result.error,

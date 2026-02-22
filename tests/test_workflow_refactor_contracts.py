@@ -86,7 +86,7 @@ def test_workflow_artifact_contract_serializes_and_tracks_provenance() -> None:
         producer_step_id="manual_step",
         sources=(WorkflowArtifactSource(step_id="manual_step", field="manual"),),
     )
-    artifact_dict = artifact.asdict()
+    artifact_dict = artifact.to_dict()
     assert artifact_dict["producer_step_id"] == "manual_step"
     assert artifact_dict["sources"][0]["field"] == "manual"
 

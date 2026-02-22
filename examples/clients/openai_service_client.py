@@ -13,7 +13,7 @@ from pathlib import Path
 
 from _support_client_call import run_representative_chat
 
-from design_research_agents import OpenAIServiceLLMClient, Tracer
+from design_research_agents import LLMResponse, OpenAIServiceLLMClient, Tracer
 
 
 def _build_payload() -> dict[str, object]:
@@ -34,10 +34,19 @@ def _build_payload() -> dict[str, object]:
             "Use multi-agent critique when decisions have high risk and need diverse failure analysis."
         ),
     )
+    response_contract = LLMResponse(
+        text=str(llm_call.get("response_text", "")),
+        model=str(description["default_model"]),
+        provider=str(llm_call.get("response_provider") or "deterministic"),
+    )
     return {
         "client_class": description["client_class"],
         "default_model": description["default_model"],
         "llm_call": llm_call,
+        "llm_response_contract_preview": {
+            "model": response_contract.model,
+            "provider": response_contract.provider,
+        },
         "backend": description["backend"],
         "capabilities": description["capabilities"],
         "server": description["server"],

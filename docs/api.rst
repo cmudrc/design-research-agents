@@ -16,6 +16,7 @@ Top-level groups:
 
 - Metadata: ``__version__``
 - Entry points: agents, LLM clients, ``ModelSelector``
+- Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
 - Orchestration: workflow step classes, ``Workflow``, and pattern classes
 - Tools: ``Toolbox``, ``CallableTool``, ``ScriptTool``, ``McpServer``
 - Tracing: ``Tracer``
@@ -77,6 +78,34 @@ LLM Clients and Selection
 .. autoclass:: design_research_agents.ModelSelector
    :members:
    :undoc-members:
+
+Core Contracts
+^^^^^^^^^^^^^^
+
+.. autoclass:: design_research_agents.ExecutionResult
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.LLMRequest
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.LLMMessage
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.LLMResponse
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.ToolResult
+   :members:
+   :undoc-members:
+   :no-index:
 
 Orchestration
 -------------

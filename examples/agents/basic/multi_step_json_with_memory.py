@@ -69,13 +69,13 @@ def main() -> None:
         llm_client.close()
         tool_runtime.close()
         store.close()
-    output = result.output if isinstance(result.output, dict) else {}
+    memory_items = result.output_list("memory")
     payload = {
         "example": "agents/basic/multi_step_json_with_memory.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "steps_executed": output.get("steps_executed"),
-        "memory_items": (len(output.get("memory", [])) if isinstance(output.get("memory"), list) else 0),
+        "steps_executed": result.output_value("steps_executed"),
+        "memory_items": len(memory_items),
         "tool_results_count": len(result.tool_results),
         "final_output": result.final_output,
         "error": result.error,

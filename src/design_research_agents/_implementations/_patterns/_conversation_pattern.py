@@ -565,7 +565,7 @@ def _build_conversation_result(
     transcript = normalize_mapping_records(final_state.get("transcript"))
     failure_reason = _normalize_optional_text(final_state.get("failure_reason"))
     failure_error = _normalize_optional_text(final_state.get("failure_error"))
-    workflow_payload = workflow_result.asdict()
+    workflow_payload = workflow_result.to_dict()
     workflow_artifacts = workflow_result.output.get("artifacts", [])
     runtime_last_response = runtime_state.get("last_model_response")
     model_response = runtime_last_response if isinstance(runtime_last_response, LLMResponse) else None

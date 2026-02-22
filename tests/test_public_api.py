@@ -29,6 +29,11 @@ EXPECTED_PUBLIC_API = [
     "LoopStep",
     "MemoryReadStep",
     "MemoryWriteStep",
+    "ExecutionResult",
+    "LLMRequest",
+    "LLMMessage",
+    "LLMResponse",
+    "ToolResult",
     "Workflow",
     "ConversationPattern",
     "DebatePattern",
@@ -51,7 +56,7 @@ EXPECTED_PUBLIC_API = [
     "Tracer",
 ]
 
-EXPECTED_TOOLS_API = ["CallableTool", "McpServer", "ScriptTool", "Toolbox"]
+EXPECTED_TOOLS_API = ["CallableTool", "McpServer", "ScriptTool", "ToolResult", "Toolbox"]
 
 
 def test_top_level_exports_match_curated_contract() -> None:
@@ -75,10 +80,12 @@ def test_internal_public_api_module_is_removed() -> None:
         importlib.import_module("design_research_agents._public_api")
 
 
-def test_removed_contract_symbol_is_not_top_level() -> None:
-    assert "LLMMessage" not in dra.__all__
-    with pytest.raises(ImportError):
-        exec("from design_research_agents import LLMMessage", {}, {})
+def test_top_level_core_result_bundle_exports_resolve() -> None:
+    assert dra.ExecutionResult.__name__ == "ExecutionResult"
+    assert dra.LLMRequest.__name__ == "LLMRequest"
+    assert dra.LLMMessage.__name__ == "LLMMessage"
+    assert dra.LLMResponse.__name__ == "LLMResponse"
+    assert dra.ToolResult.__name__ == "ToolResult"
 
 
 def test_contract_symbol_is_available_from_internal_contracts_namespace() -> None:
@@ -88,6 +95,7 @@ def test_contract_symbol_is_available_from_internal_contracts_namespace() -> Non
 def test_llm_module_exports_request_and_message_contracts() -> None:
     assert dra_llm.LLMRequest.__name__ == "LLMRequest"
     assert dra_llm.LLMMessage.__name__ == "LLMMessage"
+    assert dra_llm.LLMResponse.__name__ == "LLMResponse"
 
 
 def test_memory_module_exports_public_memory_facade() -> None:

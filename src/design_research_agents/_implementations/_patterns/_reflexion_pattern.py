@@ -317,7 +317,7 @@ class ReflexionPattern(Agent):
                     "proposal": current_proposal,
                     "critique_iterations": critique_iterations,
                     "terminated_reason": failure_reason,
-                    "workflow": workflow_result.asdict(),
+                    "workflow": workflow_result.to_dict(),
                     "artifacts": workflow_result.output.get("artifacts", []),
                 },
             )
@@ -335,7 +335,7 @@ class ReflexionPattern(Agent):
                 "critique_iterations": critique_iterations,
                 "terminated_reason": terminated_reason,
                 "approved": approved,
-                "workflow": workflow_result.asdict(),
+                "workflow": workflow_result.to_dict(),
                 "artifacts": workflow_result.output.get("artifacts", []),
             },
             success=approved,

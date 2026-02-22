@@ -201,7 +201,7 @@ class RagReasoningPattern(Agent):
             if memory_write_result is not None
             else {"written": 0, "namespace": self._memory_namespace, "ids": []}
         )
-        workflow_payload = workflow_result.asdict()
+        workflow_payload = workflow_result.to_dict()
         workflow_artifacts = workflow_result.output.get("artifacts", [])
         delegate_final_output = reasoning_output.get("output")
         final_output = (

@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LogicStep, Toolbox, ToolStep, Tracer, Workflow
+from design_research_agents import ExecutionResult, LogicStep, Toolbox, ToolStep, Tracer, Workflow
 
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -33,15 +33,14 @@ INPUT_SCHEMA: dict[str, object] = {
 }
 
 
-def _summarize(result: object, request_id: str, tracer: Tracer) -> dict[str, object]:
-    if not hasattr(result, "success") or not hasattr(result, "output"):
-        return {"success": False, "error": "unexpected result", "trace": tracer.trace_info(request_id)}
-    output = result.output if isinstance(result.output, dict) else {}
+def _summarize(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:
     return {
+        "example": "workflow/workflow_schema_mode.py",
         "success": result.success,
         "execution_order": list(result.execution_order),
-        "final_output": output.get("final_output"),
-        "error": output.get("error"),
+        "final_output": result.final_output,
+        "terminated_reason": result.terminated_reason,
+        "error": result.error,
         "trace": tracer.trace_info(request_id),
     }
 

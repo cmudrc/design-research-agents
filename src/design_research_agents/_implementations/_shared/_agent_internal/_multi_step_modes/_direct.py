@@ -360,7 +360,7 @@ class MultiStepDirectLLMAgent(Agent):
 
         self.workflow = loop_result.workflow
         final_state = loop_result.final_state
-        workflow_payload = loop_result.workflow_result.asdict()
+        workflow_payload = loop_result.workflow_result.to_dict()
         workflow_artifacts = loop_result.workflow_result.output.get("artifacts", [])
         step_outputs = _coerce_state_records(final_state.get("step_outputs"))
         memory = _coerce_state_records(final_state.get("memory"))

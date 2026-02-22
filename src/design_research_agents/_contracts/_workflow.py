@@ -106,7 +106,7 @@ class WorkflowArtifact:
     metadata: dict[str, object] = field(default_factory=dict)
     """Supplemental artifact metadata."""
 
-    def asdict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
 
         Returns:
@@ -338,7 +338,26 @@ class WorkflowStepResult:
     artifacts: tuple[WorkflowArtifact, ...] = ()
     """User-facing artifact manifests produced by this step."""
 
-    def asdict(self) -> dict[str, Any]:
+    @property
+    def final_output(self) -> object | None:
+        """Return ``final_output`` value from ``output`` when present.
+
+        Returns:
+            Final output payload value, or ``None``.
+        """
+        return self.output.get("final_output")
+
+    @property
+    def terminated_reason(self) -> str | None:
+        """Return normalized step termination reason when present.
+
+        Returns:
+            Termination reason string, or ``None``.
+        """
+        value = self.output.get("terminated_reason")
+        return value if isinstance(value, str) else None
+
+    def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
 
         Returns:

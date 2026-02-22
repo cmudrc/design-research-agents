@@ -33,6 +33,7 @@ Use the smallest useful check while iterating, then run full gates before merge.
 
 ## Public Vs Private Boundaries
 - Compatibility guarantees are for curated top-level exports in `src/design_research_agents/__init__.py` and public facade modules:
+  - Top-level includes selected core contracts (`ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`) in addition to entrypoint classes.
   - `design_research_agents.agent`
   - `design_research_agents.workflow`
   - `design_research_agents.llm`

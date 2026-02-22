@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Protocol
 
-from design_research_agents.llm import LLMMessage, LLMRequest
+from design_research_agents.llm import LLMMessage, LLMRequest, LLMResponse
 
 
 class _RequestLLMClient(Protocol):
@@ -13,7 +13,7 @@ class _RequestLLMClient(Protocol):
 
     def default_model(self) -> str: ...
 
-    def generate(self, request: LLMRequest) -> object: ...
+    def generate(self, request: LLMRequest) -> LLMResponse: ...
 
 
 def run_representative_chat(
@@ -32,7 +32,7 @@ def run_representative_chat(
         response_model = model
         response_provider = "deterministic"
     else:
-        response = client.generate(
+        response: LLMResponse = client.generate(
             LLMRequest(
                 messages=(
                     LLMMessage(role="system", content=system_prompt),

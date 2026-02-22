@@ -18,7 +18,7 @@ class MemoryWriteRecord:
     item_id: str | None = None
     """Optional caller-supplied id for deterministic upserts."""
 
-    def asdict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
 
         Returns:
@@ -42,7 +42,7 @@ class MemorySearchQuery:
     metadata_filters: dict[str, object] = field(default_factory=dict)
     """Exact-match metadata filters applied before ranking."""
 
-    def asdict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
 
         Returns:
@@ -74,7 +74,7 @@ class MemoryRecord:
     vector_score: float | None = None
     """Vector similarity score when embeddings are available."""
 
-    def asdict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
 
         Returns:

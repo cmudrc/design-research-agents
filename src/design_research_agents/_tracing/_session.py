@@ -37,7 +37,7 @@ class TraceEvent:
     event_index: int | None = None
     """Field value for ``event_index``."""
 
-    def asdict(self) -> dict[str, object]:
+    def to_dict(self) -> dict[str, object]:
         """Return JSON-serializable dictionary representation.
 
         Returns:
@@ -187,7 +187,7 @@ class TraceSession:
             attributes=dict(attributes),
             event_index=self._event_index,
         )
-        payload = event.asdict()
+        payload = event.to_dict()
         self._event_index += 1
         for sink in self._sinks:
             sink.emit(payload)

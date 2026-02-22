@@ -107,7 +107,7 @@ def run_loop_step(
         "iterations_executed": len(iteration_results),
         "terminated_reason": terminated_reason,
         "final_state": dict(current_state),
-        "iteration_results": [result.asdict() for result in iteration_results],
+        "iteration_results": [result.to_dict() for result in iteration_results],
     }
     if terminated_reason == "iteration_failed":
         return WorkflowStepResult(

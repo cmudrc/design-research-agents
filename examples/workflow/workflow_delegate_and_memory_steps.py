@@ -117,6 +117,7 @@ def main() -> None:
         "success": result.success,
         "execution_order": list(result.execution_order),
         "final_output": result.final_output,
+        "terminated_reason": result.terminated_reason,
         "error": result.error,
         "trace": tracer.trace_info(request_id),
     }

@@ -14,6 +14,7 @@ from design_research_agents._contracts._memory import (
     MemoryStore,
     MemoryWriteRecord,
 )
+from design_research_agents._contracts._workflow import WorkflowStepResult
 from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
 from design_research_agents.llm import LlamaCppServerLLMClient
 from design_research_agents.llm._backends._providers import _llama_cpp_server
@@ -286,9 +287,9 @@ def test_memory_contract_dataclasses_are_serializable() -> None:
         vector_score=0.95,
     )
 
-    assert write_record.asdict()["item_id"] == "abc"
-    assert search_query.asdict()["top_k"] == 3
-    assert read_record.asdict()["score"] == 0.9
+    assert write_record.to_dict()["item_id"] == "abc"
+    assert search_query.to_dict()["top_k"] == 3
+    assert read_record.to_dict()["score"] == 0.9
 
 
 def test_sqlite_memory_store_satisfies_memory_store_protocol(tmp_path) -> None:
@@ -324,12 +325,38 @@ def test_execution_result_convenience_accessors_and_to_json() -> None:
     assert success_result.final_output == {"decision": "approve"}
     assert success_result.terminated_reason == "completed"
     assert success_result.error is None
+    assert success_result.output_value("missing", "fallback") == "fallback"
+    assert success_result.output_dict("final_output") == {"decision": "approve"}
+    assert success_result.output_dict("terminated_reason") == {}
+    assert success_result.output_list("events") == []
 
     assert failure_result.final_output is None
     assert failure_result.terminated_reason == "step_failure"
     assert failure_result.error == {"message": "tool failed"}
+    assert failure_result.output_value("error") == {"message": "tool failed"}
+    assert failure_result.output_dict("error") == {"message": "tool failed"}
+    assert failure_result.output_list("error") == []
 
     encoded = success_result.to_json()
     assert '"final_output"' in encoded
     assert '"terminated_reason"' in encoded
     assert str(success_result) == encoded
+
+
+def test_workflow_step_result_convenience_accessors_and_to_dict() -> None:
+    result = WorkflowStepResult(
+        step_id="finalize",
+        status="completed",
+        success=True,
+        output={
+            "final_output": {"decision": "approve"},
+            "terminated_reason": "completed",
+            "detail": "ok",
+        },
+    )
+
+    assert result.final_output == {"decision": "approve"}
+    assert result.terminated_reason == "completed"
+    serialized = result.to_dict()
+    assert serialized["step_id"] == "finalize"
+    assert serialized["output"]["detail"] == "ok"

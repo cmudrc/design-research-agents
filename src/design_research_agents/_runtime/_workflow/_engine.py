@@ -160,7 +160,7 @@ class WorkflowRuntime(WorkflowRunner):
             "workflow": {
                 "success": success,
                 "execution_order": list(execution_order),
-                "step_results": {step_id: result.asdict() for step_id, result in step_results.items()},
+                "step_results": {step_id: result.to_dict() for step_id, result in step_results.items()},
             },
             "final_output": resolve_final_output(
                 step_results=step_results,
@@ -534,7 +534,7 @@ class WorkflowRuntime(WorkflowRunner):
             "iterations_executed": len(iteration_results),
             "terminated_reason": terminated_reason,
             "final_state": dict(current_state),
-            "iteration_results": [result.asdict() for result in iteration_results],
+            "iteration_results": [result.to_dict() for result in iteration_results],
         }
         if terminated_reason == "iteration_failed":
             return WorkflowStepResult(

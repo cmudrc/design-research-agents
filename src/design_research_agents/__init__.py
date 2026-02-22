@@ -21,6 +21,11 @@ _EXPORTS: Final[dict[str, str]] = {
     "LoopStep": "design_research_agents._contracts:LoopStep",
     "MemoryReadStep": "design_research_agents._contracts:MemoryReadStep",
     "MemoryWriteStep": "design_research_agents._contracts:MemoryWriteStep",
+    "ExecutionResult": "design_research_agents._contracts:ExecutionResult",
+    "LLMRequest": "design_research_agents.llm:LLMRequest",
+    "LLMMessage": "design_research_agents.llm:LLMMessage",
+    "LLMResponse": "design_research_agents.llm:LLMResponse",
+    "ToolResult": "design_research_agents.tools:ToolResult",
     "Workflow": "design_research_agents.workflow:Workflow",
     "ConversationPattern": "design_research_agents.workflow:ConversationPattern",
     "DebatePattern": "design_research_agents.workflow:DebatePattern",
@@ -87,6 +92,10 @@ def __dir__() -> list[str]:
 if TYPE_CHECKING:
     from ._contracts import AgentStep as AgentStep
     from ._contracts import DelegateBatchStep as DelegateBatchStep
+    from ._contracts import ExecutionResult as ExecutionResult
+    from ._contracts import LLMMessage as LLMMessage
+    from ._contracts import LLMRequest as LLMRequest
+    from ._contracts import LLMResponse as LLMResponse
     from ._contracts import LogicStep as LogicStep
     from ._contracts import LoopStep as LoopStep
     from ._contracts import MemoryReadStep as MemoryReadStep
@@ -109,6 +118,7 @@ if TYPE_CHECKING:
     from .tools import McpServer as McpServer
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
+    from .tools import ToolResult as ToolResult
     from .workflow import BlackboardPattern as BlackboardPattern
     from .workflow import ConversationPattern as ConversationPattern
     from .workflow import DebatePattern as DebatePattern

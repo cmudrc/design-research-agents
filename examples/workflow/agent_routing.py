@@ -64,11 +64,10 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "workflow/agent_routing.py",
         "success": result.success,
-        "selected_alternative": output.get("selected_alternative"),
+        "selected_alternative": result.output_value("selected_alternative"),
         "final_output": result.final_output,
         "terminated_reason": result.terminated_reason,
         "error": result.error,

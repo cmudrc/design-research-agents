@@ -428,7 +428,7 @@ class RouterPattern(Agent):
             request_id=f"{request_id}:agent_routing_workflow",
             dependencies=dependencies,
         )
-        workflow_payload = workflow_result.asdict()
+        workflow_payload = workflow_result.to_dict()
         raw_workflow_artifacts = workflow_result.output.get("artifacts")
         workflow_artifacts: list[object] = (
             list(raw_workflow_artifacts)

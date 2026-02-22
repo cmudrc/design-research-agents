@@ -36,14 +36,14 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "agents/basic/direct_llm_call.py",
         "package_version": __version__,
         "success": result.success,
         "final_output": result.final_output,
-        "model": output.get("model"),
+        "model": result.output_value("model"),
         "terminated_reason": result.terminated_reason,
+        "error": result.error,
         "trace": tracer.trace_info(request_id),
     }
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))

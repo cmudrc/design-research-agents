@@ -297,7 +297,7 @@ class MultiStepJsonToolCallingAgent(Agent):
             memory_store_enabled=self._memory_store is not None,
         )
         merged_output = dict(result.output)
-        merged_output["workflow"] = loop_result.workflow_result.asdict()
+        merged_output["workflow"] = loop_result.workflow_result.to_dict()
         merged_output["artifacts"] = loop_result.workflow_result.output.get("artifacts", [])
         result = ExecutionResult(
             output=merged_output,

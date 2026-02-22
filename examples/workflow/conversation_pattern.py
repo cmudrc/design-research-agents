@@ -48,15 +48,14 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    output = result.output if isinstance(result.output, dict) else {}
-    transcript = output.get("transcript")
-    transcript_preview = transcript[-2:] if isinstance(transcript, list) else []
+    transcript = result.output_list("transcript")
+    transcript_preview = transcript[-2:]
     payload = {
         "example": "workflow/conversation_pattern.py",
         "success": result.success,
         "terminated_reason": result.terminated_reason,
-        "turns_executed": output.get("turns_executed"),
-        "participants": output.get("participants"),
+        "turns_executed": result.output_value("turns_executed"),
+        "participants": result.output_value("participants"),
         "final_output": result.final_output,
         "transcript_preview": transcript_preview,
         "error": result.error,

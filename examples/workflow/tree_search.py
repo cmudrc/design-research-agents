@@ -60,12 +60,12 @@ def main() -> None:
         "Find the most robust concept architecture for a serviceable edge-device enclosure.",
         request_id=request_id,
     )
-    output = result.output if isinstance(result.output, dict) else {}
     payload = {
         "example": "workflow/tree_search.py",
         "success": result.success,
         "final_output": result.final_output,
-        "best_candidate": output.get("best_candidate"),
+        "terminated_reason": result.terminated_reason,
+        "best_candidate": result.output_value("best_candidate"),
         "error": result.error,
         "trace": tracer.trace_info(request_id),
     }

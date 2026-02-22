@@ -72,7 +72,7 @@ class ToolCall:
 
 
 @dataclass(slots=True, frozen=True)
-class ToolResult:
+class LLMToolResult:
     """Result payload used to feed tool outputs back into model turns."""
 
     call_id: str
