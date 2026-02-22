@@ -10,14 +10,14 @@ from pathlib import Path
 # Release-blocking line coverage targets.
 GLOBAL_THRESHOLD = 90.0
 PACKAGE_THRESHOLDS = {
-    "contracts": 98.0,
-    "implementations": 90.0,
+    "_contracts": 98.0,
+    "_implementations": 90.0,
     "llm": 90.0,
-    "memory": 90.0,
-    "model_selection": 90.0,
-    "schemas": 90.0,
+    "_memory": 90.0,
+    "_model_selection": 90.0,
+    "_schemas": 90.0,
     "tools": 92.0,
-    "tracing": 93.5,
+    "_tracing": 93.5,
     "workflow": 90.2,
 }
 
@@ -87,7 +87,7 @@ def _extract_package_summary(payload: dict[str, object], package_name: str) -> C
 
     Args:
         payload: Parsed coverage JSON payload.
-        package_name: Package directory name under ``src/design_research_agents``.
+        package_name: Coverage bucket name under ``src/design_research_agents``.
 
     Returns:
         Package coverage summary.
@@ -101,7 +101,7 @@ def _extract_package_summary(payload: dict[str, object], package_name: str) -> C
 
     covered_lines = 0
     num_statements = 0
-    prefix = f"src/design_research_agents/{package_name}/"
+    prefix = f"src/design_research_agents/{package_name.strip().strip('/')}/"
     for file_path, file_payload in files.items():
         if not isinstance(file_path, str) or not file_path.startswith(prefix):
             continue

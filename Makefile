@@ -102,7 +102,7 @@ docs-linkcheck: check-python
 
 docs: docs-build
 
-ci: qa structure-check docstrings-check legacy-check baseline-integrity-check junk-check docs-check examples-smoke
+ci: qa coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check docs-check examples-smoke
 
 clean:
 	rm -rf docs/_build artifacts src/design_research_agents.egg-info
