@@ -2,7 +2,7 @@ Philosophy
 ==========
 
 We build agentic tools to *amplify* design research, not to automate it away.
-In the [Design Research Collective](https://cmudrc.github.io/), progress comes from tight loops between messy reality and clear evidence: framing problems with people, generating and testing ideas quickly, making assumptions explicit, and iterating with humility.
+In the `Design Research Collective <https://cmudrc.github.io/>`_, progress comes from tight loops between messy reality and clear evidence: framing problems with people, generating and testing ideas quickly, making assumptions explicit, and iterating with humility.
 Our agents exist to strengthen those loops.
 
 1. **Human-first, always.** The best research questions, judgments, and ethical calls stay with humans. Agents should reduce cognitive load, widen option space, surface blind spots, and help teams communicate, without flattening nuance or overriding expertise. We treat agency as *delegation with accountability*, not autonomy for its own sake.

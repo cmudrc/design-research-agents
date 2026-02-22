@@ -5,9 +5,9 @@ trace artifact emission.
 
 ## Scripts
 
-- `examples/tools/script_tools/python/rubric_score.py`
+- `examples/tools/script_tools/rubric_score.py`
   - Scores input text against a compact rubric and writes JSON report + trace artifact.
-- `examples/tools/script_tools/bash/repo_quickscan.sh`
+- `examples/tools/script_tools/repo_quickscan.sh`
   - Produces repository inventory report and emits a trace artifact.
 
 ## Quick Start
@@ -15,11 +15,11 @@ trace artifact emission.
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/tools/script_tools/python/rubric_score.py <<'JSON'
+PYTHONPATH=src python3 examples/tools/script_tools/rubric_score.py <<'JSON'
 {"text":"design review notes for quick-release latch and gasket alignment","max_score":10}
 JSON
 
-bash examples/tools/script_tools/bash/repo_quickscan.sh <<'JSON'
+bash examples/tools/script_tools/repo_quickscan.sh <<'JSON'
 {"include_hidden":false}
 JSON
 ```

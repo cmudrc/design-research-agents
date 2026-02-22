@@ -3,52 +3,99 @@ Workflow Schema Mode
 
 Source: ``examples/workflow/workflow_schema_mode.py``
 
-Run Command
------------
+Introduction
+------------
+
+JSON Schema and function-calling conventions are central for reliable machine-to-machine workflow steps,
+while the Responses API anchors current structured request/response patterns. This example illustrates
+schema-mode workflow execution where each step contract is explicit and testable.
+
+Technical Implementation
+------------------------
+
+1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
+2. Build the runtime surface (public APIs only) and execute ``Workflow.run(...)`` with a fixed ``request_id``.
+3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
+4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+
+.. mermaid::
+
+   flowchart LR
+       A["Input prompt or scenario"] --> B["main(): runtime wiring"]
+       B --> C["Workflow.run(...)"]
+       C --> D["WorkflowRuntime schedules step graph (LogicStep, ToolStep)"]
+       C --> E["Tracer JSONL + console events"]
+       D --> F["ExecutionResult/payload"]
+       E --> F
+       F --> G["Printed JSON output"]
+
+.. literalinclude:: ../../../examples/workflow/workflow_schema_mode.py
+   :language: python
+   :lines: 85-
+   :linenos:
+
+Expected Results
+----------------
+
+.. rubric:: Run Command
 
 .. code-block:: bash
 
    PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
 
-Motivation
+Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
+(timestamps, durations, and trace filenames vary by run):
+
+.. code-block:: text
+
+   {
+     "relaxed_run": {
+       "error": null,
+       "example": "workflow/workflow_schema_mode.py",
+       "execution_order": [
+         "describe_dataset",
+         "load_sample",
+         "quality_gate",
+         "persist_report",
+         "finalize"
+       ],
+       "final_output": {
+         "report_path": "artifacts/examples/<truncated-report-path>"
+       },
+       "success": true,
+       "terminated_reason": null,
+       "trace": {
+         "request_id": "example-workflow-schema-design-relaxed-001",
+         "trace_dir": "artifacts/examples/traces",
+         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-schema-design-relaxed-001.jsonl"
+       }
+     },
+     "strict_run": {
+       "error": null,
+       "example": "workflow/workflow_schema_mode.py",
+       "execution_order": [
+         "describe_dataset",
+         "load_sample",
+         "quality_gate",
+         "persist_report",
+         "finalize"
+       ],
+       "final_output": {
+         "report_path": "artifacts/examples/<truncated-report-path>"
+       },
+       "success": true,
+       "terminated_reason": null,
+       "trace": {
+         "request_id": "example-workflow-schema-design-strict-001",
+         "trace_dir": "artifacts/examples/traces",
+         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-schema-design-strict-001.jsonl"
+       }
+     }
+   }
+
+References
 ----------
 
-Run traced schema-input ``Workflow`` for design dataset checks.
-
-Diagram
--------
-
-.. mermaid::
-
-   flowchart LR
-       A["Workflow input"] --> B["Workflow steps"]
-       B --> C["workflow schema mode final output"]
-       C --> D["Trace metadata"]
-
-Technical Walkthrough
----------------------
-
-1. Configure the runtime surface for `workflow` use-cases and run `workflow_schema_mode`.
-2. Execute the example with direct public APIs and capture trace metadata.
-3. Print a JSON payload that is easy to inspect in docs and tests.
-
-Expected Results
-----------------
-
-- The script exits successfully and prints a non-empty JSON payload.
-- The payload includes the example identity and trace metadata.
-- Deterministic test runs can monkeypatch model backends without changing this script.
-
-Discussion
-----------
-
-Run with `PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py`.
-In tests, deterministic monkeypatching can replace live client behavior while preserving
-this script's capability-first structure.
-
-Source Code
------------
-
-.. literalinclude:: ../../../examples/workflow/workflow_schema_mode.py
-   :language: python
-   :linenos:
+- `JSON Schema Draft 2020-12 <https://json-schema.org/draft/2020-12>`_
+- `OpenAI Function Calling Guide <https://platform.openai.com/docs/guides/function-calling>`_
+- `OpenAI Responses API <https://platform.openai.com/docs/api-reference/responses>`_

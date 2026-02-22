@@ -1,30 +1,85 @@
-"""Example script.
+r"""# Clients / SGLang Server Client.
 
-Motivation
-Run a traced representative ``SglangServerLLMClient`` chat call.
+## Introduction
+SGLang focuses on high-throughput serving and exposes OpenAI-compatible APIs, making it useful for
+controlled backend substitution against common response contracts and HELM-style evaluation framing. This
+example wires the SGLang server client into the same traced run surface used by other providers.
 
-Diagram
+
+## Technical Implementation
+1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
+2. Build the runtime surface (public APIs only) and execute ``SglangServerLLMClient.generate(...)`` with a
+   fixed ``request_id``.
+3. Construct ``LLMRequest`` inputs and call ``generate`` through the selected client implementation.
+4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+
 ```mermaid
 flowchart LR
-    A["Client config"] --> B["LLMRequest"]
-    B --> C["sglang server client response"]
-    C --> D["Describe and trace metadata"]
+    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
+    B --> C["SglangServerLLMClient.generate(...)"]
+    C --> D["LLMRequest/LLMResponse contracts wrap provider behavior"]
+    C --> E["Tracer JSONL + console events"]
+    D --> F["ExecutionResult/payload"]
+    E --> F
+    F --> G["Printed JSON output"]
 ```
 
-Technical Walkthrough
-1. Configure the runtime surface for `clients` use-cases and run `sglang_server_client`.
-2. Execute the example with direct public APIs and capture trace metadata.
-3. Print a JSON payload that is easy to inspect in docs and tests.
 
-Expected Results
-- The script exits successfully and prints a non-empty JSON payload.
-- The payload includes the example identity and trace metadata.
-- Deterministic test runs can monkeypatch model backends without changing this script.
+## Expected Results
+Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
+(timestamps, durations, and trace filenames vary by run):
 
-Discussion
-Run with `PYTHONPATH=src python3 examples/clients/sglang_server_client.py`.
-In tests, deterministic monkeypatching can replace live client behavior while preserving
-this script's capability-first structure.
+.. code-block:: text
+
+   {
+     "backend": {
+       "base_url": "http://127.0.0.1:30000/v1",
+       "default_model": "Qwen/Qwen2.5-1.5B-Instruct",
+       "host": "127.0.0.1",
+       "kind": "sglang_server",
+       "max_retries": 3,
+       "model_patterns": [
+         "Qwen/*",
+         "qwen2.5-*"
+       ],
+       "name": "sglang-local-dev",
+       "port": 30000
+     },
+     "capabilities": {
+       "json_mode": "prompt+validate",
+       "max_context_tokens": null,
+       "streaming": false,
+       "tool_calling": "best_effort",
+       "vision": false
+     },
+     "client_class": "SglangServerLLMClient",
+     "default_model": "Qwen/Qwen2.5-1.5B-Instruct",
+     "example": "clients/sglang_server_client.py",
+     "llm_call": {
+       "prompt": "Provide one sentence on when SGLang-style serving helps local benchmarking.",
+       "response_has_text": true,
+       "response_model": "Qwen/Qwen2.5-1.5B-Instruct",
+       "response_provider": "example-test-monkeypatch",
+       "response_text": "SGLang-style serving helps when you need stable local throughput for repeated tests."
+     },
+     "server": {
+       "host": "127.0.0.1",
+       "kind": "sglang_server",
+       "managed": true,
+       "port": 30000
+     },
+     "trace": {
+       "request_id": "example-clients-sglang-server-call-001",
+       "trace_dir": "artifacts/examples/traces",
+       "trace_path": "artifacts/examples/traces/run_20260222T162206Z_example-clients-sglang-server-call-001.jsonl"
+     }
+   }
+
+
+## References
+- `SGLang OpenAI-Compatible API <https://docs.sglang.ai/basic_usage/openai_api.html>`_
+- `OpenAI Responses API <https://platform.openai.com/docs/api-reference/responses>`_
+- `Holistic Evaluation of Language Models (HELM) <https://arxiv.org/abs/2211.09110>`_
 """
 
 from __future__ import annotations

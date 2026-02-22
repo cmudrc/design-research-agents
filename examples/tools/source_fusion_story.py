@@ -1,51 +1,72 @@
-"""Example script.
+r"""# Tools / Source Fusion Story.
 
-Motivation
-Run traced source-fusion runtime example across core/script/MCP tool sources.
+## Introduction
+MCP standardizes tool connectivity, data-fusion concepts motivate combining heterogeneous signals, and RAG
+provides a grounding mechanism for synthesis over retrieved evidence. This example fuses MCP tools and
+script tools into one workflow that emits a traceable narrative artifact.
 
-Diagram
+
+## Technical Implementation
+1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
+2. Build the runtime surface (public APIs only) and execute ``Toolbox.invoke_dict(...)`` with a fixed ``request_id``.
+3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
+4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+
 ```mermaid
 flowchart LR
-    A["Tool input"] --> B["Tool runtime"]
-    B --> C["source fusion story result"]
-    C --> D["Artifacts and trace"]
+    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
+    B --> C["Toolbox.invoke_dict(...)"]
+    C --> D["core, script, and MCP tools execute in one composed runtime"]
+    C --> E["Tracer JSONL + console events"]
+    D --> F["ExecutionResult/payload"]
+    E --> F
+    F --> G["Printed JSON output"]
 ```
 
-Technical Walkthrough
-1. Configure the runtime surface for `tools` use-cases and run `source_fusion_story`.
-2. Execute the example with direct public APIs and capture trace metadata.
-3. Print a JSON payload that is easy to inspect in docs and tests.
 
-Expected Results
-- The script exits successfully and prints a non-empty JSON payload.
-- The payload includes the example identity and trace metadata.
-- Deterministic test runs can monkeypatch model backends without changing this script.
+## Expected Results
+Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
+(timestamps, durations, and trace filenames vary by run):
 
-Discussion
-Run with `DRA_EXAMPLE_MCP_COMMAND='python3 -m your_mcp_server_module'`
-`PYTHONPATH=src python3 examples/tools/source_fusion_story.py`.
-In tests, deterministic monkeypatching can replace live client behavior while preserving
-this script's capability-first structure.
+.. code-block:: text
+
+   {
+     "core_word_count": 14,
+     "example": "tools/source_fusion_story.py",
+     "input_path": "artifacts/examples/<truncated-input-path>",
+     "mcp_word_count": 14,
+     "report_path": "artifacts/examples/<truncated-report-path>",
+     "score_percent": 10.0,
+     "script_max_score": 20,
+     "script_score": 2,
+     "script_trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-script-rubric-score-001.jsonl",
+     "source_tool_counts": {
+       "core": 23,
+       "mcp": 23,
+       "script": 1
+     },
+     "trace": {
+       "request_id": "example-tools-source-fusion-design-001",
+       "trace_dir": "artifacts/examples/traces",
+       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-tools-source-fusion-design-001.jsonl"
+     },
+     "word_count_match": true
+   }
+
+
+## References
+- `Model Context Protocol Specification <https://modelcontextprotocol.io/specification/2025-06-18>`_
+- `Data Fusion (Wikipedia) <https://en.wikipedia.org/wiki/Data_fusion>`_
+- `Retrieval-Augmented Generation <https://arxiv.org/abs/2005.11401>`_
 """
 
 from __future__ import annotations
 
 import json
-import os
-import shlex
+import sys
 from pathlib import Path
 
 from design_research_agents import McpServer, ScriptTool, Toolbox, Tracer
-
-
-def _mcp_server_command() -> tuple[str, ...]:
-    raw_command = os.environ.get("DRA_EXAMPLE_MCP_COMMAND")
-    if raw_command is None or not raw_command.strip():
-        raise RuntimeError(
-            "Set DRA_EXAMPLE_MCP_COMMAND to a stdio MCP server command "
-            "(for example: 'python3 -m your_mcp_server_module')."
-        )
-    return tuple(shlex.split(raw_command))
 
 
 def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
@@ -67,7 +88,7 @@ def _run_report() -> dict[str, object]:
         script_tools=(
             ScriptTool(
                 name="rubric_score",
-                path="examples/tools/script_tools/python/rubric_score.py",
+                path="examples/tools/script_tools/rubric_score.py",
                 description="Score text against a simple rubric.",
                 input_schema={
                     "type": "object",
@@ -85,7 +106,8 @@ def _run_report() -> dict[str, object]:
         mcp_servers=(
             McpServer(
                 id="local_core",
-                command=_mcp_server_command(),
+                command=(sys.executable, "-m", "design_research_agents._mcp_server"),
+                env={"PYTHONPATH": "src"},
                 timeout_s=20,
             ),
         ),

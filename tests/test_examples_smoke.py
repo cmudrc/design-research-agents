@@ -59,11 +59,11 @@ def test_workflow_example_smoke_runs() -> None:
 
 
 def test_script_example_smoke_runs() -> None:
-    example_path = REPO_ROOT / "examples" / "tools" / "script_tools" / "bash" / "repo_quickscan.sh"
+    example_path = REPO_ROOT / "examples" / "tools" / "script_tools" / "repo_quickscan.sh"
     completed = subprocess.run(
         ["bash", str(example_path)],
         cwd=REPO_ROOT,
-        env=_example_env("examples/tools/script_tools/bash/repo_quickscan.sh"),
+        env=_example_env("examples/tools/script_tools/repo_quickscan.sh"),
         input='{"include_hidden":false}',
         capture_output=True,
         text=True,

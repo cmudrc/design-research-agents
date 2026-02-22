@@ -1,30 +1,61 @@
-"""Example script.
+r"""# Patterns / Plan Execute.
 
-Motivation
-Run traced ``PlannerExecutorPattern`` for an engineering design audit task.
+## Introduction
+Plan-and-Solve and ReAct both separate planning from execution to reduce reasoning drift, while AutoGen
+shows how these roles can be modularized across components. This example encodes planner-executor separation
+with tool-backed execution and deterministic trace artifacts.
 
-Diagram
+
+## Technical Implementation
+1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
+2. Build the runtime surface (public APIs only) and execute ``PlannerExecutorPattern.run(...)`` with a fixed
+   ``request_id``.
+3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
+4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+
 ```mermaid
 flowchart LR
-    A["Pattern prompt"] --> B["Pattern orchestration"]
-    B --> C["plan execute result"]
-    C --> D["Trace metadata"]
+    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
+    B --> C["PlannerExecutorPattern.run(...)"]
+    C --> D["Planner and executor phases share tool/runtime state"]
+    C --> E["Tracer JSONL + console events"]
+    D --> F["ExecutionResult/payload"]
+    E --> F
+    F --> G["Printed JSON output"]
 ```
 
-Technical Walkthrough
-1. Configure the runtime surface for `patterns` use-cases and run `plan_execute`.
-2. Execute the example with direct public APIs and capture trace metadata.
-3. Print a JSON payload that is easy to inspect in docs and tests.
 
-Expected Results
-- The script exits successfully and prints a non-empty JSON payload.
-- The payload includes the example identity and trace metadata.
-- Deterministic test runs can monkeypatch model backends without changing this script.
+## Expected Results
+Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
+(timestamps, durations, and trace filenames vary by run):
 
-Discussion
-Run with `PYTHONPATH=src python3 examples/patterns/plan_execute.py`.
-In tests, deterministic monkeypatching can replace live client behavior while preserving
-this script's capability-first structure.
+.. code-block:: text
+
+   {
+     "error": null,
+     "example": "patterns/plan_execute.py",
+     "final_output": {
+       "column_count": 2,
+       "csv_path": "artifacts/examples/plan_execute_runtime_inventory.csv",
+       "row_count": 3,
+       "search_hits": 4
+     },
+     "plan_step_count": 1,
+     "steps_executed": 1,
+     "success": true,
+     "terminated_reason": "completed",
+     "trace": {
+       "request_id": "example-workflow-plan-execute-design-001",
+       "trace_dir": "artifacts/examples/traces",
+       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-workflow-plan-execute-design-001.jsonl"
+     }
+   }
+
+
+## References
+- `Plan-and-Solve Prompting <https://arxiv.org/abs/2305.04091>`_
+- `ReAct: Synergizing Reasoning and Acting in Language Models <https://arxiv.org/abs/2210.03629>`_
+- `AutoGen <https://arxiv.org/abs/2308.08155>`_
 """
 
 from __future__ import annotations

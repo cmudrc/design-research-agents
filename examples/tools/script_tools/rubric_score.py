@@ -1,30 +1,25 @@
-"""Example script.
+r"""# Script Tools / Rubric Score.
 
-Motivation
-Script tool header metadata.
+## Introduction
+This script focuses on the practical so-what for tool integration: a deterministic, inspectable JSON
+contract that keeps scripted scoring auditable in agent workflows.
 
-Diagram
+## Technical Implementation
+1. Read one JSON payload from ``stdin`` and compute rubric score fields.
+2. Write report + trace artifacts under ``artifacts/``.
+3. Emit one JSON envelope on ``stdout`` with ``ok/result/artifacts/warnings/error``.
+
 ```mermaid
 flowchart LR
-    A["Tool input"] --> B["Tool runtime"]
-    B --> C["rubric score result"]
-    C --> D["Artifacts and trace"]
+    A["JSON input payload"] --> B["rubric_score.py"]
+    B --> C["Score + artifacts"]
+    C --> D["JSON envelope on stdout"]
 ```
 
-Technical Walkthrough
-1. Configure the runtime surface for `tools` use-cases and run `rubric_score`.
-2. Execute the example with direct public APIs and capture trace metadata.
-3. Print a JSON payload that is easy to inspect in docs and tests.
-
-Expected Results
-- The script exits successfully and prints a non-empty JSON payload.
-- The payload includes the example identity and trace metadata.
-- Deterministic test runs can monkeypatch model backends without changing this script.
-
-Discussion
-Run with `PYTHONPATH=src python3 examples/tools/script_tools/python/rubric_score.py`.
-In tests, deterministic monkeypatching can replace live client behavior while preserving
-this script's capability-first structure.
+## Expected Results
+- Reads one JSON object from ``stdin``.
+- Prints one JSON envelope containing ``ok/result/artifacts``.
+- Writes artifacts under ``artifacts/rubric_score`` and ``artifacts/examples/traces``.
 """
 
 from __future__ import annotations

@@ -147,6 +147,7 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*.py" = ["D"]
+"examples/**/*.py" = ["E501", "D301"]
 
 # Strict-ish mypy baseline for framework code.
 [tool.mypy]

@@ -5,15 +5,28 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
-REQUIRED_SECTIONS = (
-    "Motivation",
-    "Diagram",
-    "Technical Walkthrough",
+FULL_REQUIRED_SECTIONS = (
+    "Introduction",
+    "Technical Implementation",
     "Expected Results",
-    "Discussion",
+    "References",
+)
+
+MINIMAL_REQUIRED_SECTIONS = (
+    "Introduction",
+    "Technical Implementation",
+    "Expected Results",
+)
+
+ALL_SUPPORTED_SECTIONS = (
+    "Introduction",
+    "Technical Implementation",
+    "Expected Results",
+    "References",
 )
 
 CATEGORY_ORDER = (
@@ -59,6 +72,7 @@ class ExampleDocSpec:
     slug: str
     title: str
     extension: str
+    source_start_line: int
     sections: dict[str, str]
 
 
@@ -82,14 +96,30 @@ def _discover_runnable_examples(repo_root: Path) -> list[Path]:
     return discovered
 
 
-def _parse_python_doc_text(path: Path) -> str:
-    """Parse module docstring text from one Python example."""
+def _parse_python_doc_text(path: Path) -> tuple[str, int]:
+    """Parse module docstring text and source start line from one Python example."""
     source = path.read_text(encoding="utf-8")
     module = ast.parse(source, filename=str(path))
     docstring = ast.get_docstring(module, clean=False)
     if not isinstance(docstring, str) or not docstring.strip():
         raise ValueError(f"{path}: missing module docstring.")
-    return docstring
+
+    source_start_line = 1
+    if module.body:
+        first = module.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+            and isinstance(first.end_lineno, int)
+        ):
+            source_start_line = first.end_lineno + 1
+
+    lines = source.splitlines()
+    while source_start_line <= len(lines) and not lines[source_start_line - 1].strip():
+        source_start_line += 1
+
+    return docstring, source_start_line
 
 
 def _parse_shell_doc_text(path: Path) -> str:
@@ -117,26 +147,51 @@ def _parse_shell_doc_text(path: Path) -> str:
     return doc_text
 
 
-def _parse_canonical_sections(*, doc_text: str, source_path: Path) -> dict[str, str]:
+def _is_script_tool_example(rel_path: str) -> bool:
+    """Return True when one example path belongs to script tools."""
+    return rel_path.startswith("examples/tools/script_tools/")
+
+
+def _required_sections_for_example(rel_path: str) -> tuple[str, ...]:
+    """Return required section profile for one example path."""
+    if _is_script_tool_example(rel_path):
+        return MINIMAL_REQUIRED_SECTIONS
+    return FULL_REQUIRED_SECTIONS
+
+
+def _parse_canonical_sections(
+    *,
+    doc_text: str,
+    source_path: Path,
+    required_sections: tuple[str, ...],
+) -> dict[str, str]:
     """Parse canonical docs sections from one source doc block."""
+    heading_pattern = re.compile(r"^##\s+(.+?)\s*$")
     sections: dict[str, list[str]] = {}
     current_section: str | None = None
 
     for raw_line in doc_text.splitlines():
         line = raw_line.rstrip()
-        stripped = line.strip()
-        if stripped in REQUIRED_SECTIONS:
-            current_section = stripped
-            sections[current_section] = []
+        match = heading_pattern.match(line.strip())
+        if match is not None:
+            heading = match.group(1).strip()
+            if heading in ALL_SUPPORTED_SECTIONS:
+                current_section = heading
+                sections[current_section] = []
+            else:
+                current_section = None
             continue
         if current_section is not None:
             sections[current_section].append(line)
 
-    missing = [section for section in REQUIRED_SECTIONS if section not in sections]
+    missing = [section for section in required_sections if section not in sections]
     if missing:
         raise ValueError(f"{source_path}: missing canonical section(s): {missing}")
 
-    return {name: "\n".join(sections[name]).strip() for name in REQUIRED_SECTIONS}
+    parsed = {name: "\n".join(sections[name]).strip() for name in sections}
+    if "Technical Implementation" in required_sections:
+        _extract_mermaid(parsed.get("Technical Implementation", ""), source_path=source_path.as_posix())
+    return parsed
 
 
 def _slug_for_example(*, rel_parts: tuple[str, ...], extension: str) -> str:
@@ -165,9 +220,9 @@ def _title_for_example(*, rel_parts: tuple[str, ...], extension: str) -> str:
     return " ".join(title_parts)
 
 
-def _extract_mermaid(diagram_section: str, *, source_path: str) -> str:
-    """Extract Mermaid diagram text from canonical Diagram section."""
-    lines = diagram_section.splitlines()
+def _extract_mermaid(technical_section: str, *, source_path: str) -> str:
+    """Extract Mermaid diagram text from canonical Technical Implementation section."""
+    lines = technical_section.splitlines()
     start = None
     for index, line in enumerate(lines):
         if line.strip().lower() == "```mermaid":
@@ -182,11 +237,110 @@ def _extract_mermaid(diagram_section: str, *, source_path: str) -> str:
                 break
         mermaid_text = "\n".join(lines[start:end]).strip()
     else:
-        mermaid_text = diagram_section.strip()
+        mermaid_text = technical_section.strip()
 
     if not mermaid_text:
-        raise ValueError(f"{source_path}: Diagram section must include Mermaid content.")
+        raise ValueError(f"{source_path}: Technical Implementation must include Mermaid content.")
     return mermaid_text
+
+
+def _strip_mermaid_block(technical_section: str) -> str:
+    """Return Technical Implementation body without the Mermaid fenced block."""
+    lines = technical_section.splitlines()
+    start = None
+    end = None
+    for index, line in enumerate(lines):
+        if line.strip().lower() == "```mermaid":
+            start = index
+            break
+    if start is None:
+        return technical_section.strip()
+    for index in range(start + 1, len(lines)):
+        if lines[index].strip() == "```":
+            end = index
+            break
+    if end is None:
+        end = len(lines) - 1
+
+    stripped_lines = lines[:start] + lines[end + 1 :]
+    return "\n".join(stripped_lines).strip()
+
+
+def _strip_expected_results_run_preface(expected_results: str) -> str:
+    """Remove legacy run-command preface from Expected Results text."""
+    lines = expected_results.splitlines()
+    index = 0
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+    if index >= len(lines) or lines[index].strip().lower() != "run:":
+        return expected_results.strip()
+
+    index += 1
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+    if index < len(lines):
+        stripped = lines[index].strip()
+        if stripped.startswith("- ") or stripped.startswith("* "):
+            index += 1
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+    return "\n".join(lines[index:]).strip()
+
+
+def _normalize_code_block_indentation(body: str) -> str:
+    """Ensure code-block bodies remain indented when embedded text contains newlines."""
+    lines = body.splitlines()
+    normalized: list[str] = []
+    in_code_block = False
+    saw_content_line = False
+
+    for line in lines:
+        stripped = line.strip()
+        if not in_code_block and stripped.startswith(".. code-block::"):
+            in_code_block = True
+            saw_content_line = False
+            normalized.append(line)
+            continue
+
+        if in_code_block:
+            if not saw_content_line:
+                normalized.append(line)
+                if stripped:
+                    saw_content_line = True
+                continue
+            if line.startswith("   ") or not stripped:
+                normalized.append(line)
+            else:
+                normalized.append(f"   {line}")
+            continue
+
+        normalized.append(line)
+
+    return "\n".join(normalized).strip()
+
+
+def _render_optional_section(*, heading: str, body: str | None, prelude: list[str] | None = None) -> list[str]:
+    """Render one optional RST section block."""
+    normalized = (body or "").strip()
+    if not normalized and not prelude:
+        return []
+    lines = [
+        heading,
+        "-" * len(heading),
+        "",
+    ]
+    if prelude:
+        lines.extend(prelude)
+    if normalized:
+        lines.extend(
+            [
+                normalized,
+                "",
+            ]
+        )
+    elif lines[-1] != "":
+        lines.append("")
+    return lines
 
 
 def _render_example_page(spec: ExampleDocSpec) -> str:
@@ -196,63 +350,75 @@ def _render_example_page(spec: ExampleDocSpec) -> str:
     include_path = f"../../../{spec.rel_path}"
     literal_language = "python" if spec.extension == ".py" else "bash"
 
-    motivation = spec.sections["Motivation"]
-    walkthrough = spec.sections["Technical Walkthrough"]
-    expected_results = spec.sections["Expected Results"]
-    discussion = spec.sections["Discussion"]
-    mermaid = _extract_mermaid(spec.sections["Diagram"], source_path=spec.rel_path)
+    introduction = spec.sections["Introduction"]
+    technical_implementation = spec.sections["Technical Implementation"]
+    expected_results = _normalize_code_block_indentation(
+        _strip_expected_results_run_preface(spec.sections["Expected Results"])
+    )
+    references = spec.sections.get("References")
+    mermaid = _extract_mermaid(technical_implementation, source_path=spec.rel_path)
+    technical_text = _strip_mermaid_block(technical_implementation)
     indented_mermaid = "\n".join(f"   {line}" for line in mermaid.splitlines())
 
-    return "\n".join(
+    source_block = [
+        f".. literalinclude:: {include_path}",
+        f"   :language: {literal_language}",
+    ]
+    if spec.extension == ".py":
+        source_block.append(f"   :lines: {spec.source_start_line}-")
+    source_block.extend(
         [
-            title,
-            "=" * len(title),
-            "",
-            f"Source: ``{spec.rel_path}``",
-            "",
-            "Run Command",
-            "-----------",
-            "",
-            ".. code-block:: bash",
-            "",
-            f"   {run_command}",
-            "",
-            "Motivation",
-            "----------",
-            "",
-            motivation,
-            "",
-            "Diagram",
-            "-------",
-            "",
-            ".. mermaid::",
-            "",
-            indented_mermaid,
-            "",
-            "Technical Walkthrough",
-            "---------------------",
-            "",
-            walkthrough,
-            "",
-            "Expected Results",
-            "----------------",
-            "",
-            expected_results,
-            "",
-            "Discussion",
-            "----------",
-            "",
-            discussion,
-            "",
-            "Source Code",
-            "-----------",
-            "",
-            f".. literalinclude:: {include_path}",
-            f"   :language: {literal_language}",
             "   :linenos:",
             "",
         ]
     )
+
+    diagram_block = [
+        ".. mermaid::",
+        "",
+        indented_mermaid,
+        "",
+    ]
+
+    lines = [
+        title,
+        "=" * len(title),
+        "",
+        f"Source: ``{spec.rel_path}``",
+        "",
+        "Introduction",
+        "------------",
+        "",
+        introduction,
+        "",
+    ]
+    lines.extend(
+        [
+            "Technical Implementation",
+            "------------------------",
+            "",
+        ]
+    )
+    if technical_text:
+        lines.extend(
+            [
+                technical_text,
+                "",
+            ]
+        )
+    lines.extend(diagram_block)
+    lines.extend(source_block)
+    expected_prelude = [
+        ".. rubric:: Run Command",
+        "",
+        ".. code-block:: bash",
+        "",
+        f"   {run_command}",
+        "",
+    ]
+    lines.extend(_render_optional_section(heading="Expected Results", body=expected_results, prelude=expected_prelude))
+    lines.extend(_render_optional_section(heading="References", body=references))
+    return "\n".join(lines)
 
 
 def _render_category_index(*, category: str, entries: list[ExampleDocSpec]) -> str:
@@ -316,8 +482,17 @@ def _build_specs(repo_root: Path) -> list[ExampleDocSpec]:
         if category not in CATEGORY_ORDER:
             continue
 
-        doc_text = _parse_python_doc_text(path) if path.suffix == ".py" else _parse_shell_doc_text(path)
-        sections = _parse_canonical_sections(doc_text=doc_text, source_path=path)
+        if path.suffix == ".py":
+            doc_text, source_start_line = _parse_python_doc_text(path)
+        else:
+            doc_text = _parse_shell_doc_text(path)
+            source_start_line = 1
+
+        sections = _parse_canonical_sections(
+            doc_text=doc_text,
+            source_path=path,
+            required_sections=_required_sections_for_example(rel_path),
+        )
 
         specs.append(
             ExampleDocSpec(
@@ -326,6 +501,7 @@ def _build_specs(repo_root: Path) -> list[ExampleDocSpec]:
                 slug=_slug_for_example(rel_parts=rel_parts, extension=path.suffix),
                 title=_title_for_example(rel_parts=rel_parts, extension=path.suffix),
                 extension=path.suffix,
+                source_start_line=source_start_line,
                 sections=sections,
             )
         )

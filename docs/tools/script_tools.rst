@@ -34,7 +34,7 @@ Programmatic helpers
        script_tools=(
            ScriptTool(
                name="rubric_score",
-               path="examples/tools/script_tools/python/rubric_score.py",
+               path="examples/tools/script_tools/rubric_score.py",
                description="Score text with a simple rubric.",
            ),
        )
@@ -59,5 +59,5 @@ Examples
 --------
 
 - ``examples/tools/script_tools/README.md``
-- ``examples/tools/script_tools/python/rubric_score.py``
-- ``examples/tools/script_tools/bash/repo_quickscan.sh``
+- ``examples/tools/script_tools/rubric_score.py``
+- ``examples/tools/script_tools/repo_quickscan.sh``

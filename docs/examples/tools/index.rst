@@ -7,6 +7,6 @@ Generated from canonical example docstrings/comments in ``examples/tools``.
    :maxdepth: 1
 
    mcp_minimal
-   script_tools_bash_repo_quickscan
-   script_tools_python_rubric_score
+   script_tools_repo_quickscan
+   script_tools_rubric_score
    source_fusion_story

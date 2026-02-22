@@ -1,30 +1,57 @@
-"""Example script.
+r"""# Agents / Direct LLM Call.
 
-Motivation
-Run one traced ``DirectLLMCall`` for an engineering-design prompt.
+## Introduction
+Engineering-design studies show that transparent prompt-to-response traces are essential for credible
+evaluation and human oversight; the benchmark framing in Toward Engineering AGI and the collaboration
+framing in Human-AI collaboration by design both depend on this visibility, while llama.cpp server docs
+ground practical local deployment. This example is the smallest reproducible path for observing one direct
+call end to end with runtime traces.
 
-Diagram
+
+## Technical Implementation
+1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
+2. Build the runtime surface (public APIs only) and execute ``DirectLLMCall.run(...)`` with a fixed ``request_id``.
+3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
+4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+
 ```mermaid
 flowchart LR
-    A["Prompt"] --> B["Agent run"]
-    B --> C["direct llm call output"]
-    C --> D["JSON payload and trace"]
+    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
+    B --> C["DirectLLMCall.run(...)"]
+    C --> D["WorkflowRuntime executes one direct call"]
+    C --> E["Tracer JSONL + console events"]
+    D --> F["ExecutionResult/payload"]
+    E --> F
+    F --> G["Printed JSON output"]
 ```
 
-Technical Walkthrough
-1. Configure the runtime surface for `agents` use-cases and run `direct_llm_call`.
-2. Execute the example with direct public APIs and capture trace metadata.
-3. Print a JSON payload that is easy to inspect in docs and tests.
 
-Expected Results
-- The script exits successfully and prints a non-empty JSON payload.
-- The payload includes the example identity and trace metadata.
-- Deterministic test runs can monkeypatch model backends without changing this script.
+## Expected Results
+Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
+(timestamps, durations, and trace filenames vary by run):
 
-Discussion
-Run with `PYTHONPATH=src python3 examples/agents/direct_llm_call.py`.
-In tests, deterministic monkeypatching can replace live client behavior while preserving
-this script's capability-first structure.
+.. code-block:: text
+
+   {
+     "error": null,
+     "example": "agents/direct_llm_call.py",
+     "final_output": "4",
+     "model": "example-model",
+     "package_version": "0.2.0",
+     "success": true,
+     "terminated_reason": null,
+     "trace": {
+       "request_id": "example-direct-llm-design-001",
+       "trace_dir": "artifacts/examples/traces",
+       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-direct-llm-design-001.jsonl"
+     }
+   }
+
+
+## References
+- `Toward Engineering AGI: Benchmarking the Engineering Design Capabilities of LLMs <https://arxiv.org/abs/2509.16204>`_
+- `Human-AI collaboration by design <https://www.cambridge.org/core/journals/proceedings-of-the-design-society/article/humanai-collaboration-by-design/45BC30ADFF2FE3B204D4A29DD67F6353>`_
+- `llama.cpp llama-server docs <https://github.com/ggml-org/llama.cpp#llama-server>`_
 """
 
 from __future__ import annotations

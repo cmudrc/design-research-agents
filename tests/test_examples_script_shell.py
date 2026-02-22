@@ -14,7 +14,7 @@ pytestmark = pytest.mark.examples_full
 
 def test_script_shell_example_runs(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DRA_EXAMPLE_LLM_MODE", "deterministic")
-    example_path = REPO_ROOT / "examples" / "tools" / "script_tools" / "bash" / "repo_quickscan.sh"
+    example_path = REPO_ROOT / "examples" / "tools" / "script_tools" / "repo_quickscan.sh"
     env = dict(os.environ)
     existing_pythonpath = env.get("PYTHONPATH")
     test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"

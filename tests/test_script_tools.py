@@ -9,7 +9,7 @@ from design_research_agents.tools._config import ScriptTool
 def _rubric_script() -> ScriptTool:
     return ScriptTool(
         name="rubric_score",
-        path="examples/tools/script_tools/python/rubric_score.py",
+        path="examples/tools/script_tools/rubric_score.py",
         description="Score text against a simple rubric.",
         input_schema={
             "type": "object",
@@ -28,7 +28,7 @@ def _rubric_script() -> ScriptTool:
 def _quickscan_script() -> ScriptTool:
     return ScriptTool(
         name="repo_quickscan",
-        path="examples/tools/script_tools/bash/repo_quickscan.sh",
+        path="examples/tools/script_tools/repo_quickscan.sh",
         description="Produce a quick repository inventory snapshot.",
         input_schema={
             "type": "object",

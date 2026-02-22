@@ -17,7 +17,7 @@ sources for design-analysis workflows.
 ```bash
 PYTHONPATH=src python3 examples/tools/mcp_minimal.py
 PYTHONPATH=src python3 examples/tools/source_fusion_story.py
-bash examples/tools/script_tools/bash/repo_quickscan.sh <<'JSON'
+bash examples/tools/script_tools/repo_quickscan.sh <<'JSON'
 {"include_hidden":false}
 JSON
 ```

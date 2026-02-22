@@ -35,6 +35,8 @@ Get started
 - :doc:`quickstart` for a fast, end-to-end example.
 - :doc:`dependencies_and_extras` for optional dependency profiles and platform constraints.
 - :doc:`examples/index` for scenario-driven runnable examples and expected observations.
+- :doc:`examples/workflow/index` for runnable workflow primitive examples.
+- :doc:`examples/patterns/index` for runnable orchestration pattern examples.
 - :doc:`llm_clients/index` to choose local or remote client backends.
 - :doc:`tools/index` for unified runtime + MCP + script tools.
 - :doc:`agents/index` to understand agent execution tradeoffs.
@@ -51,6 +53,8 @@ Get started
    quickstart
    dependencies_and_extras
    examples/index
+   examples/workflow/index
+   examples/patterns/index
    philosophy
    llm_clients/index
    tools/index
