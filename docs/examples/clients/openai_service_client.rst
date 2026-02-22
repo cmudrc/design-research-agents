@@ -1,4 +1,4 @@
-Openai Service Client
+OpenAI Service Client
 =====================
 
 Source: ``examples/clients/openai_service_client.py``

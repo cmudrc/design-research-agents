@@ -15,13 +15,14 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import OpenAIServiceLLMClient
-   from design_research_agents._contracts import LLMChatParams, LLMMessage
+   from design_research_agents.llm import LLMMessage, LLMRequest
 
    client = OpenAIServiceLLMClient()
-   response = client.chat(
-       messages=[LLMMessage(role="user", content="Give me three study themes.")],
-       model=client.default_model(),
-       params=LLMChatParams(),
+   response = client.generate(
+       LLMRequest(
+           messages=(LLMMessage(role="user", content="Give me three study themes."),),
+           model=client.default_model(),
+       )
    )
 
 Dependencies and environment

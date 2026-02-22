@@ -1,4 +1,4 @@
-Multi Step Json Tool Calling 1D Optimization
+Multi Step JSON Tool Calling 1d Optimization
 ============================================
 
 Source: ``examples/optimization/multi_step_json_tool_calling_1d_optimization.py``

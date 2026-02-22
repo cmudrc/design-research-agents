@@ -24,8 +24,8 @@ from design_research_agents.llm.clients import (
     SglangServerLLMClient,
     TransformersLocalLLMClient,
     VllmServerLLMClient,
-    _SingleBackendLLMClient,
 )
+from design_research_agents.llm.clients._shared import _SingleBackendLLMClient
 
 
 class _StubBackend(BaseLLMBackend):

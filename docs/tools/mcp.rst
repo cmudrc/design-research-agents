@@ -1,17 +1,16 @@
 MCP Tools
 =========
 
-The package includes a built-in stdio MCP server and MCP client integration in
-``Toolbox``.
+The package includes MCP client integration in ``Toolbox``.
 
 Server
 ------
 
-Run the built-in server:
+Use a stdio MCP server command from your selected provider/runtime.
 
 .. code-block:: bash
 
-   python -m design_research_agents._mcp_server
+   python3 -m your_mcp_server_module
 
 Integration steps
 -----------------
@@ -33,7 +32,7 @@ Programmatic helpers
        mcp_servers=(
            McpServer(
                id="local_core",
-               command=("python3", "-m", "design_research_agents._mcp_server"),
+               command=("python3", "-m", "your_mcp_server_module"),
            ),
        )
    )

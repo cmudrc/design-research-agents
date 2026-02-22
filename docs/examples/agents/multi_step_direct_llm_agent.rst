@@ -1,4 +1,4 @@
-Multi Step Direct Llm Agent
+Multi Step Direct LLM Agent
 ===========================
 
 Source: ``examples/agents/multi_step_direct_llm_agent.py``

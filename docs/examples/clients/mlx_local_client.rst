@@ -1,4 +1,4 @@
-Mlx Local Client
+MLX Local Client
 ================
 
 Source: ``examples/clients/mlx_local_client.py``

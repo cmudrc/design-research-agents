@@ -1,4 +1,4 @@
-Mcp Minimal
+MCP Minimal
 ===========
 
 Source: ``examples/tools/mcp_minimal.py``
@@ -42,7 +42,8 @@ Expected Results
 Discussion
 ----------
 
-Run with `PYTHONPATH=src python3 examples/tools/mcp_minimal.py`.
+Run with `DRA_EXAMPLE_MCP_COMMAND='python3 -m your_mcp_server_module'`
+`PYTHONPATH=src python3 examples/tools/mcp_minimal.py`.
 In tests, deterministic monkeypatching can replace live client behavior while preserving
 this script's capability-first structure.
 

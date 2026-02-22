@@ -1,4 +1,4 @@
-Openai Compatible Http Client
+OpenAI Compatible HTTP Client
 =============================
 
 Source: ``examples/clients/openai_compatible_http_client.py``

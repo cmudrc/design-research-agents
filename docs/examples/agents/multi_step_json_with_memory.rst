@@ -1,4 +1,4 @@
-Multi Step Json With Memory
+Multi Step JSON With Memory
 ===========================
 
 Source: ``examples/agents/multi_step_json_with_memory.py``

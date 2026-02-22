@@ -1,4 +1,4 @@
-Multi Step Json Tool Calling Agent
+Multi Step JSON Tool Calling Agent
 ==================================
 
 Source: ``examples/agents/multi_step_json_tool_calling_agent.py``

@@ -1,4 +1,4 @@
-Vllm Server Client
+vLLM Server Client
 ==================
 
 Source: ``examples/clients/vllm_server_client.py``

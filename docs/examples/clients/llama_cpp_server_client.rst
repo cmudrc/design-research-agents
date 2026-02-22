@@ -1,4 +1,4 @@
-Llama Cpp Server Client
+Llama CPP Server Client
 =======================
 
 Source: ``examples/clients/llama_cpp_server_client.py``

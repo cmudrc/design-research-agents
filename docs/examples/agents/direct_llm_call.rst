@@ -1,4 +1,4 @@
-Direct Llm Call
+Direct LLM Call
 ===============
 
 Source: ``examples/agents/direct_llm_call.py``

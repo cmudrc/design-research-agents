@@ -22,7 +22,8 @@ Expected Results
 - Deterministic test runs can monkeypatch model backends without changing this script.
 
 Discussion
-Run with `PYTHONPATH=src python3 examples/tools/source_fusion_story.py`.
+Run with `DRA_EXAMPLE_MCP_COMMAND='python3 -m your_mcp_server_module'`
+`PYTHONPATH=src python3 examples/tools/source_fusion_story.py`.
 In tests, deterministic monkeypatching can replace live client behavior while preserving
 this script's capability-first structure.
 """
@@ -30,10 +31,21 @@ this script's capability-first structure.
 from __future__ import annotations
 
 import json
-import sys
+import os
+import shlex
 from pathlib import Path
 
 from design_research_agents import McpServer, ScriptTool, Toolbox, Tracer
+
+
+def _mcp_server_command() -> tuple[str, ...]:
+    raw_command = os.environ.get("DRA_EXAMPLE_MCP_COMMAND")
+    if raw_command is None or not raw_command.strip():
+        raise RuntimeError(
+            "Set DRA_EXAMPLE_MCP_COMMAND to a stdio MCP server command "
+            "(for example: 'python3 -m your_mcp_server_module')."
+        )
+    return tuple(shlex.split(raw_command))
 
 
 def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
@@ -73,8 +85,7 @@ def _run_report() -> dict[str, object]:
         mcp_servers=(
             McpServer(
                 id="local_core",
-                command=(sys.executable, "-m", "design_research_agents._mcp_server"),
-                env={"PYTHONPATH": "src"},
+                command=_mcp_server_command(),
                 timeout_s=20,
             ),
         ),

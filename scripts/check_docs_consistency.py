@@ -49,7 +49,6 @@ INTERNAL_REFERENCE_DOC_PATHS = {
     "docs/reference/shared.rst",
 }
 ALLOWED_USER_DOC_INTERNAL_REFERENCES = {
-    "docs/tools/mcp.rst": ("design_research_agents._mcp_server",),
     "docs/api.rst": ("design_research_agents._contracts",),
 }
 
@@ -275,8 +274,6 @@ def _find_internal_module_boundary_violations(
         for match in INTERNAL_MODULE_PATTERN.finditer(text):
             matched_path = match.group(0)
             allowed_prefixes = ALLOWED_USER_DOC_INTERNAL_REFERENCES.get(rel, ())
-            if rel.startswith("docs/llm_clients/"):
-                allowed_prefixes = (*allowed_prefixes, "design_research_agents._contracts")
             if any(matched_path.startswith(prefix) for prefix in allowed_prefixes):
                 continue
             key = (rel, matched_path)

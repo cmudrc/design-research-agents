@@ -36,6 +36,19 @@ CATEGORY_TITLES = {
     "optimization": "Optimization Examples",
 }
 
+TITLE_TOKEN_OVERRIDES = {
+    "api": "API",
+    "cpp": "CPP",
+    "http": "HTTP",
+    "json": "JSON",
+    "llm": "LLM",
+    "mcp": "MCP",
+    "mlx": "MLX",
+    "openai": "OpenAI",
+    "sglang": "SGLang",
+    "vllm": "vLLM",
+}
+
 
 @dataclass(slots=True, frozen=True)
 class ExampleDocSpec:
@@ -137,9 +150,19 @@ def _slug_for_example(*, rel_parts: tuple[str, ...], extension: str) -> str:
 
 def _title_for_example(*, rel_parts: tuple[str, ...], extension: str) -> str:
     """Build human-readable page title for one example path."""
+    del extension
     subpath_without_ext = Path(*rel_parts[1:]).with_suffix("").as_posix()
     label = subpath_without_ext.replace("/", " / ").replace("_", " ").replace("-", " ")
-    return label.title()
+    title_parts: list[str] = []
+    for token in label.split(" "):
+        if token == "/":
+            title_parts.append(token)
+            continue
+        normalized = token.strip().lower()
+        if not normalized:
+            continue
+        title_parts.append(TITLE_TOKEN_OVERRIDES.get(normalized, normalized.capitalize()))
+    return " ".join(title_parts)
 
 
 def _extract_mermaid(diagram_section: str, *, source_path: str) -> str:

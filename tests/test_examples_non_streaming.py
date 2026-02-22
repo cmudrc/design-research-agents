@@ -40,6 +40,7 @@ def test_non_streaming_example_runs(
     example_path = REPO_ROOT / example_relpath
     env = dict(os.environ)
     env["DRA_EXAMPLE_ID"] = example_relpath.replace("\\", "/")
+    env["DRA_EXAMPLE_MCP_COMMAND"] = f"{sys.executable} -m design_research_agents._mcp_server"
     existing_pythonpath = env.get("PYTHONPATH")
     test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"
     env["PYTHONPATH"] = f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths

@@ -17,13 +17,14 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import TransformersLocalLLMClient
-   from design_research_agents._contracts import LLMChatParams, LLMMessage
+   from design_research_agents.llm import LLMMessage, LLMRequest
 
    client = TransformersLocalLLMClient(model_id="distilgpt2")
-   response = client.chat(
-       messages=[LLMMessage(role="user", content="Summarize this transcript section.")],
-       model=client.default_model(),
-       params=LLMChatParams(),
+   response = client.generate(
+       LLMRequest(
+           messages=(LLMMessage(role="user", content="Summarize this transcript section."),),
+           model=client.default_model(),
+       )
    )
 
 Dependencies and environment

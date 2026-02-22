@@ -33,9 +33,8 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import Tracer
+from design_research_agents import LlamaCppServerLLMClient, Tracer
 from design_research_agents.llm import LLMMessage, LLMRequest
-from design_research_agents.llm.clients import LlamaCppServerLLMClient
 
 
 def _build_payload() -> dict[str, object]:

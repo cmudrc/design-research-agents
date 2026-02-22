@@ -1,4 +1,4 @@
-Sglang Server Client
+SGLang Server Client
 ====================
 
 Source: ``examples/clients/sglang_server_client.py``

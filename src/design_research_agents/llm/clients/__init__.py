@@ -6,7 +6,6 @@ from ._ollama import OllamaLLMClient
 from ._openai_compatible_http import OpenAICompatibleHTTPLLMClient
 from ._openai_service import OpenAIServiceLLMClient
 from ._sglang_server import SglangServerLLMClient
-from ._shared import _SingleBackendLLMClient
 from ._transformers_local import TransformersLocalLLMClient
 from ._vllm_server import VllmServerLLMClient
 
@@ -19,5 +18,4 @@ __all__ = [
     "SglangServerLLMClient",
     "TransformersLocalLLMClient",
     "VllmServerLLMClient",
-    "_SingleBackendLLMClient",
 ]
