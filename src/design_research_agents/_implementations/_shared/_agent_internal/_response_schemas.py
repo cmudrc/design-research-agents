@@ -24,39 +24,6 @@ def clone_response_schema(schema: dict[str, object]) -> dict[str, object]:
     return deepcopy(schema)
 
 
-def build_router_selection_response_schema(
-    *,
-    alternative_identifiers: Sequence[str],
-) -> dict[str, object]:
-    """Build schema for router route-selection output.
-
-    The schema requires ``tool_names`` as a non-empty ordered list of route
-    identifiers.
-
-    Args:
-        alternative_identifiers: Ordered route identifiers available to the router.
-
-    Returns:
-        JSON-schema-like mapping describing the router selection payload.
-    """
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["tool_names"],
-        "properties": {
-            "tool_names": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "string",
-                    "enum": list(alternative_identifiers),
-                },
-            },
-            "reason": {"type": "string"},
-        },
-    }
-
-
 def build_tool_call_response_schema(
     *,
     tool_names: Sequence[str],
@@ -112,36 +79,6 @@ def build_multi_step_direct_controller_response_schema() -> dict[str, object]:
             "decision": {"type": "string", "enum": ["CONTINUE", "STOP"]},
             "content": {"type": "string"},
             "final_output": {"type": "string"},
-            "reason": {"type": "string"},
-        },
-    }
-
-
-def build_multi_step_tool_router_response_schema(
-    *,
-    tool_names: Sequence[str],
-) -> dict[str, object]:
-    """Build schema for one multi-step tool-router decision.
-
-    Args:
-        tool_names: Allowed tool identifiers for controller-selected tool calls.
-
-    Returns:
-        JSON-schema-like mapping describing one router decision payload.
-    """
-    return {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["action"],
-        "properties": {
-            "action": {"type": "string", "enum": ["TOOL_CALL", "STOP"]},
-            "tool_names": {
-                "type": "array",
-                "items": {"type": "string", "enum": list(tool_names)},
-                "minItems": 1,
-            },
-            "tool_input": {"type": "object"},
-            "final_output": {"type": "object"},
             "reason": {"type": "string"},
         },
     }

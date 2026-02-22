@@ -139,7 +139,7 @@ def test_agent_routing_helper_extractors_cover_selection_shapes() -> None:
                 ]
             }
         )
-        == "beta"
+        == ""
     )
 
     budget_tracker = WorkflowBudgetTracker()

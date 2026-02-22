@@ -553,14 +553,6 @@ def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> s
         tool_name = raw_step_output.get("tool_name")
         if isinstance(tool_name, str) and tool_name.strip():
             return tool_name.strip()
-        raw_tool_names = raw_step_output.get("tool_names")
-        if isinstance(raw_tool_names, Sequence) and not isinstance(raw_tool_names, (str, bytes)):
-            for raw_name in raw_tool_names:
-                if not isinstance(raw_name, str):
-                    continue
-                normalized_name = raw_name.strip()
-                if normalized_name:
-                    return normalized_name
     return ""
 
 

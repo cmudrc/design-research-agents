@@ -13,16 +13,11 @@ Patterns
 - Iterative direct-response loop with internal ``CONTINUE``/``STOP`` decisions.
 - No external tool calls; each step refines or finalizes the answer.
 
-``MultiStepAgent(mode="json")`` router special-case
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ReAct-style loop where each step emits either ``TOOL_CALL`` or ``STOP``.
-- ``TOOL_CALL`` selects route candidates via ``tool_names`` and executes the first valid route.
-
 ``MultiStepAgent(mode="json")``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 - ReAct-style loop over JSON tool-call actions.
+- Each action step selects a tool via ``tool_name`` and optional ``tool_input``.
 - Strong fit for structured iterative decomposition.
 - Constructor kwargs expose continuation/step prompt overrides plus
   ``continuation_memory_tail_items`` and ``step_memory_tail_items`` controls.

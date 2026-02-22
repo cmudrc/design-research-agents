@@ -5,13 +5,13 @@ engineering-design interpretation.
 
 ## Scripts
 
-- `multi_step_tool_router_1d_optimization.py`
+- `multi_step_json_tool_calling_1d_optimization.py`
   - `MultiStepAgent(mode="json")` minimizing `f(x)=x^2` with LLM-selected tools.
 
 ## Quick Start
 
 ```bash
-PYTHONPATH=src python3 examples/optimization/multi_step_tool_router_1d_optimization.py
+PYTHONPATH=src python3 examples/optimization/multi_step_json_tool_calling_1d_optimization.py
 ```
 
 ## Expected Outputs

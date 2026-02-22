@@ -44,7 +44,7 @@ class _SequenceChatLLMClient:
         )
 
 
-class _RouterToolRuntime(ToolRuntime):
+class _JsonToolRuntime(ToolRuntime):
     def list_tools(self) -> Sequence[ToolSpec]:
         return (
             ToolSpec(
@@ -71,7 +71,7 @@ class _RouterToolRuntime(ToolRuntime):
         )
 
 
-def test_multi_step_tool_router_one_step_mode_runs_single_action_step() -> None:
+def test_multi_step_json_one_step_mode_runs_single_action_step() -> None:
     llm_client = _SequenceChatLLMClient(
         responses=[
             json.dumps(
@@ -85,7 +85,7 @@ def test_multi_step_tool_router_one_step_mode_runs_single_action_step() -> None:
     agent = MultiStepAgent(
         mode="json",
         llm_client=llm_client,
-        tool_runtime=_RouterToolRuntime(),
+        tool_runtime=_JsonToolRuntime(),
         max_steps=1,
     )
 

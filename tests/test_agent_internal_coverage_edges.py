@@ -12,8 +12,8 @@ from design_research_agents._implementations._shared._agent_internal._multi_step
 )
 from design_research_agents._implementations._shared._agent_internal._response_schemas import (
     build_continuation_response_schema,
-    build_multi_step_tool_router_response_schema,
-    build_router_selection_response_schema,
+    build_multi_step_direct_controller_response_schema,
+    build_tool_call_response_schema,
 )
 
 
@@ -49,14 +49,14 @@ class _EmptySearchStore:
         return []
 
 
-def test_schema_builders_cover_router_variants() -> None:
-    router_schema = build_router_selection_response_schema(alternative_identifiers=("core", "remote"))
-    tool_router_schema = build_multi_step_tool_router_response_schema(tool_names=("tool_a", "tool_b"))
+def test_schema_builders_cover_active_variants() -> None:
+    tool_call_schema = build_tool_call_response_schema(tool_names=("tool_a", "tool_b"))
+    direct_controller_schema = build_multi_step_direct_controller_response_schema()
 
-    assert router_schema["required"] == ["tool_names"]
-    assert router_schema["properties"]["tool_names"]["items"]["enum"] == ["core", "remote"]
-    assert tool_router_schema["required"] == ["action"]
-    assert tool_router_schema["properties"]["action"]["enum"] == ["TOOL_CALL", "STOP"]
+    assert tool_call_schema["required"] == ["tool_name"]
+    assert tool_call_schema["properties"]["tool_name"]["enum"] == ["tool_a", "tool_b"]
+    assert direct_controller_schema["required"] == ["decision", "content"]
+    assert direct_controller_schema["properties"]["decision"]["enum"] == ["CONTINUE", "STOP"]
 
 
 def test_retrieve_memory_context_returns_error_on_store_exception() -> None:

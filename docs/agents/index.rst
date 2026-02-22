@@ -29,12 +29,9 @@ Decision table
    * - Iterative direct (no external tools)
      - ``MultiStepAgent(mode="direct")``
      - Internal CONTINUE/STOP controller steps
-   * - Iterative tool routing loop
-     - ``MultiStepAgent(mode="json")`` with arg-less tools
-     - ReAct-style TOOL_CALL/STOP controller loop (auto-special-case)
    * - Iterative structured tool loops
      - ``MultiStepAgent(mode="json")``
-     - ReAct-style multi-step loop with JSON actions
+     - ReAct-style multi-step loop with JSON ``tool_name``/``tool_input`` actions
    * - Iterative code-action loops
      - ``MultiStepAgent(mode="code")``
      - ReAct-style loop with code actions

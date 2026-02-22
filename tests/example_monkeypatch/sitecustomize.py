@@ -55,7 +55,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.","reason":"Need final wording."}',
         '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
     ),
-    "examples/optimization/multi_step_tool_router_1d_optimization.py": (
+    "examples/optimization/multi_step_json_tool_calling_1d_optimization.py": (
         '{"continue": true, "thought": "Start descending toward zero."}',
         '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Decrease x toward zero."}',
         '{"continue": true, "thought": "Still above zero, continue decreasing."}',
@@ -99,7 +99,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
     "examples/patterns/agent_routing.py": (
-        '{"action":"TOOL_CALL","tool_names":["json_tool_agent"],"reason":"Text-analysis request uses tools."}',
+        '{"tool_name":"json_tool_agent","tool_input":{},"reason":"Text-analysis request uses tools."}',
         '{"continue": true, "thought": "Select one text tool call."}',
         '{"tool_name":"text.word_count","tool_input":{"text":"modular field service workflow"}}',
     ),
