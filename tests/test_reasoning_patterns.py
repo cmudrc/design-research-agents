@@ -16,7 +16,7 @@ from design_research_agents._implementations._patterns import (
     _tree_search as tree_search_impl,
 )
 from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
-from design_research_agents.workflow import RagReasoningPattern, TreeSearchPattern
+from design_research_agents.patterns import RagReasoningPattern, TreeSearchPattern
 
 
 class _CaptureReasoningAgent(Agent):

@@ -9,6 +9,7 @@ import pytest
 import design_research_agents as dra
 import design_research_agents.llm as dra_llm
 import design_research_agents.memory as dra_memory
+import design_research_agents.patterns as dra_patterns
 import design_research_agents.tools as dra_tools
 import design_research_agents.workflow as dra_workflow
 from design_research_agents import _contracts as dra_contracts
@@ -57,6 +58,35 @@ EXPECTED_PUBLIC_API = [
 ]
 
 EXPECTED_TOOLS_API = ["CallableTool", "McpServer", "ScriptTool", "ToolResult", "Toolbox"]
+EXPECTED_WORKFLOW_API = [
+    "AgentStep",
+    "DelegateBatchCall",
+    "DelegateBatchStep",
+    "ExecutionResult",
+    "LogicStep",
+    "LoopStep",
+    "MemoryReadStep",
+    "MemoryWriteStep",
+    "ModelStep",
+    "ToolStep",
+    "Workflow",
+    "WorkflowArtifact",
+    "WorkflowArtifactSource",
+    "list_of",
+    "scalar",
+    "typed_dict",
+]
+EXPECTED_PATTERNS_API = [
+    "BlackboardPattern",
+    "ConversationPattern",
+    "DebatePattern",
+    "NetworkedPattern",
+    "PlannerExecutorPattern",
+    "RagReasoningPattern",
+    "ReflexionPattern",
+    "RouterPattern",
+    "TreeSearchPattern",
+]
 
 
 def test_top_level_exports_match_curated_contract() -> None:
@@ -73,6 +103,24 @@ def test_tools_module_exports_match_curated_contract() -> None:
     assert dra_tools.__all__ == EXPECTED_TOOLS_API
     for symbol_name in dra_tools.__all__:
         assert getattr(dra_tools, symbol_name) is not None
+
+
+def test_workflow_module_exports_builder_surface_contract() -> None:
+    assert dra_workflow.__all__ == EXPECTED_WORKFLOW_API
+    for symbol_name in dra_workflow.__all__:
+        assert getattr(dra_workflow, symbol_name) is not None
+
+
+def test_patterns_module_exports_match_curated_contract() -> None:
+    assert dra_patterns.__all__ == EXPECTED_PATTERNS_API
+    for symbol_name in dra_patterns.__all__:
+        assert getattr(dra_patterns, symbol_name) is not None
+
+
+def test_workflow_module_does_not_export_patterns() -> None:
+    for symbol_name in EXPECTED_PATTERNS_API:
+        with pytest.raises(AttributeError):
+            getattr(dra_workflow, symbol_name)
 
 
 def test_internal_public_api_module_is_removed() -> None:
@@ -101,10 +149,6 @@ def test_llm_module_exports_request_and_message_contracts() -> None:
 def test_memory_module_exports_public_memory_facade() -> None:
     assert dra_memory.SQLiteMemoryStore.__name__ == "SQLiteMemoryStore"
     assert dra_memory.LLMEmbeddingProvider.__name__ == "LLMEmbeddingProvider"
-
-
-def test_workflow_module_exports_execution_result_contract() -> None:
-    assert dra_workflow.ExecutionResult.__name__ == "ExecutionResult"
 
 
 def test_legacy_contracts_namespace_is_removed() -> None:

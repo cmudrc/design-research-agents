@@ -67,10 +67,10 @@ from pathlib import Path
 from design_research_agents import (
     CallableTool,
     LlamaCppServerLLMClient,
-    PlannerExecutorPattern,
     Toolbox,
     Tracer,
 )
+from design_research_agents.patterns import PlannerExecutorPattern
 
 
 def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:

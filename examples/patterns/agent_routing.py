@@ -65,10 +65,10 @@ from design_research_agents import (
     DirectLLMCall,
     LlamaCppServerLLMClient,
     MultiStepAgent,
-    RouterPattern,
     Toolbox,
     Tracer,
 )
+from design_research_agents.patterns import RouterPattern
 
 
 def main() -> None:

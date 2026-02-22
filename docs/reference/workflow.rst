@@ -1,7 +1,7 @@
-Workflow Modules
-================
+Workflow Builder Modules
+========================
 
-This page lists stable public workflow modules.
+This page lists stable public workflow-construction modules.
 
 .. automodule:: design_research_agents.workflow
    :members:

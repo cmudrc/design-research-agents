@@ -6,13 +6,14 @@ This page captures the intended separation of concerns for workflow orchestratio
 Primary boundaries
 ------------------
 
-- ``Workflow``: user-facing reusable facade for constructor-first step graphs with
-  explicit input contracts and workflow-first output envelopes.
-- ``WorkflowRuntime``: deterministic typed-step execution engine used by ``Workflow``.
-- Patterns:
-  - ``PlannerExecutorPattern``: planner output followed by iterative executor loop.
-  - ``ReflexionPattern``: proposal/critique iterative refinement strategy.
-  - ``RouterPattern``: selection + delegated execution strategy.
+- ``design_research_agents.workflow``: public construction surface for composing
+  new workflow implementations from typed step objects.
+- ``Workflow``: reusable facade for constructor-first step graphs with explicit
+  input contracts and workflow-first output envelopes.
+- ``WorkflowRuntime``: deterministic typed-step execution engine used by
+  ``Workflow``.
+- ``design_research_agents.patterns``: public prebuilt implementations built
+  from workflow primitives.
 
 Step primitives
 ---------------
@@ -21,20 +22,24 @@ Step primitives
 - ``ToolStep``: single tool call via ``ToolRuntime``.
 - ``AgentStep``: single delegate invocation via direct ``delegate`` object.
 - ``LoopStep``: iterative nested workflow body with state transitions.
+- ``DelegateBatchStep``: explicit multi-delegate fan-out step.
+- ``MemoryReadStep`` and ``MemoryWriteStep``: workflow-native memory primitives.
 
 Allowed composition patterns
 ----------------------------
 
-- Use ``Workflow`` to define reusable topology once and run repeatedly.
-- Use ``LoopStep`` when iteration is a first-class part of orchestration.
-- Keep prompt/model/tool policy concerns inside pattern classes or delegates, not in
-  workflow scheduling internals.
+- Use ``Workflow`` + step primitives to define reusable topology once and run
+  repeatedly.
+- Use ``design_research_agents.patterns`` when you want a prebuilt workflow
+  implementation instead of authoring a graph from scratch.
+- Keep prompt/model/tool policy concerns in step callbacks/delegates or pattern
+  classes, not in workflow scheduling internals.
 
 Anti-patterns to avoid
 ----------------------
 
-- Adding duplicate request-id/dependency helper functions in each pattern module.
+- Mixing prebuilt pattern exports into the workflow construction module.
 - Encoding loop-state schema assumptions ad hoc inside multiple modules.
-- Treating pattern classes as hidden internals; they are reusable strategy
-  implementations built from workflow primitives.
+- Adding duplicate request-id/dependency helper functions across prebuilt
+  pattern implementations.
 - Coupling deterministic example harness behavior to script filenames only.

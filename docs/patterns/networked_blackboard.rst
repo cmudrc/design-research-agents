@@ -44,7 +44,7 @@ Background references
 - `MetaGPT <https://arxiv.org/abs/2308.00352>`_
 - `ChatDev <https://arxiv.org/abs/2307.07924>`_
 
-These are examples of LLM multi-agent coordination; our patterns are
+These are examples of LLM multi-agent coordination; these patterns are
 framework-native and intentionally minimal.
 
 Example

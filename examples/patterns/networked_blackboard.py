@@ -263,13 +263,12 @@ import json
 from pathlib import Path
 
 from design_research_agents import (
-    BlackboardPattern,
     DirectLLMCall,
     ExecutionResult,
     LlamaCppServerLLMClient,
-    NetworkedPattern,
     Tracer,
 )
+from design_research_agents.patterns import BlackboardPattern, NetworkedPattern
 
 
 def _summarize(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:

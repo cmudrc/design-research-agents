@@ -40,7 +40,8 @@ Get started
 - :doc:`llm_clients/index` to choose local or remote client backends.
 - :doc:`tools/index` for unified runtime + MCP + script tools.
 - :doc:`agents/index` to understand agent execution tradeoffs.
-- :doc:`workflows/index` for orchestration patterns and composition.
+- :doc:`workflows/index` for workflow builder primitives and composition.
+- :doc:`patterns/index` for prebuilt workflow implementations.
 - :doc:`api` for reference details.
 - `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
   for contribution workflow and PR expectations.
@@ -60,6 +61,7 @@ Get started
    tools/index
    agents/index
    workflows/index
+   patterns/index
 
 .. toctree::
    :maxdepth: 2

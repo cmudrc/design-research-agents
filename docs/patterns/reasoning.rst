@@ -1,15 +1,15 @@
 Reasoning Patterns
 ==================
 
-Reasoning capabilities are exposed as reusable workflow patterns rather than
-prompt-only conventions.
+Reasoning capabilities are exposed as reusable pattern implementations rather
+than prompt-only conventions.
 
 Available patterns
 ------------------
 
 - ``ReflexionPattern``
   - Iterative propose/critique refinement.
-  - Background references: `Reflexion <https://arxiv.org/abs/2303.11366>`_; `Self-Refine <https://arxiv.org/abs/2303.17651>`_. Conceptual grounding only; this pattern is defined by workflow contracts in this repository.
+  - Background references: `Reflexion <https://arxiv.org/abs/2303.11366>`_; `Self-Refine <https://arxiv.org/abs/2303.17651>`_. Conceptual grounding only; behavior is defined by repository contracts and implementation.
 - ``TreeSearchPattern``
   - Generator + evaluator delegate orchestration with ``max_depth``, ``branch_factor``, and ``beam_width`` controls.
   - Background references: `Tree of Thoughts <https://arxiv.org/abs/2305.10601>`_. Conceptual grounding only; this implementation uses framework-native step orchestration.

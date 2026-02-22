@@ -3,22 +3,29 @@ Workflow Runtime and Steps
 
 ``Workflow`` is the public orchestration facade for typed step execution.
 ``WorkflowRuntime`` remains the internal engine that powers ``Workflow`` and
-pattern implementations.
+prebuilt pattern implementations.
 
-Top-level step exports
-----------------------
+``design_research_agents.workflow`` is the public module for constructing new
+workflow implementations. Prebuilt implementations live in
+``design_research_agents.patterns``.
 
-All workflow step primitives are exported from the top-level package:
+Workflow-module step exports
+----------------------------
+
+All workflow step primitives are available from the workflow module:
 
 .. code-block:: python
 
-   from design_research_agents import (
+   from design_research_agents.workflow import (
        AgentStep,
+       DelegateBatchStep,
        LogicStep,
        LoopStep,
        MemoryReadStep,
        MemoryWriteStep,
+       ModelStep,
        ToolStep,
+       Workflow,
    )
 
 Step types
@@ -86,9 +93,8 @@ Input mode contracts
   ``design_research_agents.workflow`` for concise schema composition.
 - Both modes support constructor-level run defaults and per-run overrides.
   They return ``ExecutionResult`` with consistent workflow metadata.
-- Workflow-native agents and patterns normalize run payloads to a
-  workflow-first envelope with ``output.workflow``, ``output.final_output``,
-  and ``output.artifacts`` for consistent downstream consumption.
+- Prebuilt implementations in ``design_research_agents.patterns`` are authored
+  with these same primitives.
 
 Examples
 --------

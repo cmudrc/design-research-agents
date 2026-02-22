@@ -1,7 +1,8 @@
-Memory Primitives and RAG
-=========================
+Memory and RAG Pattern
+======================
 
-This project now supports workflow-first memory primitives:
+Workflow-native memory primitives are available in
+``design_research_agents.workflow``:
 
 - ``MemoryReadStep``
 - ``MemoryWriteStep``
@@ -30,17 +31,17 @@ RAG orchestration
 2. ``AgentStep`` reasoning delegate (with retrieved context injection)
 3. ``MemoryWriteStep`` (optional write-back)
 
-Background references
----------------------
+Background reference
+--------------------
 
 - `Retrieval-Augmented Generation (RAG) <https://arxiv.org/abs/2005.11401>`_
 
 The original RAG formulation combines a retriever and generator with
-non-parametric memory; this project implements a workflow-level retrieval and
-context-injection pattern.
+non-parametric memory; this implementation uses workflow-level retrieval and
+context injection.
 
-Example
--------
+Examples
+--------
 
-See ``examples/patterns/rag_reasoning.py`` and
-``examples/agents/multi_step_json_with_memory.py``.
+- ``examples/patterns/rag_reasoning.py``
+- ``examples/agents/multi_step_json_with_memory.py``

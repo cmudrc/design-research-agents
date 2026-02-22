@@ -80,5 +80,6 @@ Next Steps
 - Explore runnable examples: ``examples/README.md``
 - LLM client setup details: :doc:`llm_clients/index`
 - Agent behavior tradeoffs: :doc:`agents/index`
-- Workflow orchestration patterns: :doc:`workflows/index`
+- Workflow builder primitives: :doc:`workflows/index`
+- Prebuilt workflow implementations: :doc:`patterns/index`
 - Tool runtime and integrations: :doc:`tools/index`

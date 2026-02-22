@@ -14,6 +14,7 @@ Guaranteed Public Modules
 
    agent
    workflow
+   patterns
    llm
    memory
    tools

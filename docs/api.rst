@@ -18,6 +18,8 @@ Top-level groups:
 - Entry points: agents, LLM clients, ``ModelSelector``
 - Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
 - Orchestration: workflow step classes, ``Workflow``, and pattern classes
+  (module homes: ``design_research_agents.workflow`` and
+  ``design_research_agents.patterns``)
 - Tools: ``Toolbox``, ``CallableTool``, ``ScriptTool``, ``McpServer``
 - Tracing: ``Tracer``
 

@@ -14,8 +14,8 @@ from design_research_agents._contracts._llm import (
 )
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.agent import MultiStepAgent
+from design_research_agents.patterns import PlannerExecutorPattern
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import PlannerExecutorPattern
 
 
 class _SequenceLLMClient:

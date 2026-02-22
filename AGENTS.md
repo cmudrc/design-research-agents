@@ -39,6 +39,7 @@ Use the smallest useful check while iterating, then run full gates before merge.
   - Top-level includes selected core contracts (`ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`) in addition to entrypoint classes.
   - `design_research_agents.agent`
   - `design_research_agents.workflow`
+  - `design_research_agents.patterns`
   - `design_research_agents.llm`
   - `design_research_agents.memory`
   - `design_research_agents.tools`

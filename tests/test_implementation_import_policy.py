@@ -33,6 +33,7 @@ def test_internal_modules_and_packages_use_underscore_naming() -> None:
     public_package_paths = {
         ".",
         "agent",
+        "patterns",
         "workflow",
         "llm",
         "llm/clients",

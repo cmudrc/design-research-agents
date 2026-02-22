@@ -1,54 +1,47 @@
-"""Workflow facade exports with lazy pattern loading."""
+"""Public workflow builder exports."""
 
 from __future__ import annotations
 
-from importlib import import_module
-from typing import Final
-
-from design_research_agents._contracts import ExecutionResult
+from design_research_agents._contracts import (
+    AgentStep,
+    DelegateBatchCall,
+    DelegateBatchStep,
+    ExecutionResult,
+    LogicStep,
+    LoopStep,
+    MemoryReadStep,
+    MemoryWriteStep,
+    ModelStep,
+    ToolStep,
+    WorkflowArtifact,
+    WorkflowArtifactSource,
+)
 
 from ._schema_helpers import list_of, scalar, typed_dict
 from .workflow import Workflow
 
-_EXPORTS: Final[dict[str, str]] = {
-    "BlackboardPattern": "design_research_agents._implementations._patterns:BlackboardPattern",
-    "ConversationPattern": "design_research_agents._implementations._patterns:ConversationPattern",
-    "DebatePattern": "design_research_agents._implementations._patterns:DebatePattern",
-    "NetworkedPattern": "design_research_agents._implementations._patterns:NetworkedPattern",
-    "PlannerExecutorPattern": ("design_research_agents._implementations._patterns:PlannerExecutorPattern"),
-    "RagReasoningPattern": "design_research_agents._implementations._patterns:RagReasoningPattern",
-    "ReflexionPattern": "design_research_agents._implementations._patterns:ReflexionPattern",
-    "RouterPattern": "design_research_agents._implementations._patterns:RouterPattern",
-    "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
-}
-
-__all__ = ["Workflow", "ExecutionResult", "scalar", "list_of", "typed_dict", *_EXPORTS.keys()]
-
-
-def __getattr__(name: str) -> object:
-    """Lazily resolve exported workflow symbols.
-
-    Args:
-        name: Exported symbol name requested by the caller.
-
-    Returns:
-        Resolved exported symbol object.
-
-    Raises:
-        AttributeError: Raised when ``name`` is not part of the public exports.
-    """
-    export_ref = _EXPORTS.get(name)
-    if export_ref is None:
-        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
-
-    module_name, attr_name = export_ref.split(":")
-    value = getattr(import_module(module_name), attr_name)
-    globals()[name] = value
-    return value
+__all__ = [
+    "AgentStep",
+    "DelegateBatchCall",
+    "DelegateBatchStep",
+    "ExecutionResult",
+    "LogicStep",
+    "LoopStep",
+    "MemoryReadStep",
+    "MemoryWriteStep",
+    "ModelStep",
+    "ToolStep",
+    "Workflow",
+    "WorkflowArtifact",
+    "WorkflowArtifactSource",
+    "list_of",
+    "scalar",
+    "typed_dict",
+]
 
 
 def __dir__() -> list[str]:
-    """Return workflow module attributes including lazy exports.
+    """Return workflow module attributes.
 
     Returns:
         Sorted attribute names visible on this module.

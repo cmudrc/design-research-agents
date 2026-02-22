@@ -266,8 +266,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, RagReasoningPattern, Toolbox, Tracer
+from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Toolbox, Tracer
 from design_research_agents.memory import SQLiteMemoryStore
+from design_research_agents.patterns import RagReasoningPattern
 
 
 def main() -> None:

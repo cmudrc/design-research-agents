@@ -27,15 +27,15 @@ _EXPORTS: Final[dict[str, str]] = {
     "LLMResponse": "design_research_agents.llm:LLMResponse",
     "ToolResult": "design_research_agents.tools:ToolResult",
     "Workflow": "design_research_agents.workflow:Workflow",
-    "ConversationPattern": "design_research_agents.workflow:ConversationPattern",
-    "DebatePattern": "design_research_agents.workflow:DebatePattern",
-    "PlannerExecutorPattern": "design_research_agents.workflow:PlannerExecutorPattern",
-    "ReflexionPattern": "design_research_agents.workflow:ReflexionPattern",
-    "RouterPattern": "design_research_agents.workflow:RouterPattern",
-    "NetworkedPattern": "design_research_agents.workflow:NetworkedPattern",
-    "BlackboardPattern": "design_research_agents.workflow:BlackboardPattern",
-    "TreeSearchPattern": "design_research_agents.workflow:TreeSearchPattern",
-    "RagReasoningPattern": "design_research_agents.workflow:RagReasoningPattern",
+    "ConversationPattern": "design_research_agents.patterns:ConversationPattern",
+    "DebatePattern": "design_research_agents.patterns:DebatePattern",
+    "PlannerExecutorPattern": "design_research_agents.patterns:PlannerExecutorPattern",
+    "ReflexionPattern": "design_research_agents.patterns:ReflexionPattern",
+    "RouterPattern": "design_research_agents.patterns:RouterPattern",
+    "NetworkedPattern": "design_research_agents.patterns:NetworkedPattern",
+    "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
+    "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
+    "RagReasoningPattern": "design_research_agents.patterns:RagReasoningPattern",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
@@ -114,18 +114,18 @@ if TYPE_CHECKING:
     from .llm import SglangServerLLMClient as SglangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
     from .llm import VllmServerLLMClient as VllmServerLLMClient
+    from .patterns import BlackboardPattern as BlackboardPattern
+    from .patterns import ConversationPattern as ConversationPattern
+    from .patterns import DebatePattern as DebatePattern
+    from .patterns import NetworkedPattern as NetworkedPattern
+    from .patterns import PlannerExecutorPattern as PlannerExecutorPattern
+    from .patterns import RagReasoningPattern as RagReasoningPattern
+    from .patterns import ReflexionPattern as ReflexionPattern
+    from .patterns import RouterPattern as RouterPattern
+    from .patterns import TreeSearchPattern as TreeSearchPattern
     from .tools import CallableTool as CallableTool
     from .tools import McpServer as McpServer
     from .tools import ScriptTool as ScriptTool
     from .tools import Toolbox as Toolbox
     from .tools import ToolResult as ToolResult
-    from .workflow import BlackboardPattern as BlackboardPattern
-    from .workflow import ConversationPattern as ConversationPattern
-    from .workflow import DebatePattern as DebatePattern
-    from .workflow import NetworkedPattern as NetworkedPattern
-    from .workflow import PlannerExecutorPattern as PlannerExecutorPattern
-    from .workflow import RagReasoningPattern as RagReasoningPattern
-    from .workflow import ReflexionPattern as ReflexionPattern
-    from .workflow import RouterPattern as RouterPattern
-    from .workflow import TreeSearchPattern as TreeSearchPattern
     from .workflow import Workflow as Workflow

@@ -5,7 +5,7 @@ from collections.abc import Sequence
 import pytest
 
 from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.workflow import ConversationPattern
+from design_research_agents.patterns import ConversationPattern
 
 
 class _CaptureLLMClient:

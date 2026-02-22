@@ -15,12 +15,12 @@ from design_research_agents.agent import (
     DirectLLMCall,
     MultiStepAgent,
 )
-from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import (
+from design_research_agents.patterns import (
     ConversationPattern,
     PlannerExecutorPattern,
     ReflexionPattern,
 )
+from design_research_agents.tools import Toolbox
 
 
 class _EmptyDefaultModelClient:

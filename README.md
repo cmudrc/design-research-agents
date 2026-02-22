@@ -13,8 +13,8 @@ workflow orchestration, and pluggable LLM backends.
 This project focuses on composable agent systems you can run, inspect, and test:
 
 - Agent implementations (top-level exports): `DirectLLMCall`, `MultiStepAgent` (modes: `direct`, `json`, `code`)
-- Reusable workflow surfaces: `Workflow`, `DebatePattern`, `PlannerExecutorPattern`, `ReflexionPattern`, and `RouterPattern`
-- Workflow orchestration runtime is available via `design_research_agents.workflow` for advanced usage
+- Workflow construction surface: `design_research_agents.workflow` (`Workflow` + step primitives)
+- Prebuilt workflow implementations: `design_research_agents.patterns` (`DebatePattern`, `PlannerExecutorPattern`, `ReflexionPattern`, `RouterPattern`, etc.)
 - Provider-specific LLM clients with constructor-first defaults
 - Tracing and structured outputs: consistent metadata and schema-driven payloads
 
@@ -31,6 +31,7 @@ from design_research_agents import (
     Workflow,
     Toolbox,
 )
+from design_research_agents.patterns import PlannerExecutorPattern
 
 agent = MultiStepAgent(mode="json", ...)
 direct = DirectLLMCall(...)
@@ -105,7 +106,8 @@ See the examples index and sub-guides:
 - LLM clients: [`docs/llm_clients/index.rst`](docs/llm_clients/index.rst)
 - Agents: [`docs/agents/index.rst`](docs/agents/index.rst)
 - Tools: [`docs/tools/index.rst`](docs/tools/index.rst)
-- Workflows: [`docs/workflows/index.rst`](docs/workflows/index.rst)
+- Workflow builders: [`docs/workflows/index.rst`](docs/workflows/index.rst)
+- Patterns: [`docs/patterns/index.rst`](docs/patterns/index.rst)
 - API docs: [`docs/api.rst`](docs/api.rst)
 
 Build docs locally with `make docs`.

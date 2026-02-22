@@ -5,7 +5,7 @@ The framework provides two core concrete agent entry points. Choose by
 execution pattern first, then by control requirements.
 
 Multi-agent orchestration patterns (``PlannerExecutorPattern``,
-``ReflexionPattern``, ``RouterPattern``) live in the workflow module and are
+``ReflexionPattern``, ``RouterPattern``) live in the patterns module and are
 implemented with the same public workflow step primitives available to users.
 
 Overview

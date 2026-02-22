@@ -66,7 +66,8 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import Tracer, TreeSearchPattern
+from design_research_agents import Tracer
+from design_research_agents.patterns import TreeSearchPattern
 
 
 def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:

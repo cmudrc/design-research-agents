@@ -20,8 +20,9 @@ from design_research_agents._contracts._workflow import (
     ToolStep,
 )
 from design_research_agents._schemas import SchemaValidationError
+from design_research_agents.patterns import DebatePattern
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import DebatePattern, Workflow, list_of, scalar, typed_dict
+from design_research_agents.workflow import Workflow, list_of, scalar, typed_dict
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 

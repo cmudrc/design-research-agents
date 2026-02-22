@@ -77,7 +77,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import ConversationPattern, LlamaCppServerLLMClient, Tracer
+from design_research_agents import LlamaCppServerLLMClient, Tracer
+from design_research_agents.patterns import ConversationPattern
 
 
 def main() -> None:
