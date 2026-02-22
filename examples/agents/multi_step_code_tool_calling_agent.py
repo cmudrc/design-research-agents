@@ -99,18 +99,10 @@ def main() -> None:
         llm_client.close()
 
     step_outputs = result.output_list("step_outputs")
-    payload = {
-        "example": "agents/multi_step_code_tool_calling_agent.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "steps_executed": result.output_value("steps_executed"),
-        "step_outputs_count": len(step_outputs),
-        "tool_results_count": len(result.tool_results),
-        "final_output": result.final_output,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details={"step_outputs_count": len(step_outputs)},
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

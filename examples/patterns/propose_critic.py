@@ -106,18 +106,10 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    payload = {
-        "example": "patterns/propose_critic.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "final_output": result.final_output,
-        "approved": result.output_value("approved"),
-        "critique_iterations": result.output_value("critique_iterations"),
-        "proposal": result.output_value("proposal"),
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details=["approved", "critique_iterations", "proposal"],
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

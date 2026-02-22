@@ -115,16 +115,10 @@ def main() -> None:
         "Find the most robust concept architecture for a serviceable edge-device enclosure.",
         request_id=request_id,
     )
-    payload = {
-        "example": "patterns/tree_search.py",
-        "success": result.success,
-        "final_output": result.final_output,
-        "terminated_reason": result.terminated_reason,
-        "best_candidate": result.output_value("best_candidate"),
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details=["best_candidate"],
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

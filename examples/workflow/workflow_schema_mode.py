@@ -109,16 +109,10 @@ INPUT_SCHEMA: dict[str, object] = {
 }
 
 
-def _summarize(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:
-    return {
-        "example": "workflow/workflow_schema_mode.py",
-        "success": result.success,
-        "execution_order": list(result.execution_order),
-        "final_output": result.final_output,
-        "terminated_reason": result.terminated_reason,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
+def _summarize(result: ExecutionResult) -> dict[str, object]:
+    return result.summary(
+        details={"execution_order": list(result.execution_order)},
+    )
 
 
 def main() -> None:
@@ -227,8 +221,8 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "strict_run": _summarize(strict_result, strict_request_id, tracer),
-                "relaxed_run": _summarize(relaxed_result, relaxed_request_id, tracer),
+                "strict_run": _summarize(strict_result),
+                "relaxed_run": _summarize(relaxed_result),
             },
             ensure_ascii=True,
             indent=2,

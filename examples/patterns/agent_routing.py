@@ -114,16 +114,10 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    payload = {
-        "example": "patterns/agent_routing.py",
-        "success": result.success,
-        "selected_alternative": result.output_value("selected_alternative"),
-        "final_output": result.final_output,
-        "terminated_reason": result.terminated_reason,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details=["selected_alternative"],
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

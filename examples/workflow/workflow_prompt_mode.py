@@ -106,7 +106,7 @@ from design_research_agents import (
 )
 
 
-def _summarize_run(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:
+def _summarize_run(result: ExecutionResult) -> dict[str, object]:
     final_output = result.final_output
     if isinstance(final_output, dict):
         compact_final_output = {
@@ -116,15 +116,12 @@ def _summarize_run(result: ExecutionResult, request_id: str, tracer: Tracer) -> 
         }
     else:
         compact_final_output = final_output
-    return {
-        "example": "workflow/workflow_prompt_mode.py",
-        "success": result.success,
-        "execution_order": list(result.execution_order),
-        "final_output": compact_final_output,
-        "terminated_reason": result.terminated_reason,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
+    return result.summary(
+        details={
+            "execution_order": list(result.execution_order),
+            "final_output_compact": compact_final_output,
+        },
+    )
 
 
 def main() -> None:
@@ -219,8 +216,8 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "agent_branch_run": _summarize_run(agent_result, agent_request_id, tracer),
-                "template_branch_run": _summarize_run(template_result, template_request_id, tracer),
+                "agent_branch_run": _summarize_run(agent_result),
+                "template_branch_run": _summarize_run(template_result),
             },
             ensure_ascii=True,
             indent=2,

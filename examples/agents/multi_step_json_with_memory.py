@@ -123,18 +123,10 @@ def main() -> None:
         tool_runtime.close()
         store.close()
     memory_items = result.output_list("memory")
-    payload = {
-        "example": "agents/multi_step_json_with_memory.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "steps_executed": result.output_value("steps_executed"),
-        "memory_items": len(memory_items),
-        "tool_results_count": len(result.tool_results),
-        "final_output": result.final_output,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details={"memory_items": len(memory_items)},
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

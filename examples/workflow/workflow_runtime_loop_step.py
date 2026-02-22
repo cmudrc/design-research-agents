@@ -423,17 +423,13 @@ def main() -> None:
 
     result = workflow.run({}, execution_mode="sequential", request_id=request_id)
     loop_step = result.step_results.get("design_counter_loop")
-    payload = {
-        "example": "workflow/workflow_runtime_loop_step.py",
-        "success": result.success,
-        "execution_order": list(result.execution_order),
-        "loop_status": loop_step.terminated_reason if loop_step else None,
-        "final_output": result.final_output,
-        "terminated_reason": result.terminated_reason,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details={
+            "execution_order": list(result.execution_order),
+            "loop_status": loop_step.terminated_reason if loop_step else None,
+        },
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

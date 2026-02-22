@@ -276,26 +276,23 @@ def main() -> None:
         key=lambda index: objective_history[index],
     )
     memory = result.output_list("memory")
-    payload = {
-        "example": "optimization/multi_step_json_tool_calling_1d_optimization.py",
-        "agent": "MultiStepAgent(mode=json)",
-        "success": result.success,
-        "objective": "x^2",
-        "final_output": result.final_output,
-        "best_seen": {
-            "best_x": history[best_index],
-            "best_objective": objective_history[best_index],
-            "best_history_index": best_index,
+    summary = result.summary(
+        details={
+            "agent": "MultiStepAgent(mode=json)",
+            "objective": "x^2",
+            "best_seen": {
+                "best_x": history[best_index],
+                "best_objective": objective_history[best_index],
+                "best_history_index": best_index,
+            },
+            "steps_executed": result.output_value("steps_executed"),
+            "tool_results_count": len(result.tool_results),
+            "memory_tail": memory[-6:] if isinstance(memory, list) else [],
+            "history": history,
+            "objective_history": objective_history,
         },
-        "terminated_reason": result.terminated_reason,
-        "steps_executed": result.output_value("steps_executed"),
-        "tool_results_count": len(result.tool_results),
-        "memory_tail": memory[-6:] if isinstance(memory, list) else [],
-        "history": history,
-        "objective_history": objective_history,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

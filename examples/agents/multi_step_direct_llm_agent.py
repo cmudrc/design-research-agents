@@ -86,16 +86,8 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    payload = {
-        "example": "agents/multi_step_direct_llm_agent.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "steps_executed": result.output_value("steps_executed"),
-        "final_output": result.final_output,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary()
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -271,19 +271,15 @@ from design_research_agents import (
 from design_research_agents.patterns import BlackboardPattern, NetworkedPattern
 
 
-def _summarize(result: ExecutionResult, request_id: str, tracer: Tracer) -> dict[str, object]:
+def _summarize(result: ExecutionResult) -> dict[str, object]:
     blackboard = result.output_dict("blackboard")
     messages = blackboard.get("messages") if isinstance(blackboard, dict) else []
-    return {
-        "example": "patterns/networked_blackboard.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "rounds_executed": result.output_value("rounds_executed"),
-        "message_count": len(messages) if isinstance(messages, list) else 0,
-        "final_output": result.final_output,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
+    return result.summary(
+        details={
+            "rounds_executed": result.output_value("rounds_executed"),
+            "message_count": len(messages) if isinstance(messages, list) else 0,
+        },
+    )
 
 
 def main() -> None:
@@ -334,8 +330,8 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "networked_pattern": _summarize(network_result, network_request_id, tracer),
-                "blackboard_pattern": _summarize(blackboard_result, blackboard_request_id, tracer),
+                "networked_pattern": _summarize(network_result),
+                "blackboard_pattern": _summarize(blackboard_result),
             },
             ensure_ascii=True,
             indent=2,

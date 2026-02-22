@@ -125,17 +125,13 @@ def main() -> None:
 
     plan_payload = result.output_dict("plan")
     plan_steps = plan_payload.get("steps") if isinstance(plan_payload, dict) else None
-    payload = {
-        "example": "patterns/plan_execute.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "steps_executed": result.output_value("steps_executed"),
-        "plan_step_count": len(plan_steps) if isinstance(plan_steps, list) else 0,
-        "final_output": result.final_output,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details={
+            "steps_executed": result.output_value("steps_executed"),
+            "plan_step_count": len(plan_steps) if isinstance(plan_steps, list) else 0,
+        },
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -111,6 +111,51 @@ class ExecutionResult:
         if isinstance(value, tuple):
             return list(value)
         return []
+
+    def summary(
+        self,
+        *,
+        details: Mapping[str, object] | Sequence[str] | None = None,
+    ) -> dict[str, object]:
+        """Return one compact summary payload for user-facing output.
+
+        Args:
+            details: Optional mapping or output-key list to include under ``details``.
+
+        Returns:
+            Compact summary payload with canonical execution fields.
+        """
+        return {
+            "success": self.success,
+            "final_output": self.final_output,
+            "terminated_reason": self.terminated_reason,
+            "error": self.error,
+            "details": self._normalize_summary_details(details),
+            "trace": self._build_summary_trace(),
+        }
+
+    def _normalize_summary_details(
+        self,
+        details: Mapping[str, object] | Sequence[str] | None,
+    ) -> dict[str, object]:
+        if details is None:
+            return {}
+        if isinstance(details, Mapping):
+            return dict(details)
+        if not isinstance(details, Sequence) or isinstance(details, (str, bytes)):
+            raise TypeError("details must be a mapping or sequence of keys when provided.")
+        details_payload: dict[str, object] = {}
+        for key in details:
+            if not isinstance(key, str):
+                raise TypeError("details sequence entries must be strings.")
+            details_payload[key] = self.output_value(key)
+        return details_payload
+
+    def _build_summary_trace(self) -> dict[str, object]:
+        request_id = self.metadata.get("request_id")
+        if isinstance(request_id, str) and request_id.strip():
+            return {"request_id": request_id}
+        return {}
 
     def to_json(
         self,

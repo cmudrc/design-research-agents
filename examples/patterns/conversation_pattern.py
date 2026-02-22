@@ -117,18 +117,14 @@ def main() -> None:
 
     transcript = result.output_list("transcript")
     transcript_preview = transcript[-2:]
-    payload = {
-        "example": "patterns/conversation_pattern.py",
-        "success": result.success,
-        "terminated_reason": result.terminated_reason,
-        "turns_executed": result.output_value("turns_executed"),
-        "participants": result.output_value("participants"),
-        "final_output": result.final_output,
-        "transcript_preview": transcript_preview,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details={
+            "turns_executed": result.output_value("turns_executed"),
+            "participants": result.output_value("participants"),
+            "transcript_preview": transcript_preview,
+        },
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

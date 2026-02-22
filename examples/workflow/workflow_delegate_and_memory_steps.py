@@ -300,16 +300,10 @@ def main() -> None:
         llm_client.close()
         store.close()
 
-    payload = {
-        "example": "workflow/workflow_delegate_and_memory_steps.py",
-        "success": result.success,
-        "execution_order": list(result.execution_order),
-        "final_output": result.final_output,
-        "terminated_reason": result.terminated_reason,
-        "error": result.error,
-        "trace": tracer.trace_info(request_id),
-    }
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
+    summary = result.summary(
+        details={"execution_order": list(result.execution_order)},
+    )
+    print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
