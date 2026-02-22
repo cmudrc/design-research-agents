@@ -30,6 +30,7 @@ PROMPT_RESOURCES = (
 
 
 def _build_wheel(tmp_path: Path) -> Path:
+    _ensure_pip_available()
     wheel_dir = tmp_path / "wheelhouse"
     wheel_dir.mkdir(parents=True, exist_ok=True)
     completed = subprocess.run(
@@ -45,6 +46,30 @@ def _build_wheel(tmp_path: Path) -> Path:
     wheels = sorted(wheel_dir.glob("design_research_agents-*.whl"))
     assert wheels, f"No wheel generated in {wheel_dir}."
     return wheels[0]
+
+
+def _ensure_pip_available() -> None:
+    probe = subprocess.run(
+        [sys.executable, "-m", "pip", "--version"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if probe.returncode == 0:
+        return
+    bootstrap = subprocess.run(
+        [sys.executable, "-m", "ensurepip", "--upgrade"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert bootstrap.returncode == 0, (
+        "Failed to bootstrap pip inside the active virtual environment.\n"
+        f"stdout:\n{bootstrap.stdout}\n"
+        f"stderr:\n{bootstrap.stderr}"
+    )
 
 
 def test_wheel_includes_prompt_and_schema_resources(tmp_path: Path) -> None:

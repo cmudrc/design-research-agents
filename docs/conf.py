@@ -103,6 +103,8 @@ linkcheck_workers = 10
 linkcheck_anchors = False
 linkcheck_ignore = [
     r"https://api\.example\.com/.*",
+    # OpenAI docs intermittently return 403 to CI linkcheck user-agents.
+    r"https://platform\.openai\.com/docs/.*",
 ]
 
 

@@ -88,13 +88,13 @@ def main() -> None:
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
-        enable_console=False,
+        enable_console=True,
     )
     llm_client = LlamaCppServerLLMClient()
     try:
         pattern = ConversationPattern(
             llm_client_a=llm_client,
-            max_turns=2,
+            max_turns=5,
             speaker_a_name="Concept Designer",
             speaker_b_name="Validation Engineer",
             speaker_a_system_prompt=(

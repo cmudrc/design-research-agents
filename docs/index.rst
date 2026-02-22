@@ -54,8 +54,6 @@ Get started
    quickstart
    dependencies_and_extras
    examples/index
-   examples/workflow/index
-   examples/patterns/index
    philosophy
    llm_clients/index
    tools/index

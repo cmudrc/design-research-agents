@@ -55,7 +55,7 @@ jobs:
         run: uv venv --python 3.12 .venv
 
       - name: Install lowest direct dependencies
-        run: uv pip install --python .venv/bin/python --resolution lowest-direct -e ".[dev]"
+        run: uv pip install --python .venv/bin/python --resolution lowest-direct -e ".[dev]" "pytest-asyncio>=0.24,<1"
 
       - name: Run tests
         run: make test
@@ -68,8 +68,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            repro-python: "3.12.12"
             repro-extras: "dev full"
           - os: macos-latest
+            repro-python: "3.12"
             repro-extras: "dev local"
     steps:
       - name: Checkout
@@ -78,7 +80,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12.12"
+          python-version: ${{ matrix.repro-python }}
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
@@ -86,7 +88,7 @@ jobs:
           enable-cache: true
 
       - name: Reproducible frozen install
-        run: make repro REPRO_EXTRAS="${{ matrix.repro-extras }}"
+        run: make repro REPRO_PYTHON="${{ matrix.repro-python }}" REPRO_EXTRAS="${{ matrix.repro-extras }}"
 
       - name: Run tests
         run: make test
