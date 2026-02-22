@@ -72,6 +72,7 @@ def run_tool_step(
         )
 
     available_tools = {tool_spec.name for tool_spec in tool_runtime.list_tools()}
+    # Validate against the live registry at execution time so stale plan outputs fail clearly.
     if step.tool_name not in available_tools:
         return _failed_step_result(
             step_id=step_id,
@@ -113,6 +114,7 @@ def run_tool_step(
 
     serialized_output = asdict(tool_result)
     if not tool_result.ok:
+        # Preserve the full serialized tool payload for debugging while surfacing a concise step error.
         tool_error_message = tool_result.error.message if tool_result.error is not None else "Tool invocation failed."
         return _failed_step_result(
             step_id=step_id,
@@ -176,6 +178,7 @@ def run_agent_step(
 
     request_scope = f"{request_id}:workflow:{step_id}"
     try:
+        # Delegate invocation normalization handles agent-vs-workflow shape differences.
         delegate_invocation = invoke_delegate(
             delegate=selected_delegate,
             prompt=prompt,
@@ -199,6 +202,7 @@ def run_agent_step(
     agent_result = delegate_invocation.result
     serialized_output = agent_result.to_dict()
     if not agent_result.success:
+        # Keep workflow delegate failures generic to avoid leaking nested internal step details by default.
         if delegate_invocation.delegate_type == "workflow":
             error_message = "Nested workflow execution failed."
         else:
@@ -320,10 +324,12 @@ def _apply_terminal_output_schema(
     if not bool(workflow_context.get("is_terminal_step", False)):
         return llm_request
     if llm_request.response_schema is not None:
+        # Preserve explicit per-step schema when caller already provided one.
         return llm_request
     raw_output_schema = workflow_context.get("output_schema")
     if not isinstance(raw_output_schema, Mapping):
         return llm_request
+    # Only inject workflow output schema for terminal model steps to avoid constraining intermediates.
     return replace(llm_request, response_schema=dict(raw_output_schema))
 
 
@@ -436,6 +442,7 @@ def _execute_model_request(*, step: ModelStep, llm_request: LLMRequest) -> LLMRe
     if not callable(chat_callable):
         raise TypeError("ModelStep llm_client must expose generate() or chat().")
 
+    # Backward-compatible fallback for chat-style clients that do not implement generate().
     chat_response = chat_callable(
         llm_request.messages,
         model=_resolve_model_request_model_id(llm_client=step.llm_client, llm_request=llm_request),
@@ -519,6 +526,7 @@ def _run_delegate_batch_call(
         )
         call_result = delegate_invocation.result
     except Exception as exc:
+        # Represent invocation exceptions as failed call entries so batch execution can continue when configured.
         return {
             "call_id": call.call_id,
             "success": False,
@@ -566,6 +574,7 @@ def _execute_delegate_batch_calls(
         results.append(call_result_entry)
         if not bool(call_result_entry.get("success")) and failed_call_id is None:
             failed_call_id = call.call_id
+        # Fail-fast stops additional delegate calls after first failure while preserving prior results.
         if failed_call_id is not None and fail_fast:
             break
     return results, failed_call_id

@@ -68,6 +68,7 @@ from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Tool
 
 def main() -> None:
     """Execute one multi-step code-mode run and print compact result."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-multi-step-code-design-001"
     tracer = Tracer(
         enabled=True,
@@ -95,6 +96,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

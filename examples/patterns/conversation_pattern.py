@@ -83,6 +83,7 @@ from design_research_agents.patterns import ConversationPattern
 
 def main() -> None:
     """Run two-speaker brainstorming loop for a serviceable device enclosure."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-conversation-design-001"
     tracer = Tracer(
         enabled=True,
@@ -112,6 +113,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

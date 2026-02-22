@@ -101,6 +101,7 @@ def _bash_exec_handler(
 
     allowed_commands = _get_allowed_commands(input_dict.get("allowed_commands"))
     if allowed_commands is not None:
+        # Static command extraction is intentionally conservative; anything uncertain is blocked.
         observed_commands = _extract_command_names(script)
         disallowed = sorted({name for name in observed_commands if name not in allowed_commands})
         if disallowed:
@@ -123,6 +124,7 @@ def _bash_exec_handler(
         max_loop_iterations=max_loop_iterations,
     )
     exec_result = tool.execute_sync(script)
+    # Return a compact, shell-like envelope that callers can reason about uniformly.
     return {
         "stdout": exec_result.stdout,
         "stderr": exec_result.stderr,
@@ -212,6 +214,7 @@ def _extract_line_command_names(line: str) -> tuple[str, ...]:
         if lowered in _COMMAND_PREFIXES:
             continue
 
+        # First non-control token in each command segment is treated as executable name.
         command_name = _normalize_command_name(normalized)
         if command_name:
             names.append(command_name)

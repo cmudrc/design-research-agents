@@ -19,6 +19,7 @@ def resolve_request_id(request_id: str | None) -> str:
         normalized = request_id.strip()
         if normalized:
             return normalized
+    # Generate ids lazily so callers can omit request ids without losing traceability.
     return f"req_{uuid4().hex}"
 
 
@@ -33,6 +34,7 @@ def normalize_dependencies(dependencies: Mapping[str, object] | None) -> dict[st
     """
     if dependencies is None:
         return {}
+    # Copy into a plain dict so downstream code can enrich without mutating caller-owned mappings.
     return dict(dependencies)
 
 

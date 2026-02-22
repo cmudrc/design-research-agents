@@ -273,6 +273,7 @@ from design_research_agents.patterns import RagReasoningPattern
 
 def main() -> None:
     """Run one local RAG workflow and print compact JSON result."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-rag-design-001"
     tracer = Tracer(
         enabled=True,
@@ -318,6 +319,7 @@ def main() -> None:
             "Draft a concise architecture recommendation for a serviceable edge device.",
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
         store.close()

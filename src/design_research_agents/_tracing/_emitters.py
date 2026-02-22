@@ -29,6 +29,7 @@ def start_model_call(
     session = current_trace_session()
     if session is None:
         return None
+    # Attach model spans under the current span when nested, otherwise under run root.
     parent_span_id = current_span_id() or session.root_span_id
     attributes = {
         "model": model,
@@ -64,6 +65,7 @@ def finish_model_call(
     if session is None or span_id is None:
         return
     if error is not None:
+        # Preserve partial response metadata when available to aid postmortem debugging.
         model_name = getattr(response, "model", None) if response is not None else model
         session.finish_span(
             "ModelCallFailed",
@@ -131,6 +133,7 @@ def emit_model_request_observed(
     attributes: dict[str, object] = {
         "source": source,
         "model": model,
+        # Sanitize request payload before persistence to avoid leaking secrets/large blobs.
         "request": _sanitize_trace_payload(request_payload),
     }
     if metadata:
@@ -210,6 +213,7 @@ def start_tool_call(
             "tool_name": tool_name,
             "tool_input": dict(tool_input),
             "request_id": request_id,
+            # Only persist dependency keys here to keep span payloads compact.
             "dependency_keys": sorted(dependencies.keys()),
         },
     )
@@ -331,6 +335,7 @@ def emit_tool_result_observed(
         "tool_name": tool_name,
         "source_id": source_id,
         "ok": ok,
+        # Result payloads may contain arbitrary objects; sanitize before emission.
         "result": _sanitize_trace_payload(result_payload),
         "error": error,
     }
@@ -360,6 +365,7 @@ def emit_workflow_step_context(
     if session is None:
         return
     span_id = current_span_id() or session.root_span_id
+    # Emit pre-execution context snapshots to make step-input debugging reproducible.
     session.emit_span_event(
         "WorkflowStepContextObserved",
         span_id=span_id,
@@ -396,6 +402,7 @@ def emit_workflow_step_result(
     if session is None:
         return
     span_id = current_span_id() or session.root_span_id
+    # Emit normalized post-execution payload for status/error analysis tooling.
     session.emit_span_event(
         "WorkflowStepResultObserved",
         span_id=span_id,
@@ -479,6 +486,7 @@ def emit_model_selection_decision(
     if session is None:
         return
     span_id = current_span_id() or session.root_span_id
+    # Keep full decision context in trace to make selection rationale auditable after the fact.
     session.emit_span_event(
         "ModelSelectionDecision",
         span_id=span_id,
@@ -584,6 +592,7 @@ def emit_guardrail_decision(
         "reason": reason,
     }
     if details:
+        # Optional details payload enables policy-specific diagnostics without schema churn.
         attributes["details"] = dict(details)
     session.emit_span_event(
         "GuardrailDecision",

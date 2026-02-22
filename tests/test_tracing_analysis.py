@@ -9,6 +9,7 @@ from design_research_agents._tracing._analysis import analyze_trace_dir, main
 
 def _write_trace(path: Path, events: list[dict[str, object]], *, malformed: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    # Sorted keys keep fixture traces stable for readable diffs.
     lines = [json.dumps(event, sort_keys=True) for event in events]
     if malformed:
         lines.append("{not-json")
@@ -95,6 +96,7 @@ def test_analyze_trace_dir_aggregates_extended_metrics(tmp_path: Path) -> None:
     )
 
     summary = analyze_trace_dir(trace_dir=trace_dir, glob_pattern="run_*.jsonl", top_n=5)
+    # Assert cross-section metrics so regressions in one aggregator path are caught quickly.
     assert summary["runs"]["unique_run_count"] == 2
     assert summary["runs"]["success_count"] == 1
     assert summary["runs"]["failure_count"] == 1
@@ -137,6 +139,7 @@ def test_analyze_trace_dir_falls_back_to_legacy_event_types(tmp_path: Path) -> N
     )
 
     summary = analyze_trace_dir(trace_dir=trace_dir, glob_pattern="run_*.jsonl", top_n=5)
+    # Legacy event compatibility is critical for old trace archives.
     assert summary["models"]["model_call_count"] == 1
     assert summary["models"]["tokens"]["total_tokens"] == 4
     assert summary["tools"]["tool_invocation_count"] == 1

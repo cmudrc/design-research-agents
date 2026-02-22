@@ -96,16 +96,19 @@ class MultiStepAgent(Agent):
         Raises:
             ValueError: Raised when mode/tool configuration is invalid.
         """
+        # Coerce and validate mode argument
         normalized_mode = mode.strip().lower() if isinstance(mode, str) else ""
         if normalized_mode not in {"direct", "json", "code"}:
             raise ValueError("mode must be one of: 'direct', 'json', 'code'.")
 
+        # Validate tool runtime presence for json/code modes
         if normalized_mode in {"json", "code"}:
             if tool_runtime is None:
                 raise ValueError("tool_runtime is required when mode is 'json' or 'code'.")
             if not tool_runtime.list_tools():
                 raise ValueError("tool_runtime must expose at least one tool when mode is 'json' or 'code'.")
 
+        # Additional validation for code mode
         self._mode: MultiStepMode = normalized_mode  # type: ignore[assignment]
         self._strategy: Agent
         if self._mode == "direct":
@@ -119,6 +122,8 @@ class MultiStepAgent(Agent):
             )
             return
 
+        # Tool runtime presence and basic tool availability have already been validated at this point,
+        # so we can safely assert here for type checking purposes.
         assert tool_runtime is not None
         if self._mode == "code":
             self._strategy = _CodeModeStrategy(
@@ -145,6 +150,8 @@ class MultiStepAgent(Agent):
             )
             return
 
+        # If we reach this point, the mode must be "json" due to the earlier validation,
+        # so we can safely assert here for type checking purposes.
         self._strategy = _JsonModeStrategy(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -202,6 +209,7 @@ class MultiStepAgent(Agent):
 __all__ = [
     "MultiStepAgent",
     "MultiStepMode",
+    # Re-exported for test and transition compatibility with existing imports.
     "_coerce_state_records",
     "_parse_controller_decision",
 ]

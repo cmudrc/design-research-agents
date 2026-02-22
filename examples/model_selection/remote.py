@@ -88,6 +88,7 @@ def _select_remote() -> dict[str, object]:
 
 def main() -> None:
     """Run traced remote-favoring model selection and print decision."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-model-selection-remote-design-001"
     tracer = Tracer(
         enabled=True,

@@ -107,6 +107,7 @@ class WorkflowRuntime(WorkflowRunner):
         resolved_request_id = resolve_request_id(request_id)
         resolved_dependencies = normalize_dependencies(dependencies)
         base_context = dict(context or {})
+        # Emit one top-level trace scope so all step spans share a common request lineage.
         trace_scope = start_trace_run(
             agent_name="WorkflowRuntime",
             request_id=resolved_request_id,
@@ -149,6 +150,7 @@ class WorkflowRuntime(WorkflowRunner):
             finish_trace_run(trace_scope, error=str(exc))
             raise
 
+        # Branch-skipped steps are represented as non-success with a sentinel error; treat those as expected.
         success = all(
             result.success or result.error == "skipped_branch_not_selected" for result in step_results.values()
         )
@@ -277,6 +279,7 @@ class WorkflowRuntime(WorkflowRunner):
         """
         in_degree: dict[str, int] = {step_id: len(prepared.dependencies[step_id]) for step_id in prepared.step_map}
         ready_steps = [step_id for step_id, degree in in_degree.items() if degree == 0]
+        # Heap ordering keeps DAG execution deterministic when multiple nodes become ready together.
         heapq.heapify(ready_steps)
 
         step_results: dict[str, WorkflowStepResult] = {}
@@ -626,6 +629,7 @@ class WorkflowRuntime(WorkflowRunner):
         if not step_result.success or not isinstance(step, LogicStep):
             return step_result
 
+        # Only logic steps participate in route-map branch selection.
         deactivation_update, route_error = route_deactivations(
             step=step,
             step_output=step_result.output,
@@ -692,6 +696,7 @@ class WorkflowRuntime(WorkflowRunner):
             callback_context["step_output"] = dict(step_result.output)
             callback_context["step_id"] = step_result.step_id
             try:
+                # Builder callbacks can derive richer user-facing artifact manifests from full context.
                 built_artifacts = artifacts_builder(callback_context)
             except Exception as exc:
                 return WorkflowStepResult(
@@ -777,6 +782,7 @@ class WorkflowRuntime(WorkflowRunner):
         for entry in entries:
             if isinstance(entry, WorkflowArtifact):
                 if not entry.producer_step_id:
+                    # Backfill producer metadata so artifact provenance is always traceable.
                     normalized.append(
                         WorkflowArtifact(
                             path=entry.path,
@@ -806,6 +812,7 @@ class WorkflowRuntime(WorkflowRunner):
                 if isinstance(source_step_raw, str) and source_step_raw.strip()
                 else step_id
             )
+            # Default producer step to current step unless explicitly overridden.
             source_field = entry.get("source_field")
             normalized.append(
                 WorkflowArtifact(

@@ -76,6 +76,7 @@ class ConsoleTraceSink:
 
         if self._emit_token_delta(event_type=event_type, attrs=attrs):
             return
+        # Close streaming token line before printing non-token events for readable console output.
         self._maybe_close_streaming_line(event_type)
 
         rendered = self._render_event_line(event_type=event_type, attrs=attrs, event=event)
@@ -112,6 +113,7 @@ class ConsoleTraceSink:
             self._stream.write(delta_text)
             self._stream.flush()
             self._streaming_line_open = True
+        # Token events are rendered inline and should not emit an additional event line.
         return True
 
     def _maybe_close_streaming_line(self, event_type: str) -> None:
@@ -141,6 +143,7 @@ class ConsoleTraceSink:
         Returns:
             Computed return value.
         """
+        # Keep renderer table explicit so event-label changes are easy to diff/review.
         event_lines: dict[str, str] = {
             "RunStarted": (
                 f"[run] start run_id={event.get('run_id')} "

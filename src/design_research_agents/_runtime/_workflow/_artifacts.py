@@ -13,6 +13,7 @@ def dedupe_artifacts(artifacts: Sequence[WorkflowArtifact]) -> list[WorkflowArti
     unique: list[WorkflowArtifact] = []
     for artifact in artifacts:
         producer = artifact.producer_step_id or ""
+        # Include producer in the key so two steps can emit the same path intentionally.
         key = (artifact.path, artifact.mime, producer)
         if key in seen:
             continue
@@ -42,6 +43,7 @@ def resolve_final_output(
     execution_order: Sequence[str],
 ) -> object:
     """Select one canonical final output payload from step results."""
+    # Walk backward so the latest successful step wins, mirroring user-facing execution flow.
     for step_id in reversed(execution_order):
         step_result = step_results.get(step_id)
         if step_result is None:

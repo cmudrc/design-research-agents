@@ -55,6 +55,7 @@ class SQLiteMemoryStore(MemoryStore):
         model_name = (embedding_model or "").strip()
         if not model_name and embedding_provider is not None:
             model_name = embedding_provider.model_name
+        # Keep one stable embedding model tag per store so search joins hit the intended vectors.
         self._embedding_model = model_name or "default"
         self._connection = sqlite3.connect(str(self._db_path))
         self._connection.row_factory = sqlite3.Row
@@ -105,6 +106,7 @@ class SQLiteMemoryStore(MemoryStore):
 
         embeddings: list[list[float]] | None = None
         if self._embedding_provider is not None:
+            # Embed in batch to amortize provider overhead and keep row/vector alignment by index.
             embeddings = self._embedding_provider.embed([record.content for record in normalized_records])
 
         with self._connection:
@@ -229,6 +231,7 @@ class SQLiteMemoryStore(MemoryStore):
                 vector = _parse_vector_json(vector_json)
                 vector_score = _cosine_similarity(query_vector, vector)
 
+            # Blend lexical/vector scores to preserve useful fallback behavior when vectors are noisy.
             final_score = lexical_score if vector_score is None else 0.7 * vector_score + 0.3 * lexical_score
 
             if query.min_score is not None and final_score < float(query.min_score):
@@ -249,6 +252,7 @@ class SQLiteMemoryStore(MemoryStore):
             )
 
         scored_records.sort(
+            # Secondary keys keep ordering deterministic for ties across identical scores.
             key=lambda record: (
                 float(record.score or 0.0),
                 str(record.updated_at or ""),

@@ -26,6 +26,7 @@ def analyze_trace_dir(
         malformed_lines += file_malformed
 
     event_counts = Counter(_event_type(event) for event in events)
+    # Prefer newer "*Observed" events when available; fall back to legacy names for compatibility.
     has_model_request_observed = event_counts.get("ModelRequestObserved", 0) > 0
     has_model_response_observed = event_counts.get("ModelResponseObserved", 0) > 0
     has_tool_observed = event_counts.get("ToolInvocationObserved", 0) > 0
@@ -86,6 +87,7 @@ def _read_trace_file(path: Path) -> tuple[list[dict[str, object]], int]:
             try:
                 payload = json.loads(stripped)
             except json.JSONDecodeError:
+                # Count malformed lines but continue so one bad line doesn't drop the whole file.
                 malformed += 1
                 continue
             if not isinstance(payload, dict):
@@ -114,6 +116,7 @@ def _resolve_run_outcomes(events: Sequence[Mapping[str, object]]) -> dict[str, o
             fallback_agent_outcomes[run_id] = success
 
     for run_id, success in fallback_agent_outcomes.items():
+        # Preserve explicit RunFinished outcomes when both event families exist.
         run_outcomes.setdefault(run_id, success)
 
     success_count = sum(1 for value in run_outcomes.values() if value)
@@ -199,6 +202,7 @@ def _build_tool_metrics(
     """Build tool usage metrics from trace events."""
     invocation_event_types = ("ToolInvocationObserved",) if prefer_observed else ("ToolCallStarted",)
     result_event_types = ("ToolResultObserved",) if prefer_result_observed else ("ToolCallFinished", "ToolCallFailed")
+    # Keep invocation/result event families configurable to support mixed-version trace directories.
 
     tool_invocation_count = 0
     per_tool_counts: Counter[str] = Counter()
@@ -383,6 +387,7 @@ def _extract_tool_success(event: Mapping[str, object]) -> bool | None:
         explicit_ok = _coerce_bool(attributes.get("ok"))
         if explicit_ok is not None:
             return explicit_ok
+        # When explicit ok is absent, infer failure from any error payload presence.
         return _extract_error_text(event) is None
     if event_type == "ToolCallFinished":
         return True
@@ -412,6 +417,7 @@ def _summarize_numbers(values: Sequence[int]) -> dict[str, object]:
     if not values:
         return {"count": 0, "min": None, "p50": None, "p95": None, "max": None}
     ordered = sorted(values)
+    # Use nearest-rank percentiles to keep summaries integer-valued and deterministic.
     return {
         "count": len(ordered),
         "min": ordered[0],
@@ -426,6 +432,7 @@ def _percentile(sorted_values: Sequence[int], quantile: float) -> int:
     if not sorted_values:
         return 0
     rank = round((len(sorted_values) - 1) * quantile)
+    # Clamp for safety in case callers pass out-of-range quantiles.
     rank = max(0, min(rank, len(sorted_values) - 1))
     return int(sorted_values[rank])
 

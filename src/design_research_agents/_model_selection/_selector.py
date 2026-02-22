@@ -156,6 +156,7 @@ class ModelSelector:
         client_config = self._resolve_client_config(decision)
         if output == "client_config":
             return client_config
+        # Build concrete client only for "client" output; other modes stay side-effect free.
         return _build_client_from_config(client_config)
 
     def _resolve_client_config(self, decision: ModelSelectionDecision) -> dict[str, object]:
@@ -173,6 +174,7 @@ class ModelSelector:
         """
         provider = decision.provider.strip()
         default_config: dict[str, object] | None = None
+        # Map provider identifiers to concrete client constructors with minimal required kwargs.
         if provider == "openai":
             default_config = {
                 "client_class": "OpenAIServiceLLMClient",
@@ -231,6 +233,7 @@ class ModelSelector:
             }
 
         resolved_config: dict[str, object]
+        # Unknown providers are delegated to caller-supplied resolver for extensibility.
         resolved_config = default_config if default_config is not None else self._resolve_local_client_config(decision)
 
         client_class = resolved_config.get("client_class")

@@ -131,12 +131,14 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         client.close()
 
 
 def main() -> None:
     """Run traced Transformers client call payload."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-clients-transformers-local-call-001"
     tracer = Tracer(
         enabled=True,

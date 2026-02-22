@@ -90,6 +90,7 @@ def _run_report() -> dict[str, object]:
         if not isinstance(direct_result.result, dict):
             raise RuntimeError("MCP tool call returned non-dict payload.")
         direct = direct_result.result
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         runtime.close()
 
@@ -102,6 +103,7 @@ def _run_report() -> dict[str, object]:
 
 def main() -> None:
     """Run traced MCP report generation and print JSON result."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-tools-mcp-minimal-design-001"
     tracer = Tracer(
         enabled=True,

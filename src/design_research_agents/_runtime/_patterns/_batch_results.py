@@ -14,6 +14,7 @@ def extract_delegate_batch_call_result_from_context(
     call_id: str,
 ) -> Mapping[str, object] | None:
     """Extract one call-result mapping from a dependency batch-step output."""
+    # Defensive shape checks keep pattern helpers resilient to partially populated context payloads.
     dependency_results = context.get("dependency_results")
     if not isinstance(dependency_results, Mapping):
         return None
@@ -31,6 +32,7 @@ def extract_delegate_batch_call_result_from_context(
             continue
         if str(result_entry.get("call_id", "")) != call_id:
             continue
+        # Return first matching id; call ids are expected to be unique within a batch.
         return result_entry
     return None
 
@@ -67,6 +69,7 @@ def extract_call_model_response(call_result: Mapping[str, object] | None) -> LLM
         return model_response
     if isinstance(model_response, Mapping):
         try:
+            # Support both hydrated objects and serialized dict payloads from workflow outputs.
             return LLMResponse(**dict(model_response))
         except TypeError:
             return None

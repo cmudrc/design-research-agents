@@ -1,4 +1,12 @@
-"""Direct one-shot LLM call composed from workflow building blocks."""
+"""Direct one-shot LLM call composed from workflow building blocks.
+
+This example intentionally uses the same Workflow/Step abstractions as "full" agents,
+but collapses the runtime down to a single model call (no tools, no multi-step planning).
+It is useful as:
+- a minimal smoke-test for a backend/client,
+- a pedagogical example of the workflow-first envelope,
+- a building block for higher-level agents that want a thin "call model" primitive.
+"""
 
 from __future__ import annotations
 
@@ -37,7 +45,15 @@ from design_research_agents.workflow import Workflow
 
 
 class DirectLLMCall(Agent):
-    """One-shot direct model call with no tool runtime."""
+    """One-shot direct model call with no tool runtime.
+
+    Design choices:
+
+    - Uses a small Workflow with three LogicSteps (prepare, call, finalize) so the trace
+      mirrors multi-step agents.
+    - Keeps defaults (system prompt, temperature, max_tokens, provider_options) on the agent,
+      but allows per-run overrides via ``normalized_input``.
+    """
 
     def __init__(
         self,
@@ -62,15 +78,24 @@ class DirectLLMCall(Agent):
         Raises:
             ValueError: If max token configuration is invalid.
         """
+        # Validate max_tokens early so misconfiguration fails at construction time
+        # rather than after a long workflow run.
         if max_tokens is not None and max_tokens < 1:
             raise ValueError("max_tokens must be >= 1 when provided.")
 
+        # Core dependencies and default generation parameters.
         self._llm_client = llm_client
         self._default_system_prompt = system_prompt
         self._temperature = temperature
         self._max_tokens = max_tokens
+
+        # Tracing is optional; if unset, prepare_agent_execution will create a no-op scope.
         self._tracer = tracer
+
+        # Normalize provider options once at init so downstream merging is predictable.
         self._provider_options = coerce_provider_options(provider_options) if provider_options is not None else {}
+
+        # Stored for introspection/debugging; the workflow is rebuilt per-run.
         self.workflow: Workflow | None = None
 
     def run(
@@ -94,6 +119,10 @@ class DirectLLMCall(Agent):
             RuntimeError: If the internal workflow fails to complete successfully.
             TypeError: If workflow finalize output is missing the expected ``LLMResponse`` payload.
         """
+        # Construct a normalized execution context:
+        # - standardizes the input payload
+        # - assigns a stable request_id
+        # - sets up trace scopes and dependency injection for downstream steps
         execution_context = prepare_agent_execution(
             prompt=prompt,
             request_id=request_id,
@@ -101,9 +130,18 @@ class DirectLLMCall(Agent):
             agent_name="DirectLLMCall",
             tracer=self._tracer,
         )
+
+        # Build a fresh workflow graph for this run.
+        # (Safe even if the agent instance is reused across runs, but note: `self.workflow`
+        # is stateful, so this class is not designed for concurrent runs on the same instance.)
         self.workflow = self._build_workflow()
 
         try:
+            # Run the workflow with just the minimal inputs required for step handlers.
+            # The workflow runtime will:
+            # - execute steps in dependency order
+            # - skip dependents on failure (failure_policy="skip_dependents")
+            # - aggregate step results and a success flag
             workflow_result = self.workflow.run(
                 {
                     "normalized_input": execution_context.normalized_input,
@@ -114,18 +152,31 @@ class DirectLLMCall(Agent):
                 request_id=f"{execution_context.request_id}:direct_call",
                 dependencies=execution_context.dependencies,
             )
+
+            # Workflow success means "no step failure that caused overall failure"
+            # but we still require the finalize step output to build a valid agent result.
             if not workflow_result.success:
                 _raise_workflow_failure(workflow_result)
+
+            # Even if the overall workflow succeeded, finalize may have been skipped
+            # (for example, if a dependency failed and was skipped). Treat this as failure
+            # because we cannot produce a well-formed ExecutionResult without finalize output.
             finalize_step = workflow_result.step_results.get("finalize")
             if not isinstance(finalize_step, WorkflowStepResult) or not finalize_step.success:
                 _raise_workflow_failure(workflow_result)
             assert isinstance(finalize_step, WorkflowStepResult)
 
+            # The finalize step returns:
+            # - "output": mapping projected into the workflow-first envelope
+            # - "metadata": extra bookkeeping fields for callers
+            # - "model_response": the raw LLMResponse for debugging and downstream reuse
             finalized = finalize_step.output
             model_response = finalized.get("model_response")
             if not isinstance(model_response, LLMResponse):
                 raise TypeError("Direct call workflow missing LLMResponse payload.")
 
+            # Optional enrichment: downstream steps may provide an explicit output/metadata mapping.
+            # If they do not, fall back to a small, consistent payload derived from the model response.
             base_output = finalized.get("output")
             base_metadata = finalized.get("metadata")
             result_output = (
@@ -144,13 +195,21 @@ class DirectLLMCall(Agent):
                     "dependency_keys": sorted(execution_context.dependencies.keys()),
                 }
             )
+
+            # Ensure request_id and dependency_keys are always present, even if finalize provided metadata.
             metadata["request_id"] = execution_context.request_id
             metadata["dependency_keys"] = sorted(execution_context.dependencies.keys())
+
+            # Build the "workflow-first" envelope, which:
+            # - preserves a structured representation of step outcomes
+            # - includes a single final_output string for simple consumers
             output = build_workflow_first_output(
                 base_output=result_output,
                 workflow_result=workflow_result,
                 final_output=model_response.text,
             )
+
+            # Construct the normalized agent-level execution result.
             result = ExecutionResult(
                 output=output,
                 success=workflow_result.success,
@@ -159,9 +218,11 @@ class DirectLLMCall(Agent):
                 metadata=metadata,
             )
         except Exception as exc:
+            # Always close the agent trace scope with an error to keep traces well-formed.
             finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
             raise
 
+        # Close out the trace scope with the final result.
         finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
         return result
 
@@ -171,17 +232,22 @@ class DirectLLMCall(Agent):
         Returns:
             Workflow configured for prepare, call, and finalize stages.
         """
+        # Note: tool_runtime=None makes this a pure-LLM workflow (no tool execution).
+        # input_schema is intentionally permissive here; per-step handlers validate what they need.
         return Workflow(
             tool_runtime=None,
             tracer=self._tracer,
             input_schema={"type": "object"},
             steps=[
+                # Step 1: normalize inputs, resolve model, and build an LLMRequest.
                 LogicStep(step_id="prepare_request", handler=self._prepare_request_step),
+                # Step 2: call the model client and capture an LLMResponse.
                 LogicStep(
                     step_id="call_model",
                     handler=self._call_model_step,
                     dependencies=("prepare_request",),
                 ),
+                # Step 3: project response into a stable output/metadata shape.
                 LogicStep(
                     step_id="finalize",
                     handler=self._finalize_step,
@@ -204,22 +270,35 @@ class DirectLLMCall(Agent):
         Raises:
             TypeError: If required schema-mode input payloads are missing or invalid.
         """
+        # The workflow runtime passes a standardized `context` mapping containing:
+        # - inputs: the workflow run input payload
+        # - dependency_results: outputs/errors from upstream steps
         inputs = context.get("inputs")
         if not isinstance(inputs, Mapping):
             raise TypeError("Direct call workflow requires schema input mapping.")
+
+        # Pull out the normalized input and request id created by prepare_agent_execution.
         normalized_input = inputs.get("normalized_input")
         request_id_value = inputs.get("request_id")
         if not isinstance(normalized_input, Mapping):
             raise TypeError("normalized_input must be a mapping.")
         request_id_text = str(request_id_value) if request_id_value is not None else None
 
+        # Resolve which model to use for this agent run (may depend on client defaults/config).
         resolved_model = resolve_agent_model(
             llm_client=self._llm_client,
         )
+
+        # Extract messages from normalized_input:
+        # - if user provided explicit messages, use them
+        # - otherwise synthesize messages from prompt + optional system prompt
         messages, message_source = extract_messages(
             input_payload=normalized_input,
             default_system_prompt=self._default_system_prompt,
         )
+
+        # Build a single LLMRequest object, merging defaults with per-run overrides.
+        # Provider options are merged last so callers can override backend-specific knobs.
         llm_request = LLMRequest(
             messages=messages,
             model=resolved_model,
@@ -242,6 +321,8 @@ class DirectLLMCall(Agent):
                 raw_provider_options=normalized_input.get("provider_options"),
             ),
         )
+
+        # Return a step output mapping; downstream steps access this via dependency_results.
         return {
             "resolved_model": resolved_model,
             "messages": list(messages),
@@ -264,13 +345,18 @@ class DirectLLMCall(Agent):
             TypeError: If prepared dependency payloads are missing or invalid.
             Exception: Propagated when model invocation fails.
         """
+        # Dependency outputs are stored under context["dependency_results"] keyed by step_id.
         prepare_output = _dependency_output(context=context, step_id="prepare_request")
+
+        # Validate the specific fields we rely on; this keeps failures clear and localized.
         resolved_model = prepare_output.get("resolved_model")
         raw_messages = prepare_output.get("messages")
         llm_request = prepare_output.get("llm_request")
         if not isinstance(resolved_model, str) or not isinstance(llm_request, LLMRequest):
             raise TypeError("Prepared request payload is invalid.")
 
+        # Start a tracing span for the model call (inputs + params + metadata).
+        # This produces a model_span_id used to close the span deterministically.
         model_span_id = start_model_call(
             model=resolved_model,
             messages=list(raw_messages) if isinstance(raw_messages, list) else [],
@@ -282,11 +368,14 @@ class DirectLLMCall(Agent):
             },
         )
         try:
+            # Single backend call: this is where network / provider errors propagate.
             llm_response = generate_response(self._llm_client, llm_request)
         except Exception as exc:
+            # Ensure the span is closed with an error so traces are not left dangling.
             finish_model_call(model_span_id, error=str(exc), model=resolved_model)
             raise
 
+        # Close the trace span with the provider response payload.
         finish_model_call(model_span_id, response=llm_response)
         return {
             "llm_response": llm_response,
@@ -304,14 +393,18 @@ class DirectLLMCall(Agent):
         Raises:
             TypeError: If prepared dependency payloads are missing or invalid.
         """
+        # Pull outputs from the two dependencies we require.
         prepare_output = _dependency_output(context=context, step_id="prepare_request")
         call_output = _dependency_output(context=context, step_id="call_model")
 
+        # Ensure we have both request and response objects; without them we cannot normalize output.
         llm_response = call_output.get("llm_response")
         llm_request = prepare_output.get("llm_request")
         if not isinstance(llm_response, LLMResponse) or not isinstance(llm_request, LLMRequest):
             raise TypeError("Finalize step missing LLM request/response payload.")
 
+        # Convert the raw response into a stable "success" result shape.
+        # This centralizes output normalization (model text, metadata fields, message stats, etc.).
         run_result = build_success_result(
             llm_response=llm_response,
             request_id=str(llm_request.metadata.get("request_id") or ""),
@@ -320,6 +413,10 @@ class DirectLLMCall(Agent):
             message_count=_int_or_default(prepare_output.get("message_count"), default=0),
             llm_request=llm_request,
         )
+
+        # Return both:
+        # - structured output/metadata (dicts)
+        # - the raw model response object for the outer `run()` method to attach to ExecutionResult
         return {
             "output": dict(run_result.output),
             "metadata": dict(run_result.metadata),
@@ -337,6 +434,8 @@ def _dependency_output(*, context: Mapping[str, object], step_id: str) -> dict[s
     Returns:
         Normalized dependency output mapping, or an empty mapping when unavailable.
     """
+    # Missing or malformed dependency payloads are treated as empty mappings so
+    # step handlers can raise targeted validation errors for required fields.
     dependency_results = context.get("dependency_results")
     if not isinstance(dependency_results, Mapping):
         return {}
@@ -358,6 +457,10 @@ def _int_or_default(value: object, *, default: int) -> int:
 
     Returns:
         Parsed integer or fallback default value.
+
+    Notes:
+        - bool is a subclass of int in Python; we handle it explicitly for clarity.
+        - strings are accepted only if `int(value)` succeeds.
     """
     if isinstance(value, bool):
         return int(value)
@@ -384,6 +487,8 @@ def _raise_workflow_failure(workflow_result: ExecutionResult) -> None:
         ValueError: If a failed step reported a concrete string error.
         RuntimeError: If workflow failed without a concrete step error message.
     """
+    # Preserve the first concrete failed step in execution order. This keeps error
+    # reporting deterministic even when multiple downstream steps are skipped/failed.
     for step_id in workflow_result.execution_order:
         step_result = workflow_result.step_results.get(step_id)
         if not isinstance(step_result, WorkflowStepResult):

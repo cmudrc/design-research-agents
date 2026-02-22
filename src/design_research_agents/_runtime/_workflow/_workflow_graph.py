@@ -42,6 +42,7 @@ def prepare_workflow_graph(steps: Sequence[WorkflowStep]) -> PreparedWorkflow:
         if step_id in step_map:
             raise ValueError(f"Duplicate workflow step id '{step_id}'.")
         step_map[step_id] = step
+        # Dependency ids are normalized up front so scheduler/executor logic can treat them as canonical.
         dependencies[step_id] = normalize_dependencies(step.dependencies)
 
     dependents: dict[str, list[str]] = defaultdict(list)
@@ -94,6 +95,7 @@ def normalize_dependencies(raw_dependencies: Sequence[str]) -> tuple[str, ...]:
         dependency_id = dependency.strip()
         if dependency_id:
             normalized.append(dependency_id)
+    # Preserve caller-provided order for deterministic sequential execution semantics.
     return tuple(normalized)
 
 
@@ -112,6 +114,7 @@ def release_dependents(
         in_degree: Input value for this parameter.
         ready_steps: Input value for this parameter.
     """
+    # Decrement in-degree once per completed dependency; push only when all prerequisites are satisfied.
     for dependent in dependents.get(step_id, ()):  # pragma: no branch - tiny helper
         in_degree[dependent] = max(0, in_degree[dependent] - 1)
         if in_degree[dependent] == 0:

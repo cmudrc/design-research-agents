@@ -52,6 +52,7 @@ def run_loop_step(
     )
 
     for iteration in range(1, step.max_iterations + 1):
+        # Evaluate predicate at iteration start so reducers never run for skipped iterations.
         if step.continue_predicate is not None and not step.continue_predicate(
             iteration,
             dict(current_state),
@@ -60,6 +61,7 @@ def run_loop_step(
             break
 
         loop_context = dict(step_context)
+        # Inject loop metadata into context to let nested steps introspect iteration state deterministically.
         loop_context["loop_state"] = dict(current_state)
         loop_context["_loop"] = {
             "loop_step_id": step_id,
@@ -81,6 +83,7 @@ def run_loop_step(
         iteration_results.append(iteration_result)
 
         if step.state_reducer is not None:
+            # Reducer output becomes the full next-state payload (not a patch merge).
             reduced_state = step.state_reducer(
                 dict(current_state),
                 iteration_result,

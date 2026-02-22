@@ -62,6 +62,7 @@ class ToolPolicy:
             config: Input value for this parameter.
         """
         self._config = config
+        # Resolve once at construction time so all checks use canonical absolute paths.
         self._workspace_root = Path(config.workspace_root).expanduser().resolve()
         self._artifacts_root = (self._workspace_root / config.artifacts_dir).resolve()
 
@@ -102,6 +103,7 @@ class ToolPolicy:
             Exception: Raised when this operation cannot complete.
         """
         side_effects = spec.metadata.side_effects
+        # Network access is guarded globally regardless of per-tool preference.
         if side_effects.network and not self._config.allow_network:
             raise ToolPolicyError(f"Tool '{spec.name}' requires network access, but allow_network is disabled.")
 
@@ -153,6 +155,7 @@ class ToolPolicy:
         candidate = self._resolve_workspace_path(path)
         if self._config.allow_writes_outside_artifacts:
             return candidate
+        # Default safety policy constrains writes to artifacts/ for reproducible side effects.
         if not self._is_relative_to(candidate, self._artifacts_root):
             raise ToolPolicyError(
                 "Writes are restricted to the artifacts directory. "
@@ -174,6 +177,7 @@ class ToolPolicy:
         encoded = text.encode("utf-8", errors="replace")
         if len(encoded) <= limit:
             return text, False
+        # Decode with ignore to avoid cutting through multibyte UTF-8 boundaries.
         clipped = encoded[:limit].decode("utf-8", errors="ignore")
         return clipped, True
 

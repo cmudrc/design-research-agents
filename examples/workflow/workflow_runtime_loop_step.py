@@ -389,6 +389,7 @@ def _state_reducer(
 
 def main() -> None:
     """Run a small loop and print compact JSON summary."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-loop-design-001"
     tracer = Tracer(
         enabled=True,

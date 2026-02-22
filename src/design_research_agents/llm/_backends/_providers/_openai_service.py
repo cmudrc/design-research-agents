@@ -118,6 +118,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
             )
         except Exception as exc:
             mapped_error = map_backend_exception(exc)
+            # Structured-output fallback is only attempted for response-format/schema compatibility failures.
             if _is_response_format_error(mapped_error) and (request.response_schema or request.response_format):
                 return self._fallback_prompt_validate(request)
             raise mapped_error from exc
@@ -231,6 +232,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
             response_format = _format_response_format(request)
             if response_format:
                 request_payload["response_format"] = response_format
+        # Provider options are merged last so caller-specified flags can override defaults.
         request_payload.update(request.provider_options)
         return request_payload
 
@@ -255,6 +257,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
                 mapped_error = map_backend_exception(exc)
                 if attempt >= self.max_retries or not _should_retry(mapped_error):
                     raise mapped_error from exc
+                # Exponential backoff reduces hot-loop retries on transient provider throttling.
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 8.0)
         return client.chat.completions.create(**request_payload)

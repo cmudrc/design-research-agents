@@ -179,6 +179,7 @@ def _objective(x: float) -> float:
 
 def main() -> None:
     """Optimize ``x^2`` from ``x=3`` by letting the LLM choose each tool step."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-optimization-json-tool-calling-design-001"
     tracer = Tracer(
         enabled=True,
@@ -267,6 +268,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
         tools.close()

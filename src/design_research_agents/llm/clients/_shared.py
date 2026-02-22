@@ -87,6 +87,7 @@ class _SingleBackendLLMClient(LLMClient):
         }
         if config_snapshot is not None:
             snapshot.update(normalize_snapshot_mapping(config_snapshot))
+        # Snapshot fields are intentionally plain JSON-compatible scalars for deterministic example output.
         self._config_snapshot = snapshot
         self._server_snapshot = normalize_snapshot_mapping(server_snapshot) if server_snapshot is not None else None
 
@@ -150,6 +151,7 @@ class _SingleBackendLLMClient(LLMClient):
             provider_options=dict(params.provider_options),
             task_profile=None,
         )
+        # Reuse generate() so chat() inherits shared tracing and error-observation behavior.
         return self.generate(request)
 
     def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
@@ -240,6 +242,7 @@ class _SingleBackendLLMClient(LLMClient):
                 yield LLMStreamEvent(kind="delta", delta_text=delta.text_delta)
         completed = getattr(stream, "response", None)
         if not isinstance(completed, LLMResponse):
+            # If backend streaming does not expose a final response object, synthesize one from deltas.
             completed = LLMResponse(
                 text=full_text,
                 model=model,

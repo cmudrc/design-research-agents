@@ -57,6 +57,7 @@ def build_step_context(
         }
 
     context = dict(base_context)
+    # Expose dependency outputs under one stable key so builder callbacks have a single lookup contract.
     context["dependency_results"] = dependency_results
     context["_workflow"] = {
         "request_id": request_id,
@@ -94,6 +95,7 @@ def build_invocation_dependencies(
     """
     invocation_dependencies = dict(base_dependencies)
     raw_dependency_results = step_context.get("dependency_results")
+    # Copy dependency results into invocation dependencies to keep downstream tools/delegates context-aware.
     dependency_results = dict(raw_dependency_results) if isinstance(raw_dependency_results, Mapping) else {}
     invocation_dependencies["_workflow"] = {
         "request_id": request_id,
@@ -221,6 +223,7 @@ def route_deactivations(
         )
 
     all_targets = {target for targets in route_map.values() for target in targets}
+    # Deactivate entire non-selected branches transitively to avoid partial execution of losing routes.
     deactivated_steps: set[str] = set()
     for non_selected_target in all_targets.difference(selected_targets):
         for descendant in _collect_descendants(

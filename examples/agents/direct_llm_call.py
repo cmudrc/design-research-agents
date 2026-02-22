@@ -64,6 +64,7 @@ from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Trace
 
 def main() -> None:
     """Execute one direct model call with explicit tracing."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-direct-llm-design-001"
     tracer = Tracer(
         enabled=True,
@@ -81,6 +82,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

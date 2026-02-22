@@ -138,12 +138,19 @@ class ExecutionResult:
         self,
         details: Mapping[str, object] | Sequence[str] | None,
     ) -> dict[str, object]:
+        # If no details provided, return empty mapping.
         if details is None:
             return {}
+
+        # If details is already a mapping, return it as a dict.
         if isinstance(details, Mapping):
             return dict(details)
+
+        # If details is a sequence, treat entries as output keys to include in the summary.
         if not isinstance(details, Sequence) or isinstance(details, (str, bytes)):
             raise TypeError("details must be a mapping or sequence of keys when provided.")
+
+        # Otherwise, build details mapping by reading output values for each key.
         details_payload: dict[str, object] = {}
         for key in details:
             if not isinstance(key, str):

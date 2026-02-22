@@ -226,6 +226,7 @@ def _apply_provider_constraints(
         Computed return value.
     """
     if constraints.preferred_provider:
+        # Prefer exact provider matches when available, otherwise preserve original candidate set.
         preferred = [model for model in candidates if model.provider == constraints.preferred_provider]
         if preferred:
             return preferred
@@ -251,6 +252,7 @@ def _apply_cost_constraints(
     if constraints.max_cost_usd is None:
         return candidates
     if constraints.max_cost_usd <= remote_cost_floor_usd:
+        # Very low budget implies local-only selection to avoid remote spend surprises.
         return [model for model in candidates if model.is_local]
     filtered: list[ModelSpec] = []
     for model in candidates:
@@ -333,6 +335,7 @@ def _pick_best_model(
         scored.append((score, model))
     size_direction = -1.0 if intent.priority == "speed" else 1.0
     scored.sort(
+        # Deterministic tie-breakers keep decisions stable when scores are equal.
         key=lambda item: (
             item[0],
             (item[1].size_b or 0.0) * size_direction,

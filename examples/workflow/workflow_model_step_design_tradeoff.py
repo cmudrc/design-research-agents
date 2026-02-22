@@ -67,6 +67,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 def main() -> None:
     """Run model-step workflow and print compact design tradeoff summary."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-model-step-design-001"
     tracer = Tracer(
         enabled=True,
@@ -118,6 +119,7 @@ def main() -> None:
             {"design_goal": "reduce repair time for edge-device battery modules"},
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
     summary = result.summary(

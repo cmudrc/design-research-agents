@@ -172,6 +172,7 @@ def _run_report() -> dict[str, object]:
             dependencies={},
         )
         report["report_path"] = report_write["path"]
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         runtime.close()
 
@@ -180,6 +181,7 @@ def _run_report() -> dict[str, object]:
 
 def main() -> None:
     """Run traced multi-source report generation."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-tools-source-fusion-design-001"
     tracer = Tracer(
         enabled=True,

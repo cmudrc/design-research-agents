@@ -39,6 +39,7 @@ def invoke_delegate(
 ) -> DelegateInvocation:
     """Invoke a delegate and normalize its result/type metadata."""
     normalized_context = dict(step_context or {})
+    # Workflow-object delegates need input-shape adaptation before invocation.
     if _is_workflow_object_delegate(delegate):
         workflow_result = _invoke_workflow_object_delegate(
             delegate=delegate,
@@ -52,6 +53,7 @@ def invoke_delegate(
         return DelegateInvocation(result=workflow_result, delegate_type="workflow")
 
     if _is_workflow_delegate_runner(delegate):
+        # Runner delegates accept context-first signatures, so inject prompt into context explicitly.
         nested_context = dict(normalized_context)
         nested_context["prompt"] = prompt
         workflow_result = delegate.run(
@@ -90,6 +92,7 @@ def _invoke_workflow_object_delegate(
 ) -> ExecutionResult:
     """Invoke a raw ``Workflow``-like delegate with input-mode adaptation."""
     input_schema = getattr(delegate, "_input_schema", None)
+    # Prompt-mode workflows consume plain strings; schema-mode workflows expect structured mapping input.
     if input_schema is None:
         workflow_input: str | Mapping[str, object] | None = prompt
     elif isinstance(input_schema, Mapping):
@@ -137,6 +140,7 @@ def _is_workflow_delegate_runner(
     if not parameters:
         return True
     first_parameter = parameters[0]
+    # Distinguish workflow-style run(context=...) from agent-style run(prompt, ...).
     return not (
         first_parameter.kind
         in (

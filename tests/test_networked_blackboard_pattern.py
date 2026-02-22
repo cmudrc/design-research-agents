@@ -24,6 +24,7 @@ class _RecordingPeerAgent(Agent):
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         del prompt, request_id, dependencies
+        # Record invocation order so tests can assert deterministic peer scheduling.
         self._recorder.append(self._peer_id)
         return ExecutionResult(
             output=dict(self._payload),
@@ -106,6 +107,7 @@ def test_blackboard_pattern_converges_after_stable_state_hash_rounds() -> None:
     assert result.output["terminated_reason"] == "converged"
     assert result.output["rounds_executed"] == 2
     round_summaries = result.output["round_summaries"]
+    # Equal hashes across consecutive rounds indicate stable blackboard state.
     assert round_summaries[0]["state_hash"] == round_summaries[1]["state_hash"]
 
 

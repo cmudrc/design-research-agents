@@ -192,6 +192,7 @@ def main() -> None:
         input_schema=INPUT_SCHEMA,
     )
 
+    # Use explicit strict and relaxed ids so each policy run is traceable independently.
     strict_request_id = "example-workflow-schema-design-strict-001"
     strict_result = workflow.run(
         {
@@ -205,6 +206,7 @@ def main() -> None:
         request_id=strict_request_id,
     )
 
+    # Use explicit strict and relaxed ids so each policy run is traceable independently.
     relaxed_request_id = "example-workflow-schema-design-relaxed-001"
     relaxed_result = workflow.run(
         {

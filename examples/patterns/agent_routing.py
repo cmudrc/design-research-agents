@@ -73,6 +73,7 @@ from design_research_agents.patterns import RouterPattern
 
 def main() -> None:
     """Route one design prompt to the best delegate and print summary."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-agent-routing-design-001"
     tracer = Tracer(
         enabled=True,
@@ -111,6 +112,7 @@ def main() -> None:
             prompt=("Count the words in this design phrase and return the tool result: modular field service workflow"),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

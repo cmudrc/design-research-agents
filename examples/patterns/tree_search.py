@@ -96,6 +96,7 @@ def _evaluator(context: Mapping[str, object]) -> float:
 
 def main() -> None:
     """Run one tree-search workflow and print JSON summary."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-tree-search-design-001"
     tracer = Tracer(
         enabled=True,

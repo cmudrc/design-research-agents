@@ -77,6 +77,7 @@ def start_trace_run(
 
     active_session = _CURRENT_TRACE.get()
     if active_session is None:
+        # Root run: create a fresh session and bind both trace/span contextvars.
         trace_path = tracer.build_trace_path(run_id=request_id)
         sinks = tracer.build_sinks(trace_path=trace_path)
         session = TraceSession(run_id=request_id, sinks=sinks)
@@ -108,6 +109,7 @@ def start_trace_run(
         )
 
     parent_span_id = _CURRENT_SPAN.get() or active_session.root_span_id
+    # Nested agent run: attach under current span without replacing the active session.
     span_id = active_session.start_span(
         "AgentRunStarted",
         parent_span_id=parent_span_id,
@@ -145,6 +147,7 @@ def finish_trace_run(
         return
 
     if scope.is_root:
+        # Root scope owns session lifecycle and must always close sinks/context.
         attributes = {
             "success": (bool(getattr(result, "success", False)) if result is not None else False),
             "error": error,
@@ -159,6 +162,7 @@ def finish_trace_run(
         if scope.trace_token is not None:
             _CURRENT_TRACE.reset(scope.trace_token)
     else:
+        # Nested scope only closes its span; parent/root session remains active.
         attributes = {
             "success": (bool(getattr(result, "success", False)) if result is not None else False),
             "error": error,

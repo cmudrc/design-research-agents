@@ -33,6 +33,7 @@ class _NoopLLMClient:
 
 class _StaticDelegate:
     def __init__(self, *, success: bool, payload: Mapping[str, object]) -> None:
+        # Prebuild immutable ExecutionResult so delegates stay deterministic across calls.
         self._result = ExecutionResult(
             success=success,
             output=dict(payload),
@@ -71,10 +72,12 @@ class _SingleToolRuntime(ToolRuntime):
         dependencies: Mapping[str, object],
     ) -> ToolResult:
         del request_id, dependencies
+        # Echo-style runtime keeps pattern tests focused on orchestration, not tool behavior.
         return ToolResult(tool_name=tool_name, ok=True, result=dict(input_dict))
 
 
 def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> None:
+    # Cover payload extraction fallbacks in priority order.
     assert planner_impl._extract_planner_payload({"steps": [{"step_id": "x"}]}) == {"steps": [{"step_id": "x"}]}
     assert planner_impl._extract_planner_payload({"final_output": {"steps": [{"step_id": "y"}]}}) == {
         "steps": [{"step_id": "y"}]
@@ -178,6 +181,7 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
 
 
 def test_debate_pattern_delegate_and_helper_branches() -> None:
+    # Cover direct, final_output, and model_text verdict payload shapes.
     assert debate_impl._extract_delegate_verdict({"winner": "tie", "rationale": "r", "synthesis": "s"}) == {
         "winner": "tie",
         "rationale": "r",

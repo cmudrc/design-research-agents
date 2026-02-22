@@ -212,6 +212,7 @@ from design_research_agents.memory import SQLiteMemoryStore
 
 def main() -> None:
     """Execute memory and delegate-batch primitives in one traced workflow."""
+    # Stable request ids keep workflow trace artifacts deterministic for docs snapshots.
     request_id = "example-workflow-delegate-memory-design-001"
     tracer = Tracer(
         enabled=True,
@@ -221,12 +222,14 @@ def main() -> None:
     )
     db_path = Path("artifacts/examples/workflow_delegate_and_memory.sqlite3")
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    # Reset persisted state so each example run starts from the same memory baseline.
     if db_path.exists():
         db_path.unlink()
 
     store = SQLiteMemoryStore(db_path=db_path)
     llm_client = LlamaCppServerLLMClient()
     try:
+        # Two delegates share the same backend client to model role-specific prompts over one transport.
         manufacturing_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         reliability_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
@@ -239,6 +242,7 @@ def main() -> None:
                 MemoryWriteStep(
                     step_id="seed_constraints",
                     namespace="design_constraints",
+                    # Seed memory first so downstream reads/delegates operate on explicit constraints.
                     records_builder=lambda _context: [
                         {
                             "content": "Constraint: reduce service time by at least 20 percent.",
@@ -296,6 +300,7 @@ def main() -> None:
         )
 
         result = workflow.run({}, request_id=request_id)
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
         store.close()

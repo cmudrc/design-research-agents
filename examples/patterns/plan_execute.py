@@ -89,6 +89,7 @@ def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:
 
 def main() -> None:
     """Run planner-executor orchestration with tracing."""
+    # Fixed request ids keep trace paths and sample output stable for docs/tests.
     request_id = "example-workflow-plan-execute-design-001"
     tracer = Tracer(
         enabled=True,
@@ -102,6 +103,7 @@ def main() -> None:
             CallableTool(
                 name="repo.readme_metrics",
                 description="Return README line-count and first heading.",
+                # Inject one deterministic local tool so planning can reference concrete capabilities.
                 handler=_readme_metrics,
             ),
         ),
@@ -120,6 +122,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

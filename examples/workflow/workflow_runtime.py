@@ -66,6 +66,7 @@ from design_research_agents import LogicStep, Tracer, Workflow
 
 def main() -> None:
     """Run a minimal logic workflow and print literal payload."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-runtime-design-001"
     tracer = Tracer(
         enabled=True,

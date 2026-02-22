@@ -199,7 +199,10 @@ def main() -> None:
         tracer=tracer,
     )
 
+    # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
+
     agent_request_id = "example-workflow-prompt-design-agent-001"
+    # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
     template_request_id = "example-workflow-prompt-design-template-001"
     try:
         agent_result = workflow.run(
@@ -210,6 +213,7 @@ def main() -> None:
             ("template: Produce a deterministic fallback brief for manufacturability review findings."),
             request_id=template_request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

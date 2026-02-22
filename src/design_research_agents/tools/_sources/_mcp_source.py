@@ -114,6 +114,7 @@ class _StdioMcpClient:
         process.stdin.write(json.dumps(request_payload, ensure_ascii=True) + "\n")
         process.stdin.flush()
 
+        # Match responses by JSON-RPC id because MCP servers may emit unrelated notifications.
         response_payload = self._read_response(expected_id=request_id)
         if "error" in response_payload:
             error = response_payload.get("error")
@@ -129,6 +130,7 @@ class _StdioMcpClient:
         if self._process is not None:
             return
 
+        # Launch subprocesses with an allowlisted environment to reduce accidental secret leakage.
         env = self._policy.sanitize_subprocess_env(
             allowlist=self._server.env_allowlist,
             extra_env=self._server.env,
@@ -171,6 +173,7 @@ class _StdioMcpClient:
         process.stdin.flush()
         _ = self._read_response(expected_id=init_id)
 
+        # Follow initialize with initialized per MCP lifecycle expectations.
         self._request_id += 1
         initialized_id = self._request_id
         initialized_payload = {
@@ -218,6 +221,7 @@ class _StdioMcpClient:
             try:
                 response_payload = json.loads(line)
             except json.JSONDecodeError:
+                # Ignore non-JSON lines to tolerate noisy stderr-forwarding wrappers.
                 continue
             if not isinstance(response_payload, Mapping):
                 continue
@@ -335,6 +339,7 @@ class McpToolSource:
 
         if isinstance(structured_content, Mapping):
             if {"ok", "result", "artifacts", "warnings"}.issubset(structured_content.keys()):
+                # Fast path: remote tool already returns our canonical ToolResult envelope.
                 return ToolResult(
                     tool_name=tool_name,
                     ok=bool(structured_content.get("ok")),

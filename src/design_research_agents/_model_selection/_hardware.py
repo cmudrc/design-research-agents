@@ -138,6 +138,7 @@ def _detect_total_ram_bytes() -> int | None:
     if system == "Darwin":
         return _detect_macos_total_ram_bytes()
     meminfo = _read_proc_meminfo()
+    # Linux fast path via /proc is preferred when available.
     if meminfo and "MemTotal" in meminfo:
         return meminfo["MemTotal"] * 1024
     return _detect_sysconf_total_ram_bytes()
@@ -156,6 +157,7 @@ def _detect_available_ram_bytes() -> int | None:
     if system == "Darwin":
         return _detect_macos_available_ram_bytes()
     meminfo = _read_proc_meminfo()
+    # MemAvailable tracks reclaimable memory more accurately than MemFree.
     if meminfo and "MemAvailable" in meminfo:
         return meminfo["MemAvailable"] * 1024
     return _detect_sysconf_available_ram_bytes()
@@ -308,6 +310,7 @@ def _run_command(args: list[str]) -> str | None:
             timeout=2,
         )
     except (OSError, subprocess.TimeoutExpired):
+        # Best-effort probing should fail quietly and let fallback detectors continue.
         return None
     if result.returncode != 0:
         return None
@@ -361,11 +364,13 @@ def _detect_nvidia_gpu_info() -> tuple[bool, int | None, str | None] | None:
         try:
             vram_values.append(int(float(memory)) * 1024 * 1024)
         except ValueError:
+            # Keep row alignment even when one device reports malformed memory fields.
             vram_values.append(0)
         if raw_name:
             names.append(raw_name)
     if not vram_values and not names:
         return None
+    # Use max VRAM across visible devices to reflect best available local execution target.
     vram = max(vram_values) if vram_values else None
     resolved_name: str | None = names[0] if len(set(names)) == 1 else (names[0] if names else None)
     return True, vram, resolved_name
@@ -477,4 +482,5 @@ def _windows_memory_status() -> _WindowsMemoryStatus | None:
     global_status = getattr(kernel32, "GlobalMemoryStatusEx", None)
     if global_status is None or global_status(ctypes.byref(status)) == 0:
         return None
+    # Cast into protocol shape to avoid exposing ctypes-specific type details downstream.
     return cast(_WindowsMemoryStatus, status)

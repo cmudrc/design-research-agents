@@ -296,6 +296,8 @@ def main() -> None:
         peer_a = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         peer_b = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
+        # Split ids by pattern variant to keep networked and blackboard traces distinct.
+
         network_request_id = "example-workflow-networked-pattern-design-001"
         networked = NetworkedPattern(
             peers={
@@ -309,6 +311,8 @@ def main() -> None:
             "Coordinate candidate mechanisms for a field-serviceable sensor enclosure.",
             request_id=network_request_id,
         )
+
+        # Split ids by pattern variant to keep networked and blackboard traces distinct.
 
         blackboard_request_id = "example-workflow-blackboard-pattern-design-001"
         blackboard = BlackboardPattern(
@@ -324,6 +328,7 @@ def main() -> None:
             "Compare two concept options and converge on a serviceable design direction.",
             request_id=blackboard_request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

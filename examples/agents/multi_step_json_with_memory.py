@@ -70,6 +70,7 @@ from design_research_agents.memory import SQLiteMemoryStore
 
 def main() -> None:
     """Run one multi-step JSON tool call with memory retrieval and write-back."""
+    # Keep the request id stable so trace filenames and test snapshots stay comparable.
     request_id = "example-multi-step-json-memory-design-001"
     tracer = Tracer(
         enabled=True,
@@ -79,10 +80,13 @@ def main() -> None:
     )
     db_path = Path("artifacts/examples/multi_step_json_with_memory.sqlite3")
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    # Recreate the DB per run to keep the example deterministic across repeated executions.
     if db_path.exists():
         db_path.unlink()
 
     tool_runtime = Toolbox()
+
+    # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
     tool_runtime.invoke_dict(
         "memory.write",
         {
@@ -118,7 +122,9 @@ def main() -> None:
             "Compute one design-check text metric and retain the observation history.",
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
+        # Explicit shutdown keeps local handles/sockets from leaking in long-lived sessions.
         llm_client.close()
         tool_runtime.close()
         store.close()

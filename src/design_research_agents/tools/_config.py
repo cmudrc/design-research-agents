@@ -257,6 +257,7 @@ def load_tool_runtime_config(path: str) -> ToolRuntimeConfig:
     mcp_raw = payload.get("mcp", {})
     script_raw = payload.get("script_tools", {})
 
+    # Parse sections independently so malformed optional blocks fail with targeted messages.
     core_cfg = _parse_core_config(core_raw)
     mcp_cfg = _parse_mcp_config(mcp_raw)
     script_cfg = _parse_script_config(script_raw)
@@ -276,6 +277,7 @@ def _parse_core_config(raw: object) -> CoreToolsConfig:
     if not isinstance(raw, dict):
         return CoreToolsConfig()
     defaults = CoreToolsConfig()
+    # Fall back to constructor defaults for omitted keys to keep config files concise.
     return CoreToolsConfig(
         enabled=bool(raw.get("enabled", True)),
         allow_network=bool(raw.get("allow_network", False)),

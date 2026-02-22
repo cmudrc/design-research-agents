@@ -124,12 +124,14 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         client.close()
 
 
 def main() -> None:
     """Run traced OpenAI-compatible client call payload."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-clients-openai-compatible-call-001"
     tracer = Tracer(
         enabled=True,

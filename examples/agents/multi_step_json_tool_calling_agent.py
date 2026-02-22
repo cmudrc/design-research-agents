@@ -97,6 +97,7 @@ _JSON_ALLOWED_TOOLS: tuple[str, ...] = (
 
 def main() -> None:
     """Execute one traced multi-step JSON tool-calling run."""
+    # Stable ids make trace correlation and docs output easier to audit.
     request_id = "example-multi-step-json-design-001"
     tracer = Tracer(
         enabled=True,
@@ -112,6 +113,7 @@ def main() -> None:
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_steps=3,
+            # Constrain selection so the example exercises an explicit tool surface.
             allowed_tools=_JSON_ALLOWED_TOOLS,
             tracer=tracer,
         )
@@ -119,6 +121,7 @@ def main() -> None:
             prompt="Read README.md and summarize one implementation insight from the text.",
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

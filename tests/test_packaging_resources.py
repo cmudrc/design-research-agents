@@ -34,12 +34,23 @@ def _build_wheel(tmp_path: Path) -> Path:
     wheel_dir = tmp_path / "wheelhouse"
     wheel_dir.mkdir(parents=True, exist_ok=True)
     completed = subprocess.run(
-        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "-w", str(wheel_dir)],
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            ".",
+            "--no-build-isolation",
+            "--no-deps",
+            "-w",
+            str(wheel_dir),
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
+    # Build without isolation so CI can validate packaging in offline-restricted environments.
     assert completed.returncode == 0, (
         f"Failed to build wheel.\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
     )

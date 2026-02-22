@@ -67,6 +67,7 @@ class Toolbox(ToolRuntime):
                 tools=tuple(script_tools or ()),
             ),
         )
+        # Normalize constructor shorthands into one config object so source initialization is centralized.
         self._initialize_from_config(runtime_config)
 
         for callable_tool in tuple(callable_tools or ()):  # register after custom source exists.
@@ -101,6 +102,7 @@ class Toolbox(ToolRuntime):
             self._registry.add_source(self._core_source)
 
         self._custom_source = InProcessToolSource(source_id="custom")
+        # Keep a dedicated in-process source always available for dynamic callable registration.
         self._registry.add_source(self._custom_source)
 
         self._mcp_source = None
@@ -222,6 +224,7 @@ class Toolbox(ToolRuntime):
             dependencies=dependencies,
         )
         if not result.ok:
+            # Promote tool-level failures to runtime errors for call sites that require strict dict outputs.
             message = result.error.message if result.error is not None else "unknown tool error"
             raise RuntimeError(f"{tool_name} failed: {message}")
         if not isinstance(result.result, Mapping):

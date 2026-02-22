@@ -54,6 +54,7 @@ def start_step_span(*, step: WorkflowStep, step_id: str) -> str | None:
     session = current_trace_session()
     if session is None:
         return None
+    # Link to current span when nested; otherwise attach directly under run root.
     parent_span_id = current_span_id() or session.root_span_id
     return session.start_span(
         "WorkflowStepStarted",
@@ -105,6 +106,7 @@ def activate_step_span(span_id: str | None) -> Iterator[None]:
 
     from design_research_agents._tracing import _context as tracing_context
 
+    # Bind step span in contextvars so nested emitters automatically inherit this span.
     token = tracing_context._CURRENT_SPAN.set(span_id)
     try:
         yield

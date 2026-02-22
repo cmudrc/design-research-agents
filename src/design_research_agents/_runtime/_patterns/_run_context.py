@@ -105,6 +105,7 @@ def resolve_pattern_run_context(
     dependencies: Mapping[str, object] | None,
 ) -> PatternRunContext:
     """Resolve one pattern run context with shared request/dependency semantics."""
+    # Prefix-based ids keep pattern families queryable in traces without requiring callers to pass explicit ids.
     configured_request_id = resolve_request_id_with_prefix(
         request_id=request_id,
         default_prefix=default_request_id_prefix,
@@ -132,6 +133,7 @@ def execute_pattern_with_trace(
     runner: Callable[[], ExecutionResult],
 ) -> ExecutionResult:
     """Execute one callable under standardized start/finish trace emission."""
+    # Centralize trace lifecycle handling so individual pattern implementations stay focused on business logic.
     trace_scope = start_trace_run(
         agent_name=agent_name,
         request_id=request_id,
@@ -233,6 +235,7 @@ def attach_runtime_metadata(
         Agent result with normalized ``metadata["runtime"]`` payload.
     """
     metadata = dict(agent_result.metadata)
+    # Keep runtime metadata under one namespaced key to avoid colliding with caller-defined metadata fields.
     runtime_metadata: dict[str, object] = {
         "requested_mode": requested_mode,
         "resolved_mode": resolved_mode,

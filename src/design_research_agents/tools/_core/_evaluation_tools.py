@@ -141,6 +141,7 @@ def _decision_matrix_handler(
         )
 
     ranked.sort(
+        # Sort by score then id for deterministic ordering when totals tie.
         key=lambda item: (
             cast(float, item["total_score"]),
             cast(str, item["alternative"]),
@@ -258,6 +259,7 @@ def _apply_pairwise_outcome(
         raise ValueError(f"comparisons[{index}] must compare two distinct alternatives.")
 
     key = (a_name, b_name) if a_name < b_name else (b_name, a_name)
+    # Store matrix in canonical lexical order to avoid duplicate mirrored keys.
     oriented = matrix[key]
     if outcome == "tie":
         scores[a_name]["ties"] += 1.0
@@ -304,6 +306,7 @@ def _build_pairwise_ranking(
             }
         )
     ranking.sort(
+        # Stable tie-breaker keeps outputs deterministic for equal Copeland scores.
         key=lambda item: (
             cast(float, item["copeland_score"]),
             cast(int, item["wins"]),

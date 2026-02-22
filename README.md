@@ -5,8 +5,8 @@
 [![Public API In Examples](.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
-A modular framework for researching AI agents with shared runtime contracts,
-workflow orchestration, and pluggable LLM backends.
+`design-research-agents` is a modular framework for prototyping and researching engineering design AI agents.
+It features shared runtime contracts, workflow orchestration, and pluggable LLM backends for quick iteartion.
 
 ## Overview
 

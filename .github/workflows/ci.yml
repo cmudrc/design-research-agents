@@ -1,24 +1,55 @@
+# GitHub Actions workflow for continuous integration (quality gates).
+#
+# Goals:
+# - Run fast, high-signal checks on every PR and main push (lint/format/types/tests/examples).
+# - Continuously validate two dependency regimes:
+#   - "latest": broadly current deps (what most contributors run)
+#   - "lowest": minimum direct bounds (guards against over-constraining pins / silent breakage)
+# - Validate reproducibility from a lockfile across OSes ("locked"), catching platform-specific issues.
+# - Keep badges (coverage + example metrics) updated on main without letting PRs write to the repo.
+#
+# Conventions:
+# - Delegate project-specific logic to `make` targets (keeps YAML thin and auditable).
+# - Prefer least-privilege permissions; only elevate where a job must push (badges).
+# - Use uv for lock/lowest workflows to ensure consistent resolution behavior.
+# - Use concurrency where jobs can collide on shared outputs (badge commits).
+
 name: CI
 
-# Run quality gates for main branch updates and all pull requests.
+# Triggers:
+# - push to main: run all gates; update badges on success
+# - pull_request: run all gates; never push artifacts/commits back
 on:
   push:
     branches: [ main ]
   pull_request:
 
+# Permissions:
+# NOTE: This is currently broader than needed for most jobs.
+# - `contents: write` is only required for the badge job that commits back to the repo.
+# - Best practice: set global permissions to `contents: read`, then override to `write`
+#   only in `coverage-badge` to reduce blast radius if an action is compromised.
 permissions:
   contents: write
 
 jobs:
   latest:
     # Primary quality gates on broadly current dependencies.
+    #
+    # Why:
+    # - Catches everyday breakage quickly (style, typing, unit tests, examples smoke).
+    # - Runs on ubuntu-latest for speed and to match the majority contributor environment.
     runs-on: ubuntu-latest
     steps:
+      # Full history can be useful for versioning, changelog logic, or scripts that look at tags.
+      # If you don't need it, `fetch-depth: 1` is faster.
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # Provision Python and enable pip caching to speed up repeated runs.
+      # `id` is set so downstream steps can refer to setup outputs if needed.
       - name: Set up Python
         id: setup-python
         uses: actions/setup-python@v5
@@ -27,49 +58,91 @@ jobs:
           # Speed up installs by caching pip downloads between runs.
           cache: pip
 
+      # Install dev dependencies (lint, type checker, test deps, docs tooling, etc).
+      # Keep this as a single make target so it's consistent locally and in CI.
       - name: Install dependencies
         run: make dev
 
+      # Run the main CI gate (lint/format/type checks + tests + coverage + smoke checks).
+      # One command keeps the job log tidy; if debugging becomes painful,
+      # split `make ci` into separate steps (lint, type, tests, examples) for clearer failures.
       - name: Run checks
         # Lint/format/type checks, fast unit suite, coverage, and examples smoke.
         run: make ci
 
   lowest:
     # Validate that minimum direct dependency bounds are viable.
+    #
+    # Why:
+    # - Prevents accidentally relying on features introduced in newer transitive deps.
+    # - Encourages honest lower bounds in pyproject.toml.
+    #
+    # Implementation notes:
+    # - Uses uv's `--resolution lowest-direct` to keep your *direct* pins at minimum,
+    #   while letting transitive dependencies float to a compatible set.
+    # - Installs editable with extras so your packaging metadata is exercised.
     runs-on: ubuntu-latest
     steps:
+      # Default checkout depth is fine here; no git history required.
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Keep lowest-bounds testing on the same major/minor Python as `latest`
+      # unless you explicitly support multiple minors.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # Install uv (fast resolver + lockfile tooling), with caching enabled.
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
+      # Create an isolated venv explicitly so the subsequent uv/pip invocation is deterministic.
+      # You could also let uv manage this implicitly, but explicit is easier to reason about.
       - name: Create virtual environment
         run: uv venv --python 3.12 .venv
 
+      # Install the package in editable mode with dev extras at the *lowest direct* versions.
+      #
+      # The explicit pytest-asyncio range is a pragmatic guardrail:
+      # - `lowest-direct` may pick a pytest-asyncio that is too old/new for your pytest version
+      #   or your async tests. Pinning a compatible range avoids spurious failures that
+      #   aren't actually about your project's lower bounds.
+      #
+      # If other "lowest" incompatibilities show up, prefer tightening *your* declared bounds
+      # rather than sprinkling more ad-hoc pins here, unless it's a known ecosystem conflict.
       - name: Install lowest direct dependencies
         run: uv pip install --python .venv/bin/python --resolution lowest-direct -e ".[dev]" "pytest-asyncio>=0.24,<1"
 
+      # Run the unit test suite under the lowest-direct environment.
+      # Keep it focused: avoid heavy integration tests here if they create noise.
       - name: Run tests
         run: make test
 
   locked:
     # Frozen reproducible installs from uv.lock, pinned to release Python patch.
+    #
+    # Why:
+    # - Ensures the lockfile actually works on clean machines.
+    # - Catches OS-specific dependency issues and wheel availability problems.
+    #
+    # Strategy:
+    # - Run across OS matrix, but don't fail-fast so you get full signal in one run.
+    # - Allow different extras per OS to avoid known build hazards.
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Ubuntu: fully pinned patch version to maximize reproducibility.
           - os: ubuntu-latest
             repro-python: "3.12.12"
             repro-extras: "dev full"
+          # macOS: use 3.12 (latest patch on runner) and avoid extras that trigger
+          # slow/fragile source builds (e.g., llama-cpp-python) if wheels aren't available.
           - os: macos-latest
             repro-python: "3.12"
             # Avoid llama-cpp-python source builds on macOS CI (no official macOS wheels on PyPI).
@@ -78,6 +151,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install the requested Python; on macOS this may select the newest patch available.
+      # If you need strict patch pinning on macOS too, consider `actions/setup-python` support
+      # and runner availability, or use a toolcache strategy.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -88,21 +164,39 @@ jobs:
         with:
           enable-cache: true
 
+      # `make repro` should:
+      # - install from uv.lock
+      # - enforce frozen resolution (no lock updates)
+      # - install the requested extras set
+      #
+      # Passing python/extras through env keeps Makefile reusable locally.
       - name: Reproducible frozen install
         run: make repro REPRO_PYTHON="${{ matrix.repro-python }}" REPRO_EXTRAS="${{ matrix.repro-extras }}"
 
+      # Validate behavior under the locked environment.
       - name: Run tests
         run: make test
 
   coverage-badge:
     # Keep a coverage badge on main in sync with the stable unit-suite baseline.
+    #
+    # Security posture:
+    # - This job pushes commits, so it must run ONLY on trusted events (push to main).
+    # - Avoid running this on PRs (untrusted code could exfiltrate credentials or spam commits).
+    #
+    # Dependency posture:
+    # - Depends on successful completion of all gate jobs to avoid advertising stale/invalid metrics.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [latest, lowest, locked]
+
+    # Prevent parallel main pushes from racing to update badges and creating commit conflicts.
     concurrency:
       group: coverage-badge-${{ github.ref }}
       cancel-in-progress: true
+
     runs-on: ubuntu-latest
     steps:
+      # Check out the branch tip (not detached HEAD) so pushes work predictably.
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -116,18 +210,30 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      # Use the same dev install as the `latest` gate so coverage matches the "normal" environment.
       - name: Install dependencies
         run: make dev
 
+      # Generate coverage data/artifacts (ensure this writes to a known location deterministically).
       - name: Generate coverage report
         run: make coverage
 
+      # Convert coverage to an SVG badge.
+      # Ensure the script is deterministic (no timestamps/hostnames) to avoid unnecessary commits.
       - name: Generate coverage badge
         run: python scripts/generate_coverage_badge.py
 
+      # Optional but useful: publish additional deterministic metrics from examples.
+      # As above, keep outputs stable so commits only happen when the underlying numbers change.
       - name: Generate deterministic example metrics and badges
         run: make examples-metrics
 
+      # Commit and push badge updates if (and only if) the rendered SVGs changed.
+      #
+      # Notes:
+      # - The `[skip ci]` token prevents this commit from triggering the pipeline again.
+      # - If your CI doesn't respect `[skip ci]`, switch to a path-filtered trigger or
+      #   add a guard in `on.push` to ignore commits by github-actions bot.
       - name: Commit and push badge if changed
         env:
           BRANCH_NAME: ${{ github.ref_name }}

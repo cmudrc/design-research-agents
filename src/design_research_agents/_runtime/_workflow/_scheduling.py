@@ -59,6 +59,7 @@ def run_sequential(
                 f"{', '.join(sorted(unresolved_dependencies))}."
             )
 
+        # Sequential mode preserves author intent exactly; no reordering is attempted.
         step_result = evaluate_step(
             step,
             step_id,
@@ -91,6 +92,7 @@ def run_dag(
     """Execute a DAG workflow using dependency-driven scheduling."""
     in_degree: dict[str, int] = {step_id: len(prepared.dependencies[step_id]) for step_id in prepared.step_map}
     ready_steps = [step_id for step_id, degree in in_degree.items() if degree == 0]
+    # Heap-based frontier keeps tie-breaking deterministic across Python versions/platforms.
     heapq.heapify(ready_steps)
 
     step_results: dict[str, WorkflowStepResult] = {}
@@ -105,6 +107,7 @@ def run_dag(
         step = prepared.step_map[step_id]
         step_dependencies = prepared.dependencies[step_id]
 
+        # Evaluate only when all predecessors have released this node.
         step_result = evaluate_step(
             step,
             step_id,

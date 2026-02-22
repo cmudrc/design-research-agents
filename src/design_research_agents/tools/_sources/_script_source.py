@@ -48,6 +48,7 @@ class ScriptToolSource:
         self._bindings: dict[str, _ScriptToolBinding] = {}
         for script_tool in script_tools:
             canonical_name = _canonical_script_tool_name(script_tool.name)
+            # Last write wins for duplicate names; callers should treat names as unique identifiers.
             self._bindings[canonical_name] = _ScriptToolBinding(
                 canonical_name=canonical_name,
                 config=script_tool,
@@ -132,6 +133,7 @@ def _canonical_script_tool_name(raw_name: str) -> str:
     normalized = raw_name.strip()
     if normalized.startswith("script::"):
         return normalized
+    # Prefix names to avoid collisions with core/MCP tool namespaces.
     return f"script::{normalized}"
 
 
@@ -168,6 +170,7 @@ def _run_script_tool(
 
     script_path = Path(config.path)
     if script_path.suffix == ".py":
+        # Execute Python scripts via python3 for predictable interpreter selection in tool sandboxes.
         command = ["python3", str(script_path)]
     elif script_path.suffix == ".sh":
         command = ["/usr/bin/env", "bash", str(script_path)]
@@ -213,6 +216,7 @@ def _run_script_tool(
     try:
         envelope = _parse_envelope(stdout_text)
     except ScriptToolRuntimeError as exc:
+        # Keep parse failures structured so agent loops can report tool errors uniformly.
         message = str(exc)
         if stderr_text.strip():
             message = f"{message} stderr={stderr_text[:200]!r}"

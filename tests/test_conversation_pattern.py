@@ -10,6 +10,7 @@ from design_research_agents.patterns import ConversationPattern
 
 class _CaptureLLMClient:
     def __init__(self, *, response_texts: Sequence[str], model: str = "capture-model") -> None:
+        # Queue deterministic responses to validate transcript assembly exactly.
         self._responses = list(response_texts)
         self._model = model
         self.calls: list[dict[str, object]] = []
@@ -24,6 +25,7 @@ class _CaptureLLMClient:
         model: str,
         params: LLMChatParams,
     ) -> LLMResponse:
+        # Capture full call payload so assertions can inspect prompt/template rendering.
         self.calls.append(
             {
                 "messages": list(messages),
@@ -89,6 +91,7 @@ def test_conversation_pattern_supports_distinct_clients_and_prompt_templates() -
     assert len(speaker_a_client.calls) == 2
     assert len(speaker_b_client.calls) == 2
 
+    # Validate that template variables are populated from partner message state.
     speaker_a_first_messages = speaker_a_client.calls[0]["messages"]
     assert isinstance(speaker_a_first_messages, list)
     assert speaker_a_first_messages[0].content == "You are Researcher A."
@@ -116,6 +119,7 @@ def test_conversation_pattern_defaults_speaker_b_client_to_speaker_a_client() ->
 
 
 def test_conversation_pattern_validates_constructor_and_template_overrides() -> None:
+    # Constructor guardrails reject invalid turn counts and blank participant names.
     with pytest.raises(ValueError, match="max_turns"):
         ConversationPattern(llm_client_a=_CaptureLLMClient(response_texts=["x"]), max_turns=0)
 

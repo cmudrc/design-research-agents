@@ -81,6 +81,7 @@ from design_research_agents.patterns import ReflexionPattern
 
 def main() -> None:
     """Run propose/critique refinement orchestration with tracing."""
+    # Keep request ids deterministic so critique traces are easy to compare run-to-run.
     request_id = "example-workflow-propose-critic-design-001"
     tracer = Tracer(
         enabled=True,
@@ -94,6 +95,7 @@ def main() -> None:
         workflow = ReflexionPattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
+            # Tracer is threaded through the pattern so proposer/critic turns share one timeline.
             tracer=tracer,
         )
         result = workflow.run(
@@ -103,6 +105,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

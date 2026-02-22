@@ -62,9 +62,15 @@ class ToolMetadata:
 
     def __post_init__(self) -> None:
         """Infer ``risky`` from side effects when not explicitly provided."""
+        # If the risk level is explicitly provided, use it as-is.
         if self.risky is not None:
             return
+
+        # Otherwise, infer risk based on declared side effects.
+        # This is a simple heuristic and can be adjusted as needed.
         is_risky = self.side_effects.filesystem_write or self.side_effects.network or bool(self.side_effects.commands)
+
+        # Since the dataclass is frozen, we need to use object.__setattr__ to set the inferred risky value.
         object.__setattr__(self, "risky", is_risky)
 
 
@@ -168,17 +174,25 @@ class ToolResult:
             error: Error payload to normalize into ``ToolError``.
             metadata: Optional diagnostic metadata mapping.
         """
+        # Normalize the result to an empty mapping if None is provided, ensuring consistent types for downstream
+        # processing.
         resolved_result: object = result if result is not None else {}
 
+        # Normalize artifacts into a consistent list of ToolArtifact instances, allowing for flexible input formats
+        # while ensuring a standard output structure.
         resolved_artifacts: list[ToolArtifact] = []
         for artifact in artifacts:
             if isinstance(artifact, ToolArtifact):
                 resolved_artifacts.append(artifact)
                 continue
+            # Mapping-based artifacts are normalized with conservative defaults so
+            # policy/serialization layers can rely on required fields being present.
             path = str(artifact.get("path", ""))
             mime = str(artifact.get("mime", "application/octet-stream"))
             resolved_artifacts.append(ToolArtifact(path=path, mime=mime))
 
+        # Normalize the error into a ToolError instance if it's provided in a compatible format, allowing for flexible
+        # error reporting while ensuring a standard structure for error details.
         resolved_error: ToolError | None
         if isinstance(error, ToolError):
             resolved_error = error
@@ -188,10 +202,13 @@ class ToolResult:
                 message=str(error.get("message", "Unknown tool error.")),
             )
         elif isinstance(error, str):
+            # Plain-string errors are upgraded into structured ToolError payloads so
+            # callers do not need to branch on error representation type.
             resolved_error = ToolError(type="ToolError", message=error)
         else:
             resolved_error = None
 
+        # Since the dataclass is frozen, we need to use object.__setattr__ to set the fields after normalization.
         object.__setattr__(self, "tool_name", tool_name)
         object.__setattr__(self, "ok", bool(ok))
         object.__setattr__(self, "result", resolved_result)

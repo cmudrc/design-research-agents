@@ -42,6 +42,7 @@ class Tracer:
         """
         if not self.enable_jsonl:
             return None
+        # Timestamp prefix keeps files sortable by start time for quick inspection.
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         safe_run_id = _sanitize_filename(run_id)
         return self.trace_dir / f"run_{timestamp}_{safe_run_id}.jsonl"
@@ -59,6 +60,7 @@ class Tracer:
         if self.enable_jsonl and trace_path is not None:
             sinks.append(JSONLTraceSink(trace_path))
         if self.enable_console:
+            # Console sink is optional so automated runs can stay quiet when needed.
             sinks.append(ConsoleTraceSink(self.console_stream))
         return sinks
 
@@ -97,6 +99,7 @@ class Tracer:
         except Exception as exc:
             finish_trace_run(scope, error=str(exc))
             raise
+        # Wrap arbitrary return value in a success envelope so finish_trace_run has a uniform shape.
         finish_trace_run(scope, result=SimpleNamespace(success=True, output=value))
         return value
 

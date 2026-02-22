@@ -58,6 +58,7 @@ class ToolRegistry:
         Returns:
             Computed return value.
         """
+        # Recompute on demand so dynamically added/removed sources are immediately reflected.
         self._rebuild_routes()
         return tuple(route.spec for route in self._routes.values())
 
@@ -85,6 +86,7 @@ class ToolRegistry:
         dependency_keys = sorted(str(key) for key in dependencies)
 
         if route is None:
+            # Return a structured ToolResult for unknown names rather than raising so agent loops can recover.
             unknown_result = ToolResult(
                 tool_name=tool_name,
                 ok=False,
@@ -126,6 +128,7 @@ class ToolRegistry:
         if result.tool_name == tool_name:
             normalized_result = result
         else:
+            # Rebind the outward-facing tool name when a source uses a different internal alias.
             normalized_result = ToolResult(
                 tool_name=tool_name,
                 ok=result.ok,

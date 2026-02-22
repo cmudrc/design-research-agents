@@ -106,6 +106,7 @@ class ModelSpec:
         Returns:
             ``True`` when the provider is a local backend.
         """
+        # Keep this set aligned with provider keys emitted by catalog/selector layers.
         return self.provider in {
             "llama_cpp",
             "transformers_local",
@@ -140,6 +141,7 @@ class ModelSelectionIntent:
         normalized_task = self.task.strip()
         if not normalized_task:
             raise ValueError("intent.task must be non-empty.")
+        # Restrict priority to a closed set so scoring logic can remain branch-simple.
         if self.priority not in {"quality", "balanced", "speed"}:
             raise ValueError(f"Unsupported intent priority '{self.priority}'.")
         if normalized_task != self.task:
@@ -177,6 +179,7 @@ class ModelSelectionConstraints:
         if self.max_latency_ms is not None and self.max_latency_ms < 0:
             raise ValueError("max_latency_ms must be >= 0 when provided.")
         if self.preferred_provider is not None:
+            # Normalize provider hints early so policy checks don't need repeated strip logic.
             normalized = self.preferred_provider.strip()
             object.__setattr__(self, "preferred_provider", normalized or None)
 

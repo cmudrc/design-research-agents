@@ -92,6 +92,7 @@ class TraceSession:
             Generated span id.
         """
         span_id = uuid4().hex
+        # Track open-span start time for duration emission on finish_span.
         self._open_spans[span_id] = _SpanInfo(
             start_time=time.perf_counter(),
             parent_span_id=parent_span_id,
@@ -122,6 +123,7 @@ class TraceSession:
         duration_ms = None
         parent_span_id = None
         if info is not None:
+            # Duration is only known for spans started in this session.
             duration_ms = int((time.perf_counter() - info.start_time) * 1000)
             parent_span_id = info.parent_span_id
         self.emit_event(
@@ -188,6 +190,7 @@ class TraceSession:
             event_index=self._event_index,
         )
         payload = event.to_dict()
+        # Monotonic event index preserves emission order across sinks/readers.
         self._event_index += 1
         for sink in self._sinks:
             sink.emit(payload)

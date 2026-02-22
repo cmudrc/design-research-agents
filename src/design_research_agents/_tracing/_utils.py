@@ -29,6 +29,7 @@ def _normalize_value(value: object) -> object:
         Computed return value.
     """
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        # Flatten dataclasses recursively so trace sinks only handle plain JSON-like structures.
         return _normalize_value(dataclasses.asdict(cast(Any, value)))
     if isinstance(value, Mapping):
         return {str(key): _normalize_value(val) for key, val in value.items()}
@@ -49,6 +50,7 @@ def _sanitize_filename(value: str) -> str:
         Computed return value.
     """
     safe = "".join(char if char.isalnum() or char in {"-", "_"} else "_" for char in value)
+    # Fall back to UUID so empty/fully-sanitized ids still produce unique filenames.
     return safe or uuid4().hex
 
 
@@ -91,6 +93,7 @@ def _sanitize_trace_value(value: object, *, max_string_len: int) -> object:
         for key, raw_val in normalized.items():
             normalized_key = str(key)
             if normalized_key.lower() in _SENSITIVE_KEYS:
+                # Redact by key-name match to avoid leaking common secret-bearing fields.
                 sanitized[normalized_key] = "***REDACTED***"
                 continue
             sanitized[normalized_key] = _sanitize_trace_value(raw_val, max_string_len=max_string_len)
@@ -100,6 +103,7 @@ def _sanitize_trace_value(value: object, *, max_string_len: int) -> object:
     if isinstance(normalized, str):
         if len(normalized) <= max_string_len:
             return normalized
+        # Include original length marker so consumers can detect truncation severity.
         preview_len = max(0, max_string_len - 16)
         return f"{normalized[:preview_len]}...[truncated:{len(normalized)}]"
     return normalized

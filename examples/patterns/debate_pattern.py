@@ -77,6 +77,7 @@ from design_research_agents.patterns import DebatePattern
 
 def main() -> None:
     """Run one debate round with final judge verdict."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-debate-design-001"
     tracer = Tracer(
         enabled=True,
@@ -100,6 +101,7 @@ def main() -> None:
             ),
             request_id=request_id,
         )
+    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
 

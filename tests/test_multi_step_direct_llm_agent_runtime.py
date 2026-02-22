@@ -17,6 +17,7 @@ from design_research_agents.agent import MultiStepAgent
 
 class _SequenceLLMClient:
     def __init__(self, responses: Sequence[str]) -> None:
+        # Deterministic response queue keeps multi-step tests reproducible.
         self._responses = list(responses)
         self.chat_calls = 0
 
@@ -33,6 +34,7 @@ class _SequenceLLMClient:
         del messages, params
         if not self._responses:
             raise AssertionError("No stubbed model responses remain.")
+        # Pop in order to simulate turn-by-turn controller decisions.
         self.chat_calls += 1
         return LLMResponse(model=model, text=self._responses.pop(0), provider="test")
 
@@ -59,6 +61,7 @@ def test_multi_step_direct_llm_agent_continue_then_stop() -> None:
         dependencies={"dependency": "ok"},
     )
 
+    # Verify both workflow envelope fields and mode-specific step traces.
     assert result.success is True
     assert agent.workflow is not None
     assert result.output["final_output"] == "42"
