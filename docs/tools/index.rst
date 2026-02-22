@@ -14,7 +14,7 @@ Naming and routing
 Pages
 -----
 
-- :doc:`/examples/tools_and_integrations`
+- :doc:`/examples/tools/index`
 - :doc:`runtime_basics`
 - :doc:`design_research_tools`
 - :doc:`mcp`

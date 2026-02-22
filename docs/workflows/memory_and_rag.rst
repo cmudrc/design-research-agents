@@ -42,5 +42,5 @@ context-injection pattern.
 Example
 -------
 
-See ``examples/workflow/rag_reasoning.py`` and
-``examples/agents/basic/multi_step_json_with_memory.py``.
+See ``examples/patterns/rag_reasoning.py`` and
+``examples/agents/multi_step_json_with_memory.py``.

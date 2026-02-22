@@ -50,4 +50,4 @@ framework-native and intentionally minimal.
 Example
 -------
 
-See ``examples/workflow/networked_blackboard.py``.
+See ``examples/patterns/networked_blackboard.py``.

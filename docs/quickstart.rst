@@ -75,6 +75,7 @@ Checks and Docs
 Next Steps
 ----------
 
+- Optional dependency profiles and platform notes: :doc:`dependencies_and_extras`
 - Scenario-driven examples and expected outputs: :doc:`examples/index`
 - Explore runnable examples: ``examples/README.md``
 - LLM client setup details: :doc:`llm_clients/index`

@@ -1,9 +1,30 @@
-"""Run a traced representative ``SglangServerLLMClient`` chat call.
+"""Example script.
 
-Expected observations:
-- output includes one representative chat completion under ``llm_call``.
-- ``llm_call.response_has_text`` is ``true``.
-- ``trace.trace_path`` points to emitted trace JSONL.
+Motivation
+Run a traced representative ``SglangServerLLMClient`` chat call.
+
+Diagram
+```mermaid
+flowchart LR
+    A["Client config"] --> B["LLMRequest"]
+    B --> C["sglang server client response"]
+    C --> D["Describe and trace metadata"]
+```
+
+Technical Walkthrough
+1. Configure the runtime surface for `clients` use-cases and run `sglang_server_client`.
+2. Execute the example with direct public APIs and capture trace metadata.
+3. Print a JSON payload that is easy to inspect in docs and tests.
+
+Expected Results
+- The script exits successfully and prints a non-empty JSON payload.
+- The payload includes the example identity and trace metadata.
+- Deterministic test runs can monkeypatch model backends without changing this script.
+
+Discussion
+Run with `PYTHONPATH=src python3 examples/clients/sglang_server_client.py`.
+In tests, deterministic monkeypatching can replace live client behavior while preserving
+this script's capability-first structure.
 """
 
 from __future__ import annotations
@@ -12,17 +33,11 @@ import json
 import sys
 from pathlib import Path
 
-from _support_client_call import run_representative_chat
-
 from design_research_agents import SglangServerLLMClient, Tracer
+from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    """Build one traced payload for SGLang client configuration and call metadata.
-
-    Returns:
-        JSON-serializable payload with client config, call metadata, and trace hints.
-    """
     client = SglangServerLLMClient(
         name="sglang-local-dev",
         model="Qwen/Qwen2.5-1.5B-Instruct",
@@ -39,13 +54,25 @@ def _build_payload() -> dict[str, object]:
     )
     try:
         description = client.describe()
-        llm_call = run_representative_chat(
-            client=client,
-            prompt="Provide one sentence on when SGLang-style serving helps local benchmarking.",
-            deterministic_response=(
-                "SGLang-style serving helps when you need stable local throughput for repeated tests."
-            ),
+        prompt = "Provide one sentence on when SGLang-style serving helps local benchmarking."
+        response = client.generate(
+            LLMRequest(
+                messages=(
+                    LLMMessage(role="system", content="You are a concise engineering design assistant."),
+                    LLMMessage(role="user", content=prompt),
+                ),
+                model=client.default_model(),
+                temperature=0.0,
+                max_tokens=120,
+            )
         )
+        llm_call = {
+            "prompt": prompt,
+            "response_text": response.text,
+            "response_model": response.model,
+            "response_provider": response.provider,
+            "response_has_text": bool(response.text.strip()),
+        }
         return {
             "client_class": description["client_class"],
             "default_model": description["default_model"],

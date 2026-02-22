@@ -45,21 +45,44 @@ llm_client = LlamaCppServerLLMClient()
 ## Quickstart
 
 Requires Python 3.12+.
+Reproducible release installs are pinned to Python `3.12.12` (see `.python-version`).
+
+### Normal install (library development)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install -e ".[dev,full]"
+make dev
 make test
 make run-example
 ```
 
+### Reproducible install (frozen)
+
+`make repro` uses `uv.lock` in frozen mode and fails if the lock is out of date.
+
+```bash
+# Install uv first: https://docs.astral.sh/uv/getting-started/installation/
+make repro REPRO_EXTRAS="dev full"
+make test
+```
+
+`REPRO_EXTRAS` defaults to `dev full`.
+
 Example run:
 
 ```bash
-PYTHONPATH=src python3 examples/workflow/plan_execute.py
+PYTHONPATH=src python3 examples/patterns/plan_execute.py
 ```
+
+## Reproducible release process (maintainers)
+
+On each release:
+
+1. Use Python `3.12.12` (the pinned release interpreter in `.python-version`).
+2. Regenerate lock data: `make lock`.
+3. Verify frozen install + tests: `make repro REPRO_EXTRAS="dev full"` and `make ci`.
+4. Commit `uv.lock` (and any dependency spec updates), then tag and publish the release.
 
 ## Examples
 
@@ -68,7 +91,8 @@ See the examples index and sub-guides:
 - Top-level examples index: [`examples/README.md`](examples/README.md)
 - Agents: [`examples/agents/README.md`](examples/agents/README.md)
 - Client configuration: [`examples/clients/README.md`](examples/clients/README.md)
-- Workflows: [`examples/workflow/README.md`](examples/workflow/README.md)
+- Workflow primitives: [`examples/workflow/README.md`](examples/workflow/README.md)
+- Patterns: [`examples/patterns/README.md`](examples/patterns/README.md)
 - Model selection: [`examples/model_selection/README.md`](examples/model_selection/README.md)
 - Tool runtime + script tools: [`examples/tools/README.md`](examples/tools/README.md)
 
@@ -76,6 +100,7 @@ See the examples index and sub-guides:
 ## Docs
 
 - Getting started: [`docs/quickstart.rst`](docs/quickstart.rst)
+- Dependencies + extras: [`docs/dependencies_and_extras.rst`](docs/dependencies_and_extras.rst)
 - Project philosophy: [`docs/philosophy.rst`](docs/philosophy.rst)
 - LLM clients: [`docs/llm_clients/index.rst`](docs/llm_clients/index.rst)
 - Agents: [`docs/agents/index.rst`](docs/agents/index.rst)

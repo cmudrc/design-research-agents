@@ -1,9 +1,30 @@
-"""Run a traced representative ``OpenAIServiceLLMClient`` chat call.
+"""Example script.
 
-Expected observations:
-- output includes one representative chat completion under ``llm_call``.
-- ``llm_call.response_has_text`` is ``true``.
-- ``trace.trace_path`` points to emitted trace JSONL.
+Motivation
+Run a traced representative ``OpenAIServiceLLMClient`` chat call.
+
+Diagram
+```mermaid
+flowchart LR
+    A["Client config"] --> B["LLMRequest"]
+    B --> C["openai service client response"]
+    C --> D["Describe and trace metadata"]
+```
+
+Technical Walkthrough
+1. Configure the runtime surface for `clients` use-cases and run `openai_service_client`.
+2. Execute the example with direct public APIs and capture trace metadata.
+3. Print a JSON payload that is easy to inspect in docs and tests.
+
+Expected Results
+- The script exits successfully and prints a non-empty JSON payload.
+- The payload includes the example identity and trace metadata.
+- Deterministic test runs can monkeypatch model backends without changing this script.
+
+Discussion
+Run with `PYTHONPATH=src python3 examples/clients/openai_service_client.py`.
+In tests, deterministic monkeypatching can replace live client behavior while preserving
+this script's capability-first structure.
 """
 
 from __future__ import annotations
@@ -11,9 +32,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from _support_client_call import run_representative_chat
-
 from design_research_agents import LLMResponse, OpenAIServiceLLMClient, Tracer
+from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
@@ -26,31 +46,46 @@ def _build_payload() -> dict[str, object]:
         max_retries=4,
         model_patterns=("gpt-4o-mini", "gpt-4o-*"),
     )
-    description = client.describe()
-    llm_call = run_representative_chat(
-        client=client,
-        prompt="In one sentence, when should engineering teams use multi-agent design critique?",
-        deterministic_response=(
-            "Use multi-agent critique when decisions have high risk and need diverse failure analysis."
-        ),
-    )
-    response_contract = LLMResponse(
-        text=str(llm_call.get("response_text", "")),
-        model=str(description["default_model"]),
-        provider=str(llm_call.get("response_provider") or "deterministic"),
-    )
-    return {
-        "client_class": description["client_class"],
-        "default_model": description["default_model"],
-        "llm_call": llm_call,
-        "llm_response_contract_preview": {
-            "model": response_contract.model,
-            "provider": response_contract.provider,
-        },
-        "backend": description["backend"],
-        "capabilities": description["capabilities"],
-        "server": description["server"],
-    }
+    try:
+        description = client.describe()
+        prompt = "In one sentence, when should engineering teams use multi-agent design critique?"
+        response = client.generate(
+            LLMRequest(
+                messages=(
+                    LLMMessage(role="system", content="You are a concise engineering design assistant."),
+                    LLMMessage(role="user", content=prompt),
+                ),
+                model=client.default_model(),
+                temperature=0.0,
+                max_tokens=120,
+            )
+        )
+        llm_call = {
+            "prompt": prompt,
+            "response_text": response.text,
+            "response_model": response.model,
+            "response_provider": response.provider,
+            "response_has_text": bool(response.text.strip()),
+        }
+        response_contract = LLMResponse(
+            text=response.text,
+            model=response.model,
+            provider=response.provider,
+        )
+        return {
+            "client_class": description["client_class"],
+            "default_model": description["default_model"],
+            "llm_call": llm_call,
+            "llm_response_contract_preview": {
+                "model": response_contract.model,
+                "provider": response_contract.provider,
+            },
+            "backend": description["backend"],
+            "capabilities": description["capabilities"],
+            "server": description["server"],
+        }
+    finally:
+        client.close()
 
 
 def main() -> None:

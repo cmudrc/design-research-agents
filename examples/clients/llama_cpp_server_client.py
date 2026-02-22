@@ -1,9 +1,30 @@
-"""Run a traced representative ``LlamaCppServerLLMClient`` chat call.
+"""Example script.
 
-Expected observations:
-- output includes one representative chat completion under ``llm_call``.
-- ``llm_call.response_has_text`` is ``true``.
-- ``trace.trace_path`` points to emitted trace JSONL.
+Motivation
+Run a traced representative ``LlamaCppServerLLMClient`` chat call.
+
+Diagram
+```mermaid
+flowchart LR
+    A["Client config"] --> B["LLMRequest"]
+    B --> C["llama cpp server client response"]
+    C --> D["Describe and trace metadata"]
+```
+
+Technical Walkthrough
+1. Configure the runtime surface for `clients` use-cases and run `llama_cpp_server_client`.
+2. Execute the example with direct public APIs and capture trace metadata.
+3. Print a JSON payload that is easy to inspect in docs and tests.
+
+Expected Results
+- The script exits successfully and prints a non-empty JSON payload.
+- The payload includes the example identity and trace metadata.
+- Deterministic test runs can monkeypatch model backends without changing this script.
+
+Discussion
+Run with `PYTHONPATH=src python3 examples/clients/llama_cpp_server_client.py`.
+In tests, deterministic monkeypatching can replace live client behavior while preserving
+this script's capability-first structure.
 """
 
 from __future__ import annotations
@@ -12,9 +33,8 @@ import json
 import sys
 from pathlib import Path
 
-from _support_client_call import run_representative_chat
-
 from design_research_agents import Tracer
+from design_research_agents.llm import LLMMessage, LLMRequest
 from design_research_agents.llm.clients import LlamaCppServerLLMClient
 
 
@@ -36,11 +56,25 @@ def _build_payload() -> dict[str, object]:
     )
     try:
         description = client.describe()
-        llm_call = run_representative_chat(
-            client=client,
-            prompt="In one sentence, explain a key tradeoff in engineering design reviews.",
-            deterministic_response=("Tradeoff: strict review gates improve reliability but can slow delivery speed."),
+        prompt = "In one sentence, explain a key tradeoff in engineering design reviews."
+        response = client.generate(
+            LLMRequest(
+                messages=(
+                    LLMMessage(role="system", content="You are a concise engineering design assistant."),
+                    LLMMessage(role="user", content=prompt),
+                ),
+                model=client.default_model(),
+                temperature=0.0,
+                max_tokens=120,
+            )
         )
+        llm_call = {
+            "prompt": prompt,
+            "response_text": response.text,
+            "response_model": response.model,
+            "response_provider": response.provider,
+            "response_has_text": bool(response.text.strip()),
+        }
         return {
             "client_class": description["client_class"],
             "default_model": description["default_model"],

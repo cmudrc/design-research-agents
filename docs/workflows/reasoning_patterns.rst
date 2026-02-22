@@ -34,6 +34,6 @@ Tree search output
 Examples
 --------
 
-- ``examples/workflow/tree_search.py``
-- ``examples/workflow/propose_critic.py``
-- ``examples/workflow/rag_reasoning.py``
+- ``examples/patterns/tree_search.py``
+- ``examples/patterns/propose_critic.py``
+- ``examples/patterns/rag_reasoning.py``

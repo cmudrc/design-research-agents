@@ -5,6 +5,9 @@ The framework exposes constructor-first client classes that implement the
 ``LLMClient`` contract. Choose a client based on deployment constraints first,
 then tune model selection.
 
+For install profiles and platform constraints for backend extras, see
+:doc:`../dependencies_and_extras`.
+
 Comparison matrix
 -----------------
 

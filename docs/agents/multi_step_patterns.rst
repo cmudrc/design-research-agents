@@ -52,7 +52,7 @@ All multi-step agents rely on continuation decisions and runtime limits
 Examples
 --------
 
-- ``examples/agents/basic/multi_step_direct_llm_agent.py``
-- ``examples/agents/basic/multi_step_json_tool_calling_agent.py``
-- ``examples/agents/basic/multi_step_code_tool_calling_agent.py``
-- ``examples/agents/basic/README.md``
+- ``examples/agents/multi_step_direct_llm_agent.py``
+- ``examples/agents/multi_step_json_tool_calling_agent.py``
+- ``examples/agents/multi_step_code_tool_calling_agent.py``
+- ``examples/agents/README.md``

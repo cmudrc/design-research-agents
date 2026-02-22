@@ -33,6 +33,7 @@ Get started
 -----------
 
 - :doc:`quickstart` for a fast, end-to-end example.
+- :doc:`dependencies_and_extras` for optional dependency profiles and platform constraints.
 - :doc:`examples/index` for scenario-driven runnable examples and expected observations.
 - :doc:`llm_clients/index` to choose local or remote client backends.
 - :doc:`tools/index` for unified runtime + MCP + script tools.
@@ -48,6 +49,7 @@ Get started
    :hidden:
 
    quickstart
+   dependencies_and_extras
    examples/index
    philosophy
    llm_clients/index

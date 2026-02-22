@@ -1,9 +1,30 @@
-"""Run traced MCP runtime example for deterministic design-tool access.
+"""Example script.
 
-Expected observations:
-- ``mcp_tool_count`` is non-zero.
-- ``direct_result`` contains text metric output.
-- ``trace.trace_path`` points to emitted trace JSONL.
+Motivation
+Run traced MCP runtime example for deterministic design-tool access.
+
+Diagram
+```mermaid
+flowchart LR
+    A["Tool input"] --> B["Tool runtime"]
+    B --> C["mcp minimal result"]
+    C --> D["Artifacts and trace"]
+```
+
+Technical Walkthrough
+1. Configure the runtime surface for `tools` use-cases and run `mcp_minimal`.
+2. Execute the example with direct public APIs and capture trace metadata.
+3. Print a JSON payload that is easy to inspect in docs and tests.
+
+Expected Results
+- The script exits successfully and prints a non-empty JSON payload.
+- The payload includes the example identity and trace metadata.
+- Deterministic test runs can monkeypatch model backends without changing this script.
+
+Discussion
+Run with `PYTHONPATH=src python3 examples/tools/mcp_minimal.py`.
+In tests, deterministic monkeypatching can replace live client behavior while preserving
+this script's capability-first structure.
 """
 
 from __future__ import annotations

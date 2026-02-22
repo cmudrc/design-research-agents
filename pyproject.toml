@@ -25,9 +25,9 @@ classifiers = [
 # Core deps: includes a "works everywhere" default backend (OpenAI).
 dependencies = [
   "bashkit>=0.1.4",
-  "jsonschema>=4.23",
-  "mcp>=1.6",
-  "openai>=1.40",
+  "jsonschema>=4.23,<5",
+  "mcp>=1.6,<2",
+  "openai>=1.40,<2",
 ]
 
 [project.urls]
@@ -40,14 +40,15 @@ Issues = "https://github.com/cmudrc/design-research-agents/issues"
 
 # Contributor batteries.
 dev = [
-  "mypy>=1.10",
-  "pre-commit>=3.7",
-  "pytest>=8.2",
-  "pytest-asyncio>=0.23",
-  "pytest-cov>=7.0",
-  "ruff>=0.6.0",
-  "sphinx>=7.4",
-  "sphinx-rtd-theme>=2.0",
+  "mypy>=1.10,<2",
+  "pre-commit>=3.7,<5",
+  "pytest>=8.2,<9",
+  "pytest-asyncio>=0.23,<1",
+  "pytest-cov>=7.0,<8",
+  "ruff>=0.6.0,<1",
+  "sphinx>=7.4,<9",
+  "sphinxcontrib-mermaid>=1.0,<2",
+  "sphinx-rtd-theme>=2.0,<4",
 ]
 
 # Shared HF utilities (handy for multiple backends)
@@ -65,17 +66,17 @@ mlx = [
 
 transformers = [
   "huggingface-hub>=0.24",
-  "torch>=2.10",
+  "torch>=2.4,<3",
   "transformers>=4.44",
 ]
 
 # Server-focused runtimes: gate to Linux so bundles don't explode elsewhere.
 vllm = [
-  "vllm>=0.6; platform_system == 'Linux'",
+  "vllm>=0.6,<1; platform_system == 'Linux' and python_version < '3.14'",
 ]
 
 sglang = [
-  "sglang>=0.4; platform_system == 'Linux'",
+  "sglang>=0.4,<1; platform_system == 'Linux' and python_version < '3.14'",
 ]
 
 # Convenience bundles
@@ -85,7 +86,7 @@ local = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
   "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
-  "torch>=2.10",
+  "torch>=2.4,<3",
   "transformers>=4.44",
 ]
 
@@ -93,10 +94,10 @@ full = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
   "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
-  "torch>=2.10",
+  "torch>=2.4,<3",
   "transformers>=4.44",
-  "vllm>=0.6; platform_system == 'Linux'",
-  "sglang>=0.4; platform_system == 'Linux'",
+  "vllm>=0.6,<1; platform_system == 'Linux' and python_version < '3.14'",
+  "sglang>=0.4,<1; platform_system == 'Linux' and python_version < '3.14'",
 ]
 
 # Use src-layout packaging.

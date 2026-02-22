@@ -1,9 +1,30 @@
-"""Run traced LLM-driven optimization with callable increase/decrease tools.
+"""Example script.
 
-Expected observations:
-- ``best_seen`` captures the lowest objective encountered.
-- ``history`` and ``objective_history`` show the optimization path.
-- ``trace.trace_path`` points to emitted trace JSONL.
+Motivation
+Run traced LLM-driven optimization with callable increase/decrease tools.
+
+Diagram
+```mermaid
+flowchart LR
+    A["Optimization objective"] --> B["Agent selects tool"]
+    B --> C["multi step tool router 1d optimization trajectory"]
+    C --> D["Best-seen summary and trace"]
+```
+
+Technical Walkthrough
+1. Configure the runtime surface for `optimization` use-cases and run `multi_step_tool_router_1d_optimization`.
+2. Execute the example with direct public APIs and capture trace metadata.
+3. Print a JSON payload that is easy to inspect in docs and tests.
+
+Expected Results
+- The script exits successfully and prints a non-empty JSON payload.
+- The payload includes the example identity and trace metadata.
+- Deterministic test runs can monkeypatch model backends without changing this script.
+
+Discussion
+Run with `PYTHONPATH=src python3 examples/optimization/multi_step_tool_router_1d_optimization.py`.
+In tests, deterministic monkeypatching can replace live client behavior while preserving
+this script's capability-first structure.
 """
 
 from __future__ import annotations
@@ -119,12 +140,11 @@ def main() -> None:
         llm_client.close()
         tools.close()
 
-    output = result.output if isinstance(result.output, Mapping) else {}
     best_index = min(
         range(len(objective_history)),
         key=lambda index: objective_history[index],
     )
-    memory = output.get("memory")
+    memory = result.output_list("memory")
     payload = {
         "example": "optimization/multi_step_tool_router_1d_optimization.py",
         "agent": "MultiStepAgent(mode=json)",
@@ -137,7 +157,7 @@ def main() -> None:
             "best_history_index": best_index,
         },
         "terminated_reason": result.terminated_reason,
-        "steps_executed": output.get("steps_executed"),
+        "steps_executed": result.output_value("steps_executed"),
         "tool_results_count": len(result.tool_results),
         "memory_tail": memory[-6:] if isinstance(memory, list) else [],
         "history": history,

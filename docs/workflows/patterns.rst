@@ -28,11 +28,11 @@ base dependencies, and execution/failure policies where applicable).
 Examples
 --------
 
-- ``examples/workflow/plan_execute.py``
-- ``examples/workflow/propose_critic.py``
-- ``examples/workflow/agent_routing.py``
-- ``examples/workflow/debate_pattern.py``
-- ``examples/workflow/conversation_pattern.py``
+- ``examples/patterns/plan_execute.py``
+- ``examples/patterns/propose_critic.py``
+- ``examples/patterns/agent_routing.py``
+- ``examples/patterns/debate_pattern.py``
+- ``examples/patterns/conversation_pattern.py``
 - ``examples/workflow/workflow_schema_mode.py``
 - ``examples/workflow/workflow_prompt_mode.py``
-- ``examples/workflow/README.md``
+- ``examples/patterns/README.md``

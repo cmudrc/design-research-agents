@@ -1,38 +1,38 @@
 ## Design-Focused Examples
 
-This directory contains runnable engineering-design examples for every major
-public surface in `design_research_agents`.
+This directory contains runnable engineering-design examples that map directly to library terminology.
 
-All runnable examples now:
-- use intentional design/engineering scenarios,
-- emit structured output,
-- include trace metadata pointing to JSONL artifacts in `artifacts/examples/traces`.
+All runnable examples:
+- use public APIs,
+- emit JSON output,
+- include trace metadata under `artifacts/examples/traces`.
 
 ## Directory Guide
 
 - `examples/agents`
-  - Traced direct and multi-step agent execution patterns.
-- `examples/clients`
-  - Traced client configuration snapshots for each LLM client class.
+  - Direct and multi-step agent entrypoints.
 - `examples/workflow`
-  - Traced orchestration/pattern examples including full workflow step coverage.
+  - Workflow primitive composition (`Workflow` + step classes).
+- `examples/patterns`
+  - Reusable orchestration patterns (`PlannerExecutorPattern`, `ReflexionPattern`, etc.).
+- `examples/clients`
+  - LLM client configuration + representative `generate(LLMRequest(...))` calls.
 - `examples/model_selection`
-  - Traced local-vs-remote policy decisions.
-- `examples/optimization`
-  - Traced optimization loop built on JSON router-special-case behavior.
+  - Local-vs-remote policy decisions.
 - `examples/tools`
-  - Traced tool runtime examples across core/script/MCP sources.
+  - Tool runtime examples across core/script/MCP sources.
+- `examples/optimization`
+  - Optimization-oriented multi-step tool routing.
 
 ## Quick Start
 
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/agents/basic/direct_llm_call.py
+PYTHONPATH=src python3 examples/agents/direct_llm_call.py
 ```
 
-## Expected Outputs
+## Deterministic Testing Model
 
-- Scripts print a JSON payload (except `workflow_runtime.py`, which prints a Python dict for smoke-test compatibility).
-- Output includes a `trace` block with request id and trace path.
-- Script-tool examples emit tool envelopes and include trace artifact references.
+Examples are capability-first and do not include deterministic branching logic.
+Deterministic behavior is test-only and provided through `tests/example_monkeypatch/sitecustomize.py` when `DRA_EXAMPLE_LLM_MODE=deterministic` is set.

@@ -52,8 +52,8 @@ contracts and implementation in this repository.
 Examples
 --------
 
-- :doc:`/examples/agents`
-- ``examples/agents/basic/README.md``
+- :doc:`/examples/agents/index`
+- ``examples/agents/README.md``
 
 Pages
 -----

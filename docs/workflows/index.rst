@@ -22,7 +22,8 @@ Quick chooser
 Pages
 -----
 
-- :doc:`/examples/workflows`
+- :doc:`/examples/workflow/index`
+- :doc:`/examples/patterns/index`
 - :doc:`runtime_and_steps`
 - :doc:`patterns`
 - :doc:`networked_blackboard`

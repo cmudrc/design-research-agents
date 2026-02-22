@@ -2,6 +2,9 @@ Shared Modules
 ==============
 
 The legacy ``design_research_agents._shared`` example helper modules were
-removed. Deterministic example fixtures now live under local
-``examples/*/_support_*.py`` modules and are intentionally outside the public
-package API.
+removed.
+
+Runnable examples are now capability-first and helper-free. Deterministic
+fixtures for tests live only in
+``tests/example_monkeypatch/sitecustomize.py`` and are enabled by setting
+``DRA_EXAMPLE_LLM_MODE=deterministic`` in test runs.

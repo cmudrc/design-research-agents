@@ -13,4 +13,4 @@ by the implementation and contracts in this repository.
 Related examples
 ----------------
 
-- ``examples/agents/basic/README.md``
+- ``examples/agents/README.md``

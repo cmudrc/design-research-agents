@@ -10,15 +10,9 @@ permissions:
   contents: write
 
 jobs:
-  lint-test:
-    # Validate across supported runtime versions.
+  latest:
+    # Primary quality gates on broadly current dependencies.
     runs-on: ubuntu-latest
-    strategy:
-      # Keep running other matrix entries even if one fails.
-      fail-fast: false
-      matrix:
-        python-version: [ "3.12" ]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,23 +20,81 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           # Speed up installs by caching pip downloads between runs.
           cache: pip
 
       - name: Install dependencies
-        run: make install-dev
+        run: make dev
 
       - name: Run checks
         # Lint/format/type checks, fast unit suite, coverage, and examples smoke.
         run: make ci
 
+  lowest:
+    # Validate that minimum direct dependency bounds are viable.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Create virtual environment
+        run: uv venv --python 3.12 .venv
+
+      - name: Install lowest direct dependencies
+        run: uv pip install --python .venv/bin/python --resolution lowest-direct -e ".[dev]"
+
+      - name: Run tests
+        run: make test
+
+  locked:
+    # Frozen reproducible installs from uv.lock, pinned to release Python patch.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            repro-extras: "dev full"
+          - os: macos-latest
+            repro-extras: "dev local"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Reproducible frozen install
+        run: make repro REPRO_EXTRAS="${{ matrix.repro-extras }}"
+
+      - name: Run tests
+        run: make test
+
   coverage-badge:
     # Keep a coverage badge on main in sync with the stable unit-suite baseline.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: lint-test
+    needs: [latest, lowest, locked]
     concurrency:
       group: coverage-badge-${{ github.ref }}
       cancel-in-progress: true
@@ -62,7 +114,7 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: make install-dev
+        run: make dev
 
       - name: Generate coverage report
         run: make coverage
