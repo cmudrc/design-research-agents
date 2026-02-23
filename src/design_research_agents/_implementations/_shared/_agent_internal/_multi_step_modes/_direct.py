@@ -31,6 +31,9 @@ from design_research_agents._tracing import (
     finish_model_call,
     start_model_call,
 )
+from design_research_agents._tracing._result_metadata import (
+    enrich_execution_result_trace_metadata,
+)
 
 from .._execution_context import (
     finish_agent_execution,
@@ -390,6 +393,7 @@ class MultiStepDirectLLMAgent(Agent):
                     "artifacts": workflow_artifacts,
                 },
             )
+            result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
             finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
             return result
 
@@ -416,6 +420,7 @@ class MultiStepDirectLLMAgent(Agent):
                 },
             },
         )
+        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
         finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
         return result
 

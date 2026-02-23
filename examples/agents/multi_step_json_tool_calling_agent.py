@@ -25,50 +25,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "allowed_tools": [
-       "fs.read_text",
-       "text.word_count",
-       "python.sandbox",
-       "memory.search",
-       "memory.write",
-       "memory.stats",
-       "eval.decision_matrix",
-       "eval.pairwise_rank"
-     ],
-     "error": null,
-     "example": "agents/multi_step_json_tool_calling_agent.py",
-     "final_output": {
-       "path": "/Users/work/PycharmProjects/design-research-agents/README.md",
-       "size_bytes": 800,
-       "text": "# design-research-agents
-[![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Coverage](.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Examples
-Passing](.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Public API In
-Examples](.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
-
-A modular framework for",
-       "truncated": true
-     },
-     "steps_executed": 1,
      "success": true,
-     "terminated_reason": "continuation_stopped:model",
-     "tool_results_count": 1,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-multi-step-json-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-multi-step-json-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `Toolformer: Language Models Can Teach Themselves to Use Tools <https://arxiv.org/abs/2302.04761>`_
@@ -125,9 +97,7 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    summary = result.summary(
-        details={"allowed_tools": list(_JSON_ALLOWED_TOOLS)},
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

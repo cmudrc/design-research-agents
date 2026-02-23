@@ -33,7 +33,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/direct_llm_call.py
    :language: python
-   :lines: 57-
+   :lines: 53-
    :linenos:
 
 Expected Results
@@ -45,23 +45,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/agents/direct_llm_call.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "agents/direct_llm_call.py",
-     "final_output": "4",
-     "model": "example-model",
-     "package_version": "0.2.0",
      "success": true,
-     "terminated_reason": null,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-direct-llm-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-direct-llm-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

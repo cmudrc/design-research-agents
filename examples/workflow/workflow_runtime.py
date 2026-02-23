@@ -25,30 +25,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "workflow/workflow_runtime.py",
-     "execution_order": [
-       "design_runtime_ready"
-     ],
-     "final_output": {
-       "check": "workflow-runtime-ready",
-       "message": "Design runtime orchestration validated."
-     },
      "success": true,
-     "terminated_reason": null,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-runtime-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-runtime-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `Human-AI collaboration by design <https://www.cambridge.org/core/journals/proceedings-of-the-design-society/article/humanai-collaboration-by-design/45BC30ADFF2FE3B204D4A29DD67F6353>`_
@@ -89,9 +81,7 @@ def main() -> None:
         ],
     )
     result = workflow.run({}, execution_mode="sequential", request_id=request_id)
-    summary = result.summary(
-        details={"execution_order": list(result.execution_order)},
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

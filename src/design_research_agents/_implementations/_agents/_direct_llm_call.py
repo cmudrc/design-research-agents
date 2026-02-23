@@ -41,6 +41,9 @@ from design_research_agents._tracing import (
     finish_model_call,
     start_model_call,
 )
+from design_research_agents._tracing._result_metadata import (
+    enrich_execution_result_trace_metadata,
+)
 from design_research_agents.workflow import Workflow
 
 
@@ -222,6 +225,7 @@ class DirectLLMCall(Agent):
             finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
             raise
 
+        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
         # Close out the trace scope with the final result.
         finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
         return result

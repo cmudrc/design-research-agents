@@ -25,56 +25,35 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "relaxed_run": {
-       "error": null,
-       "example": "workflow/workflow_schema_mode.py",
-       "execution_order": [
-         "describe_dataset",
-         "load_sample",
-         "quality_gate",
-         "persist_report",
-         "finalize"
-       ],
-       "final_output": {
-         "report_path": "artifacts/examples/<truncated-report-path>"
-       },
+     "strict_run": {
        "success": true,
-       "terminated_reason": null,
+       "final_output": "<example-specific payload>",
+       "terminated_reason": "<string-or-null>",
+       "error": null,
        "trace": {
-         "request_id": "example-workflow-schema-design-relaxed-001",
+         "request_id": "<request-id>",
          "trace_dir": "artifacts/examples/traces",
-         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-schema-design-relaxed-001.jsonl"
+         "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      },
-     "strict_run": {
-       "error": null,
-       "example": "workflow/workflow_schema_mode.py",
-       "execution_order": [
-         "describe_dataset",
-         "load_sample",
-         "quality_gate",
-         "persist_report",
-         "finalize"
-       ],
-       "final_output": {
-         "report_path": "artifacts/examples/<truncated-report-path>"
-       },
+     "relaxed_run": {
        "success": true,
-       "terminated_reason": null,
+       "final_output": "<example-specific payload>",
+       "terminated_reason": "<string-or-null>",
+       "error": null,
        "trace": {
-         "request_id": "example-workflow-schema-design-strict-001",
+         "request_id": "<request-id>",
          "trace_dir": "artifacts/examples/traces",
-         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-schema-design-strict-001.jsonl"
+         "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      }
    }
-
 
 ## References
 - `JSON Schema Draft 2020-12 <https://json-schema.org/draft/2020-12>`_
@@ -110,9 +89,7 @@ INPUT_SCHEMA: dict[str, object] = {
 
 
 def _summarize(result: ExecutionResult) -> dict[str, object]:
-    return result.summary(
-        details={"execution_order": list(result.execution_order)},
-    )
+    return result.summary()
 
 
 def main() -> None:

@@ -25,6 +25,9 @@ from design_research_agents._runtime._common._run_defaults import (
     resolve_request_id_with_prefix,
 )
 from design_research_agents._tracing import Tracer, finish_trace_run, start_trace_run
+from design_research_agents._tracing._result_metadata import (
+    enrich_execution_result_trace_metadata,
+)
 
 
 @dataclass(slots=True)
@@ -146,6 +149,7 @@ def execute_pattern_with_trace(
     except Exception as exc:
         finish_trace_run(trace_scope, error=str(exc))
         raise
+    result = enrich_execution_result_trace_metadata(result=result, tracer=tracer)
     finish_trace_run(trace_scope, result=result)
     return result
 

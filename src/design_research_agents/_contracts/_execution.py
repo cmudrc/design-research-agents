@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -112,15 +112,8 @@ class ExecutionResult:
             return list(value)
         return []
 
-    def summary(
-        self,
-        *,
-        details: Mapping[str, object] | Sequence[str] | None = None,
-    ) -> dict[str, object]:
+    def summary(self) -> dict[str, object]:
         """Return one compact summary payload for user-facing output.
-
-        Args:
-            details: Optional mapping or output-key list to include under ``details``.
 
         Returns:
             Compact summary payload with canonical execution fields.
@@ -130,39 +123,21 @@ class ExecutionResult:
             "final_output": self.final_output,
             "terminated_reason": self.terminated_reason,
             "error": self.error,
-            "details": self._normalize_summary_details(details),
             "trace": self._build_summary_trace(),
         }
 
-    def _normalize_summary_details(
-        self,
-        details: Mapping[str, object] | Sequence[str] | None,
-    ) -> dict[str, object]:
-        # If no details provided, return empty mapping.
-        if details is None:
-            return {}
-
-        # If details is already a mapping, return it as a dict.
-        if isinstance(details, Mapping):
-            return dict(details)
-
-        # If details is a sequence, treat entries as output keys to include in the summary.
-        if not isinstance(details, Sequence) or isinstance(details, (str, bytes)):
-            raise TypeError("details must be a mapping or sequence of keys when provided.")
-
-        # Otherwise, build details mapping by reading output values for each key.
-        details_payload: dict[str, object] = {}
-        for key in details:
-            if not isinstance(key, str):
-                raise TypeError("details sequence entries must be strings.")
-            details_payload[key] = self.output_value(key)
-        return details_payload
-
     def _build_summary_trace(self) -> dict[str, object]:
+        trace: dict[str, object] = {}
         request_id = self.metadata.get("request_id")
         if isinstance(request_id, str) and request_id.strip():
-            return {"request_id": request_id}
-        return {}
+            trace["request_id"] = request_id
+        trace_dir = self.metadata.get("trace_dir")
+        if isinstance(trace_dir, str) and trace_dir.strip():
+            trace["trace_dir"] = trace_dir
+        trace_path = self.metadata.get("trace_path")
+        if isinstance(trace_path, str) and trace_path.strip():
+            trace["trace_path"] = trace_path
+        return trace
 
     def to_json(
         self,

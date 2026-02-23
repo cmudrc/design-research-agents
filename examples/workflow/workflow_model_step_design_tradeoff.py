@@ -25,30 +25,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "workflow/workflow_model_step_design_tradeoff.py",
-     "execution_order": [
-       "design_tradeoff_model",
-       "finalize"
-     ],
-     "final_output": {
-       "tradeoff": "Use a modular latch for faster maintenance; accept small cost increase for serviceability."
-     },
      "success": true,
-     "terminated_reason": null,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-model-step-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-model-step-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `FrugalGPT <https://arxiv.org/abs/2305.05176>`_
@@ -122,9 +114,7 @@ def main() -> None:
     # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()
-    summary = result.summary(
-        details={"execution_order": list(result.execution_order)},
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

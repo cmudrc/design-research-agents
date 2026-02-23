@@ -26,25 +26,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "agents/multi_step_direct_llm_agent.py",
-     "final_output": "42",
-     "steps_executed": 2,
      "success": true,
-     "terminated_reason": "stop:model",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-multi-step-direct-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-multi-step-direct-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `ReAct: Synergizing Reasoning and Acting in Language Models <https://arxiv.org/abs/2210.03629>`_

@@ -32,7 +32,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/multi_step_direct_llm_agent.py
    :language: python
-   :lines: 55-
+   :lines: 52-
    :linenos:
 
 Expected Results
@@ -44,22 +44,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/agents/multi_step_direct_llm_agent.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "agents/multi_step_direct_llm_agent.py",
-     "final_output": "42",
-     "steps_executed": 2,
      "success": true,
-     "terminated_reason": "stop:model",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-multi-step-direct-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-multi-step-direct-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

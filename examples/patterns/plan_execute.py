@@ -26,31 +26,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "patterns/plan_execute.py",
-     "final_output": {
-       "column_count": 2,
-       "csv_path": "artifacts/examples/plan_execute_runtime_inventory.csv",
-       "row_count": 3,
-       "search_hits": 4
-     },
-     "plan_step_count": 1,
-     "steps_executed": 1,
      "success": true,
-     "terminated_reason": "completed",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-plan-execute-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-workflow-plan-execute-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `Plan-and-Solve Prompting <https://arxiv.org/abs/2305.04091>`_
@@ -126,14 +117,7 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    plan_payload = result.output_dict("plan")
-    plan_steps = plan_payload.get("steps") if isinstance(plan_payload, dict) else None
-    summary = result.summary(
-        details={
-            "steps_executed": result.output_value("steps_executed"),
-            "plan_step_count": len(plan_steps) if isinstance(plan_steps, list) else 0,
-        },
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

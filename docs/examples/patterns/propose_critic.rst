@@ -31,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/propose_critic.py
    :language: python
-   :lines: 73-
+   :lines: 51-
    :linenos:
 
 Expected Results
@@ -43,41 +43,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/patterns/propose_critic.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "approved": true,
-     "critique_iterations": [
-       {
-         "approved": false,
-         "feedback": "Add more detail.",
-         "iteration": 1,
-         "proposal": "Draft v1: simple proposal.",
-         "revision_goals": [
-           "expand rationale"
-         ]
-       },
-       {
-         "approved": true,
-         "feedback": "Looks good.",
-         "iteration": 2,
-         "proposal": "Draft v2: proposal with more detail.",
-         "revision_goals": []
-       }
-     ],
-     "error": null,
-     "example": "patterns/propose_critic.py",
-     "final_output": null,
-     "proposal": "Draft v2: proposal with more detail.",
      "success": true,
-     "terminated_reason": "approved",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-propose-critic-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-workflow-propose-critic-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

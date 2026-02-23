@@ -31,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/multi_step_code_tool_calling_agent.py
    :language: python
-   :lines: 61-
+   :lines: 51-
    :linenos:
 
 Expected Results
@@ -43,29 +43,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/agents/multi_step_code_tool_calling_agent.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "agents/multi_step_code_tool_calling_agent.py",
-     "final_output": {
-       "char_count": 1154,
-       "line_count": 7,
-       "unique_word_count": 100,
-       "word_count": 135
-     },
-     "step_outputs_count": 1,
-     "steps_executed": 1,
      "success": true,
-     "terminated_reason": "continuation_stopped:model",
-     "tool_results_count": 1,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-multi-step-code-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-multi-step-code-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

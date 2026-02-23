@@ -25,34 +25,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "best_candidate": {
-       "concept": "modular frame + fail-safe",
-       "score_hint": 0.92
-     },
-     "error": null,
-     "example": "patterns/tree_search.py",
-     "final_output": {
-       "best_candidate": {
-         "concept": "modular frame + fail-safe",
-         "score_hint": 0.92
-       },
-       "best_score": 0.92
-     },
      "success": true,
-     "terminated_reason": "max_depth_reached",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-tree-search-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-workflow-tree-search-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `Tree of Thoughts <https://arxiv.org/abs/2305.10601>`_
@@ -116,9 +104,7 @@ def main() -> None:
         "Find the most robust concept architecture for a serviceable edge-device enclosure.",
         request_id=request_id,
     )
-    summary = result.summary(
-        details=["best_candidate"],
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

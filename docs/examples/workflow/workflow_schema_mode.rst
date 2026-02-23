@@ -31,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/workflow/workflow_schema_mode.py
    :language: python
-   :lines: 85-
+   :lines: 64-
    :linenos:
 
 Expected Results
@@ -43,52 +43,31 @@ Expected Results
 
    PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "relaxed_run": {
-       "error": null,
-       "example": "workflow/workflow_schema_mode.py",
-       "execution_order": [
-         "describe_dataset",
-         "load_sample",
-         "quality_gate",
-         "persist_report",
-         "finalize"
-       ],
-       "final_output": {
-         "report_path": "artifacts/examples/<truncated-report-path>"
-       },
+     "strict_run": {
        "success": true,
-       "terminated_reason": null,
+       "final_output": "<example-specific payload>",
+       "terminated_reason": "<string-or-null>",
+       "error": null,
        "trace": {
-         "request_id": "example-workflow-schema-design-relaxed-001",
+         "request_id": "<request-id>",
          "trace_dir": "artifacts/examples/traces",
-         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-schema-design-relaxed-001.jsonl"
+         "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      },
-     "strict_run": {
-       "error": null,
-       "example": "workflow/workflow_schema_mode.py",
-       "execution_order": [
-         "describe_dataset",
-         "load_sample",
-         "quality_gate",
-         "persist_report",
-         "finalize"
-       ],
-       "final_output": {
-         "report_path": "artifacts/examples/<truncated-report-path>"
-       },
+     "relaxed_run": {
        "success": true,
-       "terminated_reason": null,
+       "final_output": "<example-specific payload>",
+       "terminated_reason": "<string-or-null>",
+       "error": null,
        "trace": {
-         "request_id": "example-workflow-schema-design-strict-001",
+         "request_id": "<request-id>",
          "trace_dir": "artifacts/examples/traces",
-         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-schema-design-strict-001.jsonl"
+         "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      }
    }

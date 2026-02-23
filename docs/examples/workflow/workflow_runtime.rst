@@ -31,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/workflow/workflow_runtime.py
    :language: python
-   :lines: 59-
+   :lines: 51-
    :linenos:
 
 Expected Results
@@ -43,27 +43,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "workflow/workflow_runtime.py",
-     "execution_order": [
-       "design_runtime_ready"
-     ],
-     "final_output": {
-       "check": "workflow-runtime-ready",
-       "message": "Design runtime orchestration validated."
-     },
      "success": true,
-     "terminated_reason": null,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-runtime-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-runtime-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

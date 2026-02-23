@@ -25,30 +25,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "patterns/agent_routing.py",
-     "final_output": {
-       "char_count": 30,
-       "line_count": 1,
-       "unique_word_count": 4,
-       "word_count": 4
-     },
-     "selected_alternative": null,
      "success": true,
-     "terminated_reason": "max_steps_reached",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-agent-routing-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162207Z_example-workflow-agent-routing-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `RouteLLM <https://arxiv.org/abs/2406.18665>`_
@@ -116,9 +108,7 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    summary = result.summary(
-        details=["selected_alternative"],
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

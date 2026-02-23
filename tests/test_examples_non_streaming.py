@@ -19,7 +19,6 @@ _SUMMARY_REQUIRED_KEYS = (
     "final_output",
     "terminated_reason",
     "error",
-    "details",
     "trace",
 )
 
@@ -62,7 +61,6 @@ def _assert_summary_envelope(payload: object, *, context: str) -> None:
     assert terminated_reason is None or isinstance(terminated_reason, str), (
         f"{context} summary.terminated_reason must be string-or-null."
     )
-    assert isinstance(payload.get("details"), dict), f"{context} summary.details must be an object."
     assert isinstance(payload.get("trace"), dict), f"{context} summary.trace must be an object."
 
 
@@ -93,6 +91,9 @@ def test_execution_result_examples_build_summary_without_post_mutation(example_r
     assert "trace_provider=" not in source, f"{example_relpath} should not pass trace_provider to summary()."
     assert re.search(r"summary\([^)]*request_id=", source, flags=re.DOTALL) is None, (
         f"{example_relpath} should not pass request_id to summary()."
+    )
+    assert re.search(r"summary\([^)]*details=", source, flags=re.DOTALL) is None, (
+        f"{example_relpath} should not pass details to summary()."
     )
 
 

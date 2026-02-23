@@ -32,7 +32,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/plan_execute.py
    :language: python
-   :lines: 61-
+   :lines: 52-
    :linenos:
 
 Expected Results
@@ -44,28 +44,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/patterns/plan_execute.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "patterns/plan_execute.py",
-     "final_output": {
-       "column_count": 2,
-       "csv_path": "artifacts/examples/plan_execute_runtime_inventory.csv",
-       "row_count": 3,
-       "search_hits": 4
-     },
-     "plan_step_count": 1,
-     "steps_executed": 1,
      "success": true,
-     "terminated_reason": "completed",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-plan-execute-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-workflow-plan-execute-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

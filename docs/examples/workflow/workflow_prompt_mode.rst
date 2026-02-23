@@ -31,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/workflow/workflow_prompt_mode.py
    :language: python
-   :lines: 91-
+   :lines: 64-
    :linenos:
 
 Expected Results
@@ -43,56 +43,29 @@ Expected Results
 
    PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
      "agent_branch_run": {
-       "error": null,
-       "example": "workflow/workflow_prompt_mode.py",
-       "execution_order": [
-         "router",
-         "draft_agent",
-         "parse_agent_json",
-         "finalize_agent",
-         "draft_template",
-         "finalize_template"
-       ],
-       "final_output": {
-         "branch": "agent",
-         "summary": "Use one runtime that fuses core, script, and MCP tools.",
-         "title": "Deterministic workflow memo"
-       },
        "success": true,
-       "terminated_reason": null,
+       "final_output": "<example-specific payload>",
+       "terminated_reason": "<string-or-null>",
+       "error": null,
        "trace": {
-         "request_id": "example-workflow-prompt-design-agent-001",
+         "request_id": "<request-id>",
          "trace_dir": "artifacts/examples/traces",
-         "trace_path": "artifacts/examples/traces/run_20260222T162210Z_example-workflow-prompt-design-agent-001.jsonl"
+         "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      },
      "template_branch_run": {
-       "error": null,
-       "example": "workflow/workflow_prompt_mode.py",
-       "execution_order": [
-         "router",
-         "draft_agent",
-         "parse_agent_json",
-         "finalize_agent",
-         "draft_template",
-         "finalize_template"
-       ],
-       "final_output": {
-         "branch": "template",
-         "summary": "Template mode output for: template: Produce a deterministic fallback brief for manufacturabili...
-         "title": "Template fallback design brief"
-       },
        "success": true,
-       "terminated_reason": null,
+       "final_output": "<example-specific payload>",
+       "terminated_reason": "<string-or-null>",
+       "error": null,
        "trace": {
-         "request_id": "example-workflow-prompt-design-template-001",
+         "request_id": "<request-id>",
          "trace_dir": "artifacts/examples/traces",
          "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }

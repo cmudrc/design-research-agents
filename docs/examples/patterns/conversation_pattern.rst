@@ -33,7 +33,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/conversation_pattern.py
    :language: python
-   :lines: 75-
+   :lines: 53-
    :linenos:
 
 Expected Results
@@ -45,42 +45,20 @@ Expected Results
 
    PYTHONPATH=src python3 examples/patterns/conversation_pattern.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "patterns/conversation_pattern.py",
-     "final_output": {
-       "message": "Prioritize the roller prototype first because it is simpler to fabricate; validate kernel breaka...
-       "speaker": "Validation Engineer"
-     },
-     "participants": {
-       "speaker_a": "Concept Designer",
-       "speaker_b": "Validation Engineer"
-     },
      "success": true,
-     "terminated_reason": "completed",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-conversation-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162207Z_example-workflow-conversation-design-001.jsonl"
-     },
-     "transcript_preview": [
-       {
-         "message": "Prototype a second concept with a peg-drum against a perforated concave, driven by gears to re...
-         "speaker": "Concept Designer",
-         "turn": 2
-       },
-       {
-         "message": "Prioritize the roller prototype first because it is simpler to fabricate; validate kernel brea...
-         "speaker": "Validation Engineer",
-         "turn": 2
-       }
-     ],
-     "turns_executed": 2
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
+     }
    }
 
 References

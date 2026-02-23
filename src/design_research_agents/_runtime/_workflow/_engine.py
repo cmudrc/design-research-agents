@@ -32,6 +32,9 @@ from design_research_agents._tracing import (
     finish_trace_run,
     start_trace_run,
 )
+from design_research_agents._tracing._result_metadata import (
+    enrich_execution_result_trace_metadata,
+)
 
 from ._artifacts import collect_artifacts, dedupe_artifacts, resolve_final_output
 from ._executors._common import (
@@ -185,6 +188,10 @@ class WorkflowRuntime(WorkflowRunner):
                 "memory_enabled": self._memory_store is not None,
                 "artifact_count": len(artifact_records),
             },
+        )
+        workflow_result = enrich_execution_result_trace_metadata(
+            result=workflow_result,
+            tracer=self._tracer,
         )
         finish_trace_run(trace_scope, result=workflow_result)
         return workflow_result

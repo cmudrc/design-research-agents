@@ -10,6 +10,9 @@ from design_research_agents._contracts._llm import LLMClient, LLMResponse
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._tracing import Tracer
+from design_research_agents._tracing._result_metadata import (
+    enrich_execution_result_trace_metadata,
+)
 
 from .._code_action_step_runner import (
     CodeActionStepRunner,
@@ -325,6 +328,7 @@ class MultiStepCodeToolCallingAgent(Agent):
             step_results=dict(result.step_results),
             execution_order=list(result.execution_order),
         )
+        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
         finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
         return result
 

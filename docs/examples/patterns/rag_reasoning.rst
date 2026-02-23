@@ -33,7 +33,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/rag_reasoning.py
    :language: python
-   :lines: 264-
+   :lines: 53-
    :linenos:
 
 Expected Results
@@ -45,230 +45,19 @@ Expected Results
 
    PYTHONPATH=src python3 examples/patterns/rag_reasoning.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "patterns/rag_reasoning.py",
-     "final_output": {
-       "artifacts": [],
-       "final_output": "Prioritize maintainability checks and explicit testability criteria in the recommended arch...
-       "model": "example-model",
-       "model_text": "<truncated for docs>",
-       "workflow": {
-         "execution_order": [
-           "prepare_request",
-           "call_model",
-           "finalize"
-         ],
-         "step_results": {
-           "call_model": {
-             "artifacts": [],
-             "error": null,
-             "metadata": {
-               "stage": "execution"
-             },
-             "output": {
-               "llm_response": {
-                 "finish_reason": null,
-                 "latency_ms": null,
-                 "model": "example-model",
-                 "provenance": null,
-                 "provider": "example-test-monkeypatch",
-                 "raw": null,
-                 "raw_output": null,
-                 "text": "<truncated for docs>",
-                 "tool_calls": [],
-                 "usage": null
-               }
-             },
-             "status": "completed",
-             "step_id": "call_model",
-             "success": true
-           },
-           "finalize": {
-             "artifacts": [],
-             "error": null,
-             "metadata": {
-               "stage": "execution"
-             },
-             "output": {
-               "metadata": {
-                 "dependency_keys": [],
-                 "llm_call": {
-                   "max_tokens": null,
-                   "message_count": 1,
-                   "message_source": "prompt",
-                   "provider_options_keys": [],
-                   "response_schema_supplied": false,
-                   "source": "direct",
-                   "temperature": null
-                 },
-                 "request_id": "example-workflow-rag-design-001:rag_reasoning:workflow:reason"
-               },
-               "model_response": {
-                 "finish_reason": null,
-                 "latency_ms": null,
-                 "model": "example-model",
-                 "provenance": null,
-                 "provider": "example-test-monkeypatch",
-                 "raw": null,
-                 "raw_output": null,
-                 "text": "<truncated for docs>",
-                 "tool_calls": [],
-                 "usage": null
-               },
-               "output": {
-                 "model": "example-model",
-                 "model_text": "<truncated for docs>"
-               }
-             },
-             "status": "completed",
-             "step_id": "finalize",
-             "success": true
-           },
-           "prepare_request": {
-             "artifacts": [],
-             "error": null,
-             "metadata": {
-               "stage": "execution"
-             },
-             "output": {
-               "llm_request": {
-                 "max_tokens": null,
-                 "messages": [
-                   {
-                     "content": "Task: Draft a concise architecture recommendation for a serviceable edge device.
-
-   Retrieved context (JSON):
-   {
-     "count": 1,
-     "matches": [
-    {
-      "content": "Design requirement: include graceful shutdown and runtime monitoring.",
-      "created_at": "2026-02-22T16:22:09.467704+00:00",
-      "item_id": "7a77af51c8bf4871afe19f6a8a146ae4",
-      "lexical_score": 0.0,
-      "metadata": {
-        "kind": "requirement"
-      },
-      "namespace": "design_examples",
-      "score": 0.0,
-      "updated_at": "2026-02-22T16:22:09.467704+00:00",
-      "vector_score": null
-    }
-     ],
-     "namespace": "design_examples"
-   }
-
-   Retrieved context (text):
-   - [7a77af51c8bf4871afe19f6a8a146ae4] score=0.0 Design requirement: include graceful shutdown and runtime monitoring.
-
-   Use the retrieved context when relevant, but reason independently when context is sparse.",
-                     "name": null,
-                     "role": "user",
-                     "tool_call_id": null,
-                     "tool_name": null
-                   }
-                 ],
-                 "metadata": {
-                   "agent": "DirectLLMCall",
-                   "message_source": "prompt",
-                   "request_id": "example-workflow-rag-design-001:rag_reasoning:workflow:reason"
-                 },
-                 "model": "example-model",
-                 "provider_options": {},
-                 "response_format": null,
-                 "response_schema": null,
-                 "task_profile": null,
-                 "temperature": null,
-                 "tools": []
-               },
-               "message_count": 1,
-               "message_source": "prompt",
-               "messages": [
-                 {
-                   "content": "Task: Draft a concise architecture recommendation for a serviceable edge device.
-
-   Retrieved context (JSON):
-   {
-     "count": 1,
-     "matches": [
-    {
-      "content": "Design requirement: include graceful shutdown and runtime monitoring.",
-      "created_at": "2026-02-22T16:22:09.467704+00:00",
-      "item_id": "7a77af51c8bf4871afe19f6a8a146ae4",
-      "lexical_score": 0.0,
-      "metadata": {
-        "kind": "requirement"
-      },
-      "namespace": "design_examples",
-      "score": 0.0,
-      "updated_at": "2026-02-22T16:22:09.467704+00:00",
-      "vector_score": null
-    }
-     ],
-     "namespace": "design_examples"
-   }
-
-   Retrieved context (text):
-   - [7a77af51c8bf4871afe19f6a8a146ae4] score=0.0 Design requirement: include graceful shutdown and runtime monitoring.
-
-   Use the retrieved context when relevant, but reason independently when context is sparse.",
-                   "name": null,
-                   "role": "user",
-                   "tool_call_id": null,
-                   "tool_name": null
-                 }
-               ],
-               "normalized_input": {
-                 "prompt": "Task: Draft a concise architecture recommendation for a serviceable edge device.
-
-   Retrieved context (JSON):
-   {
-     "count": 1,
-     "matches": [
-    {
-      "content": "Design requirement: include graceful shutdown and runtime monitoring.",
-      "created_at": "2026-02-22T16:22:09.467704+00:00",
-      "item_id": "7a77af51c8bf4871afe19f6a8a146ae4",
-      "lexical_score": 0.0,
-      "metadata": {
-        "kind": "requirement"
-      },
-      "namespace": "design_examples",
-      "score": 0.0,
-      "updated_at": "2026-02-22T16:22:09.467704+00:00",
-      "vector_score": null
-    }
-     ],
-     "namespace": "design_examples"
-   }
-
-   Retrieved context (text):
-   - [7a77af51c8bf4871afe19f6a8a146ae4] score=0.0 Design requirement: include graceful shutdown and runtime monitoring.
-
-   Use the retrieved context when relevant, but reason independently when context is sparse."
-               },
-               "resolved_model": "example-model"
-             },
-             "status": "completed",
-             "step_id": "prepare_request",
-             "success": true
-           }
-         },
-         "success": true
-       }
-     },
      "success": true,
-     "terminated_reason": "completed",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-rag-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-workflow-rag-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
 

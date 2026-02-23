@@ -26,39 +26,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "patterns/debate_pattern.py",
-     "final_output": {
-       "synthesis": "Use local models for sensitive data and hosted APIs for burst capacity."
-     },
-     "rounds": [
-       {
-         "affirmative_argument": "Local models improve data control and predictable costs for many research workloads.",
-         "negative_argument": "Hosted APIs can ship faster and often provide higher quality with less ops burden.",
-         "round": 1
-       }
-     ],
      "success": true,
-     "terminated_reason": "completed",
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-workflow-debate-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162207Z_example-workflow-debate-design-001.jsonl"
-     },
-     "verdict": {
-       "rationale": "Both positions are compelling with different tradeoffs.",
-       "synthesis": "Use local models for sensitive data and hosted APIs for burst capacity.",
-       "winner": "tie"
-     },
-     "winner": "tie"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
+     }
    }
-
 
 ## References
 - `Multiagent Debate <https://arxiv.org/abs/2305.14325>`_
@@ -105,9 +88,7 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    summary = result.summary(
-        details=["rounds", "winner", "verdict"],
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

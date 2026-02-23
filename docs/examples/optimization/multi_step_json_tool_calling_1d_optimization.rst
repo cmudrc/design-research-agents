@@ -32,7 +32,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/optimization/multi_step_json_tool_calling_1d_optimization.py
    :language: python
-   :lines: 161-
+   :lines: 52-
    :linenos:
 
 Expected Results
@@ -44,126 +44,17 @@ Expected Results
 
    PYTHONPATH=src python3 examples/optimization/multi_step_json_tool_calling_1d_optimization.py
 
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "agent": "MultiStepAgent(mode=json)",
-     "best_seen": {
-       "best_history_index": 3,
-       "best_objective": 0.0,
-       "best_x": 0.0
-     },
-     "example": "optimization/multi_step_json_tool_calling_1d_optimization.py",
-     "final_output": {
-       "best_objective": 0.0,
-       "best_x": 0.0,
-       "f_x": 0.0,
-       "history": [
-         3.0,
-         2.0,
-         1.0,
-         0.0
-       ],
-       "improved": true,
-       "previous_f_x": 1.0,
-       "previous_x": 1.0,
-       "x": 0.0
-     },
-     "history": [
-       3.0,
-       2.0,
-       1.0,
-       0.0
-     ],
-     "memory_tail": [
-       {
-         "kind": "action",
-         "step": 2,
-         "tool_input": {
-           "step": 1
-         },
-         "tool_name": "optimizer.decrease_x"
-       },
-       {
-         "error": "Step execution failed.",
-         "final_output": {
-           "best_objective": 1.0,
-           "best_x": 1.0,
-           "f_x": 1.0,
-           "history": [
-             3.0,
-             2.0,
-             1.0
-           ],
-           "improved": true,
-           "previous_f_x": 4.0,
-           "previous_x": 2.0,
-           "x": 1.0
-         },
-         "kind": "observation",
-         "step": 2,
-         "success": true
-       },
-       {
-         "continue": true,
-         "kind": "thought",
-         "source": "model",
-         "step": 3,
-         "text": "One more decrease should reach zero."
-       },
-       {
-         "kind": "action",
-         "step": 3,
-         "tool_input": {
-           "step": 1
-         },
-         "tool_name": "optimizer.decrease_x"
-       },
-       {
-         "error": "Step execution failed.",
-         "final_output": {
-           "best_objective": 0.0,
-           "best_x": 0.0,
-           "f_x": 0.0,
-           "history": [
-             3.0,
-             2.0,
-             1.0,
-             0.0
-           ],
-           "improved": true,
-           "previous_f_x": 1.0,
-           "previous_x": 1.0,
-           "x": 0.0
-         },
-         "kind": "observation",
-         "step": 3,
-         "success": true
-       },
-       {
-         "continue": false,
-         "kind": "thought",
-         "source": "model",
-         "step": 4,
-         "text": "No better one-step move remains."
-       }
-     ],
-     "objective": "x^2",
-     "objective_history": [
-       9.0,
-       4.0,
-       1.0,
-       0.0
-     ],
-     "steps_executed": 3,
      "success": true,
-     "terminated_reason": "continuation_stopped:model",
-     "tool_results_count": 3,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-optimization-json-tool-calling-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
        "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }

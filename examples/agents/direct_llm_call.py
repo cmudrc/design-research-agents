@@ -27,26 +27,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "agents/direct_llm_call.py",
-     "final_output": "4",
-     "model": "example-model",
-     "package_version": "0.2.0",
      "success": true,
-     "terminated_reason": null,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-direct-llm-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-direct-llm-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `Toward Engineering AGI: Benchmarking the Engineering Design Capabilities of LLMs <https://arxiv.org/abs/2509.16204>`_
@@ -64,6 +60,7 @@ from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Trace
 
 def main() -> None:
     """Execute one direct model call with explicit tracing."""
+    assert __version__
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-direct-llm-design-001"
     tracer = Tracer(
@@ -86,9 +83,7 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    summary = result.summary(
-        details={"package_version": __version__},
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

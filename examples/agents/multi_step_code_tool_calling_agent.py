@@ -25,32 +25,22 @@ flowchart LR
 
 
 ## Expected Results
-Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
-(timestamps, durations, and trace filenames vary by run):
+
+Example output shape (values vary by run):
 
 .. code-block:: text
 
    {
-     "error": null,
-     "example": "agents/multi_step_code_tool_calling_agent.py",
-     "final_output": {
-       "char_count": 1154,
-       "line_count": 7,
-       "unique_word_count": 100,
-       "word_count": 135
-     },
-     "step_outputs_count": 1,
-     "steps_executed": 1,
      "success": true,
-     "terminated_reason": "continuation_stopped:model",
-     "tool_results_count": 1,
+     "final_output": "<example-specific payload>",
+     "terminated_reason": "<string-or-null>",
+     "error": null,
      "trace": {
-       "request_id": "example-multi-step-code-design-001",
+       "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162205Z_example-multi-step-code-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
      }
    }
-
 
 ## References
 - `ReAct: Synergizing Reasoning and Acting in Language Models <https://arxiv.org/abs/2210.03629>`_
@@ -100,10 +90,7 @@ def main() -> None:
     finally:
         llm_client.close()
 
-    step_outputs = result.output_list("step_outputs")
-    summary = result.summary(
-        details={"step_outputs_count": len(step_outputs)},
-    )
+    summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

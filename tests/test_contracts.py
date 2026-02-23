@@ -348,7 +348,6 @@ def test_execution_result_convenience_accessors_and_to_json() -> None:
         "final_output": {"decision": "approve"},
         "terminated_reason": "completed",
         "error": None,
-        "details": {},
         "trace": {},
     }
 
@@ -358,31 +357,8 @@ def test_execution_result_convenience_accessors_and_to_json() -> None:
         "final_output": None,
         "terminated_reason": "step_failure",
         "error": {"message": "tool failed"},
-        "details": {},
         "trace": {},
     }
-
-    key_list_summary = success_result.summary(details=["terminated_reason"])
-    assert key_list_summary["details"] == {"terminated_reason": "completed"}
-
-    details_input = {"steps_executed": 2}
-    details_summary = success_result.summary(details=details_input)
-    assert details_summary["details"] == {"steps_executed": 2}
-    details_input["steps_executed"] = 99
-    assert details_summary["details"] == {"steps_executed": 2}
-
-    output_payload = {
-        "final_output": {"decision": "approve"},
-        "terminated_reason": "completed",
-        "nested": {"x": 1},
-    }
-    preserved_summary = ExecutionResult(
-        success=True,
-        output=output_payload,
-    ).summary(details=["nested"])
-    assert preserved_summary["details"]["nested"] == {"x": 1}
-    output_payload["nested"] = {"x": 2}
-    assert preserved_summary["details"]["nested"] == {"x": 1}
 
     metadata_summary = ExecutionResult(
         success=True,
@@ -390,10 +366,24 @@ def test_execution_result_convenience_accessors_and_to_json() -> None:
     )
     assert metadata_summary.summary()["trace"] == {"request_id": "req-meta"}
 
-    with pytest.raises(TypeError, match="details must be a mapping or sequence of keys"):
+    trace_metadata_summary = ExecutionResult(
+        success=True,
+        metadata={
+            "request_id": "req-trace",
+            "trace_dir": "artifacts/examples/traces",
+            "trace_path": "artifacts/examples/traces/run_20260101T000000Z_req-trace.jsonl",
+        },
+    )
+    assert trace_metadata_summary.summary()["trace"] == {
+        "request_id": "req-trace",
+        "trace_dir": "artifacts/examples/traces",
+        "trace_path": "artifacts/examples/traces/run_20260101T000000Z_req-trace.jsonl",
+    }
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'details'"):
         success_result.summary(details="invalid")  # type: ignore[arg-type]
 
-    with pytest.raises(TypeError, match="details sequence entries must be strings"):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'details'"):
         success_result.summary(details=[1])  # type: ignore[list-item]
 
 
