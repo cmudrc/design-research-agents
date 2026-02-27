@@ -3,6 +3,7 @@
 from design_research_agents._contracts import LLMMessage, LLMRequest, LLMResponse
 
 from .clients import (
+    AnthropicServiceLLMClient,
     GeminiServiceLLMClient,
     GroqServiceLLMClient,
     LlamaCppServerLLMClient,
@@ -16,6 +17,7 @@ from .clients import (
 )
 
 __all__ = [
+    "AnthropicServiceLLMClient",
     "GeminiServiceLLMClient",
     "GroqServiceLLMClient",
     "LLMMessage",

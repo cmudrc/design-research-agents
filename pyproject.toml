@@ -55,6 +55,8 @@ dev = [
 hf = ["huggingface-hub>=0.24"]
 
 # Hosted provider SDKs
+anthropic = ["anthropic>=0.40,<1"]
+
 gemini = ["google-genai>=1.0,<2"]
 
 groq = ["groq>=1.0,<2"]
@@ -174,6 +176,8 @@ module = [
   "jsonschema.*",
   "mcp",
   "mcp.*",
+  "anthropic",
+  "anthropic.*",
   "google",
   "google.*",
   "groq",

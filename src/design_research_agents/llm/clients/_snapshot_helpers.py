@@ -209,6 +209,20 @@ def openai_service_config_snapshot(*, api_key_env: str, api_key: str | None) -> 
     }
 
 
+def anthropic_service_config_snapshot(
+    *,
+    api_key_env: str,
+    api_key: str | None,
+    base_url: str | None,
+) -> dict[str, object]:
+    """Build Anthropic service client config snapshot payload."""
+    return {
+        "api_key_env": api_key_env,
+        "has_api_key": bool(api_key),
+        "base_url": base_url,
+    }
+
+
 def gemini_service_config_snapshot(*, api_key_env: str, api_key: str | None) -> dict[str, object]:
     """Build Gemini service client config snapshot payload."""
     return {

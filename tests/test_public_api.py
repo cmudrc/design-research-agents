@@ -47,6 +47,7 @@ EXPECTED_PUBLIC_API = [
     "BlackboardPattern",
     "TreeSearchPattern",
     "RAGPattern",
+    "AnthropicServiceLLMClient",
     "GeminiServiceLLMClient",
     "GroqServiceLLMClient",
     "LlamaCppServerLLMClient",

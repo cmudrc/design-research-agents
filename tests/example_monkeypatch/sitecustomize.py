@@ -157,6 +157,9 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     "examples/clients/llama_cpp_server_client.py": (
         "Tradeoff: strict review gates improve reliability but can slow delivery speed.",
     ),
+    "examples/clients/anthropic_service_client.py": (
+        "Run architecture red-team reviews before committing high-impact changes with uncertain failure modes.",
+    ),
     "examples/clients/gemini_service_client.py": (
         "Run a design pre-mortem before committing architecture changes with high uncertainty or safety risk.",
     ),
@@ -502,6 +505,22 @@ if _DETERMINISTIC_MODE:
             server_snapshot=None,
         )
 
+    def _patched_anthropic_service_client(**kwargs: object) -> _DeterministicConfiguredClient:
+        default_model = _as_name(kwargs.get("default_model"), "claude-3-5-haiku-latest")
+        return _DeterministicConfiguredClient(
+            client_class_name="AnthropicServiceLLMClient",
+            name=_as_name(kwargs.get("name"), "anthropic-service"),
+            default_model=default_model,
+            kind="anthropic_service",
+            max_retries=_as_int(kwargs.get("max_retries"), 2),
+            model_patterns=_as_patterns(kwargs.get("model_patterns")),
+            extra_backend_fields={
+                "base_url": _as_name(kwargs.get("base_url"), "https://api.anthropic.com"),
+                "api_key_env": _as_name(kwargs.get("api_key_env"), "ANTHROPIC_API_KEY"),
+            },
+            server_snapshot=None,
+        )
+
     def _patched_gemini_service_client(**kwargs: object) -> _DeterministicConfiguredClient:
         default_model = _as_name(kwargs.get("default_model"), "gemini-2.5-flash")
         return _DeterministicConfiguredClient(
@@ -605,6 +624,7 @@ if _DETERMINISTIC_MODE:
         "OllamaLLMClient": _patched_ollama_client,
         "OpenAICompatibleHTTPLLMClient": _patched_openai_compatible_http_client,
         "OpenAIServiceLLMClient": _patched_openai_service_client,
+        "AnthropicServiceLLMClient": _patched_anthropic_service_client,
         "GeminiServiceLLMClient": _patched_gemini_service_client,
         "GroqServiceLLMClient": _patched_groq_service_client,
         "TransformersLocalLLMClient": _patched_transformers_local_client,
