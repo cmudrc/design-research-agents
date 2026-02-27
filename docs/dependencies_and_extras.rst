@@ -35,6 +35,10 @@ Extras matrix
      - Shared Hugging Face utilities
      - ``huggingface-hub``
      - None
+   * - ``anthropic``
+     - Anthropic hosted backend
+     - ``anthropic``
+     - None
    * - ``gemini``
      - Gemini hosted backend
      - ``google-genai``
@@ -76,6 +80,7 @@ Recommended profiles
 --------------------
 
 - Fast contributor loop: ``pip install -e ".[dev]"``
+- Anthropic hosted experimentation: ``pip install -e ".[dev,anthropic]"``
 - Gemini hosted experimentation: ``pip install -e ".[dev,gemini]"``
 - Groq hosted experimentation: ``pip install -e ".[dev,groq]"``
 - Local backend experimentation: ``pip install -e ".[dev,local]"``

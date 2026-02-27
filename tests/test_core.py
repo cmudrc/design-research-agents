@@ -16,6 +16,7 @@ from design_research_agents._contracts._llm import (
 )
 from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm.clients import (
+    AnthropicServiceLLMClient,
     GeminiServiceLLMClient,
     GroqServiceLLMClient,
     LlamaCppServerLLMClient,
@@ -80,6 +81,7 @@ def test_provider_clients_empty_init_and_default_model() -> None:
     llama = LlamaCppServerLLMClient()
     clients = (
         llama,
+        AnthropicServiceLLMClient(),
         GeminiServiceLLMClient(),
         GroqServiceLLMClient(),
         OpenAIServiceLLMClient(),
@@ -105,6 +107,7 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
     finally:
         llama.close()
 
+    assert AnthropicServiceLLMClient()._backend.name == "anthropic"
     assert GeminiServiceLLMClient()._backend.name == "gemini"
     assert GroqServiceLLMClient()._backend.name == "groq"
     assert OpenAIServiceLLMClient()._backend.name == "openai"

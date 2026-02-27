@@ -1,5 +1,6 @@
 """Provider implementations for concrete LLM backend integrations."""
 
+from ._anthropic_service import AnthropicServiceBackend
 from ._echo_test import EchoTestBackend
 from ._gemini_service import GeminiServiceBackend
 from ._groq_service import GroqServiceBackend
@@ -20,6 +21,7 @@ from ._vllm_server import VllmServerBackend
 from ._vllm_server import create_backend as create_vllm_backend
 
 __all__ = [
+    "AnthropicServiceBackend",
     "EchoTestBackend",
     "GeminiServiceBackend",
     "GroqServiceBackend",

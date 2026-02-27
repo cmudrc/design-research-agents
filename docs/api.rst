@@ -49,6 +49,10 @@ LLM Clients and Selection
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.AnthropicServiceLLMClient
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.GeminiServiceLLMClient
    :members:
    :undoc-members:
