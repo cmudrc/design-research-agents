@@ -1,7 +1,7 @@
-SglangServerLLMClient
+SGLangServerLLMClient
 =====================
 
-``SglangServerLLMClient`` targets local/self-hosted SGLang OpenAI-compatible
+``SGLangServerLLMClient`` targets local/self-hosted SGLang OpenAI-compatible
 inference endpoints.
 
 Default behavior
@@ -16,10 +16,10 @@ Constructor-first usage
 
 .. code-block:: python
 
-   from design_research_agents import SglangServerLLMClient
+   from design_research_agents import SGLangServerLLMClient
    from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = SglangServerLLMClient()
+   client = SGLangServerLLMClient()
    response = client.generate(
        LLMRequest(
            messages=(LLMMessage(role="user", content="Give one architecture tradeoff."),),

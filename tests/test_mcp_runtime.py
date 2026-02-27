@@ -3,13 +3,13 @@ from __future__ import annotations
 import sys
 
 from design_research_agents.tools import Toolbox
-from design_research_agents.tools._config import McpServer
+from design_research_agents.tools._config import MCPServerConfig
 
 
 def test_mcp_stdio_server_list_and_call() -> None:
     runtime = Toolbox(
         mcp_servers=(
-            McpServer(
+            MCPServerConfig(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},

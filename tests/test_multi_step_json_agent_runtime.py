@@ -69,13 +69,13 @@ class _StubToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
         del dependencies
-        payload = dict(input_dict)
+        payload = dict(input)
         self.calls.append((tool_name, payload, request_id))
         if tool_name == "sum":
             return ToolResult(

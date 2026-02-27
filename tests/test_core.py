@@ -17,13 +17,13 @@ from design_research_agents._contracts._llm import (
 from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm.clients import (
     LlamaCppServerLLMClient,
-    MlxLocalLLMClient,
+    MLXLocalLLMClient,
     OllamaLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
-    SglangServerLLMClient,
+    SGLangServerLLMClient,
     TransformersLocalLLMClient,
-    VllmServerLLMClient,
+    VLLMServerLLMClient,
 )
 from design_research_agents.llm.clients._shared import _SingleBackendLLMClient
 
@@ -81,10 +81,10 @@ def test_provider_clients_empty_init_and_default_model() -> None:
         OpenAIServiceLLMClient(),
         OpenAICompatibleHTTPLLMClient(),
         TransformersLocalLLMClient(),
-        MlxLocalLLMClient(),
-        VllmServerLLMClient(manage_server=False),
+        MLXLocalLLMClient(),
+        VLLMServerLLMClient(manage_server=False),
         OllamaLLMClient(manage_server=False),
-        SglangServerLLMClient(manage_server=False),
+        SGLangServerLLMClient(manage_server=False),
     )
     try:
         for client in clients:
@@ -104,10 +104,10 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
     assert OpenAIServiceLLMClient()._backend.name == "openai"
     assert OpenAICompatibleHTTPLLMClient()._backend.name == "openai-compatible"
     assert TransformersLocalLLMClient()._backend.name == "transformers-local"
-    assert MlxLocalLLMClient()._backend.name == "mlx-local"
-    assert VllmServerLLMClient(manage_server=False)._backend.name == "vllm-local"
+    assert MLXLocalLLMClient()._backend.name == "mlx-local"
+    assert VLLMServerLLMClient(manage_server=False)._backend.name == "vllm-local"
     assert OllamaLLMClient(manage_server=False)._backend.name == "ollama-local"
-    assert SglangServerLLMClient(manage_server=False)._backend.name == "sglang-local"
+    assert SGLangServerLLMClient(manage_server=False)._backend.name == "sglang-local"
 
 
 def test_chat_builds_request_from_chat_params() -> None:

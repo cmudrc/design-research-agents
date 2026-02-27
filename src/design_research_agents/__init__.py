@@ -10,9 +10,9 @@ _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
     "Toolbox": "design_research_agents.tools:Toolbox",
-    "CallableTool": "design_research_agents.tools:CallableTool",
-    "ScriptTool": "design_research_agents.tools:ScriptTool",
-    "McpServer": "design_research_agents.tools:McpServer",
+    "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
+    "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
+    "MCPServerConfig": "design_research_agents.tools:MCPServerConfig",
     "LogicStep": "design_research_agents._contracts:LogicStep",
     "ToolStep": "design_research_agents._contracts:ToolStep",
     "AgentStep": "design_research_agents._contracts:AgentStep",
@@ -29,21 +29,21 @@ _EXPORTS: Final[dict[str, str]] = {
     "Workflow": "design_research_agents.workflow:Workflow",
     "ConversationPattern": "design_research_agents.patterns:ConversationPattern",
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
-    "PlannerExecutorPattern": "design_research_agents.patterns:PlannerExecutorPattern",
+    "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
     "ReflexionPattern": "design_research_agents.patterns:ReflexionPattern",
-    "RouterPattern": "design_research_agents.patterns:RouterPattern",
+    "AgentRoutingPattern": "design_research_agents.patterns:AgentRoutingPattern",
     "NetworkedPattern": "design_research_agents.patterns:NetworkedPattern",
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
-    "RagReasoningPattern": "design_research_agents.patterns:RagReasoningPattern",
+    "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
     "TransformersLocalLLMClient": "design_research_agents.llm:TransformersLocalLLMClient",
-    "MlxLocalLLMClient": "design_research_agents.llm:MlxLocalLLMClient",
-    "VllmServerLLMClient": "design_research_agents.llm:VllmServerLLMClient",
+    "MLXLocalLLMClient": "design_research_agents.llm:MLXLocalLLMClient",
+    "VLLMServerLLMClient": "design_research_agents.llm:VLLMServerLLMClient",
     "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
-    "SglangServerLLMClient": "design_research_agents.llm:SglangServerLLMClient",
+    "SGLangServerLLMClient": "design_research_agents.llm:SGLangServerLLMClient",
     "ModelSelector": "design_research_agents._model_selection:ModelSelector",
     "Tracer": "design_research_agents._tracing:Tracer",
 }
@@ -107,25 +107,25 @@ if TYPE_CHECKING:
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
-    from .llm import MlxLocalLLMClient as MlxLocalLLMClient
+    from .llm import MLXLocalLLMClient as MLXLocalLLMClient
     from .llm import OllamaLLMClient as OllamaLLMClient
     from .llm import OpenAICompatibleHTTPLLMClient as OpenAICompatibleHTTPLLMClient
     from .llm import OpenAIServiceLLMClient as OpenAIServiceLLMClient
-    from .llm import SglangServerLLMClient as SglangServerLLMClient
+    from .llm import SGLangServerLLMClient as SGLangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
-    from .llm import VllmServerLLMClient as VllmServerLLMClient
+    from .llm import VLLMServerLLMClient as VLLMServerLLMClient
+    from .patterns import AgentRoutingPattern as AgentRoutingPattern
     from .patterns import BlackboardPattern as BlackboardPattern
     from .patterns import ConversationPattern as ConversationPattern
     from .patterns import DebatePattern as DebatePattern
     from .patterns import NetworkedPattern as NetworkedPattern
-    from .patterns import PlannerExecutorPattern as PlannerExecutorPattern
-    from .patterns import RagReasoningPattern as RagReasoningPattern
+    from .patterns import PlanExecutePattern as PlanExecutePattern
+    from .patterns import RAGPattern as RAGPattern
     from .patterns import ReflexionPattern as ReflexionPattern
-    from .patterns import RouterPattern as RouterPattern
     from .patterns import TreeSearchPattern as TreeSearchPattern
-    from .tools import CallableTool as CallableTool
-    from .tools import McpServer as McpServer
-    from .tools import ScriptTool as ScriptTool
+    from .tools import CallableToolConfig as CallableToolConfig
+    from .tools import MCPServerConfig as MCPServerConfig
+    from .tools import ScriptToolConfig as ScriptToolConfig
     from .tools import Toolbox as Toolbox
     from .tools import ToolResult as ToolResult
     from .workflow import Workflow as Workflow

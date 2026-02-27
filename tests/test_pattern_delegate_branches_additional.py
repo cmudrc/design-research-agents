@@ -8,11 +8,11 @@ from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LL
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._implementations._patterns import _debate_pattern as debate_impl
 from design_research_agents._implementations._patterns import (
-    _planner_executor_pattern as planner_impl,
+    _plan_execute_pattern as planner_impl,
 )
 from design_research_agents._implementations._patterns._debate_pattern import DebatePattern
-from design_research_agents._implementations._patterns._planner_executor_pattern import (
-    PlannerExecutorPattern,
+from design_research_agents._implementations._patterns._plan_execute_pattern import (
+    PlanExecutePattern,
 )
 
 
@@ -66,17 +66,17 @@ class _SingleToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
         del request_id, dependencies
         # Echo-style runtime keeps pattern tests focused on orchestration, not tool behavior.
-        return ToolResult(tool_name=tool_name, ok=True, result=dict(input_dict))
+        return ToolResult(tool_name=tool_name, ok=True, result=dict(input))
 
 
-def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> None:
+def test_plan_execute_pattern_delegate_paths_and_payload_extraction() -> None:
     # Cover payload extraction fallbacks in priority order.
     assert planner_impl._extract_planner_payload({"steps": [{"step_id": "x"}]}) == {"steps": [{"step_id": "x"}]}
     assert planner_impl._extract_planner_payload({"final_output": {"steps": [{"step_id": "y"}]}}) == {
@@ -119,7 +119,7 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
         },
     )
     executor_delegate = _StaticDelegate(success=True, payload={"final_output": {"answer": 7}})
-    success_pattern = PlannerExecutorPattern(
+    success_pattern = PlanExecutePattern(
         llm_client=_NoopLLMClient(),
         tool_runtime=_SingleToolRuntime(),
         planner_delegate=planner_delegate,
@@ -131,7 +131,7 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
     assert success_result.output["steps_executed"] == 1
     assert success_result.output["final_output"] == {"answer": 7}
 
-    planner_failure_pattern = PlannerExecutorPattern(
+    planner_failure_pattern = PlanExecutePattern(
         llm_client=_NoopLLMClient(),
         tool_runtime=_SingleToolRuntime(),
         planner_delegate=_StaticDelegate(success=False, payload={"error": "bad"}),
@@ -140,7 +140,7 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
     assert planner_failure.success is False
     assert planner_failure.output["terminated_reason"] == "planner_invalid_json"
 
-    schema_failure_pattern = PlannerExecutorPattern(
+    schema_failure_pattern = PlanExecutePattern(
         llm_client=_NoopLLMClient(),
         tool_runtime=_SingleToolRuntime(),
         planner_delegate=_StaticDelegate(
@@ -152,7 +152,7 @@ def test_planner_executor_pattern_delegate_paths_and_payload_extraction() -> Non
     assert schema_failure.success is False
     assert schema_failure.output["terminated_reason"] == "planner_invalid_schema"
 
-    capped_pattern = PlannerExecutorPattern(
+    capped_pattern = PlanExecutePattern(
         llm_client=_NoopLLMClient(),
         tool_runtime=_SingleToolRuntime(),
         planner_delegate=_StaticDelegate(

@@ -38,7 +38,7 @@ class CoreToolsConfig:
 
 
 @dataclass(slots=True, frozen=True)
-class McpServer:
+class MCPServerConfig:
     """External MCP server definition."""
 
     id: str
@@ -82,12 +82,12 @@ class McpConfig:
 
     enabled: bool = False
     """Whether MCP-backed tools are enabled."""
-    servers: tuple[McpServer, ...] = ()
+    servers: tuple[MCPServerConfig, ...] = ()
     """Configured external MCP servers to attach."""
 
 
 @dataclass(slots=True, frozen=True)
-class ScriptTool:
+class ScriptToolConfig:
     """One explicit script-backed tool definition."""
 
     name: str
@@ -174,12 +174,12 @@ class ScriptToolsConfig:
 
     enabled: bool = False
     """Whether script-backed tools are enabled."""
-    tools: tuple[ScriptTool, ...] = ()
+    tools: tuple[ScriptToolConfig, ...] = ()
     """Explicit script-backed tool definitions."""
 
 
 @dataclass(slots=True, frozen=True)
-class CallableTool:
+class CallableToolConfig:
     """Simple in-process callable tool wrapper descriptor."""
 
     name: str
@@ -303,9 +303,9 @@ def _parse_mcp_config(raw: object) -> McpConfig:
     if not isinstance(raw, dict):
         return McpConfig()
     enabled = bool(raw.get("enabled", False))
-    defaults = McpServer(id="__defaults__")
+    defaults = MCPServerConfig(id="__defaults__")
     servers_raw = raw.get("servers", [])
-    parsed_servers: list[McpServer] = []
+    parsed_servers: list[MCPServerConfig] = []
     if isinstance(servers_raw, list):
         for index, item in enumerate(servers_raw):
             if not isinstance(item, dict):
@@ -323,7 +323,7 @@ def _parse_mcp_config(raw: object) -> McpConfig:
             env_allowlist = _parse_str_list(item.get("env_allowlist")) or defaults.env_allowlist
             env = _parse_env(item.get("env"))
             parsed_servers.append(
-                McpServer(
+                MCPServerConfig(
                     id=server_id,
                     type="stdio",
                     command=command,
@@ -352,7 +352,7 @@ def _parse_script_config(raw: object) -> ScriptToolsConfig:
         return ScriptToolsConfig()
     enabled = bool(raw.get("enabled", False))
     tools_raw = raw.get("tools", [])
-    parsed_tools: list[ScriptTool] = []
+    parsed_tools: list[ScriptToolConfig] = []
     if isinstance(tools_raw, list):
         for index, item in enumerate(tools_raw):
             if not isinstance(item, dict):
@@ -379,7 +379,7 @@ def _parse_script_config(raw: object) -> ScriptToolsConfig:
             commands = _parse_str_list(item.get("commands"))
             timeout_s = _parse_int(item.get("timeout_s"), default=30)
             parsed_tools.append(
-                ScriptTool(
+                ScriptToolConfig(
                     name=name,
                     path=str(Path(path).expanduser()),
                     description=description,
@@ -523,12 +523,12 @@ def _parse_env(value: object) -> dict[str, str]:
 
 
 __all__ = [
-    "CallableTool",
+    "CallableToolConfig",
     "CallableToolHandler",
     "CoreToolsConfig",
+    "MCPServerConfig",
     "McpConfig",
-    "McpServer",
-    "ScriptTool",
+    "ScriptToolConfig",
     "ScriptToolsConfig",
     "ToolRuntimeConfig",
     "load_tool_runtime_config",

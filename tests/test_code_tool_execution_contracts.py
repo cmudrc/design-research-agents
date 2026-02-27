@@ -40,7 +40,7 @@ class _Runtime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -51,8 +51,8 @@ class _Runtime(ToolRuntime):
         if self.non_mapping:
             return ToolResult(tool_name=tool_name, ok=True, result=["bad"])
         try:
-            a_value = int(input_dict.get("a", 0))
-            b_value = int(input_dict.get("b", 0))
+            a_value = int(input.get("a", 0))
+            b_value = int(input.get("b", 0))
         except Exception:
             a_value = 0
             b_value = 0

@@ -15,7 +15,7 @@ from design_research_agents._implementations._shared._agent_internal import (
     _workflow_loop_orchestration as loop_orchestration,
 )
 from design_research_agents._implementations._shared._workflow_internal import (
-    _planner_executor_helpers as planner_helpers,
+    _plan_execute_helpers as planner_helpers,
 )
 from design_research_agents._runtime._common import _run_defaults as canonical_run_defaults
 from design_research_agents._runtime._common import _run_defaults as run_defaults
@@ -169,7 +169,7 @@ def test_multi_step_json_runtime_helpers_cover_summary_and_failure_paths() -> No
     assert failure.metadata["stage"] == "terminal"
 
 
-def test_planner_executor_helpers_cover_deserialization_and_callback_edge_cases() -> None:
+def test_plan_execute_helpers_cover_deserialization_and_callback_edge_cases() -> None:
     parsed = planner_helpers.deserialize_tool_results(
         [
             {"tool_name": "calculator", "ok": True, "result": {"value": 1}},

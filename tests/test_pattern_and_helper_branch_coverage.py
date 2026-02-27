@@ -7,7 +7,7 @@ import pytest
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents._implementations._patterns import _agent_routing as routing_impl
+from design_research_agents._implementations._patterns import _agent_routing_pattern as routing_impl
 from design_research_agents._implementations._shared._agent_internal import (
     _code_action_step_workflow_helpers as code_helpers,
 )
@@ -30,13 +30,13 @@ class _SingleToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
         del request_id, dependencies
-        return ToolResult(tool_name=tool_name, ok=True, result=dict(input_dict))
+        return ToolResult(tool_name=tool_name, ok=True, result=dict(input))
 
 
 def test_code_action_step_workflow_helpers_cover_success_and_failure_branches() -> None:

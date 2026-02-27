@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import design_research_agents.tools._registry as tool_registry
-from design_research_agents.tools._config import ScriptTool
+from design_research_agents.tools._config import ScriptToolConfig
 from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
 from design_research_agents.tools._registry import ToolRegistry
 from design_research_agents.tools._sources._script_source import ScriptToolSource, _run_script_tool
@@ -25,7 +25,7 @@ def _policy(tmp_path: Path, *, allow_network: bool = False) -> ToolPolicy:
     )
 
 
-def _script_tool(tmp_path: Path, *, path: str, **overrides: object) -> ScriptTool:
+def _script_tool(tmp_path: Path, *, path: str, **overrides: object) -> ScriptToolConfig:
     base = {
         "name": "tool",
         "path": path,
@@ -39,7 +39,7 @@ def _script_tool(tmp_path: Path, *, path: str, **overrides: object) -> ScriptToo
         "timeout_s": 3,
     }
     base.update(overrides)
-    return ScriptTool(**base)
+    return ScriptToolConfig(**base)
 
 
 def test_script_tool_source_unknown_tool_returns_error(tmp_path: Path) -> None:

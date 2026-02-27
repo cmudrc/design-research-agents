@@ -8,7 +8,7 @@ example wires the SGLang server client into the same traced run surface used by 
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``SglangServerLLMClient.generate(...)`` with a
+2. Build the runtime surface (public APIs only) and execute ``SGLangServerLLMClient.generate(...)`` with a
    fixed ``request_id``.
 3. Construct ``LLMRequest`` inputs and call ``generate`` through the selected client implementation.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
@@ -16,7 +16,7 @@ example wires the SGLang server client into the same traced run surface used by 
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["SglangServerLLMClient.generate(...)"]
+    B --> C["SGLangServerLLMClient.generate(...)"]
     C --> D["LLMRequest/LLMResponse contracts wrap provider behavior"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -52,7 +52,7 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
        "tool_calling": "best_effort",
        "vision": false
      },
-     "client_class": "SglangServerLLMClient",
+     "client_class": "SGLangServerLLMClient",
      "default_model": "Qwen/Qwen2.5-1.5B-Instruct",
      "example": "clients/sglang_server_client.py",
      "llm_call": {
@@ -88,12 +88,12 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import SglangServerLLMClient, Tracer
+from design_research_agents import SGLangServerLLMClient, Tracer
 from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    client = SglangServerLLMClient(
+    client = SGLangServerLLMClient(
         name="sglang-local-dev",
         model="Qwen/Qwen2.5-1.5B-Instruct",
         host="127.0.0.1",

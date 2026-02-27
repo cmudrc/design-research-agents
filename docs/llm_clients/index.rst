@@ -29,12 +29,12 @@ Comparison matrix
      - Defaults to ``model_id=default_model="distilgpt2"``
      - Medium-high (framework + model weights)
      - Strong privacy, lowest marginal cost, latency depends on device
-   * - ``MlxLocalLLMClient``
+   * - ``MLXLocalLLMClient``
      - Local Apple MLX runtime
      - Defaults to ``mlx-community/Qwen2.5-1.5B-Instruct-4bit``
      - Medium (Apple silicon + MLX stack)
      - Strong privacy, lowest marginal cost, strong local throughput on Apple hardware
-   * - ``VllmServerLLMClient``
+   * - ``VLLMServerLLMClient``
      - Local/self-hosted vLLM OpenAI-compatible server
      - Defaults to ``api_model="qwen2.5-1.5b-instruct"``
      - Medium-high (server runtime + model provisioning)
@@ -44,7 +44,7 @@ Comparison matrix
      - Defaults to ``default_model="qwen2.5:1.5b-instruct"``
      - Low-medium (Ollama runtime + model pull)
      - Strong privacy, low setup burden, laptop-friendly local serving
-   * - ``SglangServerLLMClient``
+   * - ``SGLangServerLLMClient``
      - Local/self-hosted SGLang OpenAI-compatible server
      - Defaults to ``model="Qwen/Qwen2.5-1.5B-Instruct"``
      - Medium-high (server runtime + model provisioning)
@@ -64,8 +64,8 @@ When to choose what
 -------------------
 
 1. Need strict data-local execution: start with ``LlamaCppServerLLMClient``,
-   ``TransformersLocalLLMClient``, ``MlxLocalLLMClient``, ``VllmServerLLMClient``,
-   ``OllamaLLMClient``, or ``SglangServerLLMClient``.
+   ``TransformersLocalLLMClient``, ``MLXLocalLLMClient``, ``VLLMServerLLMClient``,
+   ``OllamaLLMClient``, or ``SGLangServerLLMClient``.
 2. Need fastest onboarding and hosted quality: use ``OpenAIServiceLLMClient``.
 3. Need provider portability or self-hosted OpenAI-compatible infra: use
    ``OpenAICompatibleHTTPLLMClient``.

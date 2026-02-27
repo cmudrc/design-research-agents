@@ -4,13 +4,13 @@ from design_research_agents._contracts import LLMMessage, LLMRequest, LLMRespons
 
 from .clients import (
     LlamaCppServerLLMClient,
-    MlxLocalLLMClient,
+    MLXLocalLLMClient,
     OllamaLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
-    SglangServerLLMClient,
+    SGLangServerLLMClient,
     TransformersLocalLLMClient,
-    VllmServerLLMClient,
+    VLLMServerLLMClient,
 )
 
 __all__ = [
@@ -18,11 +18,11 @@ __all__ = [
     "LLMRequest",
     "LLMResponse",
     "LlamaCppServerLLMClient",
-    "MlxLocalLLMClient",
+    "MLXLocalLLMClient",
     "OllamaLLMClient",
     "OpenAICompatibleHTTPLLMClient",
     "OpenAIServiceLLMClient",
-    "SglangServerLLMClient",
+    "SGLangServerLLMClient",
     "TransformersLocalLLMClient",
-    "VllmServerLLMClient",
+    "VLLMServerLLMClient",
 ]

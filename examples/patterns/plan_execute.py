@@ -8,7 +8,7 @@ with tool-backed execution and deterministic trace artifacts.
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``PlannerExecutorPattern.run(...)`` with a fixed
+2. Build the runtime surface (public APIs only) and execute ``PlanExecutePattern.run(...)`` with a fixed
    ``request_id``.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
@@ -16,7 +16,7 @@ with tool-backed execution and deterministic trace artifacts.
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["PlannerExecutorPattern.run(...)"]
+    B --> C["PlanExecutePattern.run(...)"]
     C --> D["Planner and executor phases share tool/runtime state"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -56,12 +56,12 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from design_research_agents import (
-    CallableTool,
+    CallableToolConfig,
     LlamaCppServerLLMClient,
     Toolbox,
     Tracer,
 )
-from design_research_agents.patterns import PlannerExecutorPattern
+from design_research_agents.patterns import PlanExecutePattern
 
 
 def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:
@@ -91,7 +91,7 @@ def main() -> None:
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox(
         callable_tools=(
-            CallableTool(
+            CallableToolConfig(
                 name="repo.readme_metrics",
                 description="Return README line-count and first heading.",
                 # Inject one deterministic local tool so planning can reference concrete capabilities.
@@ -100,7 +100,7 @@ def main() -> None:
         ),
     )
     try:
-        workflow = PlannerExecutorPattern(
+        workflow = PlanExecutePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_iterations=1,

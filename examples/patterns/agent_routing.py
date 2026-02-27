@@ -8,14 +8,14 @@ shows intent-based routing across direct and multi-step agents using a shared ru
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``RouterPattern.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``AgentRoutingPattern.run(...)`` with a fixed ``request_id``.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["RouterPattern.run(...)"]
+    B --> C["AgentRoutingPattern.run(...)"]
     C --> D["router delegates to specialized agent surfaces"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -60,7 +60,7 @@ from design_research_agents import (
     Toolbox,
     Tracer,
 )
-from design_research_agents.patterns import RouterPattern
+from design_research_agents.patterns import AgentRoutingPattern
 
 
 def main() -> None:
@@ -85,7 +85,7 @@ def main() -> None:
         tracer=tracer,
     )
 
-    workflow = RouterPattern(
+    workflow = AgentRoutingPattern(
         llm_client=llm_client,
         tool_runtime=tool_runtime,
         alternatives={

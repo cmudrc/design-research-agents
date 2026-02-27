@@ -8,15 +8,15 @@ from public workflow primitives.
 Quick chooser
 -------------
 
-- Need planner + executor decomposition: ``PlannerExecutorPattern``.
+- Need planner + executor decomposition: ``PlanExecutePattern``.
 - Need iterative proposal/critique refinement: ``ReflexionPattern``.
-- Need intent-based delegate routing: ``RouterPattern``.
+- Need intent-based delegate routing: ``AgentRoutingPattern``.
 - Need multi-round adversarial synthesis: ``DebatePattern``.
 - Need two-speaker conversational iteration: ``ConversationPattern``.
 - Need decentralized peer rounds: ``NetworkedPattern``.
 - Need shared-state convergence rounds: ``BlackboardPattern``.
 - Need candidate expansion + scoring search: ``TreeSearchPattern``.
-- Need retrieval-augmented reasoning with write-back: ``RagReasoningPattern``.
+- Need retrieval-augmented reasoning with write-back: ``RAGPattern``.
 - Need to author a new implementation from scratch: :doc:`/workflows/index`.
 
 Pages

@@ -61,13 +61,13 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import McpServer, Toolbox, ToolResult, Tracer
+from design_research_agents import MCPServerConfig, Toolbox, ToolResult, Tracer
 
 
 def _run_report() -> dict[str, object]:
     runtime = Toolbox(
         mcp_servers=(
-            McpServer(
+            MCPServerConfig(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},

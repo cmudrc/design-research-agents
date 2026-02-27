@@ -1,7 +1,7 @@
-MlxLocalLLMClient
+MLXLocalLLMClient
 =================
 
-``MlxLocalLLMClient`` runs local inference on Apple MLX.
+``MLXLocalLLMClient`` runs local inference on Apple MLX.
 
 Default behavior
 ----------------
@@ -15,10 +15,10 @@ Constructor-first usage
 
 .. code-block:: python
 
-   from design_research_agents import MlxLocalLLMClient
+   from design_research_agents import MLXLocalLLMClient
    from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = MlxLocalLLMClient()
+   client = MLXLocalLLMClient()
    response = client.generate(
        LLMRequest(
            messages=(LLMMessage(role="user", content="Produce three concise insights."),),

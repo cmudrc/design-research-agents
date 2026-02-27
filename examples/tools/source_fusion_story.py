@@ -66,7 +66,7 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import McpServer, ScriptTool, Toolbox, Tracer
+from design_research_agents import MCPServerConfig, ScriptToolConfig, Toolbox, Tracer
 
 
 def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
@@ -86,7 +86,7 @@ def _run_report() -> dict[str, object]:
         workspace_root=".",
         enable_core_tools=True,
         script_tools=(
-            ScriptTool(
+            ScriptToolConfig(
                 name="rubric_score",
                 path="examples/tools/script_tools/rubric_score.py",
                 description="Score text against a simple rubric.",
@@ -104,7 +104,7 @@ def _run_report() -> dict[str, object]:
             ),
         ),
         mcp_servers=(
-            McpServer(
+            MCPServerConfig(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},

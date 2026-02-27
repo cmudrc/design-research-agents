@@ -1,5 +1,5 @@
 """Internal MLX local client wrapper."""
 
-from ._shared import MlxLocalLLMClient
+from ._shared import MLXLocalLLMClient
 
-__all__ = ["MlxLocalLLMClient"]
+__all__ = ["MLXLocalLLMClient"]

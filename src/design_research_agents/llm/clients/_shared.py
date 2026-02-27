@@ -415,7 +415,7 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
         self.close()
 
 
-class VllmServerLLMClient(_SingleBackendLLMClient):
+class VLLMServerLLMClient(_SingleBackendLLMClient):
     """Client for local or self-hosted vLLM OpenAI-compatible inference."""
 
     def __init__(
@@ -635,7 +635,7 @@ class OllamaLLMClient(_SingleBackendLLMClient):
         self.close()
 
 
-class SglangServerLLMClient(_SingleBackendLLMClient):
+class SGLangServerLLMClient(_SingleBackendLLMClient):
     """Client for local or self-hosted SGLang OpenAI-compatible inference."""
 
     def __init__(
@@ -831,7 +831,7 @@ class TransformersLocalLLMClient(_SingleBackendLLMClient):
         )
 
 
-class MlxLocalLLMClient(_SingleBackendLLMClient):
+class MLXLocalLLMClient(_SingleBackendLLMClient):
     """Client for Apple MLX local inference."""
 
     def __init__(
@@ -915,10 +915,10 @@ def _config_hash(config_payload: dict[str, object]) -> str:
 
 __all__ = [
     "LlamaCppServerLLMClient",
-    "MlxLocalLLMClient",
+    "MLXLocalLLMClient",
     "OllamaLLMClient",
-    "SglangServerLLMClient",
+    "SGLangServerLLMClient",
     "TransformersLocalLLMClient",
-    "VllmServerLLMClient",
+    "VLLMServerLLMClient",
     "_SingleBackendLLMClient",
 ]

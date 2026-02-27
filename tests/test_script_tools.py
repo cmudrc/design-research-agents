@@ -3,11 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from design_research_agents.tools import Toolbox
-from design_research_agents.tools._config import ScriptTool
+from design_research_agents.tools._config import ScriptToolConfig
 
 
-def _rubric_script() -> ScriptTool:
-    return ScriptTool(
+def _rubric_script() -> ScriptToolConfig:
+    return ScriptToolConfig(
         name="rubric_score",
         path="examples/tools/script_tools/rubric_score.py",
         description="Score text against a simple rubric.",
@@ -25,8 +25,8 @@ def _rubric_script() -> ScriptTool:
     )
 
 
-def _quickscan_script() -> ScriptTool:
-    return ScriptTool(
+def _quickscan_script() -> ScriptToolConfig:
+    return ScriptToolConfig(
         name="repo_quickscan",
         path="examples/tools/script_tools/repo_quickscan.sh",
         description="Produce a quick repository inventory snapshot.",

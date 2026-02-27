@@ -138,7 +138,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         "Peer contribution: document final maintenance SOP candidates.",
         "Peer contribution: finalize blackboard recommendation summary.",
     ),
-    "examples/patterns/rag_reasoning.py": (
+    "examples/patterns/rag.py": (
         "Prioritize maintainability checks and explicit testability criteria in the recommended architecture.",
     ),
     "examples/workflow/workflow_prompt_mode.py": (
@@ -197,7 +197,7 @@ _PATH_ALIASES: dict[str, str] = {
     "examples/workflow/conversation_pattern.py": "examples/patterns/conversation_pattern.py",
     "examples/workflow/networked_blackboard.py": "examples/patterns/networked_blackboard.py",
     "examples/workflow/tree_search.py": "examples/patterns/tree_search.py",
-    "examples/workflow/rag_reasoning.py": "examples/patterns/rag_reasoning.py",
+    "examples/workflow/rag.py": "examples/patterns/rag.py",
 }
 
 
@@ -427,7 +427,7 @@ if _DETERMINISTIC_MODE:
     def _patched_mlx_local_client(**kwargs: object) -> _DeterministicConfiguredClient:
         default_model = _as_name(kwargs.get("default_model"), _as_name(kwargs.get("model_id"), "example-model"))
         return _DeterministicConfiguredClient(
-            client_class_name="MlxLocalLLMClient",
+            client_class_name="MLXLocalLLMClient",
             name=_as_name(kwargs.get("name"), "mlx-local"),
             default_model=default_model,
             kind="mlx_local",
@@ -519,7 +519,7 @@ if _DETERMINISTIC_MODE:
         host = _as_name(kwargs.get("host"), "127.0.0.1")
         port = kwargs.get("port", 8002)
         return _DeterministicConfiguredClient(
-            client_class_name="VllmServerLLMClient",
+            client_class_name="VLLMServerLLMClient",
             name=_as_name(kwargs.get("name"), "vllm"),
             default_model=api_model,
             kind="vllm_server",
@@ -543,7 +543,7 @@ if _DETERMINISTIC_MODE:
         host = _as_name(kwargs.get("host"), "127.0.0.1")
         port = kwargs.get("port", 30000)
         return _DeterministicConfiguredClient(
-            client_class_name="SglangServerLLMClient",
+            client_class_name="SGLangServerLLMClient",
             name=_as_name(kwargs.get("name"), "sglang"),
             default_model=model,
             kind="sglang_server",
@@ -564,13 +564,13 @@ if _DETERMINISTIC_MODE:
 
     _PATCHES = {
         "LlamaCppServerLLMClient": _patched_llama_cpp_server_client,
-        "MlxLocalLLMClient": _patched_mlx_local_client,
+        "MLXLocalLLMClient": _patched_mlx_local_client,
         "OllamaLLMClient": _patched_ollama_client,
         "OpenAICompatibleHTTPLLMClient": _patched_openai_compatible_http_client,
         "OpenAIServiceLLMClient": _patched_openai_service_client,
         "TransformersLocalLLMClient": _patched_transformers_local_client,
-        "VllmServerLLMClient": _patched_vllm_server_client,
-        "SglangServerLLMClient": _patched_sglang_server_client,
+        "VLLMServerLLMClient": _patched_vllm_server_client,
+        "SGLangServerLLMClient": _patched_sglang_server_client,
     }
 
     for class_name, factory in _PATCHES.items():

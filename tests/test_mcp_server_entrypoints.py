@@ -30,13 +30,13 @@ class _RuntimeStub:
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
         del dependencies
-        payload = dict(input_dict)
+        payload = dict(input)
         self.invocations.append((tool_name, payload, request_id))
         return ToolResult(tool_name=tool_name, ok=True, result={"echo": payload})
 

@@ -14,7 +14,7 @@ from design_research_agents._contracts._tools import (
     ToolSideEffects,
     ToolSpec,
 )
-from design_research_agents.tools._config import ScriptTool
+from design_research_agents.tools._config import ScriptToolConfig
 from design_research_agents.tools._policy import ToolPolicy, ToolPolicyError
 
 
@@ -28,7 +28,7 @@ class _ScriptToolBinding:
 
     canonical_name: str
     """Field value for ``canonical_name``."""
-    config: ScriptTool
+    config: ScriptToolConfig
     """Field value for ``config``."""
 
 
@@ -37,7 +37,7 @@ class ScriptToolSource:
 
     source_id = "script"
 
-    def __init__(self, *, script_tools: tuple[ScriptTool, ...], policy: ToolPolicy) -> None:
+    def __init__(self, *, script_tools: tuple[ScriptToolConfig, ...], policy: ToolPolicy) -> None:
         """Initialize script tool bindings with policy controls.
 
         Args:
@@ -140,7 +140,7 @@ def _canonical_script_tool_name(raw_name: str) -> str:
 def _run_script_tool(
     *,
     tool_name: str,
-    config: ScriptTool,
+    config: ScriptToolConfig,
     input_dict: Mapping[str, object],
     policy: ToolPolicy,
 ) -> ToolResult:

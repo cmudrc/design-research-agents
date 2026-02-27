@@ -25,7 +25,7 @@ If embeddings are unavailable, retrieval falls back to lexical-only ranking.
 RAG orchestration
 -----------------
 
-``RagReasoningPattern`` composes memory and reasoning as:
+``RAGPattern`` composes memory and reasoning as:
 
 1. ``MemoryReadStep``
 2. ``AgentStep`` reasoning delegate (with retrieved context injection)
@@ -43,5 +43,5 @@ context injection.
 Examples
 --------
 
-- ``examples/patterns/rag_reasoning.py``
+- ``examples/patterns/rag.py``
 - ``examples/agents/multi_step_json_with_memory.py``

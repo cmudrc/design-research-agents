@@ -8,13 +8,13 @@ from typing import Literal, cast
 from design_research_agents._contracts._llm import LLMClient
 from design_research_agents.llm import (
     LlamaCppServerLLMClient,
-    MlxLocalLLMClient,
+    MLXLocalLLMClient,
     OllamaLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
-    SglangServerLLMClient,
+    SGLangServerLLMClient,
     TransformersLocalLLMClient,
-    VllmServerLLMClient,
+    VLLMServerLLMClient,
 )
 
 from ._catalog import ModelCatalog
@@ -36,10 +36,10 @@ _CLIENT_CLASSES: dict[str, type[object]] = {
     "OpenAIServiceLLMClient": OpenAIServiceLLMClient,
     "OpenAICompatibleHTTPLLMClient": OpenAICompatibleHTTPLLMClient,
     "TransformersLocalLLMClient": TransformersLocalLLMClient,
-    "MlxLocalLLMClient": MlxLocalLLMClient,
-    "VllmServerLLMClient": VllmServerLLMClient,
+    "MLXLocalLLMClient": MLXLocalLLMClient,
+    "VLLMServerLLMClient": VLLMServerLLMClient,
     "OllamaLLMClient": OllamaLLMClient,
-    "SglangServerLLMClient": SglangServerLLMClient,
+    "SGLangServerLLMClient": SGLangServerLLMClient,
 }
 
 
@@ -199,7 +199,7 @@ class ModelSelector:
             }
         elif provider == "mlx_local":
             default_config = {
-                "client_class": "MlxLocalLLMClient",
+                "client_class": "MLXLocalLLMClient",
                 "kwargs": {
                     "model_id": decision.model_id,
                     "default_model": decision.model_id,
@@ -207,7 +207,7 @@ class ModelSelector:
             }
         elif provider == "vllm_local":
             default_config = {
-                "client_class": "VllmServerLLMClient",
+                "client_class": "VLLMServerLLMClient",
                 "kwargs": {
                     "api_model": decision.model_id,
                     "manage_server": False,
@@ -224,7 +224,7 @@ class ModelSelector:
             }
         elif provider == "sglang_local":
             default_config = {
-                "client_class": "SglangServerLLMClient",
+                "client_class": "SGLangServerLLMClient",
                 "kwargs": {
                     "model": decision.model_id,
                     "manage_server": False,

@@ -39,11 +39,11 @@ def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
     return tuple(steps)
 
 
-def _normalize_prompt(input_data: object) -> str:
+def _normalize_prompt(input_value: object) -> str:
     """Validate and normalize prompt-mode workflow input.
 
     Args:
-        input_data: Raw workflow input value.
+        input_value: Raw workflow input value.
 
     Returns:
         Trimmed prompt string.
@@ -51,19 +51,19 @@ def _normalize_prompt(input_data: object) -> str:
     Raises:
         ValueError: If input is not a non-empty string.
     """
-    if not isinstance(input_data, str):
+    if not isinstance(input_value, str):
         raise ValueError("Workflow configured without input_schema requires string input.")
-    normalized_prompt = input_data.strip()
+    normalized_prompt = input_value.strip()
     if not normalized_prompt:
         raise ValueError("Workflow prompt input must be a non-empty string.")
     return normalized_prompt
 
 
-def _normalize_inputs(input_data: object) -> dict[str, object]:
+def _normalize_inputs(input_value: object) -> dict[str, object]:
     """Validate and normalize schema-mode workflow input.
 
     Args:
-        input_data: Raw workflow input value.
+        input_value: Raw workflow input value.
 
     Returns:
         Input mapping copied into a mutable dictionary.
@@ -71,11 +71,11 @@ def _normalize_inputs(input_data: object) -> dict[str, object]:
     Raises:
         ValueError: If input is not a mapping when provided.
     """
-    if input_data is None:
+    if input_value is None:
         return {}
-    if not isinstance(input_data, Mapping):
+    if not isinstance(input_value, Mapping):
         raise ValueError("Workflow configured with input_schema requires mapping input.")
-    return dict(input_data)
+    return dict(input_value)
 
 
 class Workflow:
@@ -139,7 +139,7 @@ class Workflow:
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: WorkflowExecutionMode | None = None,
         failure_policy: WorkflowFailurePolicy | None = None,
@@ -149,7 +149,7 @@ class Workflow:
         """Execute one workflow run with input mode inferred from ``input_schema``.
 
         Args:
-            input_data: Prompt string when ``input_schema`` is omitted; otherwise schema mapping.
+            input: Prompt string when ``input_schema`` is omitted; otherwise schema mapping.
             execution_mode: Optional per-run execution mode override.
             failure_policy: Optional per-run failure policy override.
             request_id: Optional explicit request id for tracing/correlation.
@@ -164,10 +164,10 @@ class Workflow:
         )
         context = dict(self._base_context)
         if self._input_schema is None:
-            normalized_prompt = _normalize_prompt(input_data)
+            normalized_prompt = _normalize_prompt(input)
             context[self._prompt_context_key] = normalized_prompt
         else:
-            normalized_inputs = _normalize_inputs(input_data)
+            normalized_inputs = _normalize_inputs(input)
             validate_payload_against_schema(
                 payload=normalized_inputs,
                 schema=self._input_schema,

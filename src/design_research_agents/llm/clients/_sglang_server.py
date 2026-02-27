@@ -1,5 +1,5 @@
 """Internal SGLang client wrapper."""
 
-from ._shared import SglangServerLLMClient
+from ._shared import SGLangServerLLMClient
 
-__all__ = ["SglangServerLLMClient"]
+__all__ = ["SGLangServerLLMClient"]

@@ -13,7 +13,7 @@ Available patterns
 - ``TreeSearchPattern``
   - Generator + evaluator delegate orchestration with ``max_depth``, ``branch_factor``, and ``beam_width`` controls.
   - Background references: `Tree of Thoughts <https://arxiv.org/abs/2305.10601>`_. Conceptual grounding only; this implementation uses framework-native step orchestration.
-- ``RagReasoningPattern``
+- ``RAGPattern``
   - Retrieval-augmented reasoning with memory read/write workflow primitives.
   - Background references: `Retrieval-Augmented Generation (RAG) <https://arxiv.org/abs/2005.11401>`_. Conceptual grounding only; this pattern composes retrieval and context injection at workflow level.
 
@@ -36,4 +36,4 @@ Examples
 
 - ``examples/patterns/tree_search.py``
 - ``examples/patterns/propose_critic.py``
-- ``examples/patterns/rag_reasoning.py``
+- ``examples/patterns/rag.py``

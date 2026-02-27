@@ -11,7 +11,7 @@ These scripts demonstrate reusable orchestration patterns built on top of workfl
 - `conversation_pattern.py`
 - `networked_blackboard.py`
 - `tree_search.py`
-- `rag_reasoning.py`
+- `rag.py`
 
 ## Quick Start
 

@@ -14,7 +14,7 @@ This project focuses on composable agent systems you can run, inspect, and test:
 
 - Agent implementations (top-level exports): `DirectLLMCall`, `MultiStepAgent` (modes: `direct`, `json`, `code`)
 - Workflow construction surface: `design_research_agents.workflow` (`Workflow` + step primitives)
-- Prebuilt workflow implementations: `design_research_agents.patterns` (`DebatePattern`, `PlannerExecutorPattern`, `ReflexionPattern`, `RouterPattern`, etc.)
+- Prebuilt workflow implementations: `design_research_agents.patterns` (`DebatePattern`, `PlanExecutePattern`, `ReflexionPattern`, `AgentRoutingPattern`, etc.)
 - Provider-specific LLM clients with constructor-first defaults
 - Tracing and structured outputs: consistent metadata and schema-driven payloads
 
@@ -26,17 +26,17 @@ from design_research_agents import (
     LlamaCppServerLLMClient,
     LoopStep,
     ModelSelector,
-    PlannerExecutorPattern,
+    PlanExecutePattern,
     MultiStepAgent,
     Workflow,
     Toolbox,
 )
-from design_research_agents.patterns import PlannerExecutorPattern
+from design_research_agents.patterns import PlanExecutePattern
 
 agent = MultiStepAgent(mode="json", ...)
 direct = DirectLLMCall(...)
 tool_runtime = Toolbox(...)
-pattern = PlannerExecutorPattern(...)
+pattern = PlanExecutePattern(...)
 workflow = Workflow(steps=(AgentStep(...), LoopStep(...)))
 selector = ModelSelector(...)
 decision = selector.select(task="summarize interview findings", output="decision")

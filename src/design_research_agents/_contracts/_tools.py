@@ -237,7 +237,7 @@ class ToolRuntime(Protocol):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -249,7 +249,7 @@ class ToolRuntime(Protocol):
 
         Args:
             tool_name: Name of the tool to invoke.
-            input_dict: Tool input payload mapping.
+            input: Tool input payload mapping.
             request_id: Request identifier for tracing.
             dependencies: Dependency payload mapping for the tool.
 

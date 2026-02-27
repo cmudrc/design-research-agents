@@ -45,7 +45,7 @@ class _ActionRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -56,7 +56,7 @@ class _ActionRuntime(ToolRuntime):
                 tool_name="sum",
                 ok=True,
                 result={
-                    "value": int(input_dict.get("a", 0)) + int(input_dict.get("b", 0)),
+                    "value": int(input.get("a", 0)) + int(input.get("b", 0)),
                 },
             )
         if tool_name == "fail":
@@ -76,12 +76,12 @@ class _EmptyRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        del tool_name, input_dict, request_id, dependencies
+        del tool_name, input, request_id, dependencies
         return ToolResult(tool_name="none", ok=False, result={}, error="no tools")
 
 
@@ -104,7 +104,7 @@ class _CalculatorRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -112,7 +112,7 @@ class _CalculatorRuntime(ToolRuntime):
         del request_id, dependencies
         if tool_name != "calculator":
             return ToolResult(tool_name=tool_name, ok=False, result={}, error="unknown")
-        expression = str(input_dict.get("expression", ""))
+        expression = str(input.get("expression", ""))
         try:
             result = float(eval(expression, {"__builtins__": {}}, {}))
         except Exception as exc:  # pragma: no cover - defensive safety for malformed expressions.

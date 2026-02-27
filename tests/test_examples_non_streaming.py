@@ -39,7 +39,7 @@ _EXECUTION_RESULT_EXAMPLES = {
     "examples/patterns/debate_pattern.py",
     "examples/patterns/plan_execute.py",
     "examples/patterns/propose_critic.py",
-    "examples/patterns/rag_reasoning.py",
+    "examples/patterns/rag.py",
     "examples/patterns/tree_search.py",
     "examples/patterns/networked_blackboard.py",
     "examples/optimization/multi_step_json_tool_calling_1d_optimization.py",

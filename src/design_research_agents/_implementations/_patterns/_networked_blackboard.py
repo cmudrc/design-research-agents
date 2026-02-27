@@ -74,6 +74,7 @@ class NetworkedPattern(Agent):
         self._tracer = tracer
         self._initial_state = dict(initial_state or {})
         self.workflow: object | None = None
+        self._network_peer_ids: tuple[str, ...] = tuple(sorted(self._peers))
 
     def run(
         self,
@@ -114,24 +115,16 @@ class NetworkedPattern(Agent):
             ),
         )
 
-    def _run_network(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Execute the core peer coordination loop via workflow primitives.
-
-        Args:
-            prompt: Task prompt shared across peers.
-            request_id: Resolved request id for this run.
-            dependencies: Normalized dependency mapping passed to peers.
-
-        Returns:
-            Final execution result produced by the network workflow.
-        """
-        peer_ids = sorted(self._peers)
+    ) -> Workflow:
+        """Build the network coordination workflow for one resolved run context."""
+        del request_id, dependencies
+        peer_ids = list(self._network_peer_ids)
         initial_state: dict[str, object] = {
             "blackboard": self._initial_blackboard(prompt),
             "round_summaries": [],
@@ -143,7 +136,6 @@ class NetworkedPattern(Agent):
             "tool_results": [],
             "last_model_response": None,
         }
-
         workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
@@ -180,8 +172,33 @@ class NetworkedPattern(Agent):
             ],
         )
         self.workflow = workflow
+        return workflow
+
+    def _run_network(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Execute the core peer coordination loop via workflow primitives.
+
+        Args:
+            prompt: Task prompt shared across peers.
+            request_id: Resolved request id for this run.
+            dependencies: Normalized dependency mapping passed to peers.
+
+        Returns:
+            Final execution result produced by the network workflow.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        peer_ids = list(self._network_peer_ids)
         workflow_result = workflow.run(
-            {},
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:network_workflow",
@@ -475,6 +492,16 @@ class BlackboardPattern(NetworkedPattern):
             tracer=tracer,
         )
         self._stability_rounds = stability_rounds
+
+    def build_workflow(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> Workflow:
+        """Build the blackboard workflow for one resolved run context."""
+        return super().build_workflow(prompt, request_id=request_id, dependencies=dependencies)
 
     def _apply_round_reducer(
         self,

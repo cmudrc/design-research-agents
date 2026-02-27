@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 
 from design_research_agents.tools import Toolbox
-from design_research_agents.tools._config import CallableTool, McpServer, ScriptTool
+from design_research_agents.tools._config import CallableToolConfig, MCPServerConfig, ScriptToolConfig
 
 
-def _local_mcp_server(server_id: str = "local_core") -> McpServer:
-    return McpServer(
+def _local_mcp_server(server_id: str = "local_core") -> MCPServerConfig:
+    return MCPServerConfig(
         id=server_id,
         command=(sys.executable, "-m", "design_research_agents._mcp_server"),
         env={"PYTHONPATH": "src"},
@@ -16,8 +16,8 @@ def _local_mcp_server(server_id: str = "local_core") -> McpServer:
     )
 
 
-def _rubric_script_tool() -> ScriptTool:
-    return ScriptTool(
+def _rubric_script_tool() -> ScriptToolConfig:
+    return ScriptToolConfig(
         name="rubric_score",
         path="examples/tools/script_tools/rubric_score.py",
         description="Score text against a simple rubric.",
@@ -71,7 +71,7 @@ def test_constructor_registers_callable_tools() -> None:
     runtime = Toolbox(
         enable_core_tools=False,
         callable_tools=(
-            CallableTool(
+            CallableToolConfig(
                 name="echo.callable",
                 description="Echo the payload",
                 handler=lambda payload: {"payload": dict(payload)},

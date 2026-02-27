@@ -5,27 +5,27 @@ from ._agents import (
     MultiStepAgent,
 )
 from ._patterns import (
+    AgentRoutingPattern,
     BlackboardPattern,
     ConversationPattern,
     DebatePattern,
     NetworkedPattern,
-    PlannerExecutorPattern,
-    RagReasoningPattern,
+    PlanExecutePattern,
+    RAGPattern,
     ReflexionPattern,
-    RouterPattern,
     TreeSearchPattern,
 )
 
 __all__ = [
+    "AgentRoutingPattern",
     "BlackboardPattern",
     "ConversationPattern",
     "DebatePattern",
     "DirectLLMCall",
     "MultiStepAgent",
     "NetworkedPattern",
-    "PlannerExecutorPattern",
-    "RagReasoningPattern",
+    "PlanExecutePattern",
+    "RAGPattern",
     "ReflexionPattern",
-    "RouterPattern",
     "TreeSearchPattern",
 ]

@@ -14,6 +14,7 @@ from design_research_agents._contracts._llm import (
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._contracts._workflow import (
     AgentStep,
+    LogicStep,
     LoopStep,
     ModelStep,
     WorkflowDelegate,
@@ -47,7 +48,7 @@ from .._shared._agent_internal._input_parsing import (
 )
 from .._shared._agent_internal._model_resolution import resolve_agent_model
 from .._shared._agent_internal._run_options import normalize_input_payload
-from .._shared._workflow_internal._planner_executor_helpers import (
+from .._shared._workflow_internal._plan_execute_helpers import (
     DEFAULT_EXECUTOR_STEP_PROMPT_TEMPLATE,
     DEFAULT_PLANNER_SYSTEM_PROMPT,
     DEFAULT_PLANNER_USER_PROMPT_TEMPLATE,
@@ -56,7 +57,7 @@ from .._shared._workflow_internal._planner_executor_helpers import (
 )
 
 
-class PlannerExecutorPattern(Agent):
+class PlanExecutePattern(Agent):
     """Planner/executor orchestration pattern built on workflow primitives."""
 
     def __init__(
@@ -107,6 +108,7 @@ class PlannerExecutorPattern(Agent):
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._tracer = tracer
         self.workflow: Workflow | None = None
+        self._plan_execute_runtime: dict[str, object] | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._planner_system_prompt = resolve_prompt_override(
@@ -153,7 +155,7 @@ class PlannerExecutorPattern(Agent):
         )
         resolved_prompt = _extract_prompt(normalize_input_payload(prompt))
         return execute_pattern_with_trace(
-            agent_name="PlannerExecutorPattern",
+            agent_name="PlanExecutePattern",
             request_id=run_context.request_id,
             input_payload={"prompt": resolved_prompt, "mode": "plan_execute"},
             dependencies=run_context.dependencies,
@@ -165,26 +167,14 @@ class PlannerExecutorPattern(Agent):
             ),
         )
 
-    def _run_plan_execute(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Run planner phase then execute planned steps through a loop step.
-
-        Args:
-            prompt: Task prompt to plan and execute.
-            request_id: Resolved request id for this orchestration run.
-            dependencies: Normalized dependency mapping for this run.
-
-        Returns:
-            Final plan-execute pattern result.
-
-        Raises:
-            RuntimeError: If required loop outputs are missing.
-        """
+    ) -> Workflow:
+        """Build the plan/execute workflow for one resolved run context."""
         budget_tracker = WorkflowBudgetTracker()
         runtime_tool_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         planner_response: LLMResponse | None = None
@@ -218,6 +208,7 @@ class PlannerExecutorPattern(Agent):
             if planner_result.success:
                 parsed_plan = _extract_planner_payload(planner_result.output)
 
+        failure_result: ExecutionResult | None = None
         if parsed_plan is None:
             failure = build_pattern_failure_result(
                 error="Planner did not return valid JSON plan output.",
@@ -233,45 +224,64 @@ class PlannerExecutorPattern(Agent):
                     "final_output": {},
                 },
             )
-            return attach_runtime_metadata(
+            failure_result = attach_runtime_metadata(
                 agent_result=failure,
                 requested_mode="plan_execute",
                 resolved_mode="plan_execute",
                 budget_metadata=budget_tracker.as_metadata(),
                 extra_metadata=None,
             )
+        else:
+            try:
+                validate_payload_against_schema(
+                    payload=parsed_plan,
+                    schema=PLAN_SCHEMA,
+                    location="plan_execute.plan",
+                )
+            except SchemaValidationError as exc:
+                failure = build_pattern_failure_result(
+                    error=f"Planner output failed schema validation: {exc}",
+                    model_response=planner_response,
+                    request_id=request_id,
+                    dependencies=dependencies,
+                    metadata={"stage": "planner", "mode": "plan_execute"},
+                    output={
+                        "terminated_reason": "planner_invalid_schema",
+                        "plan": parsed_plan,
+                        "steps_executed": 0,
+                        "step_results": [],
+                        "final_output": {},
+                    },
+                )
+                failure_result = attach_runtime_metadata(
+                    agent_result=failure,
+                    requested_mode="plan_execute",
+                    resolved_mode="plan_execute",
+                    budget_metadata=budget_tracker.as_metadata(),
+                    extra_metadata=None,
+                )
 
-        try:
-            validate_payload_against_schema(
-                payload=parsed_plan,
-                schema=PLAN_SCHEMA,
-                location="plan_execute.plan",
+        if failure_result is not None:
+            workflow = Workflow(
+                tool_runtime=None,
+                tracer=self._tracer,
+                input_schema={"type": "object"},
+                steps=[
+                    LogicStep(
+                        step_id="plan_execute_noop",
+                        handler=lambda context: {},
+                    )
+                ],
             )
-        except SchemaValidationError as exc:
-            failure = build_pattern_failure_result(
-                error=f"Planner output failed schema validation: {exc}",
-                model_response=planner_response,
-                request_id=request_id,
-                dependencies=dependencies,
-                metadata={"stage": "planner", "mode": "plan_execute"},
-                output={
-                    "terminated_reason": "planner_invalid_schema",
-                    "plan": parsed_plan,
-                    "steps_executed": 0,
-                    "step_results": [],
-                    "final_output": {},
-                },
-            )
-            return attach_runtime_metadata(
-                agent_result=failure,
-                requested_mode="plan_execute",
-                resolved_mode="plan_execute",
-                budget_metadata=budget_tracker.as_metadata(),
-                extra_metadata=None,
-            )
+            self.workflow = workflow
+            self._plan_execute_runtime = {"failure": failure_result}
+            return workflow
 
+        assert parsed_plan is not None
         raw_steps = parsed_plan.get("steps")
-        plan_steps = raw_steps if isinstance(raw_steps, list) else []
+        plan_steps = (
+            [dict(step) for step in raw_steps if isinstance(step, Mapping)] if isinstance(raw_steps, list) else []
+        )
 
         if self._executor_delegate is None:
             executor_delegate: WorkflowDelegate = MultiStepAgent(
@@ -286,7 +296,7 @@ class PlannerExecutorPattern(Agent):
             executor_delegate = self._executor_delegate
         callbacks = PlanExecuteLoopCallbacks(
             prompt=prompt,
-            plan_steps=[dict(step) for step in plan_steps if isinstance(step, Mapping)],
+            plan_steps=plan_steps,
             executor_step_prompt_template=self._executor_step_prompt_template,
             request_id=request_id,
             dependencies=dependencies,
@@ -295,7 +305,7 @@ class PlannerExecutorPattern(Agent):
             initial_model_response=planner_response,
         )
 
-        self.workflow = Workflow(
+        workflow = Workflow(
             tool_runtime=self._tool_runtime,
             tracer=self._tracer,
             input_schema={"type": "object"},
@@ -319,9 +329,61 @@ class PlannerExecutorPattern(Agent):
                 )
             ],
         )
+        self.workflow = workflow
+        self._plan_execute_runtime = {
+            "failure": None,
+            "budget_tracker": budget_tracker,
+            "callbacks": callbacks,
+            "parsed_plan": dict(parsed_plan),
+            "plan_steps": list(plan_steps),
+        }
+        return workflow
 
-        loop_workflow_result = self.workflow.run(
-            {},
+    def _run_plan_execute(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Run planner phase then execute planned steps through a loop step.
+
+        Args:
+            prompt: Task prompt to plan and execute.
+            request_id: Resolved request id for this orchestration run.
+            dependencies: Normalized dependency mapping for this run.
+
+        Returns:
+            Final plan-execute pattern result.
+
+        Raises:
+            RuntimeError: If required loop outputs are missing.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        runtime = self._plan_execute_runtime or {}
+        failure = runtime.get("failure")
+        if isinstance(failure, ExecutionResult):
+            return failure
+        budget_tracker = runtime.get("budget_tracker")
+        callbacks = runtime.get("callbacks")
+        parsed_plan_value = runtime.get("parsed_plan")
+        plan_steps_value = runtime.get("plan_steps")
+        if (
+            not isinstance(budget_tracker, WorkflowBudgetTracker)
+            or not isinstance(callbacks, PlanExecuteLoopCallbacks)
+            or not isinstance(parsed_plan_value, Mapping)
+            or not isinstance(plan_steps_value, list)
+        ):
+            raise RuntimeError("Plan execute runtime state is unavailable before workflow execution.")
+        parsed_plan = dict(parsed_plan_value)
+        plan_steps = [dict(step) for step in plan_steps_value if isinstance(step, Mapping)]
+
+        loop_workflow_result = workflow.run(
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:plan_execute_loop",
@@ -414,7 +476,7 @@ class PlannerExecutorPattern(Agent):
             ],
         )
         planner_result = planner_workflow.run(
-            {},
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:plan_execute_planner_model",
@@ -454,7 +516,7 @@ class PlannerExecutorPattern(Agent):
             field_name="planner_user_prompt_template",
         )
         planner_metadata: dict[str, object] = {
-            "agent": "PlannerExecutorPattern",
+            "agent": "PlanExecutePattern",
             "mode": "plan_execute",
             "phase": "planner",
         }
@@ -523,5 +585,5 @@ def _extract_model_response_from_model_step_output(
 
 
 __all__ = [
-    "PlannerExecutorPattern",
+    "PlanExecutePattern",
 ]

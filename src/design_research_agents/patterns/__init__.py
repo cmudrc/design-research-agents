@@ -10,10 +10,10 @@ _EXPORTS: Final[dict[str, str]] = {
     "ConversationPattern": "design_research_agents._implementations._patterns:ConversationPattern",
     "DebatePattern": "design_research_agents._implementations._patterns:DebatePattern",
     "NetworkedPattern": "design_research_agents._implementations._patterns:NetworkedPattern",
-    "PlannerExecutorPattern": "design_research_agents._implementations._patterns:PlannerExecutorPattern",
-    "RagReasoningPattern": "design_research_agents._implementations._patterns:RagReasoningPattern",
+    "PlanExecutePattern": "design_research_agents._implementations._patterns:PlanExecutePattern",
+    "RAGPattern": "design_research_agents._implementations._patterns:RAGPattern",
     "ReflexionPattern": "design_research_agents._implementations._patterns:ReflexionPattern",
-    "RouterPattern": "design_research_agents._implementations._patterns:RouterPattern",
+    "AgentRoutingPattern": "design_research_agents._implementations._patterns:AgentRoutingPattern",
     "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }
 

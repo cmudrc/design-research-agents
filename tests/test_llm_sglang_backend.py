@@ -14,7 +14,7 @@ from design_research_agents.llm._backends._providers import (
     _sglang_local,
     _sglang_server,
 )
-from design_research_agents.llm.clients import SglangServerLLMClient
+from design_research_agents.llm.clients import SGLangServerLLMClient
 from tests._llm_openai_backends_test_helpers import request
 
 
@@ -276,7 +276,7 @@ def test_sglang_server_close_forces_kill_when_terminate_stalls() -> None:
 
 
 def test_sglang_client_constructor_and_modes() -> None:
-    managed_client = SglangServerLLMClient(
+    managed_client = SGLangServerLLMClient(
         name="sglang-managed",
         model="Qwen/Qwen2.5-1.5B-Instruct",
         manage_server=True,
@@ -290,7 +290,7 @@ def test_sglang_client_constructor_and_modes() -> None:
     finally:
         managed_client.close()
 
-    connect_client = SglangServerLLMClient(
+    connect_client = SGLangServerLLMClient(
         manage_server=False,
         base_url="http://127.0.0.1:39000/v1",
         model="custom-model",
@@ -299,7 +299,7 @@ def test_sglang_client_constructor_and_modes() -> None:
     assert connect_client._backend.base_url == "http://127.0.0.1:39000/v1"
 
     with pytest.raises(ValueError, match="base_url cannot be provided"):
-        SglangServerLLMClient(
+        SGLangServerLLMClient(
             manage_server=True,
             base_url="http://127.0.0.1:39000/v1",
         )

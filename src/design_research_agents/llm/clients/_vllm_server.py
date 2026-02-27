@@ -1,5 +1,5 @@
 """Internal vLLM client wrapper."""
 
-from ._shared import VllmServerLLMClient
+from ._shared import VLLMServerLLMClient
 
-__all__ = ["VllmServerLLMClient"]
+__all__ = ["VLLMServerLLMClient"]

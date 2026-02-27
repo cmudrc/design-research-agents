@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 
 import pytest
 
@@ -13,15 +14,16 @@ import design_research_agents.patterns as dra_patterns
 import design_research_agents.tools as dra_tools
 import design_research_agents.workflow as dra_workflow
 from design_research_agents import _contracts as dra_contracts
+from design_research_agents._contracts._tools import ToolRuntime
 
 EXPECTED_PUBLIC_API = [
     "__version__",
     "DirectLLMCall",
     "MultiStepAgent",
     "Toolbox",
-    "CallableTool",
-    "ScriptTool",
-    "McpServer",
+    "CallableToolConfig",
+    "ScriptToolConfig",
+    "MCPServerConfig",
     "LogicStep",
     "ToolStep",
     "AgentStep",
@@ -38,26 +40,26 @@ EXPECTED_PUBLIC_API = [
     "Workflow",
     "ConversationPattern",
     "DebatePattern",
-    "PlannerExecutorPattern",
+    "PlanExecutePattern",
     "ReflexionPattern",
-    "RouterPattern",
+    "AgentRoutingPattern",
     "NetworkedPattern",
     "BlackboardPattern",
     "TreeSearchPattern",
-    "RagReasoningPattern",
+    "RAGPattern",
     "LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient",
     "TransformersLocalLLMClient",
-    "MlxLocalLLMClient",
-    "VllmServerLLMClient",
+    "MLXLocalLLMClient",
+    "VLLMServerLLMClient",
     "OllamaLLMClient",
-    "SglangServerLLMClient",
+    "SGLangServerLLMClient",
     "ModelSelector",
     "Tracer",
 ]
 
-EXPECTED_TOOLS_API = ["CallableTool", "McpServer", "ScriptTool", "ToolResult", "Toolbox"]
+EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
 EXPECTED_WORKFLOW_API = [
     "AgentStep",
     "DelegateBatchCall",
@@ -81,11 +83,22 @@ EXPECTED_PATTERNS_API = [
     "ConversationPattern",
     "DebatePattern",
     "NetworkedPattern",
-    "PlannerExecutorPattern",
-    "RagReasoningPattern",
+    "PlanExecutePattern",
+    "RAGPattern",
     "ReflexionPattern",
-    "RouterPattern",
+    "AgentRoutingPattern",
     "TreeSearchPattern",
+]
+LEGACY_PUBLIC_SYMBOLS = [
+    "CallableTool",
+    "ScriptTool",
+    "McpServer",
+    "PlannerExecutorPattern",
+    "RouterPattern",
+    "RagReasoningPattern",
+    "MlxLocalLLMClient",
+    "VllmServerLLMClient",
+    "SglangServerLLMClient",
 ]
 
 
@@ -115,6 +128,43 @@ def test_patterns_module_exports_match_curated_contract() -> None:
     assert dra_patterns.__all__ == EXPECTED_PATTERNS_API
     for symbol_name in dra_patterns.__all__:
         assert getattr(dra_patterns, symbol_name) is not None
+
+
+def test_legacy_public_symbols_are_absent_from_public_facades() -> None:
+    for symbol_name in LEGACY_PUBLIC_SYMBOLS:
+        with pytest.raises(AttributeError):
+            getattr(dra, symbol_name)
+        with pytest.raises(AttributeError):
+            getattr(dra_patterns, symbol_name)
+        with pytest.raises(AttributeError):
+            getattr(dra_llm, symbol_name)
+        with pytest.raises(AttributeError):
+            getattr(dra_tools, symbol_name)
+
+
+def test_public_entrypoint_signatures_use_prompt_or_input_only() -> None:
+    workflow_run_params = inspect.signature(dra_workflow.Workflow.run).parameters
+    assert "input" in workflow_run_params
+    assert "input_data" not in workflow_run_params
+
+    tool_runtime_invoke_params = inspect.signature(ToolRuntime.invoke).parameters
+    assert "input" in tool_runtime_invoke_params
+    assert "input_dict" not in tool_runtime_invoke_params
+
+    toolbox_invoke_params = inspect.signature(dra_tools.Toolbox.invoke).parameters
+    assert "input" in toolbox_invoke_params
+    assert "input_dict" not in toolbox_invoke_params
+
+    toolbox_invoke_dict_params = inspect.signature(dra_tools.Toolbox.invoke_dict).parameters
+    assert "input" in toolbox_invoke_dict_params
+    assert "input_dict" not in toolbox_invoke_dict_params
+
+    for pattern_name in EXPECTED_PATTERNS_API:
+        pattern_cls = getattr(dra_patterns, pattern_name)
+        pattern_run_params = inspect.signature(pattern_cls.run).parameters
+        assert "prompt" in pattern_run_params
+        assert "input" not in pattern_run_params
+        assert "input_data" not in pattern_run_params
 
 
 def test_workflow_module_does_not_export_patterns() -> None:

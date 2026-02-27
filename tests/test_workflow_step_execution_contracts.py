@@ -66,7 +66,7 @@ class _Runtime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -78,10 +78,10 @@ class _Runtime(ToolRuntime):
             return ToolResult(
                 tool_name=tool_name,
                 ok=False,
-                result={"input": dict(input_dict)},
+                result={"input": dict(input)},
                 error="tool failed" if self._include_error else None,
             )
-        return ToolResult(tool_name=tool_name, ok=True, result={"input": dict(input_dict)})
+        return ToolResult(tool_name=tool_name, ok=True, result={"input": dict(input)})
 
 
 class _AgentSuccess:
@@ -167,7 +167,7 @@ class _WorkflowObjectDelegateSuccess:
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: str = "sequential",
         failure_policy: str = "skip_dependents",
@@ -178,7 +178,7 @@ class _WorkflowObjectDelegateSuccess:
         return ExecutionResult(
             success=True,
             output={
-                "echo": str(input_data or ""),
+                "echo": str(input or ""),
                 "final_output": {"delegate_type": "workflow_object"},
             },
         )

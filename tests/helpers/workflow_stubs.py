@@ -206,7 +206,7 @@ class StubToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -222,7 +222,7 @@ class StubToolRuntime(ToolRuntime):
             )
 
         try:
-            output = dict(handler(input_dict))
+            output = dict(handler(input))
         except Exception as exc:
             return ToolResult(
                 tool_name=tool_name,

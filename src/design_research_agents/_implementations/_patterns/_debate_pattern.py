@@ -480,6 +480,7 @@ class DebatePattern(Agent):
             default_value=_DEFAULT_JUDGE_USER_PROMPT_TEMPLATE,
             field_name="judge_user_prompt_template",
         )
+        self._debate_runtime_state: dict[str, object] | None = None
 
     def run(
         self,
@@ -508,14 +509,14 @@ class DebatePattern(Agent):
             ),
         )
 
-    def _run_debate(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Execute debate rounds then judge verdict."""
+    ) -> Workflow:
+        """Build the debate workflow for one resolved run context."""
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
         affirmative_delegate = self._affirmative_delegate
         if affirmative_delegate is None:
@@ -623,8 +624,24 @@ class DebatePattern(Agent):
             steps=steps,
         )
         self.workflow = workflow
+        self._debate_runtime_state = runtime_state
+        return workflow
+
+    def _run_debate(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Execute debate rounds then judge verdict."""
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
         workflow_result = workflow.run(
-            {},
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:debate_workflow",
@@ -632,7 +649,7 @@ class DebatePattern(Agent):
         )
         return _build_debate_result(
             workflow_result=workflow_result,
-            runtime_state=runtime_state,
+            runtime_state=self._debate_runtime_state or {"last_model_response": None},
             request_id=request_id,
             dependencies=dependencies,
         )

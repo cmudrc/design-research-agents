@@ -14,7 +14,7 @@ from design_research_agents.llm._backends._providers import (
     _vllm_local,
     _vllm_server,
 )
-from design_research_agents.llm.clients import VllmServerLLMClient
+from design_research_agents.llm.clients import VLLMServerLLMClient
 from tests._llm_openai_backends_test_helpers import request
 
 
@@ -280,7 +280,7 @@ def test_vllm_server_close_forces_kill_when_terminate_stalls() -> None:
 
 
 def test_vllm_client_constructor_and_modes() -> None:
-    managed_client = VllmServerLLMClient(
+    managed_client = VLLMServerLLMClient(
         name="vllm-managed",
         model="Qwen/Qwen2.5-1.5B-Instruct",
         api_model="qwen2.5-1.5b-instruct",
@@ -295,7 +295,7 @@ def test_vllm_client_constructor_and_modes() -> None:
     finally:
         managed_client.close()
 
-    connect_client = VllmServerLLMClient(
+    connect_client = VLLMServerLLMClient(
         manage_server=False,
         base_url="http://127.0.0.1:9002/v1",
         api_model="custom-model",
@@ -304,7 +304,7 @@ def test_vllm_client_constructor_and_modes() -> None:
     assert connect_client._backend.base_url == "http://127.0.0.1:9002/v1"
 
     with pytest.raises(ValueError, match="base_url cannot be provided"):
-        VllmServerLLMClient(
+        VLLMServerLLMClient(
             manage_server=True,
             base_url="http://127.0.0.1:9002/v1",
         )

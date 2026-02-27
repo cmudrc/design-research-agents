@@ -47,11 +47,11 @@ class _WorkflowPromptObject:
     _input_schema = None
 
     def __init__(self) -> None:
-        self.input_data: str | Mapping[str, object] | None = None
+        self.input: str | Mapping[str, object] | None = None
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: str = "sequential",
         failure_policy: str = "skip_dependents",
@@ -59,7 +59,7 @@ class _WorkflowPromptObject:
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         del execution_mode, failure_policy, request_id, dependencies
-        self.input_data = input_data
+        self.input = input
         return ExecutionResult(success=True, output={"ok": True})
 
 
@@ -67,11 +67,11 @@ class _WorkflowSchemaObject:
     _input_schema: ClassVar[dict[str, object]] = {"type": "object"}
 
     def __init__(self) -> None:
-        self.input_data: str | Mapping[str, object] | None = None
+        self.input: str | Mapping[str, object] | None = None
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: str = "sequential",
         failure_policy: str = "skip_dependents",
@@ -79,7 +79,7 @@ class _WorkflowSchemaObject:
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         del execution_mode, failure_policy, request_id, dependencies
-        self.input_data = input_data
+        self.input = input
         return ExecutionResult(success=True, output={"ok": True})
 
 
@@ -88,14 +88,14 @@ class _BadSchemaWorkflowObject:
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: str = "sequential",
         failure_policy: str = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        del input_data, execution_mode, failure_policy, request_id, dependencies
+        del input, execution_mode, failure_policy, request_id, dependencies
         return ExecutionResult(success=True, output={"ok": True})
 
 
@@ -104,14 +104,14 @@ class _BadResultWorkflowObject:
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: str = "sequential",
         failure_policy: str = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> str:
-        del input_data, execution_mode, failure_policy, request_id, dependencies
+        del input, execution_mode, failure_policy, request_id, dependencies
         return "bad"
 
 
@@ -180,16 +180,16 @@ def test_invoke_delegate_workflow_object_prompt_mode() -> None:
     delegate = _WorkflowPromptObject()
     invocation = _invoke(delegate)
     assert invocation.delegate_type == "workflow"
-    assert delegate.input_data == "task prompt"
+    assert delegate.input == "task prompt"
 
 
 def test_invoke_delegate_workflow_object_schema_mode() -> None:
     delegate = _WorkflowSchemaObject()
     invocation = _invoke(delegate, step_context={"k": 1})
     assert invocation.delegate_type == "workflow"
-    assert isinstance(delegate.input_data, Mapping)
-    assert delegate.input_data.get("prompt") == "task prompt"
-    assert delegate.input_data.get("delegate_context") == {"k": 1}
+    assert isinstance(delegate.input, Mapping)
+    assert delegate.input.get("prompt") == "task prompt"
+    assert delegate.input.get("delegate_context") == {"k": 1}
 
 
 def test_invoke_delegate_rejects_bad_workflow_input_schema() -> None:

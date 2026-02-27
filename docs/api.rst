@@ -20,7 +20,7 @@ Top-level groups:
 - Orchestration: workflow step classes, ``Workflow``, and pattern classes
   (module homes: ``design_research_agents.workflow`` and
   ``design_research_agents.patterns``)
-- Tools: ``Toolbox``, ``CallableTool``, ``ScriptTool``, ``McpServer``
+- Tools: ``Toolbox``, ``CallableToolConfig``, ``ScriptToolConfig``, ``MCPServerConfig``
 - Tracing: ``Tracer``
 
 ``__version__``
@@ -61,11 +61,11 @@ LLM Clients and Selection
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.MlxLocalLLMClient
+.. autoclass:: design_research_agents.MLXLocalLLMClient
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.VllmServerLLMClient
+.. autoclass:: design_research_agents.VLLMServerLLMClient
    :members:
    :undoc-members:
 
@@ -73,7 +73,7 @@ LLM Clients and Selection
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.SglangServerLLMClient
+.. autoclass:: design_research_agents.SGLangServerLLMClient
    :members:
    :undoc-members:
 
@@ -162,7 +162,7 @@ Patterns
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.PlannerExecutorPattern
+.. autoclass:: design_research_agents.PlanExecutePattern
    :members:
    :undoc-members:
 
@@ -170,7 +170,7 @@ Patterns
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.RouterPattern
+.. autoclass:: design_research_agents.AgentRoutingPattern
    :members:
    :undoc-members:
 
@@ -186,7 +186,7 @@ Patterns
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.RagReasoningPattern
+.. autoclass:: design_research_agents.RAGPattern
    :members:
    :undoc-members:
 
@@ -197,15 +197,15 @@ Tools
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.CallableTool
+.. autoclass:: design_research_agents.CallableToolConfig
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.ScriptTool
+.. autoclass:: design_research_agents.ScriptToolConfig
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.McpServer
+.. autoclass:: design_research_agents.MCPServerConfig
    :members:
    :undoc-members:
 

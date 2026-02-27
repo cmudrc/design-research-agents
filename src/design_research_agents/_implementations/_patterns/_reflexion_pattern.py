@@ -119,6 +119,7 @@ class ReflexionPattern(Agent):
             default_value=DEFAULT_CRITIC_USER_PROMPT_TEMPLATE,
             field_name="critic_user_prompt_template",
         )
+        self._reflexion_runtime: dict[str, object] | None = None
 
     def run(
         self,
@@ -161,26 +162,14 @@ class ReflexionPattern(Agent):
             ),
         )
 
-    def _run_propose_critic(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Run propose/critic loop until approval or termination.
-
-        Args:
-            prompt: Task prompt to iteratively refine.
-            request_id: Resolved request id for this orchestration run.
-            dependencies: Normalized dependency mapping for this run.
-
-        Returns:
-            Final reflexion pattern result.
-
-        Raises:
-            RuntimeError: If loop execution fails irrecoverably.
-        """
+    ) -> Workflow:
+        """Build the propose/critic workflow for one resolved run context."""
         budget_tracker = WorkflowBudgetTracker()
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
         proposer = self._proposer_delegate
@@ -247,7 +236,7 @@ class ReflexionPattern(Agent):
                 ),
             )
 
-        self.workflow = Workflow(
+        workflow = Workflow(
             tool_runtime=self._tool_runtime,
             tracer=self._tracer,
             input_schema={"type": "object"},
@@ -273,9 +262,46 @@ class ReflexionPattern(Agent):
                 )
             ],
         )
+        self.workflow = workflow
+        self._reflexion_runtime = {
+            "budget_tracker": budget_tracker,
+            "callbacks": callbacks,
+        }
+        return workflow
 
-        workflow_result = self.workflow.run(
-            {},
+    def _run_propose_critic(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Run propose/critic loop until approval or termination.
+
+        Args:
+            prompt: Task prompt to iteratively refine.
+            request_id: Resolved request id for this orchestration run.
+            dependencies: Normalized dependency mapping for this run.
+
+        Returns:
+            Final reflexion pattern result.
+
+        Raises:
+            RuntimeError: If loop execution fails irrecoverably.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        runtime = self._reflexion_runtime or {}
+        callbacks = runtime.get("callbacks")
+        budget_tracker = runtime.get("budget_tracker")
+        if not isinstance(callbacks, ReflexionLoopCallbacks) or not isinstance(budget_tracker, WorkflowBudgetTracker):
+            raise RuntimeError("Reflexion runtime state is unavailable before workflow execution.")
+
+        workflow_result = workflow.run(
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:propose_critic_loop",

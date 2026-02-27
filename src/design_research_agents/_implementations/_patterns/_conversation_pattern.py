@@ -373,6 +373,7 @@ class ConversationPattern(Agent):
         self._default_dependencies = dict(default_dependencies or {})
         self._tracer = tracer
         self.workflow: Workflow | None = None
+        self._conversation_runtime_state: dict[str, object] | None = None
 
     def run(
         self,
@@ -418,26 +419,14 @@ class ConversationPattern(Agent):
             ),
         )
 
-    def _run_conversation(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Execute workflow loop for one conversation run.
-
-        Args:
-            prompt: Task prompt shared by both speakers.
-            request_id: Resolved request id.
-            dependencies: Normalized dependency mapping.
-
-        Returns:
-            Final conversation result payload.
-
-        Raises:
-            RuntimeError: If the loop step result is missing.
-        """
+    ) -> Workflow:
+        """Build the conversation workflow for one resolved run context."""
         speaker_a_delegate = self._speaker_a_delegate
         if speaker_a_delegate is None:
             resolve_agent_model(llm_client=self._llm_client_a)
@@ -466,8 +455,7 @@ class ConversationPattern(Agent):
             speaker_b_delegate=speaker_b_delegate,
             runtime_state=runtime_state,
         )
-
-        self.workflow = Workflow(
+        workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
             input_schema={"type": "object"},
@@ -511,8 +499,38 @@ class ConversationPattern(Agent):
                 )
             ],
         )
-        workflow_result = self.workflow.run(
-            {},
+        self.workflow = workflow
+        self._conversation_runtime_state = runtime_state
+        return workflow
+
+    def _run_conversation(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Execute workflow loop for one conversation run.
+
+        Args:
+            prompt: Task prompt shared by both speakers.
+            request_id: Resolved request id.
+            dependencies: Normalized dependency mapping.
+
+        Returns:
+            Final conversation result payload.
+
+        Raises:
+            RuntimeError: If the loop step result is missing.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        runtime_state = self._conversation_runtime_state or {"last_model_response": None}
+        workflow_result = workflow.run(
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:conversation_pattern",

@@ -1,7 +1,7 @@
-Rag Reasoning
-=============
+Rag
+===
 
-Source: ``examples/patterns/rag_reasoning.py``
+Source: ``examples/patterns/rag.py``
 
 Introduction
 ------------
@@ -14,7 +14,7 @@ Technical Implementation
 ------------------------
 
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``RagReasoningPattern.run(...)`` with a fixed
+2. Build the runtime surface (public APIs only) and execute ``RAGPattern.run(...)`` with a fixed
    ``request_id``.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Persist and query context via ``SQLiteMemoryStore`` to demonstrate memory-backed workflow behavior.
@@ -24,14 +24,14 @@ Technical Implementation
 
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-       B --> C["RagReasoningPattern.run(...)"]
+       B --> C["RAGPattern.run(...)"]
        C --> D["retrieval and reasoning are composed via memory steps"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]
        E --> F
        F --> G["Printed JSON output"]
 
-.. literalinclude:: ../../../examples/patterns/rag_reasoning.py
+.. literalinclude:: ../../../examples/patterns/rag.py
    :language: python
    :lines: 53-
    :linenos:
@@ -43,7 +43,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/rag_reasoning.py
+   PYTHONPATH=src python3 examples/patterns/rag.py
 
 Example output shape (values vary by run):
 

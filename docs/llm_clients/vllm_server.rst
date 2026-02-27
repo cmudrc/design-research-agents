@@ -1,7 +1,7 @@
-VllmServerLLMClient
+VLLMServerLLMClient
 ===================
 
-``VllmServerLLMClient`` targets local/self-hosted ``vLLM`` OpenAI-compatible
+``VLLMServerLLMClient`` targets local/self-hosted ``vLLM`` OpenAI-compatible
 inference endpoints.
 
 Default behavior
@@ -17,10 +17,10 @@ Constructor-first usage
 
 .. code-block:: python
 
-   from design_research_agents import VllmServerLLMClient
+   from design_research_agents import VLLMServerLLMClient
    from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = VllmServerLLMClient()
+   client = VLLMServerLLMClient()
    response = client.generate(
        LLMRequest(
            messages=(LLMMessage(role="user", content="Give one architecture tradeoff."),),

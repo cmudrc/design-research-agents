@@ -12,5 +12,5 @@ Generated from canonical example docstrings/comments in ``examples/patterns``.
    networked_blackboard
    plan_execute
    propose_critic
-   rag_reasoning
+   rag
    tree_search

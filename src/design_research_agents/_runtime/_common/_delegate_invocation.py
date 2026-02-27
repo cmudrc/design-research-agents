@@ -102,7 +102,7 @@ def _invoke_workflow_object_delegate(
             "Workflow delegate must expose internal input schema via _input_schema as either a mapping or None."
         )
     workflow_result = delegate.run(
-        workflow_input,
+        input=workflow_input,
         execution_mode=execution_mode,
         failure_policy=failure_policy,
         request_id=request_id,
@@ -147,7 +147,7 @@ def _is_workflow_delegate_runner(
             inspect.Parameter.POSITIONAL_ONLY,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
         )
-        and first_parameter.name in {"prompt", "input_data"}
+        and first_parameter.name in {"prompt", "input"}
     )
 
 

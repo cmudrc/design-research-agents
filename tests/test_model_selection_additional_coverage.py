@@ -217,7 +217,7 @@ def test_selector_error_paths_and_alias_branches() -> None:
         catalog_signature="sig",
     )
     resolved_mlx = selector._resolve_client_config(decision_mlx)
-    assert resolved_mlx["client_class"] == "MlxLocalLLMClient"
+    assert resolved_mlx["client_class"] == "MLXLocalLLMClient"
 
     decision_vllm = ModelSelectionDecision(
         model_id="vllm-model",
@@ -228,7 +228,7 @@ def test_selector_error_paths_and_alias_branches() -> None:
         catalog_signature="sig",
     )
     resolved_vllm = selector._resolve_client_config(decision_vllm)
-    assert resolved_vllm["client_class"] == "VllmServerLLMClient"
+    assert resolved_vllm["client_class"] == "VLLMServerLLMClient"
 
     decision_ollama = ModelSelectionDecision(
         model_id="ollama-model",
@@ -250,7 +250,7 @@ def test_selector_error_paths_and_alias_branches() -> None:
         catalog_signature="sig",
     )
     resolved_sglang = selector._resolve_client_config(decision_sglang)
-    assert resolved_sglang["client_class"] == "SglangServerLLMClient"
+    assert resolved_sglang["client_class"] == "SGLangServerLLMClient"
 
     local_catalog = ModelCatalog(models=(_model(model_id="local", provider="llama_cpp"),))
     with pytest.raises(ValueError, match="unsupported client_class"):

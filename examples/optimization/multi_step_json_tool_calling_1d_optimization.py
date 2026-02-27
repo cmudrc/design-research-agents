@@ -56,7 +56,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from design_research_agents import (
-    CallableTool,
+    CallableToolConfig,
     LlamaCppServerLLMClient,
     MultiStepAgent,
     Toolbox,
@@ -117,7 +117,7 @@ def main() -> None:
     tools = Toolbox(
         enable_core_tools=False,
         callable_tools=(
-            CallableTool(
+            CallableToolConfig(
                 name="optimizer.decrease_x",
                 description="Decrease x by step (default 1).",
                 handler=_decrease,
@@ -128,7 +128,7 @@ def main() -> None:
                     "required": [],
                 },
             ),
-            CallableTool(
+            CallableToolConfig(
                 name="optimizer.increase_x",
                 description="Increase x by step (default 1).",
                 handler=_increase,

@@ -13,11 +13,11 @@ from design_research_agents._contracts._tools import (
 )
 
 from ._config import (
-    CallableTool,
+    CallableToolConfig,
     CoreToolsConfig,
     McpConfig,
-    McpServer,
-    ScriptTool,
+    MCPServerConfig,
+    ScriptToolConfig,
     ScriptToolsConfig,
     ToolRuntimeConfig,
 )
@@ -35,18 +35,18 @@ class Toolbox(ToolRuntime):
         *,
         workspace_root: str | os.PathLike[str] = ".",
         enable_core_tools: bool = True,
-        script_tools: tuple[ScriptTool, ...] | None = None,
-        callable_tools: tuple[CallableTool, ...] | None = None,
-        mcp_servers: tuple[McpServer, ...] | None = None,
+        script_tools: tuple[ScriptToolConfig, ...] | None = None,
+        callable_tools: tuple[CallableToolConfig, ...] | None = None,
+        mcp_servers: tuple[MCPServerConfig, ...] | None = None,
     ) -> None:
         """Initialize toolbox sources from ergonomic constructor arguments.
 
         Args:
             workspace_root: Root directory for tools that interact with the filesystem.
             enable_core_tools: Whether to enable the built-in core tools.
-            script_tools: Optional tuple of ScriptTool definitions to expose through a script tool
+            script_tools: Optional tuple of ScriptToolConfig definitions to expose through a script tool
                 source.
-            callable_tools: Optional tuple of CallableTool definitions to register as in-process
+            callable_tools: Optional tuple of CallableToolConfig definitions to register as in-process
                 tools.
             mcp_servers: Optional tuple of MCP server definitions to connect to and expose tools
                 from.
@@ -165,7 +165,7 @@ class Toolbox(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -175,7 +175,7 @@ class Toolbox(ToolRuntime):
         Args:
             tool_name: Name of the tool to invoke. This will be normalized by stripping leading and
                 trailing whitespace before lookup.
-            input_dict: Mapping of input values to provide for this tool invocation. This will be
+            input: Mapping of input values to provide for this tool invocation. This will be
                 validated against the tool's input schema before invocation.
             request_id: Request ID to associate with this tool invocation, which will be passed
                 through to the underlying tool handler and can be used for logging, tracing, and
@@ -190,7 +190,7 @@ class Toolbox(ToolRuntime):
         """
         return self._registry.invoke(
             tool_name,
-            input_dict,
+            input,
             request_id=request_id,
             dependencies=dependencies,
         )
@@ -198,7 +198,7 @@ class Toolbox(ToolRuntime):
     def invoke_dict(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -207,7 +207,7 @@ class Toolbox(ToolRuntime):
 
         Args:
             tool_name: Name of the tool to invoke.
-            input_dict: Tool input payload mapping.
+            input: Tool input payload mapping.
             request_id: Request identifier associated with this invocation.
             dependencies: Dependency payload mapping for this invocation.
 
@@ -219,7 +219,7 @@ class Toolbox(ToolRuntime):
         """
         result = self.invoke(
             tool_name,
-            input_dict,
+            input,
             request_id=request_id,
             dependencies=dependencies,
         )
@@ -249,11 +249,11 @@ class Toolbox(ToolRuntime):
         """
         self._custom_source.register_tool(spec=spec, handler=handler)
 
-    def register_callable_tool(self, callable_tool: CallableTool) -> None:
+    def register_callable_tool(self, callable_tool: CallableToolConfig) -> None:
         """Register one callable tool wrapper.
 
         Args:
-            callable_tool: CallableTool definition to register. The name field will be normalized by
+            callable_tool: CallableToolConfig definition to register. The name field will be normalized by
                 stripping leading and trailing whitespace, and must be non-empty after
                 normalization.
 
@@ -265,7 +265,7 @@ class Toolbox(ToolRuntime):
         """
         normalized_name = callable_tool.name.strip()
         if not normalized_name:
-            raise ValueError("CallableTool.name must be non-empty.")
+            raise ValueError("CallableToolConfig.name must be non-empty.")
 
         spec = ToolSpec(
             name=normalized_name,

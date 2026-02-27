@@ -26,11 +26,11 @@ Programmatic helpers
 
 .. code-block:: python
 
-   from design_research_agents import McpServer, Toolbox
+   from design_research_agents import MCPServerConfig, Toolbox
 
    runtime = Toolbox(
        mcp_servers=(
-           McpServer(
+           MCPServerConfig(
                id="local_core",
                command=("python3", "-m", "your_mcp_server_module"),
            ),

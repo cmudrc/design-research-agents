@@ -57,7 +57,7 @@ class _RoutingWorkflowCallbacks:
     def __init__(
         self,
         *,
-        pattern: RouterPattern,
+        pattern: AgentRoutingPattern,
         router_agent: MultiStepAgent,
         prompt: str,
         request_id: str,
@@ -251,7 +251,7 @@ def _build_routing_failure_result(
     )
 
 
-class RouterPattern(Agent):
+class AgentRoutingPattern(Agent):
     """Routing/delegation pattern built on workflow primitives."""
 
     def __init__(
@@ -287,6 +287,7 @@ class RouterPattern(Agent):
         self._tool_runtime = tool_runtime
         self._tracer = tracer
         self.workflow: Workflow | None = None
+        self._agent_routing_runtime: dict[str, object] | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._alternatives = {
@@ -346,7 +347,7 @@ class RouterPattern(Agent):
         normalized_input = normalize_input_payload(prompt)
         resolved_prompt = _extract_prompt(normalized_input)
         return execute_pattern_with_trace(
-            agent_name="RouterPattern",
+            agent_name="AgentRoutingPattern",
             request_id=run_context.request_id,
             input_payload={"prompt": resolved_prompt, "mode": "agent_routing"},
             dependencies=run_context.dependencies,
@@ -358,26 +359,14 @@ class RouterPattern(Agent):
             ),
         )
 
-    def _run_agent_routing(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Run router-selection workflow and delegated agent execution.
-
-        Args:
-            prompt: User prompt to route.
-            request_id: Resolved request id for this orchestration run.
-            dependencies: Normalized dependency mapping for delegates.
-
-        Returns:
-            Pattern result containing routing decision and delegate output.
-
-        Raises:
-            RuntimeError: If internal workflow invariants are violated.
-        """
+    ) -> Workflow:
+        """Build the routing workflow for one resolved run context."""
         budget_tracker = WorkflowBudgetTracker()
         routing_tool_runtime = AgentRoutingToolRuntimeAdapter(
             alternatives=self._alternatives,
@@ -406,8 +395,7 @@ class RouterPattern(Agent):
             runtime_tool_specs=runtime_tool_specs,
             state=execution_state,
         )
-
-        self.workflow = Workflow(
+        workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
             input_schema={"type": "object"},
@@ -421,8 +409,48 @@ class RouterPattern(Agent):
                 ),
             ],
         )
-        workflow_result = self.workflow.run(
-            {},
+        self.workflow = workflow
+        self._agent_routing_runtime = {
+            "budget_tracker": budget_tracker,
+            "execution_state": execution_state,
+        }
+        return workflow
+
+    def _run_agent_routing(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Run router-selection workflow and delegated agent execution.
+
+        Args:
+            prompt: User prompt to route.
+            request_id: Resolved request id for this orchestration run.
+            dependencies: Normalized dependency mapping for delegates.
+
+        Returns:
+            Pattern result containing routing decision and delegate output.
+
+        Raises:
+            RuntimeError: If internal workflow invariants are violated.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        runtime = self._agent_routing_runtime or {}
+        budget_tracker = runtime.get("budget_tracker")
+        execution_state = runtime.get("execution_state")
+        if not isinstance(budget_tracker, WorkflowBudgetTracker) or not isinstance(
+            execution_state, _RoutingExecutionState
+        ):
+            raise RuntimeError("Agent routing runtime state is unavailable before workflow execution.")
+
+        workflow_result = workflow.run(
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:agent_routing_workflow",
@@ -557,5 +585,5 @@ def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> s
 
 
 __all__ = [
-    "RouterPattern",
+    "AgentRoutingPattern",
 ]

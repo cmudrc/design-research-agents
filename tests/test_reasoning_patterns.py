@@ -10,13 +10,13 @@ import pytest
 from design_research_agents._contracts._agent import Agent, ExecutionResult
 from design_research_agents._contracts._memory import MemorySearchQuery, MemoryWriteRecord
 from design_research_agents._implementations._patterns import (
-    _rag_reasoning as rag_reasoning_impl,
+    _rag_pattern as rag_reasoning_impl,
 )
 from design_research_agents._implementations._patterns import (
     _tree_search as tree_search_impl,
 )
 from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
-from design_research_agents.patterns import RagReasoningPattern, TreeSearchPattern
+from design_research_agents.patterns import RAGPattern, TreeSearchPattern
 
 
 class _CaptureReasoningAgent(Agent):
@@ -236,7 +236,7 @@ def test_tree_search_handles_delegate_failures_and_invalid_config() -> None:
     assert evaluator_result.output["best_score"] == 0.0
 
 
-def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(
+def test_rag_pattern_pattern_injects_retrieved_context_and_writes_back(
     tmp_path,
 ) -> None:
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
@@ -251,7 +251,7 @@ def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(
     )
 
     reasoning_agent = _CaptureReasoningAgent()
-    pattern = RagReasoningPattern(
+    pattern = RAGPattern(
         reasoning_delegate=reasoning_agent,
         memory_store=store,
         memory_namespace="design",
@@ -282,9 +282,9 @@ def test_rag_reasoning_pattern_injects_retrieved_context_and_writes_back(
     assert len(write_back_matches) >= 1
 
 
-def test_rag_reasoning_helpers_cover_edge_cases(tmp_path) -> None:
+def test_rag_pattern_helpers_cover_edge_cases(tmp_path) -> None:
     with pytest.raises(ValueError, match="memory_top_k"):
-        RagReasoningPattern(
+        RAGPattern(
             reasoning_delegate=_CaptureReasoningAgent(),
             memory_store=None,
             memory_top_k=0,
@@ -335,7 +335,7 @@ def test_rag_reasoning_helpers_cover_edge_cases(tmp_path) -> None:
 
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     store.write([MemoryWriteRecord(content="Context item")], namespace="ns")
-    pattern = RagReasoningPattern(
+    pattern = RAGPattern(
         reasoning_delegate=_CaptureReasoningAgent(),
         memory_store=store,
         memory_namespace="ns",

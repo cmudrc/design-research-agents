@@ -1,4 +1,4 @@
-r"""# Patterns / RAG Reasoning.
+r"""# Patterns / RAG.
 
 ## Introduction
 RAG establishes retrieval-grounded generation, and memory-centric agent systems such as Generative Agents
@@ -8,7 +8,7 @@ and reasoning steps so grounded evidence flow is explicit in traces and outputs.
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``RagReasoningPattern.run(...)`` with a fixed
+2. Build the runtime surface (public APIs only) and execute ``RAGPattern.run(...)`` with a fixed
    ``request_id``.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Persist and query context via ``SQLiteMemoryStore`` to demonstrate memory-backed workflow behavior.
@@ -17,7 +17,7 @@ and reasoning steps so grounded evidence flow is explicit in traces and outputs.
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["RagReasoningPattern.run(...)"]
+    B --> C["RAGPattern.run(...)"]
     C --> D["retrieval and reasoning are composed via memory steps"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -57,7 +57,7 @@ from pathlib import Path
 
 from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Toolbox, Tracer
 from design_research_agents.memory import SQLiteMemoryStore
-from design_research_agents.patterns import RagReasoningPattern
+from design_research_agents.patterns import RAGPattern
 
 
 def main() -> None:
@@ -70,7 +70,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    db_path = Path.cwd() / "artifacts" / "examples" / "rag_reasoning_example.sqlite3"
+    db_path = Path.cwd() / "artifacts" / "examples" / "rag_example.sqlite3"
     db_path.parent.mkdir(parents=True, exist_ok=True)
     if db_path.exists():
         db_path.unlink()
@@ -96,7 +96,7 @@ def main() -> None:
     store = SQLiteMemoryStore(db_path=db_path)
     llm_client = LlamaCppServerLLMClient()
     try:
-        pattern = RagReasoningPattern(
+        pattern = RAGPattern(
             reasoning_delegate=DirectLLMCall(llm_client=llm_client, tracer=tracer),
             memory_store=store,
             memory_namespace="design_examples",

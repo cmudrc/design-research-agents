@@ -22,7 +22,7 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow.workflow import Workflow
 
 
-class RagReasoningPattern(Agent):
+class RAGPattern(Agent):
     """Reasoning pattern orchestrated as memory read -> reason -> memory write."""
 
     def __init__(
@@ -90,7 +90,7 @@ class RagReasoningPattern(Agent):
             dependencies=dependencies,
         )
         return execute_pattern_with_trace(
-            agent_name="RagReasoningPattern",
+            agent_name="RAGPattern",
             request_id=run_context.request_id,
             input_payload={
                 "prompt": prompt,
@@ -100,30 +100,22 @@ class RagReasoningPattern(Agent):
             },
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_rag_reasoning(
+            runner=lambda: self._run_rag_pattern(
                 prompt=prompt,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
             ),
         )
 
-    def _run_rag_reasoning(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Execute underlying workflow for read/reason/write orchestration.
-
-        Args:
-            prompt: Task prompt.
-            request_id: Resolved request identifier.
-            dependencies: Normalized dependency mapping.
-
-        Returns:
-            Aggregated workflow result.
-        """
+    ) -> Workflow:
+        """Build the read/reason/write workflow for one resolved run context."""
+        del request_id, dependencies
         workflow_steps: list[WorkflowStep] = [
             MemoryReadStep(
                 step_id="memory_read",
@@ -164,8 +156,7 @@ class RagReasoningPattern(Agent):
                     ),
                 )
             )
-
-        self.workflow = Workflow(
+        workflow = Workflow(
             tool_runtime=None,
             memory_store=self._memory_store,
             tracer=self._tracer,
@@ -173,9 +164,33 @@ class RagReasoningPattern(Agent):
             base_context={"prompt": prompt},
             steps=workflow_steps,
         )
+        self.workflow = workflow
+        return workflow
 
-        workflow_result = self.workflow.run(
-            {},
+    def _run_rag_pattern(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Execute underlying workflow for read/reason/write orchestration.
+
+        Args:
+            prompt: Task prompt.
+            request_id: Resolved request identifier.
+            dependencies: Normalized dependency mapping.
+
+        Returns:
+            Aggregated workflow result.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        workflow_result = workflow.run(
+            input={},
             execution_mode="sequential",
             request_id=f"{request_id}:rag_reasoning",
             dependencies=dependencies,
@@ -377,4 +392,4 @@ def _safe_int(value: object) -> int:
     return 0
 
 
-__all__ = ["RagReasoningPattern"]
+__all__ = ["RAGPattern"]

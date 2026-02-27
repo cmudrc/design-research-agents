@@ -54,7 +54,7 @@ class WorkflowObjectDelegate(Protocol):
 
     def run(
         self,
-        input_data: str | Mapping[str, object] | None = None,
+        input: str | Mapping[str, object] | None = None,
         *,
         execution_mode: WorkflowExecutionMode = "sequential",
         failure_policy: WorkflowFailurePolicy = "skip_dependents",
@@ -64,7 +64,7 @@ class WorkflowObjectDelegate(Protocol):
         """Execute a workflow object and return one aggregate result.
 
         Args:
-            input_data: Optional workflow input payload.
+            input: Optional workflow input payload.
             execution_mode: Runtime scheduling mode (for example ``dag``).
             failure_policy: Failure behavior when a step fails.
             request_id: Optional request id used for tracing and downstream calls.

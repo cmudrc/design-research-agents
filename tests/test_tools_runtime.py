@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import design_research_agents.tools._registry as tool_registry
-from design_research_agents.tools import CallableTool, Toolbox
+from design_research_agents.tools import CallableToolConfig, Toolbox
 
 
 def _bashkit_available() -> bool:
@@ -77,7 +77,7 @@ def test_invoke_dict_raises_on_non_mapping_tool_result() -> None:
     runtime = Toolbox(
         enable_core_tools=False,
         callable_tools=(
-            CallableTool(
+            CallableToolConfig(
                 name="custom.scalar",
                 description="Return scalar",
                 handler=lambda _payload: 7,

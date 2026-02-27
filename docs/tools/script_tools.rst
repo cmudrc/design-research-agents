@@ -1,7 +1,7 @@
 Script Tools
 ============
 
-Script tools are explicit ``ScriptTool`` entries passed to ``Toolbox`` or loaded
+Script tools are explicit ``ScriptToolConfig`` entries passed to ``Toolbox`` or loaded
 from ``script_tools`` runtime config. Each tool points to a local ``.py`` or ``.sh``
 script and uses a JSON stdin/stdout envelope contract.
 
@@ -28,11 +28,11 @@ Programmatic helpers
 
 .. code-block:: python
 
-   from design_research_agents import ScriptTool, Toolbox
+   from design_research_agents import ScriptToolConfig, Toolbox
 
    runtime = Toolbox(
        script_tools=(
-           ScriptTool(
+           ScriptToolConfig(
                name="rubric_score",
                path="examples/tools/script_tools/rubric_score.py",
                description="Score text with a simple rubric.",

@@ -9,7 +9,7 @@ import pytest
 
 import design_research_agents.tools._registry as tool_registry
 import design_research_agents.tools._sources._mcp_source as mcp_source
-from design_research_agents.tools._config import McpConfig, McpServer
+from design_research_agents.tools._config import McpConfig, MCPServerConfig
 from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
 from design_research_agents.tools._registry import ToolRegistry
 from design_research_agents.tools._sources._mcp_source import McpProtocolError, McpToolSource
@@ -54,7 +54,7 @@ def _policy(tmp_path: Path) -> ToolPolicy:
 def _config() -> McpConfig:
     return McpConfig(
         enabled=True,
-        servers=(McpServer(id="alpha", command=("python3", "-c", "pass")),),
+        servers=(MCPServerConfig(id="alpha", command=("python3", "-c", "pass")),),
     )
 
 
@@ -185,7 +185,7 @@ def test_mcp_source_registry_emits_observation_events(tmp_path: Path, monkeypatc
 def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyPatch) -> None:
     policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
     client = mcp_source._StdioMcpClient(
-        server=McpServer(id="alpha", command=("python3", "-c", "pass"), timeout_s=1),
+        server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=1),
         policy=policy,
     )
 
@@ -214,7 +214,7 @@ def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyP
 def test_stdio_read_response_skips_noise_until_expected_id(monkeypatch: pytest.MonkeyPatch) -> None:
     policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
     client = mcp_source._StdioMcpClient(
-        server=McpServer(id="alpha", command=("python3", "-c", "pass"), timeout_s=5),
+        server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=5),
         policy=policy,
     )
 

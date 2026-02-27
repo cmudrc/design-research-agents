@@ -61,6 +61,7 @@ class TreeSearchPattern(Agent):
         self._beam_width = beam_width
         self._tracer = tracer
         self.workflow: object | None = None
+        self._tree_search_runtime: dict[str, object] | None = None
 
     def run(
         self,
@@ -106,26 +107,14 @@ class TreeSearchPattern(Agent):
             ),
         )
 
-    def _run_tree_search(
+    def build_workflow(
         self,
-        *,
         prompt: str,
+        *,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
-        """Run beam-style expansion and scoring through workflow loop primitives.
-
-        Args:
-            prompt: Task prompt to optimize through tree search.
-            request_id: Resolved request id for this run.
-            dependencies: Normalized dependency mapping passed to delegates.
-
-        Returns:
-            Final tree-search execution result.
-
-        Raises:
-            RuntimeError: Raised when the loop step result is missing.
-        """
+    ) -> Workflow:
+        """Build the tree-search workflow for one resolved run context."""
         root_candidate = {"text": prompt, "depth": 0}
         root_node = {
             "node_id": "root",
@@ -316,9 +305,50 @@ class TreeSearchPattern(Agent):
             ],
         )
         self.workflow = workflow
+        self._tree_search_runtime = {"root_node": dict(root_node)}
+        return workflow
+
+    def _run_tree_search(
+        self,
+        *,
+        prompt: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Run beam-style expansion and scoring through workflow loop primitives.
+
+        Args:
+            prompt: Task prompt to optimize through tree search.
+            request_id: Resolved request id for this run.
+            dependencies: Normalized dependency mapping passed to delegates.
+
+        Returns:
+            Final tree-search execution result.
+
+        Raises:
+            RuntimeError: Raised when the loop step result is missing.
+        """
+        workflow = self.build_workflow(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        runtime = self._tree_search_runtime or {}
+        maybe_root_node = runtime.get("root_node")
+        root_node = (
+            dict(maybe_root_node)
+            if isinstance(maybe_root_node, Mapping)
+            else {
+                "node_id": "root",
+                "candidate": {"text": prompt, "depth": 0},
+                "score": 0.0,
+                "depth": 0,
+                "parent_id": None,
+            }
+        )
 
         workflow_result = workflow.run(
-            {},
+            input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
             request_id=f"{request_id}:tree_search_workflow",

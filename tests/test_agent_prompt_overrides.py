@@ -14,7 +14,7 @@ from design_research_agents._contracts._llm import (
 )
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.agent import MultiStepAgent
-from design_research_agents.patterns import PlannerExecutorPattern
+from design_research_agents.patterns import PlanExecutePattern
 from design_research_agents.tools import Toolbox
 
 
@@ -79,12 +79,12 @@ class _ArglessToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        del input_dict, request_id, dependencies
+        del input, request_id, dependencies
         return ToolResult(tool_name=tool_name, ok=True, result={})
 
 
@@ -95,12 +95,12 @@ class _EmptyToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
-        del tool_name, input_dict, request_id, dependencies
+        del tool_name, input, request_id, dependencies
         raise AssertionError("invoke should not be called for empty runtime")
 
 
@@ -157,7 +157,7 @@ def test_multi_step_code_agent_rejects_empty_prompt_override() -> None:
 
 
 def test_plan_execute_workflow_template_override_supports_task_prompt_variable() -> None:
-    workflow = PlannerExecutorPattern(
+    workflow = PlanExecutePattern(
         llm_client=_SequenceLLMClient(
             response_texts=[
                 '{"steps":[{"step_id":"one","instruction":"Count words in a short phrase.",'
@@ -175,7 +175,7 @@ def test_plan_execute_workflow_template_override_supports_task_prompt_variable()
 
 
 def test_plan_execute_workflow_template_override_rejects_missing_variables() -> None:
-    workflow = PlannerExecutorPattern(
+    workflow = PlanExecutePattern(
         llm_client=_SequenceLLMClient(response_texts=['{"steps":[]}']),
         tool_runtime=Toolbox(),
         planner_user_prompt_template="Task block:\n$unknown_key",
