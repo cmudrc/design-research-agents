@@ -54,6 +54,11 @@ dev = [
 # Shared HF utilities (handy for multiple backends)
 hf = ["huggingface-hub>=0.24"]
 
+# Hosted provider SDKs
+gemini = ["google-genai>=1.0,<2"]
+
+groq = ["groq>=1.0,<2"]
+
 # Local backends
 llama_cpp = [
   "huggingface-hub>=0.24",
@@ -169,6 +174,10 @@ module = [
   "jsonschema.*",
   "mcp",
   "mcp.*",
+  "google",
+  "google.*",
+  "groq",
+  "groq.*",
   "mlx_lm",
   "mlx_lm.*",
   "openai",

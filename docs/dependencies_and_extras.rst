@@ -35,6 +35,14 @@ Extras matrix
      - Shared Hugging Face utilities
      - ``huggingface-hub``
      - None
+   * - ``gemini``
+     - Gemini hosted backend
+     - ``google-genai``
+     - None
+   * - ``groq``
+     - Groq hosted backend
+     - ``groq``
+     - None
    * - ``llama_cpp``
      - Managed llama.cpp server backend
      - ``llama-cpp-python[server]``, ``huggingface-hub``
@@ -68,6 +76,8 @@ Recommended profiles
 --------------------
 
 - Fast contributor loop: ``pip install -e ".[dev]"``
+- Gemini hosted experimentation: ``pip install -e ".[dev,gemini]"``
+- Groq hosted experimentation: ``pip install -e ".[dev,groq]"``
 - Local backend experimentation: ``pip install -e ".[dev,local]"``
 - Full backend coverage (where supported): ``pip install -e ".[dev,full]"``
 - Minimal hosted-only setup: ``pip install -e .``

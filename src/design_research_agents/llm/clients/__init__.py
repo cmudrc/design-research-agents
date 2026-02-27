@@ -1,5 +1,7 @@
 """Public LLM client entrypoints backed by internal provider wrappers."""
 
+from ._gemini_service import GeminiServiceLLMClient
+from ._groq_service import GroqServiceLLMClient
 from ._llama_cpp_server import LlamaCppServerLLMClient
 from ._mlx_local import MLXLocalLLMClient
 from ._ollama import OllamaLLMClient
@@ -10,6 +12,8 @@ from ._transformers_local import TransformersLocalLLMClient
 from ._vllm_server import VLLMServerLLMClient
 
 __all__ = [
+    "GeminiServiceLLMClient",
+    "GroqServiceLLMClient",
     "LlamaCppServerLLMClient",
     "MLXLocalLLMClient",
     "OllamaLLMClient",

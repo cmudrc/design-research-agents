@@ -36,6 +36,8 @@ _EXPORTS: Final[dict[str, str]] = {
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
+    "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
+    "GroqServiceLLMClient": "design_research_agents.llm:GroqServiceLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
@@ -106,6 +108,8 @@ if TYPE_CHECKING:
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
+    from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
+    from .llm import GroqServiceLLMClient as GroqServiceLLMClient
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MLXLocalLLMClient as MLXLocalLLMClient
     from .llm import OllamaLLMClient as OllamaLLMClient

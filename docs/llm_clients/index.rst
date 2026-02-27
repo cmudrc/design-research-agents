@@ -54,6 +54,16 @@ Comparison matrix
      - Defaults to ``gpt-4o-mini``
      - Low (API key)
      - Lowest setup effort, network/data egress tradeoff, usage-based cost
+   * - ``GeminiServiceLLMClient``
+     - Remote Gemini API
+     - Defaults to ``gemini-2.5-flash``
+     - Low (API key)
+     - Low setup effort, network/data egress tradeoff, usage-based cost
+   * - ``GroqServiceLLMClient``
+     - Remote Groq API
+     - Defaults to ``llama-3.1-8b-instant``
+     - Low (API key)
+     - Low setup effort, network/data egress tradeoff, usage-based cost
    * - ``OpenAICompatibleHTTPLLMClient``
      - Remote or local OpenAI-compatible endpoint
      - Defaults to ``qwen2-1.5b-q4``
@@ -66,7 +76,8 @@ When to choose what
 1. Need strict data-local execution: start with ``LlamaCppServerLLMClient``,
    ``TransformersLocalLLMClient``, ``MLXLocalLLMClient``, ``VLLMServerLLMClient``,
    ``OllamaLLMClient``, or ``SGLangServerLLMClient``.
-2. Need fastest onboarding and hosted quality: use ``OpenAIServiceLLMClient``.
+2. Need fastest onboarding and hosted quality: use ``OpenAIServiceLLMClient``,
+   ``GeminiServiceLLMClient``, or ``GroqServiceLLMClient``.
 3. Need provider portability or self-hosted OpenAI-compatible infra: use
    ``OpenAICompatibleHTTPLLMClient``.
 4. Need policy-driven choice between local and remote options: use
@@ -83,6 +94,8 @@ Pages
 - :doc:`model_selection`
 - :doc:`llama_cpp_server`
 - :doc:`openai_service`
+- :doc:`gemini_service`
+- :doc:`groq_service`
 - :doc:`openai_compatible_http`
 - :doc:`transformers_local`
 - :doc:`mlx_local`
@@ -97,6 +110,8 @@ Pages
    model_selection
    llama_cpp_server
    openai_service
+   gemini_service
+   groq_service
    openai_compatible_http
    transformers_local
    mlx_local

@@ -157,6 +157,12 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     "examples/clients/llama_cpp_server_client.py": (
         "Tradeoff: strict review gates improve reliability but can slow delivery speed.",
     ),
+    "examples/clients/gemini_service_client.py": (
+        "Run a design pre-mortem before committing architecture changes with high uncertainty or safety risk.",
+    ),
+    "examples/clients/groq_service_client.py": (
+        "Prefer deeper review when architectural choices are expensive to reverse.",
+    ),
     "examples/clients/mlx_local_client.py": (
         "Keep schema fields stable, documented, and versioned for comparability.",
     ),
@@ -496,6 +502,37 @@ if _DETERMINISTIC_MODE:
             server_snapshot=None,
         )
 
+    def _patched_gemini_service_client(**kwargs: object) -> _DeterministicConfiguredClient:
+        default_model = _as_name(kwargs.get("default_model"), "gemini-2.5-flash")
+        return _DeterministicConfiguredClient(
+            client_class_name="GeminiServiceLLMClient",
+            name=_as_name(kwargs.get("name"), "gemini-service"),
+            default_model=default_model,
+            kind="gemini_service",
+            max_retries=_as_int(kwargs.get("max_retries"), 2),
+            model_patterns=_as_patterns(kwargs.get("model_patterns")),
+            extra_backend_fields={
+                "api_key_env": _as_name(kwargs.get("api_key_env"), "GOOGLE_API_KEY"),
+            },
+            server_snapshot=None,
+        )
+
+    def _patched_groq_service_client(**kwargs: object) -> _DeterministicConfiguredClient:
+        default_model = _as_name(kwargs.get("default_model"), "llama-3.1-8b-instant")
+        return _DeterministicConfiguredClient(
+            client_class_name="GroqServiceLLMClient",
+            name=_as_name(kwargs.get("name"), "groq-service"),
+            default_model=default_model,
+            kind="groq_service",
+            max_retries=_as_int(kwargs.get("max_retries"), 2),
+            model_patterns=_as_patterns(kwargs.get("model_patterns")),
+            extra_backend_fields={
+                "base_url": _as_name(kwargs.get("base_url"), "https://api.groq.com"),
+                "api_key_env": _as_name(kwargs.get("api_key_env"), "GROQ_API_KEY"),
+            },
+            server_snapshot=None,
+        )
+
     def _patched_transformers_local_client(**kwargs: object) -> _DeterministicConfiguredClient:
         default_model = _as_name(kwargs.get("default_model"), _as_name(kwargs.get("model_id"), "example-model"))
         return _DeterministicConfiguredClient(
@@ -568,6 +605,8 @@ if _DETERMINISTIC_MODE:
         "OllamaLLMClient": _patched_ollama_client,
         "OpenAICompatibleHTTPLLMClient": _patched_openai_compatible_http_client,
         "OpenAIServiceLLMClient": _patched_openai_service_client,
+        "GeminiServiceLLMClient": _patched_gemini_service_client,
+        "GroqServiceLLMClient": _patched_groq_service_client,
         "TransformersLocalLLMClient": _patched_transformers_local_client,
         "VLLMServerLLMClient": _patched_vllm_server_client,
         "SGLangServerLLMClient": _patched_sglang_server_client,

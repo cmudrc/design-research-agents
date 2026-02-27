@@ -6,6 +6,8 @@ Generated from canonical example docstrings/comments in ``examples/clients``.
 .. toctree::
    :maxdepth: 1
 
+   gemini_service_client
+   groq_service_client
    llama_cpp_server_client
    mlx_local_client
    ollama_local_client

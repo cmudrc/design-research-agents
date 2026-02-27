@@ -6,6 +6,8 @@ and emit configuration plus call metadata.
 ## Scripts
 
 - `llama_cpp_server_client.py`
+- `gemini_service_client.py`
+- `groq_service_client.py`
 - `openai_service_client.py`
 - `openai_compatible_http_client.py`
 - `transformers_local_client.py`
@@ -18,6 +20,8 @@ and emit configuration plus call metadata.
 
 ```bash
 PYTHONPATH=src python3 examples/clients/llama_cpp_server_client.py
+PYTHONPATH=src python3 examples/clients/gemini_service_client.py
+PYTHONPATH=src python3 examples/clients/groq_service_client.py
 PYTHONPATH=src python3 examples/clients/openai_service_client.py
 PYTHONPATH=src python3 examples/clients/openai_compatible_http_client.py
 PYTHONPATH=src python3 examples/clients/transformers_local_client.py

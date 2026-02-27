@@ -1,6 +1,8 @@
 """Provider implementations for concrete LLM backend integrations."""
 
 from ._echo_test import EchoTestBackend
+from ._gemini_service import GeminiServiceBackend
+from ._groq_service import GroqServiceBackend
 from ._llama_cpp import LlamaCppBackend
 from ._llama_cpp_server import LlamaCppServerBackend, create_backend
 from ._mlx_local import MlxLocalBackend
@@ -19,6 +21,8 @@ from ._vllm_server import create_backend as create_vllm_backend
 
 __all__ = [
     "EchoTestBackend",
+    "GeminiServiceBackend",
+    "GroqServiceBackend",
     "LlamaCppBackend",
     "LlamaCppServerBackend",
     "MlxLocalBackend",

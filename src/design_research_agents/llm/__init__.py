@@ -3,6 +3,8 @@
 from design_research_agents._contracts import LLMMessage, LLMRequest, LLMResponse
 
 from .clients import (
+    GeminiServiceLLMClient,
+    GroqServiceLLMClient,
     LlamaCppServerLLMClient,
     MLXLocalLLMClient,
     OllamaLLMClient,
@@ -14,6 +16,8 @@ from .clients import (
 )
 
 __all__ = [
+    "GeminiServiceLLMClient",
+    "GroqServiceLLMClient",
     "LLMMessage",
     "LLMRequest",
     "LLMResponse",

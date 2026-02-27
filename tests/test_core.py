@@ -16,6 +16,8 @@ from design_research_agents._contracts._llm import (
 )
 from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm.clients import (
+    GeminiServiceLLMClient,
+    GroqServiceLLMClient,
     LlamaCppServerLLMClient,
     MLXLocalLLMClient,
     OllamaLLMClient,
@@ -78,6 +80,8 @@ def test_provider_clients_empty_init_and_default_model() -> None:
     llama = LlamaCppServerLLMClient()
     clients = (
         llama,
+        GeminiServiceLLMClient(),
+        GroqServiceLLMClient(),
         OpenAIServiceLLMClient(),
         OpenAICompatibleHTTPLLMClient(),
         TransformersLocalLLMClient(),
@@ -101,6 +105,8 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
     finally:
         llama.close()
 
+    assert GeminiServiceLLMClient()._backend.name == "gemini"
+    assert GroqServiceLLMClient()._backend.name == "groq"
     assert OpenAIServiceLLMClient()._backend.name == "openai"
     assert OpenAICompatibleHTTPLLMClient()._backend.name == "openai-compatible"
     assert TransformersLocalLLMClient()._backend.name == "transformers-local"
