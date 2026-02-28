@@ -6,11 +6,11 @@ Generated from canonical example docstrings/comments in ``examples/patterns``.
 .. toctree::
    :maxdepth: 1
 
-   agent_routing
-   conversation_pattern
+   beam_search
+   coordination_patterns
    debate_pattern
-   networked_blackboard
    plan_execute
    propose_critic
    rag
-   tree_search
+   router_delegate
+   two_speaker_conversation

@@ -9,14 +9,14 @@ explicit execution records.
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``NetworkedPattern.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``RoundBasedCoordinationPattern.run(...)`` with a fixed ``request_id``.
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["NetworkedPattern.run(...)"]
+    B --> C["RoundBasedCoordinationPattern.run(...)"]
     C --> D["blackboard workers contribute and aggregate shared state"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -73,7 +73,7 @@ from design_research_agents import (
     LlamaCppServerLLMClient,
     Tracer,
 )
-from design_research_agents.patterns import BlackboardPattern, NetworkedPattern
+from design_research_agents.patterns import BlackboardPattern, RoundBasedCoordinationPattern
 
 
 def _summarize(result: ExecutionResult) -> dict[str, object]:
@@ -97,7 +97,7 @@ def main() -> None:
         # Split ids by pattern variant to keep networked and blackboard traces distinct.
 
         network_request_id = "example-workflow-networked-pattern-design-001"
-        networked = NetworkedPattern(
+        networked = RoundBasedCoordinationPattern(
             peers={
                 "peer_b": peer_b,
                 "peer_a": peer_a,

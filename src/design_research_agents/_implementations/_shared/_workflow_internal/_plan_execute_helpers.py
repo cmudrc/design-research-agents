@@ -38,6 +38,7 @@ PLAN_SCHEMA: dict[str, object] = {
         }
     },
 }
+PLAN_SCHEMA_VERSION = 1
 
 DEFAULT_PLANNER_SYSTEM_PROMPT = "You are a planner for a plan-execute runtime. Return strict JSON only with steps[]."
 DEFAULT_PLANNER_USER_PROMPT_TEMPLATE = (

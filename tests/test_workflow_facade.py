@@ -500,7 +500,7 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
 
     assert result.success
     assert workflow.workflow is not None
-    assert result.output["winner"] == "affirmative"
+    assert result.output["final_output"]["winner"] == "affirmative"
     assert result.output["terminated_reason"] == "completed"
-    assert result.output["verdict"]["synthesis"].startswith("Adopt a phased rollout")
+    assert result.output["details"]["verdict"]["synthesis"].startswith("Adopt a phased rollout")
     assert str(result.metadata["request_id"]).startswith("debate:")

@@ -25,10 +25,9 @@ from design_research_agents._implementations._shared._agent_internal._input_pars
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
 )
-from design_research_agents._implementations._shared._agent_internal._result_builders import (
-    build_failure_result,
-)
 from design_research_agents._runtime._patterns import (
+    MODE_DEBATE,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     normalize_request_id_prefix,
     render_prompt_template,
@@ -297,13 +296,13 @@ class _DebateWorkflowCallbacks:
             response_schema=dict(_VERDICT_SCHEMA),
             metadata={
                 "agent": "DebatePattern",
-                "mode": "debate",
+                "mode": MODE_DEBATE,
                 "phase": "judge",
                 "request_id": self._request_id,
             },
             provider_options={
                 "agent": "DebatePattern",
-                "mode": "debate",
+                "mode": MODE_DEBATE,
                 "phase": "judge",
             },
         )
@@ -499,7 +498,7 @@ class DebatePattern(Agent):
         return execute_pattern_with_trace(
             agent_name="DebatePattern",
             request_id=run_context.request_id,
-            input_payload={"prompt": prompt, "max_rounds": self._max_rounds, "mode": "debate"},
+            input_payload={"prompt": prompt, "max_rounds": self._max_rounds, "mode": MODE_DEBATE},
             dependencies=run_context.dependencies,
             tracer=self._tracer,
             runner=lambda: self._run_debate(
@@ -685,21 +684,25 @@ def _build_debate_result(
     model_response = last_model_response if isinstance(last_model_response, LLMResponse) else None
 
     if round_failure_reason is not None:
-        return build_failure_result(
-            error=round_failure_error or "Debate round failed.",
-            model_response=model_response,
-            tool_results=[],
+        return build_pattern_execution_result(
+            success=False,
+            final_output={},
+            terminated_reason=round_failure_reason,
+            details={
+                "debate_rounds": normalized_rounds,
+                "verdict": None,
+            },
+            workflow_payload=workflow_payload,
+            artifacts=workflow_artifacts,
             request_id=request_id,
             dependencies=dependencies,
-            metadata={"mode": "debate_pattern", "stage": "round"},
-            output={
-                "terminated_reason": round_failure_reason,
-                "rounds": normalized_rounds,
-                "verdict": None,
-                "final_output": {},
-                "workflow": workflow_payload,
-                "artifacts": workflow_artifacts,
-            },
+            mode=MODE_DEBATE,
+            metadata={"stage": "round", "rounds": len(normalized_rounds)},
+            tool_results=[],
+            model_response=model_response,
+            error=round_failure_error or "Debate round failed.",
+            requested_mode=MODE_DEBATE,
+            resolved_mode=MODE_DEBATE,
         )
 
     if judge_status != "completed" or normalized_verdict is None:
@@ -720,43 +723,45 @@ def _build_debate_result(
             and judge_delegate_step.error.strip()
         ):
             error_text = judge_delegate_step.error
-        return build_failure_result(
-            error=error_text,
-            model_response=model_response,
-            tool_results=[],
+        return build_pattern_execution_result(
+            success=False,
+            final_output={},
+            terminated_reason=terminated_reason,
+            details={
+                "debate_rounds": normalized_rounds,
+                "verdict": normalized_verdict,
+            },
+            workflow_payload=workflow_payload,
+            artifacts=workflow_artifacts,
             request_id=request_id,
             dependencies=dependencies,
-            metadata={"mode": "debate_pattern", "stage": "judge"},
-            output={
-                "terminated_reason": terminated_reason,
-                "rounds": normalized_rounds,
-                "verdict": normalized_verdict,
-                "final_output": {},
-                "workflow": workflow_payload,
-                "artifacts": workflow_artifacts,
-            },
+            mode=MODE_DEBATE,
+            metadata={"stage": "judge", "rounds": len(normalized_rounds)},
+            tool_results=[],
+            model_response=model_response,
+            error=error_text,
+            requested_mode=MODE_DEBATE,
+            resolved_mode=MODE_DEBATE,
         )
 
-    synthesis = str(normalized_verdict.get("synthesis", "")).strip()
-    return ExecutionResult(
-        output={
-            "rounds": normalized_rounds,
-            "verdict": normalized_verdict,
-            "winner": normalized_verdict.get("winner", "tie"),
-            "final_output": {"synthesis": synthesis},
-            "terminated_reason": "completed",
-            "workflow": workflow_payload,
-            "artifacts": workflow_artifacts,
-        },
+    return build_pattern_execution_result(
         success=True,
+        final_output=normalized_verdict,
+        terminated_reason="completed",
+        details={
+            "debate_rounds": normalized_rounds,
+            "verdict": normalized_verdict,
+        },
+        workflow_payload=workflow_payload,
+        artifacts=workflow_artifacts,
+        request_id=request_id,
+        dependencies=dependencies,
+        mode=MODE_DEBATE,
+        metadata={"rounds": len(normalized_rounds)},
         tool_results=[],
         model_response=model_response,
-        metadata={
-            "request_id": request_id,
-            "dependency_keys": sorted(dependencies.keys()),
-            "mode": "debate_pattern",
-            "rounds": len(normalized_rounds),
-        },
+        requested_mode=MODE_DEBATE,
+        resolved_mode=MODE_DEBATE,
     )
 
 

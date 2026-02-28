@@ -9,7 +9,7 @@ visibility at each turn.
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``ConversationPattern.run(...)`` with a fixed
+2. Build the runtime surface (public APIs only) and execute ``TwoSpeakerConversationPattern.run(...)`` with a fixed
    ``request_id``.
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
@@ -17,7 +17,7 @@ visibility at each turn.
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["ConversationPattern.run(...)"]
+    B --> C["TwoSpeakerConversationPattern.run(...)"]
     C --> D["turn-based conversation state drives each step"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -56,7 +56,7 @@ import json
 from pathlib import Path
 
 from design_research_agents import LlamaCppServerLLMClient, Tracer
-from design_research_agents.patterns import ConversationPattern
+from design_research_agents.patterns import TwoSpeakerConversationPattern
 
 
 def main() -> None:
@@ -71,7 +71,7 @@ def main() -> None:
     )
     llm_client = LlamaCppServerLLMClient()
     try:
-        pattern = ConversationPattern(
+        pattern = TwoSpeakerConversationPattern(
             llm_client_a=llm_client,
             max_turns=5,
             speaker_a_name="Concept Designer",

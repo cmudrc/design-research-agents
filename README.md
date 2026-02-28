@@ -14,7 +14,7 @@ This project focuses on composable agent systems you can run, inspect, and test:
 
 - Agent implementations (top-level exports): `DirectLLMCall`, `MultiStepAgent` (modes: `direct`, `json`, `code`)
 - Workflow construction surface: `design_research_agents.workflow` (`Workflow` + step primitives)
-- Prebuilt workflow implementations: `design_research_agents.patterns` (`DebatePattern`, `PlanExecutePattern`, `ReflexionPattern`, `AgentRoutingPattern`, etc.)
+- Prebuilt workflow implementations: `design_research_agents.patterns` (`DebatePattern`, `PlanExecutePattern`, `ProposeCriticPattern`, `RouterDelegatePattern`, etc.)
 - Provider-specific LLM clients with constructor-first defaults
 - Tracing and structured outputs: consistent metadata and schema-driven payloads
 

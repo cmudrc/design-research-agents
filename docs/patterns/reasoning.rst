@@ -7,10 +7,10 @@ than prompt-only conventions.
 Available patterns
 ------------------
 
-- ``ReflexionPattern``
+- ``ProposeCriticPattern``
   - Iterative propose/critique refinement.
   - Background references: `Reflexion <https://arxiv.org/abs/2303.11366>`_; `Self-Refine <https://arxiv.org/abs/2303.17651>`_. Conceptual grounding only; behavior is defined by repository contracts and implementation.
-- ``TreeSearchPattern``
+- ``BeamSearchPattern``
   - Generator + evaluator delegate orchestration with ``max_depth``, ``branch_factor``, and ``beam_width`` controls.
   - Background references: `Tree of Thoughts <https://arxiv.org/abs/2305.10601>`_. Conceptual grounding only; this implementation uses framework-native step orchestration.
 - ``RAGPattern``
@@ -20,7 +20,7 @@ Available patterns
 Tree search output
 ------------------
 
-``TreeSearchPattern`` returns:
+``BeamSearchPattern`` returns:
 
 .. code-block:: python
 
@@ -34,6 +34,6 @@ Tree search output
 Examples
 --------
 
-- ``examples/patterns/tree_search.py``
+- ``examples/patterns/beam_search.py``
 - ``examples/patterns/propose_critic.py``
 - ``examples/patterns/rag.py``

@@ -128,7 +128,7 @@ def test_plan_execute_pattern_delegate_paths_and_payload_extraction() -> None:
     )
     success_result = success_pattern.run("Solve task")
     assert success_result.success is True
-    assert success_result.output["steps_executed"] == 1
+    assert success_result.output["details"]["steps_executed"] == 1
     assert success_result.output["final_output"] == {"answer": 7}
 
     planner_failure_pattern = PlanExecutePattern(
@@ -177,7 +177,7 @@ def test_plan_execute_pattern_delegate_paths_and_payload_extraction() -> None:
     )
     capped_result = capped_pattern.run("Cap iterations")
     assert capped_result.success is True
-    assert capped_result.output["terminated_reason"] == "max_iterations_reached"
+    assert capped_result.output["terminated_reason"] == "truncated_max_iterations"
 
 
 def test_debate_pattern_delegate_and_helper_branches() -> None:
@@ -249,7 +249,7 @@ def test_debate_pattern_delegate_and_helper_branches() -> None:
     )
     success_result = success_debate.run("Debate this")
     assert success_result.success is True
-    assert success_result.output["winner"] == "tie"
+    assert success_result.output["final_output"]["winner"] == "tie"
 
     invalid_json_debate = DebatePattern(
         llm_client=_NoopLLMClient(),

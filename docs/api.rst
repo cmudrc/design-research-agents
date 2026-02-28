@@ -166,7 +166,7 @@ Workflow Steps and Facade
 Patterns
 ^^^^^^^^
 
-.. autoclass:: design_research_agents.ConversationPattern
+.. autoclass:: design_research_agents.TwoSpeakerConversationPattern
    :members:
    :undoc-members:
 
@@ -178,15 +178,15 @@ Patterns
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.ReflexionPattern
+.. autoclass:: design_research_agents.ProposeCriticPattern
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.AgentRoutingPattern
+.. autoclass:: design_research_agents.RouterDelegatePattern
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.NetworkedPattern
+.. autoclass:: design_research_agents.RoundBasedCoordinationPattern
    :members:
    :undoc-members:
 
@@ -194,7 +194,7 @@ Patterns
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.TreeSearchPattern
+.. autoclass:: design_research_agents.BeamSearchPattern
    :members:
    :undoc-members:
 

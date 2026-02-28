@@ -9,13 +9,13 @@ Quick chooser
 -------------
 
 - Need planner + executor decomposition: ``PlanExecutePattern``.
-- Need iterative proposal/critique refinement: ``ReflexionPattern``.
-- Need intent-based delegate routing: ``AgentRoutingPattern``.
+- Need iterative proposal/critique refinement: ``ProposeCriticPattern``.
+- Need intent-based delegate routing: ``RouterDelegatePattern``.
 - Need multi-round adversarial synthesis: ``DebatePattern``.
-- Need two-speaker conversational iteration: ``ConversationPattern``.
-- Need decentralized peer rounds: ``NetworkedPattern``.
+- Need two-speaker conversational iteration: ``TwoSpeakerConversationPattern``.
+- Need decentralized peer rounds: ``RoundBasedCoordinationPattern``.
 - Need shared-state convergence rounds: ``BlackboardPattern``.
-- Need candidate expansion + scoring search: ``TreeSearchPattern``.
+- Need candidate expansion + scoring search: ``BeamSearchPattern``.
 - Need retrieval-augmented reasoning with write-back: ``RAGPattern``.
 - Need to author a new implementation from scratch: :doc:`/workflows/index`.
 
@@ -25,7 +25,7 @@ Pages
 - :doc:`/examples/patterns/index`
 - :doc:`overview`
 - :doc:`reasoning`
-- :doc:`networked_blackboard`
+- :doc:`coordination_patterns`
 - :doc:`memory_and_rag`
 
 .. toctree::
@@ -34,5 +34,5 @@ Pages
 
    overview
    reasoning
-   networked_blackboard
+   coordination_patterns
    memory_and_rag

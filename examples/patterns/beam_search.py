@@ -8,14 +8,14 @@ an inspectable pattern for comparing branch quality under fixed runtime controls
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``TreeSearchPattern.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``BeamSearchPattern.run(...)`` with a fixed ``request_id``.
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["TreeSearchPattern.run(...)"]
+    B --> C["BeamSearchPattern.run(...)"]
     C --> D["generator/evaluator loop expands and prunes candidate tree"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -55,7 +55,7 @@ from collections.abc import Mapping
 from pathlib import Path
 
 from design_research_agents import Tracer
-from design_research_agents.patterns import TreeSearchPattern
+from design_research_agents.patterns import BeamSearchPattern
 
 
 def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:
@@ -92,7 +92,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    pattern = TreeSearchPattern(
+    pattern = BeamSearchPattern(
         generator_delegate=_generator,
         evaluator_delegate=_evaluator,
         max_depth=2,

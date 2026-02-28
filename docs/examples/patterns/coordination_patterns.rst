@@ -1,7 +1,7 @@
-Networked Blackboard
-====================
+Coordination Patterns
+=====================
 
-Source: ``examples/patterns/networked_blackboard.py``
+Source: ``examples/patterns/coordination_patterns.py``
 
 Introduction
 ------------
@@ -15,7 +15,7 @@ Technical Implementation
 ------------------------
 
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``NetworkedPattern.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``RoundBasedCoordinationPattern.run(...)`` with a fixed ``request_id``.
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
@@ -23,14 +23,14 @@ Technical Implementation
 
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-       B --> C["NetworkedPattern.run(...)"]
+       B --> C["RoundBasedCoordinationPattern.run(...)"]
        C --> D["blackboard workers contribute and aggregate shared state"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]
        E --> F
        F --> G["Printed JSON output"]
 
-.. literalinclude:: ../../../examples/patterns/networked_blackboard.py
+.. literalinclude:: ../../../examples/patterns/coordination_patterns.py
    :language: python
    :lines: 65-
    :linenos:
@@ -42,7 +42,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/networked_blackboard.py
+   PYTHONPATH=src python3 examples/patterns/coordination_patterns.py
 
 Example output shape (values vary by run):
 

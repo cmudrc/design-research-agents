@@ -7,14 +7,14 @@ from typing import Final
 
 _EXPORTS: Final[dict[str, str]] = {
     "BlackboardPattern": "design_research_agents._implementations._patterns:BlackboardPattern",
-    "ConversationPattern": "design_research_agents._implementations._patterns:ConversationPattern",
+    "TwoSpeakerConversationPattern": "design_research_agents._implementations._patterns:TwoSpeakerConversationPattern",
     "DebatePattern": "design_research_agents._implementations._patterns:DebatePattern",
-    "NetworkedPattern": "design_research_agents._implementations._patterns:NetworkedPattern",
+    "RoundBasedCoordinationPattern": "design_research_agents._implementations._patterns:RoundBasedCoordinationPattern",
     "PlanExecutePattern": "design_research_agents._implementations._patterns:PlanExecutePattern",
     "RAGPattern": "design_research_agents._implementations._patterns:RAGPattern",
-    "ReflexionPattern": "design_research_agents._implementations._patterns:ReflexionPattern",
-    "AgentRoutingPattern": "design_research_agents._implementations._patterns:AgentRoutingPattern",
-    "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
+    "ProposeCriticPattern": "design_research_agents._implementations._patterns:ProposeCriticPattern",
+    "RouterDelegatePattern": "design_research_agents._implementations._patterns:RouterDelegatePattern",
+    "BeamSearchPattern": "design_research_agents._implementations._patterns:BeamSearchPattern",
 }
 
 __all__ = list(_EXPORTS.keys())

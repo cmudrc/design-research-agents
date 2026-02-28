@@ -14,7 +14,7 @@ Technical Implementation
 ------------------------
 
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``ReflexionPattern.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``ProposeCriticPattern.run(...)`` with a fixed ``request_id``.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
@@ -22,7 +22,7 @@ Technical Implementation
 
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-       B --> C["ReflexionPattern.run(...)"]
+       B --> C["ProposeCriticPattern.run(...)"]
        C --> D["proposal and critique turns iterate until stop criteria"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]

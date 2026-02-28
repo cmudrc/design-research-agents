@@ -34,21 +34,21 @@ _EXECUTION_RESULT_EXAMPLES = {
     "examples/workflow/workflow_schema_mode.py",
     "examples/workflow/workflow_model_step_design_tradeoff.py",
     "examples/workflow/workflow_delegate_and_memory_steps.py",
-    "examples/patterns/agent_routing.py",
-    "examples/patterns/conversation_pattern.py",
+    "examples/patterns/router_delegate.py",
+    "examples/patterns/two_speaker_conversation.py",
     "examples/patterns/debate_pattern.py",
     "examples/patterns/plan_execute.py",
     "examples/patterns/propose_critic.py",
     "examples/patterns/rag.py",
-    "examples/patterns/tree_search.py",
-    "examples/patterns/networked_blackboard.py",
+    "examples/patterns/beam_search.py",
+    "examples/patterns/coordination_patterns.py",
     "examples/optimization/multi_step_json_tool_calling_1d_optimization.py",
 }
 
 _NESTED_SUMMARY_EXAMPLES: dict[str, tuple[str, ...]] = {
     "examples/workflow/workflow_prompt_mode.py": ("agent_branch_run", "template_branch_run"),
     "examples/workflow/workflow_schema_mode.py": ("strict_run", "relaxed_run"),
-    "examples/patterns/networked_blackboard.py": ("networked_pattern", "blackboard_pattern"),
+    "examples/patterns/coordination_patterns.py": ("networked_pattern", "blackboard_pattern"),
 }
 
 

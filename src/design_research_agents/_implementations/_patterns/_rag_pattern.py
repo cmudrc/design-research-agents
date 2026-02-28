@@ -15,6 +15,8 @@ from design_research_agents._contracts._workflow import (
     WorkflowStep,
 )
 from design_research_agents._runtime._patterns import (
+    MODE_RAG,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     resolve_pattern_run_context,
 )
@@ -94,6 +96,7 @@ class RAGPattern(Agent):
             request_id=run_context.request_id,
             input_payload={
                 "prompt": prompt,
+                "mode": MODE_RAG,
                 "memory_namespace": self._memory_namespace,
                 "memory_top_k": self._memory_top_k,
                 "write_back": self._write_back,
@@ -222,30 +225,35 @@ class RAGPattern(Agent):
         final_output = (
             dict(delegate_final_output) if isinstance(delegate_final_output, Mapping) else dict(reasoning_output)
         )
+        retrieval_details = dict(retrieval_output)
+        retrieval_details["context"] = _build_retrieval_context(retrieval_output)
 
         result_success = workflow_result.success
         terminated_reason = "completed" if result_success else "workflow_failure"
 
-        return ExecutionResult(
-            output={
-                "retrieval": retrieval_output,
+        return build_pattern_execution_result(
+            success=result_success,
+            final_output=final_output,
+            terminated_reason=terminated_reason,
+            details={
+                "retrieval": retrieval_details,
                 "reasoning": reasoning_output,
                 "write_back": write_back_output,
-                "workflow": workflow_payload,
-                "final_output": final_output,
-                "artifacts": workflow_artifacts,
-                "terminated_reason": terminated_reason,
             },
-            success=result_success,
-            tool_results=[],
-            model_response=None,
+            workflow_payload=workflow_payload,
+            artifacts=workflow_artifacts,
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_RAG,
             metadata={
-                "request_id": request_id,
-                "dependency_keys": sorted(dependencies.keys()),
                 "memory_namespace": self._memory_namespace,
                 "memory_top_k": self._memory_top_k,
                 "write_back": self._write_back,
             },
+            tool_results=[],
+            model_response=None,
+            requested_mode=MODE_RAG,
+            resolved_mode=MODE_RAG,
         )
 
 
@@ -367,6 +375,19 @@ def _build_write_back_records(
             },
         }
     ]
+
+
+def _build_retrieval_context(retrieval_output: Mapping[str, object]) -> dict[str, object]:
+    """Return one normalized retrieval-context payload derived from raw matches."""
+    matches = retrieval_output.get("matches")
+    normalized_matches = (
+        [dict(match) for match in matches if isinstance(match, Mapping)] if isinstance(matches, list) else []
+    )
+    return {
+        "namespace": retrieval_output.get("namespace", "default"),
+        "count": _safe_int(retrieval_output.get("count")),
+        "matches": normalized_matches,
+    }
 
 
 def _safe_int(value: object) -> int:

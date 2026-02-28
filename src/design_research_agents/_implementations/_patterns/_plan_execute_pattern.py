@@ -22,9 +22,10 @@ from design_research_agents._contracts._workflow import (
 from design_research_agents._implementations._agents._multi_step_agent import MultiStepAgent
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
+    MODE_PLAN_EXECUTE,
     WorkflowBudgetTracker,
     attach_runtime_metadata,
-    build_pattern_failure_result,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
@@ -53,6 +54,7 @@ from .._shared._workflow_internal._plan_execute_helpers import (
     DEFAULT_PLANNER_SYSTEM_PROMPT,
     DEFAULT_PLANNER_USER_PROMPT_TEMPLATE,
     PLAN_SCHEMA,
+    PLAN_SCHEMA_VERSION,
     PlanExecuteLoopCallbacks,
 )
 
@@ -157,7 +159,7 @@ class PlanExecutePattern(Agent):
         return execute_pattern_with_trace(
             agent_name="PlanExecutePattern",
             request_id=run_context.request_id,
-            input_payload={"prompt": resolved_prompt, "mode": "plan_execute"},
+            input_payload={"prompt": resolved_prompt, "mode": MODE_PLAN_EXECUTE},
             dependencies=run_context.dependencies,
             tracer=self._tracer,
             runner=lambda: self._run_plan_execute(
@@ -210,24 +212,30 @@ class PlanExecutePattern(Agent):
 
         failure_result: ExecutionResult | None = None
         if parsed_plan is None:
-            failure = build_pattern_failure_result(
-                error="Planner did not return valid JSON plan output.",
-                model_response=planner_response,
-                request_id=request_id,
-                dependencies=dependencies,
-                metadata={"stage": "planner", "mode": "plan_execute"},
-                output={
-                    "terminated_reason": "planner_invalid_json",
+            failure = build_pattern_execution_result(
+                success=False,
+                final_output={},
+                terminated_reason="planner_invalid_json",
+                details={
                     "plan": None,
+                    "plan_schema_version": PLAN_SCHEMA_VERSION,
                     "steps_executed": 0,
                     "step_results": [],
-                    "final_output": {},
                 },
+                workflow_payload={},
+                artifacts=[],
+                request_id=request_id,
+                dependencies=dependencies,
+                mode=MODE_PLAN_EXECUTE,
+                metadata={"stage": "planner"},
+                tool_results=[],
+                model_response=planner_response,
+                error="Planner did not return valid JSON plan output.",
             )
             failure_result = attach_runtime_metadata(
                 agent_result=failure,
-                requested_mode="plan_execute",
-                resolved_mode="plan_execute",
+                requested_mode=MODE_PLAN_EXECUTE,
+                resolved_mode=MODE_PLAN_EXECUTE,
                 budget_metadata=budget_tracker.as_metadata(),
                 extra_metadata=None,
             )
@@ -239,24 +247,30 @@ class PlanExecutePattern(Agent):
                     location="plan_execute.plan",
                 )
             except SchemaValidationError as exc:
-                failure = build_pattern_failure_result(
-                    error=f"Planner output failed schema validation: {exc}",
-                    model_response=planner_response,
-                    request_id=request_id,
-                    dependencies=dependencies,
-                    metadata={"stage": "planner", "mode": "plan_execute"},
-                    output={
-                        "terminated_reason": "planner_invalid_schema",
+                failure = build_pattern_execution_result(
+                    success=False,
+                    final_output={},
+                    terminated_reason="planner_invalid_schema",
+                    details={
                         "plan": parsed_plan,
+                        "plan_schema_version": PLAN_SCHEMA_VERSION,
                         "steps_executed": 0,
                         "step_results": [],
-                        "final_output": {},
                     },
+                    workflow_payload={},
+                    artifacts=[],
+                    request_id=request_id,
+                    dependencies=dependencies,
+                    mode=MODE_PLAN_EXECUTE,
+                    metadata={"stage": "planner"},
+                    tool_results=[],
+                    model_response=planner_response,
+                    error=f"Planner output failed schema validation: {exc}",
                 )
                 failure_result = attach_runtime_metadata(
                     agent_result=failure,
-                    requested_mode="plan_execute",
-                    resolved_mode="plan_execute",
+                    requested_mode=MODE_PLAN_EXECUTE,
+                    resolved_mode=MODE_PLAN_EXECUTE,
                     budget_metadata=budget_tracker.as_metadata(),
                     extra_metadata=None,
                 )
@@ -406,34 +420,33 @@ class PlanExecutePattern(Agent):
         if loop_terminated_reason == "iteration_failed":
             terminated_reason = "step_failure"
         elif len(plan_steps) > self._max_iterations:
-            terminated_reason = "max_iterations_reached"
+            terminated_reason = "truncated_max_iterations"
         else:
             terminated_reason = "completed"
 
-        plan_execute_result = ExecutionResult(
-            output={
+        plan_execute_result = build_pattern_execution_result(
+            success=terminated_reason in {"completed", "truncated_max_iterations"} and bool(step_results),
+            final_output=final_output,
+            terminated_reason=terminated_reason,
+            details={
                 "plan": parsed_plan,
+                "plan_schema_version": PLAN_SCHEMA_VERSION,
                 "steps_executed": len(step_results),
                 "step_results": step_results,
-                "final_output": final_output,
-                "terminated_reason": terminated_reason,
-                "workflow": loop_workflow_result.to_dict(),
-                "artifacts": loop_workflow_result.output.get("artifacts", []),
             },
-            success=terminated_reason in {"completed", "max_iterations_reached"} and bool(step_results),
+            workflow_payload=loop_workflow_result.to_dict(),
+            artifacts=loop_workflow_result.output.get("artifacts", []),
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_PLAN_EXECUTE,
+            metadata={"stage": "execution"},
             tool_results=callbacks.all_tool_results,
             model_response=callbacks.last_model_response,
-            metadata={
-                "request_id": request_id,
-                "dependency_keys": sorted(dependencies.keys()),
-                "stage": "execution",
-                "mode": "plan_execute",
-            },
         )
         return attach_runtime_metadata(
             agent_result=plan_execute_result,
-            requested_mode="plan_execute",
-            resolved_mode="plan_execute",
+            requested_mode=MODE_PLAN_EXECUTE,
+            resolved_mode=MODE_PLAN_EXECUTE,
             budget_metadata=budget_tracker.as_metadata(),
             extra_metadata={
                 "plan": {
@@ -517,7 +530,7 @@ class PlanExecutePattern(Agent):
         )
         planner_metadata: dict[str, object] = {
             "agent": "PlanExecutePattern",
-            "mode": "plan_execute",
+            "mode": MODE_PLAN_EXECUTE,
             "phase": "planner",
         }
         planner_messages = [

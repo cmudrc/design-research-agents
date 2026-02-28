@@ -98,7 +98,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         "Draft v2: proposal with more detail.",
         '{"approved": true, "feedback": "Looks good.", "revision_goals": []}',
     ),
-    "examples/patterns/agent_routing.py": (
+    "examples/patterns/router_delegate.py": (
         '{"tool_name":"json_tool_agent","tool_input":{},"reason":"Text-analysis request uses tools."}',
         '{"continue": true, "thought": "Select one text tool call."}',
         '{"tool_name":"text.word_count","tool_input":{"text":"modular field service workflow"}}',
@@ -111,7 +111,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
             '"synthesis":"Use local models for sensitive data and hosted APIs for burst capacity."}'
         ),
     ),
-    "examples/patterns/conversation_pattern.py": (
+    "examples/patterns/two_speaker_conversation.py": (
         "Use a hand-crank dual-roller shelling stage with food-safe rubber rollers and a winnowing chute.",
         (
             "Add a threaded gap adjuster and quick-release side plates so farmers can tune roller "
@@ -126,7 +126,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
             "kernel breakage, throughput, and cleaning time in field tests."
         ),
     ),
-    "examples/patterns/networked_blackboard.py": (
+    "examples/patterns/coordination_patterns.py": (
         "Peer contribution: prioritize captive screws for quicker service loops.",
         "Peer contribution: keep gasket alignment features for resealing reliability.",
         "Peer contribution: propose tool-less battery tray removal path.",
@@ -201,11 +201,11 @@ _PATH_ALIASES: dict[str, str] = {
     "examples/agents/basic/multi_step_direct_llm_agent.py": "examples/agents/multi_step_direct_llm_agent.py",
     "examples/workflow/plan_execute.py": "examples/patterns/plan_execute.py",
     "examples/workflow/propose_critic.py": "examples/patterns/propose_critic.py",
-    "examples/workflow/agent_routing.py": "examples/patterns/agent_routing.py",
+    "examples/workflow/agent_routing.py": "examples/patterns/router_delegate.py",
     "examples/workflow/debate_pattern.py": "examples/patterns/debate_pattern.py",
-    "examples/workflow/conversation_pattern.py": "examples/patterns/conversation_pattern.py",
-    "examples/workflow/networked_blackboard.py": "examples/patterns/networked_blackboard.py",
-    "examples/workflow/tree_search.py": "examples/patterns/tree_search.py",
+    "examples/workflow/conversation_pattern.py": "examples/patterns/two_speaker_conversation.py",
+    "examples/workflow/networked_blackboard.py": "examples/patterns/coordination_patterns.py",
+    "examples/workflow/tree_search.py": "examples/patterns/beam_search.py",
     "examples/workflow/rag.py": "examples/patterns/rag.py",
 }
 

@@ -20,10 +20,9 @@ from design_research_agents._implementations._agents._direct_llm_call import (
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
 )
-from design_research_agents._implementations._shared._agent_internal._result_builders import (
-    build_failure_result,
-)
 from design_research_agents._runtime._patterns import (
+    MODE_TWO_SPEAKER_CONVERSATION,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
@@ -91,7 +90,7 @@ class _ConversationLoopCallbacks:
     def __init__(
         self,
         *,
-        pattern: ConversationPattern,
+        pattern: TwoSpeakerConversationPattern,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -290,7 +289,7 @@ class _ConversationLoopCallbacks:
         return dict(output) if isinstance(output, Mapping) else dict(state)
 
 
-class ConversationPattern(Agent):
+class TwoSpeakerConversationPattern(Agent):
     """Two-speaker LLM conversation pattern with per-speaker prompts and clients."""
 
     def __init__(
@@ -402,10 +401,11 @@ class ConversationPattern(Agent):
             dependencies=dependencies,
         )
         return execute_pattern_with_trace(
-            agent_name="ConversationPattern",
+            agent_name="TwoSpeakerConversationPattern",
             request_id=run_context.request_id,
             input_payload={
                 "prompt": prompt,
+                "mode": MODE_TWO_SPEAKER_CONVERSATION,
                 "max_turns": self._max_turns,
                 "speaker_a_name": self._speaker_a_name,
                 "speaker_b_name": self._speaker_b_name,
@@ -533,7 +533,7 @@ class ConversationPattern(Agent):
             input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
-            request_id=f"{request_id}:conversation_pattern",
+            request_id=f"{request_id}:two_speaker_conversation",
             dependencies=dependencies,
         )
         return _build_conversation_result(
@@ -587,78 +587,72 @@ def _build_conversation_result(
     workflow_artifacts = workflow_result.output.get("artifacts", [])
     runtime_last_response = runtime_state.get("last_model_response")
     model_response = runtime_last_response if isinstance(runtime_last_response, LLMResponse) else None
-
-    if failure_reason is not None:
-        return build_failure_result(
-            error=failure_error or "Conversation loop failed.",
-            model_response=model_response,
-            tool_results=[],
-            request_id=request_id,
-            dependencies=dependencies,
-            metadata={"mode": "conversation_pattern", "stage": "loop"},
-            output={
-                "terminated_reason": failure_reason,
-                "participants": {
-                    "speaker_a": speaker_a_name,
-                    "speaker_b": speaker_b_name,
-                },
-                "transcript": transcript,
-                "turns_executed": _safe_int(loop_output.get("iterations_executed")),
-                "final_output": _build_final_output(transcript),
-                "workflow": workflow_payload,
-                "artifacts": workflow_artifacts,
-            },
-        )
-
-    if not workflow_result.success:
-        return build_failure_result(
-            error="Conversation workflow failed.",
-            model_response=model_response,
-            tool_results=[],
-            request_id=request_id,
-            dependencies=dependencies,
-            metadata={"mode": "conversation_pattern", "stage": "workflow"},
-            output={
-                "terminated_reason": "workflow_failure",
-                "participants": {
-                    "speaker_a": speaker_a_name,
-                    "speaker_b": speaker_b_name,
-                },
-                "transcript": transcript,
-                "turns_executed": _safe_int(loop_output.get("iterations_executed")),
-                "final_output": _build_final_output(transcript),
-                "workflow": workflow_payload,
-                "artifacts": workflow_artifacts,
-            },
-        )
-
     turns_executed = _safe_int(loop_output.get("iterations_executed"))
     if turns_executed < 1 and transcript:
         turns_executed = max(1, len(transcript) // 2)
-
-    return ExecutionResult(
-        output={
-            "participants": {
-                "speaker_a": speaker_a_name,
-                "speaker_b": speaker_b_name,
-            },
-            "transcript": transcript,
-            "turns_executed": turns_executed,
-            "final_output": _build_final_output(transcript),
-            "terminated_reason": "completed",
-            "workflow": workflow_payload,
-            "artifacts": workflow_artifacts,
+    details = {
+        "participants": {
+            "speaker_a": speaker_a_name,
+            "speaker_b": speaker_b_name,
         },
+        "transcript": transcript,
+        "turns_executed": turns_executed,
+    }
+    final_output = _build_final_output(transcript)
+
+    if failure_reason is not None:
+        return build_pattern_execution_result(
+            success=False,
+            final_output=final_output,
+            terminated_reason=failure_reason,
+            details=details,
+            workflow_payload=workflow_payload,
+            artifacts=workflow_artifacts,
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_TWO_SPEAKER_CONVERSATION,
+            metadata={"stage": "loop", "max_turns": max_turns, "turns_executed": turns_executed},
+            tool_results=[],
+            model_response=model_response,
+            error=failure_error or "Conversation loop failed.",
+            requested_mode=MODE_TWO_SPEAKER_CONVERSATION,
+            resolved_mode=MODE_TWO_SPEAKER_CONVERSATION,
+        )
+
+    if not workflow_result.success:
+        return build_pattern_execution_result(
+            success=False,
+            final_output=final_output,
+            terminated_reason="workflow_failure",
+            details=details,
+            workflow_payload=workflow_payload,
+            artifacts=workflow_artifacts,
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_TWO_SPEAKER_CONVERSATION,
+            metadata={"stage": "workflow", "max_turns": max_turns, "turns_executed": turns_executed},
+            tool_results=[],
+            model_response=model_response,
+            error="Conversation workflow failed.",
+            requested_mode=MODE_TWO_SPEAKER_CONVERSATION,
+            resolved_mode=MODE_TWO_SPEAKER_CONVERSATION,
+        )
+
+    return build_pattern_execution_result(
         success=True,
+        final_output=final_output,
+        terminated_reason="completed",
+        details=details,
+        workflow_payload=workflow_payload,
+        artifacts=workflow_artifacts,
+        request_id=request_id,
+        dependencies=dependencies,
+        mode=MODE_TWO_SPEAKER_CONVERSATION,
+        metadata={"max_turns": max_turns, "turns_executed": turns_executed},
         tool_results=[],
         model_response=model_response,
-        metadata={
-            "request_id": request_id,
-            "dependency_keys": sorted(dependencies.keys()),
-            "mode": "conversation_pattern",
-            "max_turns": max_turns,
-            "turns_executed": turns_executed,
-        },
+        requested_mode=MODE_TWO_SPEAKER_CONVERSATION,
+        resolved_mode=MODE_TWO_SPEAKER_CONVERSATION,
     )
 
 
@@ -919,4 +913,4 @@ def _safe_int(value: object) -> int:
     return 0
 
 
-__all__ = ["ConversationPattern"]
+__all__ = ["TwoSpeakerConversationPattern"]

@@ -1,7 +1,7 @@
 Networked and Blackboard Patterns
 =================================
 
-``NetworkedPattern`` and ``BlackboardPattern`` provide peer-only coordination
+``RoundBasedCoordinationPattern`` and ``BlackboardPattern`` provide peer-only coordination
 without a central orchestrator agent.
 
 Core behavior
@@ -50,4 +50,4 @@ framework-native and intentionally minimal.
 Example
 -------
 
-See ``examples/patterns/networked_blackboard.py``.
+See ``examples/patterns/coordination_patterns.py``.

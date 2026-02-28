@@ -16,9 +16,10 @@ from design_research_agents._contracts._workflow import LogicStep, WorkflowDeleg
 from design_research_agents._implementations._agents._multi_step_agent import MultiStepAgent
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
+    MODE_ROUTER_DELEGATE,
     WorkflowBudgetTracker,
     attach_runtime_metadata,
-    build_pattern_failure_result,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     normalize_request_id_prefix,
     resolve_pattern_run_context,
@@ -57,7 +58,7 @@ class _RoutingWorkflowCallbacks:
     def __init__(
         self,
         *,
-        pattern: AgentRoutingPattern,
+        pattern: RouterDelegatePattern,
         router_agent: MultiStepAgent,
         prompt: str,
         request_id: str,
@@ -203,6 +204,7 @@ def _build_routing_failure_result(
     budget_tracker: WorkflowBudgetTracker,
     stage: str,
     terminated_reason: str,
+    available_alternatives: Sequence[str],
     workflow_payload: Mapping[str, object],
     workflow_artifacts: Sequence[object],
 ) -> ExecutionResult:
@@ -216,42 +218,42 @@ def _build_routing_failure_result(
         budget_tracker: Runtime budget tracker for aggregate metadata.
         stage: Internal routing stage where failure occurred.
         terminated_reason: Canonical termination reason.
+        available_alternatives: Declared delegate names available to the router.
         workflow_payload: Serialized workflow payload for this routing run.
         workflow_artifacts: Normalized workflow artifact entries.
 
     Returns:
         Execution result carrying normalized routing failure metadata.
     """
-    failure = build_pattern_failure_result(
-        error=error,
-        model_response=router_result.model_response,
+    failure = build_pattern_execution_result(
+        success=False,
+        final_output={},
+        terminated_reason=terminated_reason,
+        details={
+            "selected_alternative": None,
+            "available_alternatives": list(available_alternatives),
+            "delegated_result": {},
+            "router": router_result.metadata.get("routing", {}),
+        },
+        workflow_payload=dict(workflow_payload),
+        artifacts=list(workflow_artifacts),
         request_id=request_id,
         dependencies=dependencies,
-        metadata={
-            "stage": stage,
-            "mode": "agent_routing",
-            "routing": router_result.metadata.get("routing", {}),
-        },
-        output={
-            "terminated_reason": terminated_reason,
-            "routing": router_result.metadata.get("routing", {}),
-            "delegated_agent": None,
-            "delegated_output": {},
-            "final_output": {},
-            "workflow": dict(workflow_payload),
-            "artifacts": list(workflow_artifacts),
-        },
+        mode=MODE_ROUTER_DELEGATE,
+        metadata={"stage": stage, "routing": router_result.metadata.get("routing", {})},
+        model_response=router_result.model_response,
+        error=error,
     )
     return attach_runtime_metadata(
         agent_result=failure,
-        requested_mode="agent_routing",
-        resolved_mode="agent_routing",
+        requested_mode=MODE_ROUTER_DELEGATE,
+        resolved_mode=MODE_ROUTER_DELEGATE,
         budget_metadata=budget_tracker.as_metadata(),
         extra_metadata=None,
     )
 
 
-class AgentRoutingPattern(Agent):
+class RouterDelegatePattern(Agent):
     """Routing/delegation pattern built on workflow primitives."""
 
     def __init__(
@@ -347,9 +349,9 @@ class AgentRoutingPattern(Agent):
         normalized_input = normalize_input_payload(prompt)
         resolved_prompt = _extract_prompt(normalized_input)
         return execute_pattern_with_trace(
-            agent_name="AgentRoutingPattern",
+            agent_name="RouterDelegatePattern",
             request_id=run_context.request_id,
-            input_payload={"prompt": resolved_prompt, "mode": "agent_routing"},
+            input_payload={"prompt": resolved_prompt, "mode": MODE_ROUTER_DELEGATE},
             dependencies=run_context.dependencies,
             tracer=self._tracer,
             runner=lambda: self._run_agent_routing(
@@ -453,7 +455,7 @@ class AgentRoutingPattern(Agent):
             input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
-            request_id=f"{request_id}:agent_routing_workflow",
+            request_id=f"{request_id}:router_delegate_workflow",
             dependencies=dependencies,
         )
         workflow_payload = workflow_result.to_dict()
@@ -485,6 +487,7 @@ class AgentRoutingPattern(Agent):
                 budget_tracker=budget_tracker,
                 stage="agent_routing_selection",
                 terminated_reason=TERMINATED_ROUTING_FAILURE,
+                available_alternatives=sorted(self._alternatives.keys()),
                 workflow_payload=workflow_payload,
                 workflow_artifacts=workflow_artifacts,
             )
@@ -499,6 +502,7 @@ class AgentRoutingPattern(Agent):
                 budget_tracker=budget_tracker,
                 stage="agent_routing_selection",
                 terminated_reason=TERMINATED_UNKNOWN_ALTERNATIVE,
+                available_alternatives=sorted(self._alternatives.keys()),
                 workflow_payload=workflow_payload,
                 workflow_artifacts=workflow_artifacts,
             )
@@ -513,43 +517,49 @@ class AgentRoutingPattern(Agent):
                 budget_tracker=budget_tracker,
                 stage="agent_routing_delegate",
                 terminated_reason=TERMINATED_ROUTING_FAILURE,
+                available_alternatives=sorted(self._alternatives.keys()),
                 workflow_payload=workflow_payload,
                 workflow_artifacts=workflow_artifacts,
             )
 
-        agent_routing_metadata = {
+        router_delegate_metadata = {
             "routing": router_result.metadata.get("routing", {}),
             "selected_alternative": selected_name,
             "available_alternatives": sorted(self._alternatives.keys()),
         }
 
         delegated_output = dict(delegated_result.output)
-        delegated_output["agent_routing_selected_alternative"] = selected_name
-        final_output = delegated_output.get("final_output")
-        if not isinstance(final_output, Mapping):
-            final_output = dict(delegated_output)
+        delegated_final_output = delegated_output.get("final_output")
+        if not isinstance(delegated_final_output, Mapping):
+            delegated_final_output = dict(delegated_output)
 
-        result = ExecutionResult(
-            output={
-                **delegated_output,
-                "delegated_agent": selected_name,
-                "delegated_output": dict(delegated_output),
-                "final_output": dict(final_output),
-                "workflow": workflow_payload,
-                "artifacts": list(workflow_artifacts),
-            },
+        result = build_pattern_execution_result(
             success=delegated_result.success,
-            tool_results=list(delegated_result.tool_results),
-            model_response=delegated_result.model_response,
+            final_output=dict(delegated_final_output),
+            terminated_reason=delegated_result.terminated_reason or "completed",
+            details={
+                "selected_alternative": selected_name,
+                "available_alternatives": sorted(self._alternatives.keys()),
+                "delegated_result": dict(delegated_output),
+                "router": router_result.metadata.get("routing", {}),
+            },
+            workflow_payload=workflow_payload,
+            artifacts=list(workflow_artifacts),
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_ROUTER_DELEGATE,
             metadata={
                 **dict(delegated_result.metadata),
-                "agent_routing": agent_routing_metadata,
+                "router_delegate": router_delegate_metadata,
             },
+            tool_results=list(delegated_result.tool_results),
+            model_response=delegated_result.model_response,
+            error=delegated_result.error,
         )
         return attach_runtime_metadata(
             agent_result=result,
-            requested_mode="agent_routing",
-            resolved_mode="agent_routing",
+            requested_mode=MODE_ROUTER_DELEGATE,
+            resolved_mode=MODE_ROUTER_DELEGATE,
             budget_metadata=budget_tracker.as_metadata(),
             extra_metadata={
                 "workflow": {
@@ -585,5 +595,5 @@ def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> s
 
 
 __all__ = [
-    "AgentRoutingPattern",
+    "RouterDelegatePattern",
 ]

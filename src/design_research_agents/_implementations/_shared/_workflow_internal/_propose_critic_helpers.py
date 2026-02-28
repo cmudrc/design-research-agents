@@ -1,4 +1,4 @@
-"""Shared constants and callbacks for reflexion/propose-critic patterns."""
+"""Shared constants and callbacks for propose_critic/propose-critic patterns."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from design_research_agents._implementations._shared._agent_internal._input_pars
     parse_json_mapping as _parse_json_mapping,
 )
 from design_research_agents._runtime._patterns import (
+    MODE_PROPOSE_CRITIC,
     WorkflowBudgetTracker,
     normalize_mapping_records,
     parse_loop_iteration,
@@ -59,8 +60,8 @@ DEFAULT_CRITIC_USER_PROMPT_TEMPLATE = "\n".join(
 )
 
 
-class ReflexionLoopCallbacks:
-    """Callback bundle for reflexion loop prompt and state handling."""
+class ProposeCriticLoopCallbacks:
+    """Callback bundle for propose_critic loop prompt and state handling."""
 
     def __init__(
         self,
@@ -120,8 +121,8 @@ class ReflexionLoopCallbacks:
         """Build model request payload for direct critic invocation."""
         critic_prompt = self.build_critic_prompt(context)
         metadata: dict[str, object] = {
-            "agent": "ReflexionPattern",
-            "mode": "propose_critic",
+            "agent": "ProposeCriticPattern",
+            "mode": MODE_PROPOSE_CRITIC,
             "phase": "critic",
             "request_id": self.request_id,
         }
@@ -218,7 +219,7 @@ class ReflexionLoopCallbacks:
         iteration_result: ExecutionResult,
         iteration: int,
     ) -> Mapping[str, object]:
-        """Fold one iteration result into accumulated reflexion loop state."""
+        """Fold one iteration result into accumulated propose_critic loop state."""
         next_state = dict(state)
         critique_iterations = normalize_mapping_records(next_state.get("critique_iterations"))
         next_state["critique_iterations"] = critique_iterations
@@ -408,5 +409,5 @@ __all__ = [
     "DEFAULT_CRITIC_USER_PROMPT_TEMPLATE",
     "DEFAULT_PROPOSER_SYSTEM_PROMPT",
     "DEFAULT_PROPOSER_USER_PROMPT_TEMPLATE",
-    "ReflexionLoopCallbacks",
+    "ProposeCriticLoopCallbacks",
 ]

@@ -10,6 +10,8 @@ from design_research_agents._contracts._agent import Agent, ExecutionResult
 from design_research_agents._contracts._workflow import LogicStep, LoopStep, WorkflowDelegate
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
+    MODE_BEAM_SEARCH,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     resolve_pattern_run_context,
 )
@@ -21,7 +23,7 @@ GeneratorDelegate = Callable[[Mapping[str, object]], Sequence[GeneratorValue]]
 EvaluatorDelegate = Callable[[Mapping[str, object]], float | int | Mapping[str, object]]
 
 
-class TreeSearchPattern(Agent):
+class BeamSearchPattern(Agent):
     """Beam-style tree search over generated candidate states."""
 
     def __init__(
@@ -61,7 +63,7 @@ class TreeSearchPattern(Agent):
         self._beam_width = beam_width
         self._tracer = tracer
         self.workflow: object | None = None
-        self._tree_search_runtime: dict[str, object] | None = None
+        self._beam_search_runtime: dict[str, object] | None = None
 
     def run(
         self,
@@ -90,17 +92,18 @@ class TreeSearchPattern(Agent):
             dependencies=dependencies,
         )
         return execute_pattern_with_trace(
-            agent_name="TreeSearchPattern",
+            agent_name="BeamSearchPattern",
             request_id=run_context.request_id,
             input_payload={
                 "prompt": prompt,
+                "mode": MODE_BEAM_SEARCH,
                 "max_depth": self._max_depth,
                 "branch_factor": self._branch_factor,
                 "beam_width": self._beam_width,
             },
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_tree_search(
+            runner=lambda: self._run_beam_search(
                 prompt=prompt,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
@@ -276,7 +279,7 @@ class TreeSearchPattern(Agent):
                 Reduced loop state mapping.
             """
             del iteration
-            iteration_step = iteration_result.step_results.get("tree_search_iteration")
+            iteration_step = iteration_result.step_results.get("beam_search_iteration")
             if iteration_step is None or not getattr(iteration_step, "success", False):
                 return dict(state)
             output = getattr(iteration_step, "output", {})
@@ -288,10 +291,10 @@ class TreeSearchPattern(Agent):
             input_schema={"type": "object"},
             steps=[
                 LoopStep(
-                    step_id="tree_search_loop",
+                    step_id="beam_search_loop",
                     steps=(
                         LogicStep(
-                            step_id="tree_search_iteration",
+                            step_id="beam_search_iteration",
                             handler=_run_iteration,
                         ),
                     ),
@@ -305,10 +308,10 @@ class TreeSearchPattern(Agent):
             ],
         )
         self.workflow = workflow
-        self._tree_search_runtime = {"root_node": dict(root_node)}
+        self._beam_search_runtime = {"root_node": dict(root_node)}
         return workflow
 
-    def _run_tree_search(
+    def _run_beam_search(
         self,
         *,
         prompt: str,
@@ -333,7 +336,7 @@ class TreeSearchPattern(Agent):
             request_id=request_id,
             dependencies=dependencies,
         )
-        runtime = self._tree_search_runtime or {}
+        runtime = self._beam_search_runtime or {}
         maybe_root_node = runtime.get("root_node")
         root_node = (
             dict(maybe_root_node)
@@ -351,10 +354,10 @@ class TreeSearchPattern(Agent):
             input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
-            request_id=f"{request_id}:tree_search_workflow",
+            request_id=f"{request_id}:beam_search_workflow",
             dependencies=dependencies,
         )
-        loop_step_result = workflow_result.step_results.get("tree_search_loop")
+        loop_step_result = workflow_result.step_results.get("beam_search_loop")
         if loop_step_result is None:
             raise RuntimeError("Tree search loop step result is missing.")
         loop_output = loop_step_result.output
@@ -372,35 +375,36 @@ class TreeSearchPattern(Agent):
             else []
         )
 
-        return ExecutionResult(
-            output={
+        return build_pattern_execution_result(
+            success=workflow_result.success,
+            final_output={
                 "best_candidate": best_candidate,
                 "best_score": best_score,
-                "explored_nodes": explored_nodes,
-                "frontier_trace": frontier_trace,
-                "final_output": {
-                    "best_candidate": best_candidate,
-                    "best_score": best_score,
-                },
-                "workflow": workflow_result.to_dict(),
-                "artifacts": workflow_result.output.get("artifacts", []),
-                "terminated_reason": str(
-                    final_state.get(
-                        "terminated_reason",
-                        loop_output.get("terminated_reason", "completed"),
-                    )
-                ),
             },
-            success=workflow_result.success,
-            tool_results=[],
-            model_response=None,
+            terminated_reason=str(
+                final_state.get(
+                    "terminated_reason",
+                    loop_output.get("terminated_reason", "completed"),
+                )
+            ),
+            details={
+                "frontier_trace": frontier_trace,
+                "explored_nodes": explored_nodes,
+            },
+            workflow_payload=workflow_result.to_dict(),
+            artifacts=workflow_result.output.get("artifacts", []),
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_BEAM_SEARCH,
             metadata={
-                "request_id": request_id,
-                "dependency_keys": sorted(dependencies.keys()),
                 "max_depth": self._max_depth,
                 "branch_factor": self._branch_factor,
                 "beam_width": self._beam_width,
             },
+            tool_results=[],
+            model_response=None,
+            requested_mode=MODE_BEAM_SEARCH,
+            resolved_mode=MODE_BEAM_SEARCH,
         )
 
     def _generate_children(
@@ -437,7 +441,7 @@ class TreeSearchPattern(Agent):
             delegate=self._generator_delegate,
             prompt=delegate_prompt,
             step_context=None,
-            request_id=f"{request_id}:tree_search:generator:{depth}:{parent_node.get('node_id')}",
+            request_id=f"{request_id}:beam_search:generator:{depth}:{parent_node.get('node_id')}",
             execution_mode="sequential",
             failure_policy="skip_dependents",
             dependencies=dependencies,
@@ -479,7 +483,7 @@ class TreeSearchPattern(Agent):
             delegate=self._evaluator_delegate,
             prompt=delegate_prompt,
             step_context=None,
-            request_id=f"{request_id}:tree_search:evaluator:{depth}",
+            request_id=f"{request_id}:beam_search:evaluator:{depth}",
             execution_mode="sequential",
             failure_policy="skip_dependents",
             dependencies=dependencies,
@@ -845,4 +849,4 @@ def _json_ready(value: object) -> object:
     return str(value)
 
 
-__all__ = ["TreeSearchPattern"]
+__all__ = ["BeamSearchPattern"]

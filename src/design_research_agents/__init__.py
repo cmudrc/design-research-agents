@@ -27,14 +27,14 @@ _EXPORTS: Final[dict[str, str]] = {
     "LLMResponse": "design_research_agents.llm:LLMResponse",
     "ToolResult": "design_research_agents.tools:ToolResult",
     "Workflow": "design_research_agents.workflow:Workflow",
-    "ConversationPattern": "design_research_agents.patterns:ConversationPattern",
+    "TwoSpeakerConversationPattern": "design_research_agents.patterns:TwoSpeakerConversationPattern",
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
-    "ReflexionPattern": "design_research_agents.patterns:ReflexionPattern",
-    "AgentRoutingPattern": "design_research_agents.patterns:AgentRoutingPattern",
-    "NetworkedPattern": "design_research_agents.patterns:NetworkedPattern",
+    "ProposeCriticPattern": "design_research_agents.patterns:ProposeCriticPattern",
+    "RouterDelegatePattern": "design_research_agents.patterns:RouterDelegatePattern",
+    "RoundBasedCoordinationPattern": "design_research_agents.patterns:RoundBasedCoordinationPattern",
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
-    "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
+    "BeamSearchPattern": "design_research_agents.patterns:BeamSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
@@ -120,15 +120,15 @@ if TYPE_CHECKING:
     from .llm import SGLangServerLLMClient as SGLangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
     from .llm import VLLMServerLLMClient as VLLMServerLLMClient
-    from .patterns import AgentRoutingPattern as AgentRoutingPattern
+    from .patterns import BeamSearchPattern as BeamSearchPattern
     from .patterns import BlackboardPattern as BlackboardPattern
-    from .patterns import ConversationPattern as ConversationPattern
     from .patterns import DebatePattern as DebatePattern
-    from .patterns import NetworkedPattern as NetworkedPattern
     from .patterns import PlanExecutePattern as PlanExecutePattern
+    from .patterns import ProposeCriticPattern as ProposeCriticPattern
     from .patterns import RAGPattern as RAGPattern
-    from .patterns import ReflexionPattern as ReflexionPattern
-    from .patterns import TreeSearchPattern as TreeSearchPattern
+    from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
+    from .patterns import RouterDelegatePattern as RouterDelegatePattern
+    from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
     from .tools import CallableToolConfig as CallableToolConfig
     from .tools import MCPServerConfig as MCPServerConfig
     from .tools import ScriptToolConfig as ScriptToolConfig

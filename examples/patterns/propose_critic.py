@@ -8,14 +8,14 @@ demonstrates a propose-critic refinement cycle with bounded iterations and struc
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``ReflexionPattern.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``ProposeCriticPattern.run(...)`` with a fixed ``request_id``.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["ReflexionPattern.run(...)"]
+    B --> C["ProposeCriticPattern.run(...)"]
     C --> D["proposal and critique turns iterate until stop criteria"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
@@ -54,7 +54,7 @@ import json
 from pathlib import Path
 
 from design_research_agents import LlamaCppServerLLMClient, Toolbox, Tracer
-from design_research_agents.patterns import ReflexionPattern
+from design_research_agents.patterns import ProposeCriticPattern
 
 
 def main() -> None:
@@ -70,7 +70,7 @@ def main() -> None:
     llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
     try:
-        workflow = ReflexionPattern(
+        workflow = ProposeCriticPattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             # Tracer is threaded through the pattern so proposer/critic turns share one timeline.

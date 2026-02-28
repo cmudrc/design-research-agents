@@ -27,17 +27,18 @@ from design_research_agents._implementations._shared._agent_internal._model_reso
 from design_research_agents._implementations._shared._agent_internal._run_options import (
     normalize_input_payload,
 )
-from design_research_agents._implementations._shared._workflow_internal._reflexion_helpers import (
+from design_research_agents._implementations._shared._workflow_internal._propose_critic_helpers import (
     DEFAULT_CRITIC_SYSTEM_PROMPT,
     DEFAULT_CRITIC_USER_PROMPT_TEMPLATE,
     DEFAULT_PROPOSER_SYSTEM_PROMPT,
     DEFAULT_PROPOSER_USER_PROMPT_TEMPLATE,
-    ReflexionLoopCallbacks,
+    ProposeCriticLoopCallbacks,
 )
 from design_research_agents._runtime._patterns import (
+    MODE_PROPOSE_CRITIC,
     WorkflowBudgetTracker,
     attach_runtime_metadata,
-    build_pattern_failure_result,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
@@ -49,7 +50,7 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow.workflow import Workflow
 
 
-class ReflexionPattern(Agent):
+class ProposeCriticPattern(Agent):
     """Propose/critique revision pattern built on workflow primitives."""
 
     def __init__(
@@ -119,7 +120,7 @@ class ReflexionPattern(Agent):
             default_value=DEFAULT_CRITIC_USER_PROMPT_TEMPLATE,
             field_name="critic_user_prompt_template",
         )
-        self._reflexion_runtime: dict[str, object] | None = None
+        self._propose_critic_runtime: dict[str, object] | None = None
 
     def run(
         self,
@@ -150,9 +151,9 @@ class ReflexionPattern(Agent):
         normalized_input = normalize_input_payload(prompt)
         resolved_prompt = _extract_prompt(normalized_input)
         return execute_pattern_with_trace(
-            agent_name="ReflexionPattern",
+            agent_name="ProposeCriticPattern",
             request_id=run_context.request_id,
-            input_payload={"prompt": resolved_prompt, "mode": "propose_critic"},
+            input_payload={"prompt": resolved_prompt, "mode": MODE_PROPOSE_CRITIC},
             dependencies=run_context.dependencies,
             tracer=self._tracer,
             runner=lambda: self._run_propose_critic(
@@ -179,7 +180,7 @@ class ReflexionPattern(Agent):
                 system_prompt=self._proposer_system_prompt,
                 tracer=self._tracer,
             )
-        callbacks = ReflexionLoopCallbacks(
+        callbacks = ProposeCriticLoopCallbacks(
             resolved_model=resolved_model,
             task_prompt=prompt,
             request_id=request_id,
@@ -263,7 +264,7 @@ class ReflexionPattern(Agent):
             ],
         )
         self.workflow = workflow
-        self._reflexion_runtime = {
+        self._propose_critic_runtime = {
             "budget_tracker": budget_tracker,
             "callbacks": callbacks,
         }
@@ -294,11 +295,13 @@ class ReflexionPattern(Agent):
             request_id=request_id,
             dependencies=dependencies,
         )
-        runtime = self._reflexion_runtime or {}
+        runtime = self._propose_critic_runtime or {}
         callbacks = runtime.get("callbacks")
         budget_tracker = runtime.get("budget_tracker")
-        if not isinstance(callbacks, ReflexionLoopCallbacks) or not isinstance(budget_tracker, WorkflowBudgetTracker):
-            raise RuntimeError("Reflexion runtime state is unavailable before workflow execution.")
+        if not isinstance(callbacks, ProposeCriticLoopCallbacks) or not isinstance(
+            budget_tracker, WorkflowBudgetTracker
+        ):
+            raise RuntimeError("Propose critic runtime state is unavailable before workflow execution.")
 
         workflow_result = workflow.run(
             input={},
@@ -332,52 +335,59 @@ class ReflexionPattern(Agent):
             error_message = failure_error or "Workflow loop iteration failed."
             raise RuntimeError(error_message)
 
+        details = {
+            "proposal": current_proposal,
+            "approved": approved,
+            "critique_iterations": critique_iterations,
+        }
+        final_output = {
+            "proposal": current_proposal,
+            "approved": approved,
+            "iterations": len(critique_iterations),
+        }
+
         if failure_reason in {"critic_invalid_json", "critic_invalid_schema"}:
-            failure = build_pattern_failure_result(
-                error=failure_error or "Critic iteration failed.",
-                model_response=callbacks.last_model_response,
+            failure = build_pattern_execution_result(
+                success=False,
+                final_output=final_output,
+                terminated_reason=failure_reason,
+                details=details,
+                workflow_payload=workflow_result.to_dict(),
+                artifacts=workflow_result.output.get("artifacts", []),
                 request_id=request_id,
                 dependencies=dependencies,
-                metadata={"stage": "critic", "mode": "propose_critic"},
-                output={
-                    "proposal": current_proposal,
-                    "critique_iterations": critique_iterations,
-                    "terminated_reason": failure_reason,
-                    "workflow": workflow_result.to_dict(),
-                    "artifacts": workflow_result.output.get("artifacts", []),
-                },
+                mode=MODE_PROPOSE_CRITIC,
+                metadata={"stage": "critic", "iterations": len(critique_iterations)},
+                tool_results=[],
+                model_response=callbacks.last_model_response,
+                error=failure_error or "Critic iteration failed.",
             )
             return attach_runtime_metadata(
                 agent_result=failure,
-                requested_mode="propose_critic",
-                resolved_mode="propose_critic",
+                requested_mode=MODE_PROPOSE_CRITIC,
+                resolved_mode=MODE_PROPOSE_CRITIC,
                 budget_metadata=budget_tracker.as_metadata(),
                 extra_metadata=None,
             )
 
-        result = ExecutionResult(
-            output={
-                "proposal": current_proposal,
-                "critique_iterations": critique_iterations,
-                "terminated_reason": terminated_reason,
-                "approved": approved,
-                "workflow": workflow_result.to_dict(),
-                "artifacts": workflow_result.output.get("artifacts", []),
-            },
+        result = build_pattern_execution_result(
             success=approved,
+            final_output=final_output,
+            terminated_reason=terminated_reason,
+            details=details,
+            workflow_payload=workflow_result.to_dict(),
+            artifacts=workflow_result.output.get("artifacts", []),
+            request_id=request_id,
+            dependencies=dependencies,
+            mode=MODE_PROPOSE_CRITIC,
+            metadata={"iterations": len(critique_iterations)},
             tool_results=[],
             model_response=callbacks.last_model_response,
-            metadata={
-                "request_id": request_id,
-                "dependency_keys": sorted(dependencies.keys()),
-                "mode": "propose_critic",
-                "iterations": len(critique_iterations),
-            },
         )
         return attach_runtime_metadata(
             agent_result=result,
-            requested_mode="propose_critic",
-            resolved_mode="propose_critic",
+            requested_mode=MODE_PROPOSE_CRITIC,
+            resolved_mode=MODE_PROPOSE_CRITIC,
             budget_metadata=budget_tracker.as_metadata(),
             extra_metadata={
                 "loop": {
@@ -390,5 +400,5 @@ class ReflexionPattern(Agent):
 
 
 __all__ = [
-    "ReflexionPattern",
+    "ProposeCriticPattern",
 ]

@@ -17,6 +17,9 @@ from design_research_agents._contracts._workflow import (
     WorkflowDelegate,
 )
 from design_research_agents._runtime._patterns import (
+    MODE_BLACKBOARD,
+    MODE_ROUND_BASED_COORDINATION,
+    build_pattern_execution_result,
     execute_pattern_with_trace,
     resolve_pattern_run_context,
 )
@@ -36,7 +39,7 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import Workflow
 
 
-class NetworkedPattern(Agent):
+class RoundBasedCoordinationPattern(Agent):
     """Round-based peer coordination pattern with deterministic peer ordering."""
 
     def __init__(
@@ -105,7 +108,11 @@ class NetworkedPattern(Agent):
         return execute_pattern_with_trace(
             agent_name=self.__class__.__name__,
             request_id=run_context.request_id,
-            input_payload={"prompt": prompt, "max_rounds": self._max_rounds},
+            input_payload={
+                "prompt": prompt,
+                "mode": (MODE_BLACKBOARD if isinstance(self, BlackboardPattern) else MODE_ROUND_BASED_COORDINATION),
+                "max_rounds": self._max_rounds,
+            },
             dependencies=run_context.dependencies,
             tracer=self._tracer,
             runner=lambda: self._run_network(
@@ -201,7 +208,7 @@ class NetworkedPattern(Agent):
             input={},
             execution_mode="sequential",
             failure_policy="skip_dependents",
-            request_id=f"{request_id}:network_workflow",
+            request_id=f"{request_id}:round_based_coordination_workflow",
             dependencies=dependencies,
         )
         final_state = _extract_network_final_state(workflow_result)
@@ -212,6 +219,7 @@ class NetworkedPattern(Agent):
             dependencies=dependencies,
             peer_ids=peer_ids,
             max_rounds=self._max_rounds,
+            mode=(MODE_BLACKBOARD if isinstance(self, BlackboardPattern) else MODE_ROUND_BASED_COORDINATION),
         )
 
     @staticmethod
@@ -455,7 +463,7 @@ class NetworkedPattern(Agent):
         return False
 
 
-class BlackboardPattern(NetworkedPattern):
+class BlackboardPattern(RoundBasedCoordinationPattern):
     """Networked pattern with explicit blackboard reducer semantics."""
 
     def __init__(
@@ -693,7 +701,7 @@ def _extract_network_final_state(workflow_result: ExecutionResult) -> dict[str, 
     """Extract normalized final loop state from network workflow output.
 
     Args:
-        workflow_result: Workflow execution result produced by ``NetworkedPattern``.
+        workflow_result: Workflow execution result produced by ``RoundBasedCoordinationPattern``.
 
     Returns:
         Final loop-state mapping extracted from ``network_loop`` output.
@@ -717,6 +725,7 @@ def _build_network_result(
     dependencies: Mapping[str, object],
     peer_ids: Sequence[str],
     max_rounds: int,
+    mode: str,
 ) -> ExecutionResult:
     """Build final ``ExecutionResult`` payload for networked patterns.
 
@@ -727,6 +736,7 @@ def _build_network_result(
         dependencies: Dependency mapping used for the run.
         peer_ids: Ordered peer identifiers.
         max_rounds: Configured max rounds.
+        mode: Canonical pattern mode recorded in output metadata.
 
     Returns:
         Final normalized execution result.
@@ -748,34 +758,39 @@ def _build_network_result(
     maybe_model_response = final_state.get("last_model_response")
     model_response = maybe_model_response if isinstance(maybe_model_response, LLMResponse) else None
 
-    output: dict[str, object] = {
+    details: dict[str, object] = {
         "blackboard": _json_ready(blackboard),
         "round_summaries": round_summaries,
-        "terminated_reason": terminated_reason,
         "rounds_executed": len(round_summaries),
-        "final_output": {
+    }
+    if mode == MODE_BLACKBOARD:
+        details["blackboard_schema_version"] = 1
+    if isinstance(failed_peer, str) and failed_peer:
+        details["failed_peer"] = failed_peer
+        details["peer_output"] = _json_ready(peer_output)
+
+    return build_pattern_execution_result(
+        success=success,
+        final_output={
             "blackboard": _json_ready(blackboard),
             "rounds_executed": len(round_summaries),
             "terminated_reason": terminated_reason,
         },
-        "workflow": workflow_result.to_dict(),
-        "artifacts": workflow_result.output.get("artifacts", []),
-    }
-    if isinstance(failed_peer, str) and failed_peer:
-        output["failed_peer"] = failed_peer
-        output["peer_output"] = _json_ready(peer_output)
-
-    return ExecutionResult(
-        output=output,
-        success=success,
-        tool_results=tool_results,
-        model_response=model_response,
+        terminated_reason=terminated_reason,
+        details=details,
+        workflow_payload=workflow_result.to_dict(),
+        artifacts=workflow_result.output.get("artifacts", []),
+        request_id=request_id,
+        dependencies=dependencies,
+        mode=mode,
         metadata={
-            "request_id": request_id,
-            "dependency_keys": sorted(dependencies.keys()),
             "peer_order": list(peer_ids),
             "max_rounds": max_rounds,
         },
+        tool_results=tool_results,
+        model_response=model_response,
+        requested_mode=mode,
+        resolved_mode=mode,
     )
 
 
@@ -918,4 +933,4 @@ def _json_ready(value: object) -> object:
     return str(value)
 
 
-__all__ = ["BlackboardPattern", "NetworkedPattern"]
+__all__ = ["BlackboardPattern", "RoundBasedCoordinationPattern"]

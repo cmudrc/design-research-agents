@@ -14,7 +14,7 @@ All runnable examples:
 - `examples/workflow`
   - Workflow primitive composition (`Workflow` + step classes).
 - `examples/patterns`
-  - Reusable orchestration patterns (`PlanExecutePattern`, `ReflexionPattern`, etc.).
+  - Reusable orchestration patterns (`PlanExecutePattern`, `ProposeCriticPattern`, etc.).
 - `examples/clients`
   - LLM client configuration + representative `generate(LLMRequest(...))` calls.
 - `examples/model_selection`

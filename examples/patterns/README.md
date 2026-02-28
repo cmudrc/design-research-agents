@@ -6,19 +6,19 @@ These scripts demonstrate reusable orchestration patterns built on top of workfl
 
 - `plan_execute.py`
 - `propose_critic.py`
-- `agent_routing.py`
+- `router_delegate.py`
 - `debate_pattern.py`
-- `conversation_pattern.py`
-- `networked_blackboard.py`
-- `tree_search.py`
+- `two_speaker_conversation.py`
+- `coordination_patterns.py`
+- `beam_search.py`
 - `rag.py`
 
 ## Quick Start
 
 ```bash
 PYTHONPATH=src python3 examples/patterns/plan_execute.py
-PYTHONPATH=src python3 examples/patterns/agent_routing.py
-PYTHONPATH=src python3 examples/patterns/networked_blackboard.py
+PYTHONPATH=src python3 examples/patterns/router_delegate.py
+PYTHONPATH=src python3 examples/patterns/coordination_patterns.py
 ```
 
 ## Expected Outputs

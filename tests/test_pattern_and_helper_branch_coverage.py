@@ -7,7 +7,7 @@ import pytest
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents._implementations._patterns import _agent_routing_pattern as routing_impl
+from design_research_agents._implementations._patterns import _router_delegate_pattern as routing_impl
 from design_research_agents._implementations._shared._agent_internal import (
     _code_action_step_workflow_helpers as code_helpers,
 )
@@ -158,11 +158,13 @@ def test_agent_routing_helper_extractors_cover_selection_shapes() -> None:
         budget_tracker=budget_tracker,
         stage="agent_routing_selection",
         terminated_reason="routing_failure",
+        available_alternatives=("alpha",),
         workflow_payload={"success": False},
         workflow_artifacts=(),
     )
     assert failure.success is False
     assert failure.output["terminated_reason"] == "routing_failure"
+    assert failure.output["details"]["available_alternatives"] == ["alpha"]
     assert failure.metadata["stage"] == "agent_routing_selection"
 
     runtime = _SingleToolRuntime()

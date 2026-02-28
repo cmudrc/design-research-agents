@@ -13,6 +13,20 @@ from ._batch_results import (
     is_call_success,
 )
 from ._loop_state import normalize_mapping, normalize_mapping_records, parse_loop_iteration
+from ._pattern_contract import (
+    MODE_BEAM_SEARCH,
+    MODE_BLACKBOARD,
+    MODE_DEBATE,
+    MODE_PLAN_EXECUTE,
+    MODE_PROPOSE_CRITIC,
+    MODE_RAG,
+    MODE_ROUND_BASED_COORDINATION,
+    MODE_ROUTER_DELEGATE,
+    MODE_TWO_SPEAKER_CONVERSATION,
+    OUTPUT_CONTRACT_VERSION,
+    build_pattern_execution_result,
+    build_pattern_output,
+)
 from ._prompt_rendering import render_prompt_template, resolve_prompt_override
 from ._run_context import (
     PatternRunContext,
@@ -26,11 +40,23 @@ from ._run_context import (
 )
 
 __all__ = [
+    "MODE_BEAM_SEARCH",
+    "MODE_BLACKBOARD",
+    "MODE_DEBATE",
+    "MODE_PLAN_EXECUTE",
+    "MODE_PROPOSE_CRITIC",
+    "MODE_RAG",
+    "MODE_ROUND_BASED_COORDINATION",
+    "MODE_ROUTER_DELEGATE",
+    "MODE_TWO_SPEAKER_CONVERSATION",
+    "OUTPUT_CONTRACT_VERSION",
     "PatternRunContext",
     "WorkflowBudgetTracker",
     "attach_pattern_workflow",
     "attach_runtime_metadata",
+    "build_pattern_execution_result",
     "build_pattern_failure_result",
+    "build_pattern_output",
     "build_workflow_output_payload",
     "execute_pattern_with_trace",
     "extract_call_error",

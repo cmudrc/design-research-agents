@@ -5,7 +5,7 @@ from collections.abc import Sequence
 import pytest
 
 from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.patterns import ConversationPattern
+from design_research_agents.patterns import TwoSpeakerConversationPattern
 
 
 class _CaptureLLMClient:
@@ -38,10 +38,10 @@ class _CaptureLLMClient:
         return LLMResponse(model=model, text=self._responses.pop(0), provider="capture")
 
 
-def test_conversation_pattern_supports_distinct_clients_and_prompt_templates() -> None:
+def test_two_speaker_conversation_pattern_supports_distinct_clients_and_prompt_templates() -> None:
     speaker_a_client = _CaptureLLMClient(response_texts=["a1", "a2"], model="model-a")
     speaker_b_client = _CaptureLLMClient(response_texts=["b1", "b2"], model="model-b")
-    pattern = ConversationPattern(
+    pattern = TwoSpeakerConversationPattern(
         llm_client_a=speaker_a_client,
         llm_client_b=speaker_b_client,
         max_turns=2,
@@ -74,11 +74,11 @@ def test_conversation_pattern_supports_distinct_clients_and_prompt_templates() -
 
     assert result.success
     assert pattern.workflow is not None
-    assert result.output["participants"]["speaker_a"] == "Researcher"
-    assert result.output["participants"]["speaker_b"] == "Reviewer"
-    assert result.output["turns_executed"] == 2
+    assert result.output["details"]["participants"]["speaker_a"] == "Researcher"
+    assert result.output["details"]["participants"]["speaker_b"] == "Reviewer"
+    assert result.output["details"]["turns_executed"] == 2
     assert result.output["terminated_reason"] == "completed"
-    transcript = result.output["transcript"]
+    transcript = result.output["details"]["transcript"]
     assert isinstance(transcript, list)
     assert len(transcript) == 4
     assert transcript[0]["speaker"] == "Researcher"
@@ -103,9 +103,9 @@ def test_conversation_pattern_supports_distinct_clients_and_prompt_templates() -
     assert "Latest from Researcher: a1" in speaker_b_first_messages[1].content
 
 
-def test_conversation_pattern_defaults_speaker_b_client_to_speaker_a_client() -> None:
+def test_two_speaker_conversation_pattern_defaults_speaker_b_client_to_speaker_a_client() -> None:
     shared_client = _CaptureLLMClient(response_texts=["a1", "b1", "a2", "b2"])
-    pattern = ConversationPattern(
+    pattern = TwoSpeakerConversationPattern(
         llm_client_a=shared_client,
         max_turns=2,
     )
@@ -114,22 +114,22 @@ def test_conversation_pattern_defaults_speaker_b_client_to_speaker_a_client() ->
 
     assert result.success
     assert len(shared_client.calls) == 4
-    assert len(result.output["transcript"]) == 4
+    assert len(result.output["details"]["transcript"]) == 4
     assert result.output["final_output"]["message"] == "b2"
 
 
-def test_conversation_pattern_validates_constructor_and_template_overrides() -> None:
+def test_two_speaker_conversation_pattern_validates_constructor_and_template_overrides() -> None:
     # Constructor guardrails reject invalid turn counts and blank participant names.
     with pytest.raises(ValueError, match="max_turns"):
-        ConversationPattern(llm_client_a=_CaptureLLMClient(response_texts=["x"]), max_turns=0)
+        TwoSpeakerConversationPattern(llm_client_a=_CaptureLLMClient(response_texts=["x"]), max_turns=0)
 
     with pytest.raises(ValueError, match="speaker_a_name"):
-        ConversationPattern(
+        TwoSpeakerConversationPattern(
             llm_client_a=_CaptureLLMClient(response_texts=["x"]),
             speaker_a_name="   ",
         )
 
-    pattern = ConversationPattern(
+    pattern = TwoSpeakerConversationPattern(
         llm_client_a=_CaptureLLMClient(response_texts=["a1", "b1"]),
         max_turns=1,
         speaker_a_user_prompt_template="$missing_variable",

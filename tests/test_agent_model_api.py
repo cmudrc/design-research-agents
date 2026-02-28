@@ -16,9 +16,9 @@ from design_research_agents.agent import (
     MultiStepAgent,
 )
 from design_research_agents.patterns import (
-    ConversationPattern,
     PlanExecutePattern,
-    ReflexionPattern,
+    ProposeCriticPattern,
+    TwoSpeakerConversationPattern,
 )
 from design_research_agents.tools import Toolbox
 
@@ -61,9 +61,9 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
         DirectLLMCall,
         MultiStepAgent,
-        ConversationPattern,
+        TwoSpeakerConversationPattern,
         PlanExecutePattern,
-        ReflexionPattern,
+        ProposeCriticPattern,
     )
     for cls in classes:
         assert "model" not in inspect.signature(cls.__init__).parameters
@@ -77,7 +77,7 @@ def test_agent_constructor_signatures_expose_supported_kwargs() -> None:
     assert "max_iterations" in planner_params
     assert "max_tool_calls_per_step" in planner_params
 
-    reflexion_params = inspect.signature(ReflexionPattern.__init__).parameters
+    reflexion_params = inspect.signature(ProposeCriticPattern.__init__).parameters
     assert "max_iterations" in reflexion_params
 
 
@@ -95,13 +95,13 @@ def test_workflow_patterns_fail_when_llm_default_model_is_empty() -> None:
         ).run("Compute 1 + 1")
 
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        ReflexionPattern(
+        ProposeCriticPattern(
             llm_client=empty_client,
             tool_runtime=Toolbox(),
         ).run("Draft")
 
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        ConversationPattern(
+        TwoSpeakerConversationPattern(
             llm_client_a=empty_client,
             max_turns=1,
         ).run("Discuss this briefly.")
