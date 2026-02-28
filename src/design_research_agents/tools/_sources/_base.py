@@ -17,7 +17,7 @@ class ToolSource(Protocol):
         """Return all tools exposed by the source.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
 
     def invoke(
@@ -31,11 +31,11 @@ class ToolSource(Protocol):
         """Invoke a tool by source-native name.
 
         Args:
-            tool_name: Input value for this parameter.
-            input_dict: Input value for this parameter.
-            request_id: Input value for this parameter.
-            dependencies: Input value for this parameter.
+            tool_name: Value supplied for ``tool_name``.
+            input_dict: Value supplied for ``input_dict``.
+            request_id: Value supplied for ``request_id``.
+            dependencies: Value supplied for ``dependencies``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """

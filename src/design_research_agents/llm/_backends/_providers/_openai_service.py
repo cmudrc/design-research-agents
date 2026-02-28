@@ -49,15 +49,15 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Configure OpenAI client defaults and optional capability overrides.
 
         Args:
-            name: Input value for this parameter.
-            default_model: Input value for this parameter.
-            api_key_env: Input value for this parameter.
-            api_key: Input value for this parameter.
-            base_url: Input value for this parameter.
-            capabilities: Input value for this parameter.
-            config_hash: Input value for this parameter.
-            max_retries: Input value for this parameter.
-            model_patterns: Input value for this parameter.
+            name: Value supplied for ``name``.
+            default_model: Value supplied for ``default_model``.
+            api_key_env: Value supplied for ``api_key_env``.
+            api_key: Value supplied for ``api_key``.
+            base_url: Value supplied for ``base_url``.
+            capabilities: Value supplied for ``capabilities``.
+            config_hash: Value supplied for ``config_hash``.
+            max_retries: Value supplied for ``max_retries``.
+            model_patterns: Value supplied for ``model_patterns``.
         """
         super().__init__(
             name=name,
@@ -77,7 +77,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Return effective capabilities for this OpenAI backend.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         default_caps = BackendCapabilities(
             streaming=True,
@@ -92,7 +92,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Return static status for a configured OpenAI backend.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return BackendStatus(ok=True, message="OpenAI backend configured.")
 
@@ -100,10 +100,10 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Generate one completion using the OpenAI Responses API.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -127,7 +127,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Stream completion deltas from the OpenAI Responses API.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Yields:
             The yielded values.
@@ -173,13 +173,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
                 yield LLMDelta(usage_delta=usage_payload)
 
     def _fallback_prompt_validate(self, request: LLMRequest) -> LLMResponse:
-        """Run fallback prompt validate.
+        """Fallback prompt validate.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         structured_output_result = generate_json(
             generate_fn=lambda req: self._generate_without_response_format(req),
@@ -191,13 +191,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return _merge_structured_response(structured_output_result)
 
     def _generate_without_response_format(self, request: LLMRequest) -> LLMResponse:
-        """Run generate without response format.
+        """Generate without response format.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         request_payload = self._build_payload(request, include_response_format=False)
         completion_response = self._call_with_retry(request_payload)
@@ -209,14 +209,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
-        """Run build payload.
+        """Build payload.
 
         Args:
-            request: Input value for this parameter.
-            include_response_format: Input value for this parameter.
+            request: Value supplied for ``request``.
+            include_response_format: Value supplied for ``include_response_format``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         request_payload: dict[str, Any] = {
             "model": request.model,
@@ -237,13 +237,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return request_payload
 
     def _call_with_retry(self, request_payload: dict[str, Any]) -> Any:
-        """Run call with retry.
+        """Call with retry.
 
         Args:
-            request_payload: Input value for this parameter.
+            request_payload: Value supplied for ``request_payload``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -263,10 +263,10 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return client.chat.completions.create(**request_payload)
 
     def _create_client(self) -> Any:
-        """Run create client.
+        """Create client.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -285,10 +285,10 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return self._client
 
     def _resolve_api_key(self) -> str:
-        """Run resolve api key.
+        """Resolve api key.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -302,13 +302,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
-    """Run format messages.
+    """Format messages.
 
     Args:
-        messages: Input value for this parameter.
+        messages: Value supplied for ``messages``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     message_payloads: list[dict[str, Any]] = []
     for message in messages:
@@ -328,13 +328,13 @@ def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
-    """Run format tool.
+    """Format tool.
 
     Args:
-        tool: Input value for this parameter.
+        tool: Value supplied for ``tool``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     return {
         "type": "function",
@@ -347,13 +347,13 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
 
 
 def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
-    """Run format response format.
+    """Format response format.
 
     Args:
-        request: Input value for this parameter.
+        request: Value supplied for ``request``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if request.response_format and isinstance(request.response_format, dict):
         return request.response_format
@@ -374,15 +374,15 @@ def _parse_completion_response(
     *,
     provider: str,
 ) -> LLMResponse:
-    """Run parse completion response.
+    """Parse completion response.
 
     Args:
-        completion_response: Input value for this parameter.
-        request: Input value for this parameter.
-        provider: Input value for this parameter.
+        completion_response: Value supplied for ``completion_response``.
+        request: Value supplied for ``request``.
+        provider: Value supplied for ``provider``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -409,13 +409,13 @@ def _parse_completion_response(
 
 
 def _response_to_dict(completion_response: Any) -> dict[str, Any]:
-    """Run response to dict.
+    """Response to dict.
 
     Args:
-        completion_response: Input value for this parameter.
+        completion_response: Value supplied for ``completion_response``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     try:
         response_payload = completion_response.model_dump()
@@ -427,13 +427,13 @@ def _response_to_dict(completion_response: Any) -> dict[str, Any]:
 
 
 def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
-    """Run tool calls to list.
+    """Tool calls to list.
 
     Args:
-        raw_tool_calls: Input value for this parameter.
+        raw_tool_calls: Value supplied for ``raw_tool_calls``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if raw_tool_calls is None:
         return None
@@ -446,13 +446,13 @@ def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
 
 
 def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
-    """Run usage to dict.
+    """Usage to dict.
 
     Args:
-        raw_usage: Input value for this parameter.
+        raw_usage: Value supplied for ``raw_usage``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if raw_usage is None:
         return None
@@ -468,38 +468,38 @@ def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
 
 
 def _is_response_format_error(error: Exception) -> bool:
-    """Run is response format error.
+    """Is response format error.
 
     Args:
-        error: Input value for this parameter.
+        error: Value supplied for ``error``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     message = str(error).lower()
     return "response_format" in message or "json_schema" in message
 
 
 def _should_retry(error: Exception) -> bool:
-    """Run should retry.
+    """Should retry.
 
     Args:
-        error: Input value for this parameter.
+        error: Value supplied for ``error``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     return isinstance(error, (LLMRateLimitError, LLMProviderError))
 
 
 def _merge_structured_response(structured_output_result: Any) -> LLMResponse:
-    """Run merge structured response.
+    """Merge structured response.
 
     Args:
-        structured_output_result: Input value for this parameter.
+        structured_output_result: Value supplied for ``structured_output_result``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     parsed_text = structured_output_result.parsed
     if not isinstance(parsed_text, str):

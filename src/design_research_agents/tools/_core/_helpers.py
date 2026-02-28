@@ -6,30 +6,30 @@ from collections.abc import Mapping
 
 
 def get_str(input_dict: Mapping[str, object], key: str, *, default: str = "") -> str:
-    """Run get str.
+    """Get str.
 
     Args:
-        input_dict: Input value for this parameter.
-        key: Input value for this parameter.
-        default: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        key: Value supplied for ``key``.
+        default: Value supplied for ``default``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     value = input_dict.get(key, default)
     return str(value)
 
 
 def get_int(input_dict: Mapping[str, object], key: str, *, default: int) -> int:
-    """Run get int.
+    """Get int.
 
     Args:
-        input_dict: Input value for this parameter.
-        key: Input value for this parameter.
-        default: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        key: Value supplied for ``key``.
+        default: Value supplied for ``default``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -47,15 +47,15 @@ def get_int(input_dict: Mapping[str, object], key: str, *, default: int) -> int:
 
 
 def get_bool(input_dict: Mapping[str, object], key: str, *, default: bool = False) -> bool:
-    """Run get bool.
+    """Get bool.
 
     Args:
-        input_dict: Input value for this parameter.
-        key: Input value for this parameter.
-        default: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        key: Value supplied for ``key``.
+        default: Value supplied for ``default``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.

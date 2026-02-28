@@ -15,11 +15,11 @@ def infer_expression(*, input_payload: Mapping[str, object], prompt: str) -> str
     """Infer arithmetic expression from payload fields and prompt text.
 
     Args:
-        input_payload: Input value for this parameter.
-        prompt: Input value for this parameter.
+        input_payload: Value supplied for ``input_payload``.
+        prompt: Value supplied for ``prompt``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     explicit_expression = input_payload.get("expression")
     if explicit_expression is not None:
@@ -48,11 +48,11 @@ def resolve_known_tool_input(
     """Build heuristic input payloads for known core tool families.
 
     Args:
-        tool_name: Input value for this parameter.
-        input_payload: Input value for this parameter.
+        tool_name: Value supplied for ``tool_name``.
+        input_payload: Value supplied for ``input_payload``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if tool_name in CALCULATOR_TOOL_NAMES:
         return {

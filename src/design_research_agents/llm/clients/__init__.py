@@ -1,4 +1,4 @@
-"""Public LLM client entrypoints backed by internal provider wrappers."""
+"""Stable public LLM client classes backed by internal provider wrappers."""
 
 from ._anthropic_service import AnthropicServiceLLMClient
 from ._azure_openai_service import AzureOpenAIServiceLLMClient

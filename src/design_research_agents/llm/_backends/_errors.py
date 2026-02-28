@@ -15,10 +15,10 @@ def map_backend_exception(exc: Exception) -> LLMError:
     """Map backend/provider exceptions into normalized contract exceptions.
 
     Args:
-        exc: Input value for this parameter.
+        exc: Value supplied for ``exc``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if isinstance(exc, LLMError):
         return exc

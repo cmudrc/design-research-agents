@@ -1,8 +1,8 @@
 Schema Modules
 ==============
 
-This page lists internal schema-validation modules. These underscored module
-paths are documented for contributor visibility and are not API-stable.
+This page documents internal schema-validation modules for contributor visibility.
+These underscored module paths are intentionally unstable.
 
 .. automodule:: design_research_agents._schemas._validation
    :members:

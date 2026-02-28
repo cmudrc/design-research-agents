@@ -19,10 +19,10 @@ def normalize_alternatives_prompt_target(
     """Normalize and validate one alternatives prompt target value.
 
     Args:
-        raw_target: Input value for this parameter.
+        raw_target: Value supplied for ``raw_target``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.

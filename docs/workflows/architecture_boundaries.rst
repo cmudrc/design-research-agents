@@ -1,7 +1,7 @@
 Architecture Boundaries
 =======================
 
-This page captures the intended separation of concerns for workflow orchestration.
+This page captures the intended separation of concerns in workflow orchestration.
 
 Primary boundaries
 ------------------

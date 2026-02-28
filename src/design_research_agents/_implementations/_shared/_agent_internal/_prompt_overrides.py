@@ -17,12 +17,12 @@ def resolve_prompt_text(
     """Resolve prompt text from optional override or packaged default.
 
     Args:
-        override: Input value for this parameter.
-        default_prompt_name: Input value for this parameter.
-        field_name: Input value for this parameter.
+        override: Value supplied for ``override``.
+        default_prompt_name: Value supplied for ``default_prompt_name``.
+        field_name: Value supplied for ``field_name``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if override is None:
         return load_prompt(default_prompt_name)
@@ -33,11 +33,11 @@ def validate_prompt_text(*, value: str, field_name: str) -> str:
     """Validate one prompt/template override and return normalized text.
 
     Args:
-        value: Input value for this parameter.
-        field_name: Input value for this parameter.
+        value: Value supplied for ``value``.
+        field_name: Value supplied for ``field_name``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -57,12 +57,12 @@ def render_template_text(
     """Render template text with strict missing-key validation.
 
     Args:
-        template_text: Input value for this parameter.
-        variables: Input value for this parameter.
-        field_name: Input value for this parameter.
+        template_text: Value supplied for ``template_text``.
+        variables: Value supplied for ``variables``.
+        field_name: Value supplied for ``field_name``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.

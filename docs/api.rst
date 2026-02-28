@@ -4,13 +4,13 @@ API
 This page documents the supported top-level public API from
 ``design_research_agents.__all__``.
 
-Guaranteed compatibility applies to this top-level API surface and the public
-facade modules documented in ``docs/reference`` under "Guaranteed Public
-Modules".
+Guaranteed compatibility applies to this top-level API surface and to the
+public facade modules documented in ``docs/reference`` under "Guaranteed
+Public Modules".
 
 Underscored module paths (for example ``design_research_agents._contracts``)
-are internal and unstable. They are documented in module reference for
-contributors but are not compatibility-guaranteed.
+are internal and unstable. They are documented in the module reference for
+contributors, but they are not compatibility-guaranteed.
 
 Top-level groups:
 

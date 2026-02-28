@@ -1,4 +1,4 @@
-"""Public workflow builder exports."""
+"""Stable public exports for building and running workflows."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ __all__ = [
 
 
 def __dir__() -> list[str]:
-    """Return workflow module attributes.
+    """Return workflow module attributes, including re-exported helpers.
 
     Returns:
         Sorted attribute names visible on this module.

@@ -35,7 +35,7 @@ class CoreToolSource:
         self._register_default_tools()
 
     def _register_default_tools(self) -> None:
-        """Run register default tools."""
+        """Register default tools."""
         register_text_tools(self._source)
         register_python_tools(self._source)
         register_evaluation_tools(self._source)

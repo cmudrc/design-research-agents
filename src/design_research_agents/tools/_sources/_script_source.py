@@ -24,12 +24,12 @@ class ScriptToolRuntimeError(RuntimeError):
 
 @dataclass(slots=True, frozen=True)
 class _ScriptToolBinding:
-    """_ScriptToolBinding class."""
+    """Resolved binding for one configured script-backed tool."""
 
     canonical_name: str
-    """Field value for ``canonical_name``."""
+    """Canonical public tool name exposed by the runtime."""
     config: ScriptToolConfig
-    """Field value for ``config``."""
+    """Script configuration that drives invocation and policy checks."""
 
 
 class ScriptToolSource:
@@ -41,8 +41,8 @@ class ScriptToolSource:
         """Initialize script tool bindings with policy controls.
 
         Args:
-            script_tools: Input value for this parameter.
-            policy: Input value for this parameter.
+            script_tools: Explicit script tool definitions to register.
+            policy: Tool policy used for command validation and sandbox defaults.
         """
         self._policy = policy
         self._bindings: dict[str, _ScriptToolBinding] = {}
@@ -58,7 +58,7 @@ class ScriptToolSource:
         """List script-backed tool specs.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         specs: list[ToolSpec] = []
         for canonical_name, binding in sorted(self._bindings.items()):
@@ -97,13 +97,13 @@ class ScriptToolSource:
         """Invoke one configured script tool by canonical name.
 
         Args:
-            tool_name: Input value for this parameter.
-            input_dict: Input value for this parameter.
-            request_id: Input value for this parameter.
-            dependencies: Input value for this parameter.
+            tool_name: Value supplied for ``tool_name``.
+            input_dict: Value supplied for ``input_dict``.
+            request_id: Value supplied for ``request_id``.
+            dependencies: Value supplied for ``dependencies``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         del request_id, dependencies
         binding = self._bindings.get(tool_name)
@@ -122,13 +122,13 @@ class ScriptToolSource:
 
 
 def _canonical_script_tool_name(raw_name: str) -> str:
-    """Run canonical script tool name.
+    """Normalize a configured script tool name into the script namespace.
 
     Args:
-        raw_name: Input value for this parameter.
+        raw_name: User-declared tool name from configuration.
 
     Returns:
-        Computed return value.
+        Canonical tool name prefixed with ``script::``.
     """
     normalized = raw_name.strip()
     if normalized.startswith("script::"):
@@ -144,16 +144,16 @@ def _run_script_tool(
     input_dict: Mapping[str, object],
     policy: ToolPolicy,
 ) -> ToolResult:
-    """Run run script tool.
+    """Execute one configured script tool and normalize its response.
 
     Args:
-        tool_name: Input value for this parameter.
-        config: Input value for this parameter.
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        tool_name: Canonical tool name exposed by the runtime.
+        config: Script tool configuration that defines the executable and policy.
+        input_dict: JSON-serializable tool-input payload.
+        policy: Tool policy used to validate commands and clamp output.
 
     Returns:
-        Computed return value.
+        Tool result representing success, failure, or envelope-parse errors.
     """
     if config.network and not policy.config.allow_network:
         return ToolResult(
@@ -267,13 +267,13 @@ def _run_script_tool(
 
 
 def _parse_envelope(stdout_text: str) -> Mapping[str, object]:
-    """Run parse envelope.
+    """Parse envelope.
 
     Args:
-        stdout_text: Input value for this parameter.
+        stdout_text: Value supplied for ``stdout_text``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.

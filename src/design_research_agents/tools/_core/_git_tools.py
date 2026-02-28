@@ -20,8 +20,8 @@ def register_git_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> No
     """Register read-oriented git inspection tools.
 
     Args:
-        source: Input value for this parameter.
-        policy: Input value for this parameter.
+        source: Value supplied for ``source``.
+        policy: Value supplied for ``policy``.
     """
     metadata = ToolMetadata(
         source="core",
@@ -101,14 +101,14 @@ def register_git_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> No
 
 
 def _git_status(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run git status.
+    """Git status.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     return {
@@ -118,14 +118,14 @@ def _git_status(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapp
 
 
 def _git_diff(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run git diff.
+    """Git diff.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     staged = get_bool(input_dict, "staged", default=False)
@@ -142,14 +142,14 @@ def _git_diff(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _git_log(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run git log.
+    """Git log.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
     max_commits = get_int(input_dict, "max_commits", default=20)
@@ -164,14 +164,14 @@ def _git_log(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping
 
 
 def _git_show(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run git show.
+    """Git show.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -188,15 +188,15 @@ def _git_show(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _run_git(*, policy: ToolPolicy, repo: str, args: list[str]) -> str:
-    """Run run git.
+    """Execute one ``git`` command and return normalized output.
 
     Args:
-        policy: Input value for this parameter.
-        repo: Input value for this parameter.
-        args: Input value for this parameter.
+        policy: Tool policy used to validate command execution and clamp output.
+        repo: Repository path passed to ``git -C``.
+        args: Additional ``git`` arguments to execute.
 
     Returns:
-        Computed return value.
+        Command output with stderr appended when present.
     """
     policy.validate_command("git")
     completed = subprocess.run(

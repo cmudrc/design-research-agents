@@ -297,7 +297,7 @@ class ProposeCriticPattern(Delegate):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ExecutionResult:
-        """Run propose/critic loop until approval or termination.
+        """Propose/critic loop until approval or termination.
 
         Args:
             prompt: Task prompt to iteratively refine.

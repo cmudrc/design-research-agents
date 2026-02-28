@@ -103,7 +103,7 @@ class AnthropicServiceBackend(BaseLLMBackend):
             yield from _stream_event_deltas(event, tool_state_by_index=tool_state_by_index)
 
     def _fallback_prompt_validate(self, request: LLMRequest) -> LLMResponse:
-        """Run prompt+validate fallback for structured output compatibility."""
+        """Prompt+validate fallback for structured output compatibility."""
         structured_output_result = generate_json(
             generate_fn=lambda req: self._generate_without_response_format(req),
             request=request,

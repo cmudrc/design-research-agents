@@ -1,7 +1,7 @@
 Workflow Builder Modules
 ========================
 
-This page lists stable public workflow-construction modules.
+This page documents the stable public workflow-building facades.
 
 .. automodule:: design_research_agents.workflow
    :members:

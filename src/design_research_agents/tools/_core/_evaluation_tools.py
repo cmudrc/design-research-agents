@@ -99,7 +99,7 @@ def _decision_matrix_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Run weighted decision matrix scoring.
+    """Weighted decision matrix scoring.
 
     Args:
         input_dict: Tool input payload.
@@ -171,7 +171,7 @@ def _pairwise_rank_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Run pairwise ranking with Copeland aggregation.
+    """Pairwise ranking with Copeland aggregation.
 
     Args:
         input_dict: Tool input payload.

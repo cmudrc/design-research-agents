@@ -40,7 +40,7 @@ def run_workflow_loop(
     dependencies: Mapping[str, object],
     tracer: Tracer | None = None,
 ) -> WorkflowLoopResult:
-    """Run a stateful iteration loop through public ``Workflow`` + ``LoopStep``.
+    """A stateful iteration loop through public ``Workflow`` + ``LoopStep``.
 
     Args:
         max_iterations: Maximum number of loop iterations.
@@ -96,7 +96,7 @@ def compile_workflow_loop(
     """Compile a stateful iteration loop into a public ``Workflow``."""
 
     def _iteration_logic(step_context: Mapping[str, object]) -> Mapping[str, object]:
-        """Run one loop iteration handler with normalized loop state."""
+        """One loop iteration handler with normalized loop state."""
         loop_metadata = step_context.get("_loop")
         raw_iteration = loop_metadata.get("iteration") if isinstance(loop_metadata, Mapping) else 1
         iteration = _parse_iteration(raw_iteration)

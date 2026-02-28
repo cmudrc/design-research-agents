@@ -20,7 +20,7 @@ def register_text_tools(source: InProcessToolSource) -> None:
     """Register core text analysis and extraction utilities.
 
     Args:
-        source: Input value for this parameter.
+        source: Value supplied for ``source``.
     """
     metadata = ToolMetadata(
         source="core",
@@ -112,15 +112,15 @@ def _word_count_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Run word count handler.
+    """Word count handler.
 
     Args:
-        input_dict: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     del request_id, dependencies
     text = get_str(input_dict, "text")
@@ -140,15 +140,15 @@ def _extract_json_tool_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Run extract json tool handler.
+    """Extract json tool handler.
 
     Args:
-        input_dict: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -177,15 +177,15 @@ def _diff_tool_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Run diff tool handler.
+    """Diff tool handler.
 
     Args:
-        input_dict: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     del request_id, dependencies
     a_text = get_str(input_dict, "a")
@@ -200,13 +200,13 @@ def _diff_tool_handler(
 
 
 def _extract_object_candidates(text: str) -> list[str]:
-    """Run extract object candidates.
+    """Extract object candidates.
 
     Args:
-        text: Input value for this parameter.
+        text: Value supplied for ``text``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     candidates: list[str] = []
     depth = 0

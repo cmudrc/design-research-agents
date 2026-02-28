@@ -345,7 +345,7 @@ class BeamSearchPattern(Delegate):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ExecutionResult:
-        """Run beam-style expansion and scoring through workflow loop primitives.
+        """Beam-style expansion and scoring through workflow loop primitives.
 
         Args:
             prompt: Task prompt to optimize through tree search.

@@ -655,7 +655,7 @@ class PlanExecutePattern(Delegate):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> tuple[dict[str, object] | None, LLMResponse | None]:
-        """Run planner model call through ``ModelStep`` and extract parsed plan output."""
+        """Planner model call through ``ModelStep`` and extract parsed plan output."""
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
         planner_workflow = Workflow(
             tool_runtime=None,

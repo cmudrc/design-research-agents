@@ -1,8 +1,8 @@
 Design Research Tools
 =====================
 
-This page summarizes the design/engineering-oriented core tools intended for
-structured JSON tool-calling agents.
+This page summarizes the design- and engineering-oriented core tools that pair
+well with structured JSON tool-calling agents.
 
 Python sandbox
 --------------

@@ -1,8 +1,8 @@
 Contracts Modules
 =================
 
-This page lists internal contract modules. These underscored module paths are
-documented for contributor visibility and are not API-stable.
+This page documents internal contract modules for contributor visibility.
+These underscored module paths are intentionally unstable.
 
 .. automodule:: design_research_agents._contracts._delegate
    :members:

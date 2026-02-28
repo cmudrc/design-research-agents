@@ -15,7 +15,14 @@ Development install
 
 .. code-block:: bash
 
-   pip install -e ".[dev]"
+   make dev
+
+Reproducible install
+--------------------
+
+.. code-block:: bash
+
+   make repro REPRO_EXTRAS="dev full"
 
 Extras matrix
 -------------
@@ -79,7 +86,7 @@ Extras matrix
 Recommended profiles
 --------------------
 
-- Fast contributor loop: ``pip install -e ".[dev]"``
+- Fast contributor loop: ``make dev``
 - Anthropic hosted experimentation: ``pip install -e ".[dev,anthropic]"``
 - Gemini hosted experimentation: ``pip install -e ".[dev,gemini]"``
 - Groq hosted experimentation: ``pip install -e ".[dev,groq]"``

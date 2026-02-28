@@ -1,7 +1,7 @@
 Pattern Modules
 ===============
 
-This page lists stable public pattern modules.
+This page documents the stable public pattern facades.
 
 .. automodule:: design_research_agents.patterns
    :members:

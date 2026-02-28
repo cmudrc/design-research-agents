@@ -36,7 +36,7 @@ class AgentRoutingToolRuntimeAdapter(ToolRuntime):
         """Return virtual tool specs derived from agent-routing alternatives.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         specs: list[ToolSpec] = []
         for name, agent in self._alternatives.items():
@@ -70,13 +70,13 @@ class AgentRoutingToolRuntimeAdapter(ToolRuntime):
         """Record a routing choice as a successful virtual tool invocation.
 
         Args:
-            tool_name: Input value for this parameter.
-            input_dict: Input value for this parameter.
-            request_id: Input value for this parameter.
-            dependencies: Input value for this parameter.
+            tool_name: Value supplied for ``tool_name``.
+            input_dict: Value supplied for ``input_dict``.
+            request_id: Value supplied for ``request_id``.
+            dependencies: Value supplied for ``dependencies``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         if tool_name not in self._alternatives:
             return ToolResult(

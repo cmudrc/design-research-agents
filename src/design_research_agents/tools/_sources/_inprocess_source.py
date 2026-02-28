@@ -21,7 +21,7 @@ class InProcessToolSource:
         """Initialize in-process tool source storage for specs and handlers.
 
         Args:
-            source_id: Input value for this parameter.
+            source_id: Value supplied for ``source_id``.
         """
         self.source_id = source_id
         self._specs: dict[str, ToolSpec] = {}
@@ -31,8 +31,8 @@ class InProcessToolSource:
         """Register or replace one tool spec and its execution handler.
 
         Args:
-            spec: Input value for this parameter.
-            handler: Input value for this parameter.
+            spec: Value supplied for ``spec``.
+            handler: Value supplied for ``handler``.
         """
         self._specs[spec.name] = spec
         self._handlers[spec.name] = handler
@@ -41,7 +41,7 @@ class InProcessToolSource:
         """List all currently registered in-process tools.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return tuple(self._specs.values())
 
@@ -56,13 +56,13 @@ class InProcessToolSource:
         """Invoke one in-process handler and normalize return payloads.
 
         Args:
-            tool_name: Input value for this parameter.
-            input_dict: Input value for this parameter.
-            request_id: Input value for this parameter.
-            dependencies: Input value for this parameter.
+            tool_name: Value supplied for ``tool_name``.
+            input_dict: Value supplied for ``input_dict``.
+            request_id: Value supplied for ``request_id``.
+            dependencies: Value supplied for ``dependencies``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         span_id = start_tool_call(
             tool_name=tool_name,

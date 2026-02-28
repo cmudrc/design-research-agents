@@ -44,12 +44,12 @@ class LlamaCppBackend(BaseLLMBackend):
         """Initialize the managed llama.cpp server wrapper backend.
 
         Args:
-            name: Input value for this parameter.
-            llama_backend: Input value for this parameter.
-            default_model: Input value for this parameter.
-            config_hash: Input value for this parameter.
-            max_retries: Input value for this parameter.
-            model_patterns: Input value for this parameter.
+            name: Value supplied for ``name``.
+            llama_backend: Value supplied for ``llama_backend``.
+            default_model: Value supplied for ``default_model``.
+            config_hash: Value supplied for ``config_hash``.
+            max_retries: Value supplied for ``max_retries``.
+            model_patterns: Value supplied for ``model_patterns``.
         """
         super().__init__(
             name=name,
@@ -77,7 +77,7 @@ class LlamaCppBackend(BaseLLMBackend):
         """Return capabilities provided by the wrapped llama.cpp server.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return _LLAMA_CPP_CAPABILITIES
 
@@ -85,7 +85,7 @@ class LlamaCppBackend(BaseLLMBackend):
         """Return static health status for configured llama.cpp backend.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return BackendStatus(ok=True, message="llama.cpp backend configured.")
 
@@ -93,10 +93,10 @@ class LlamaCppBackend(BaseLLMBackend):
         """Generate one response via the managed llama.cpp HTTP backend.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         self._backend.start()
         return self._http_backend.generate(request)
@@ -105,7 +105,7 @@ class LlamaCppBackend(BaseLLMBackend):
         """Stream one response delta via the managed llama.cpp backend.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Yields:
             The yielded values.

@@ -24,10 +24,10 @@ def compile_sandboxed_code(code_text: str) -> CodeType:
     """Validate and compile generated code under strict sandbox constraints.
 
     Args:
-        code_text: Input value for this parameter.
+        code_text: Value supplied for ``code_text``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when validation or execution fails.
@@ -44,7 +44,7 @@ def validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
     """Validate AST uses only explicitly allowed constructs and names.
 
     Args:
-        syntax_tree: Input value for this parameter.
+        syntax_tree: Value supplied for ``syntax_tree``.
 
     Raises:
         Exception: Raised when validation or execution fails.
@@ -115,7 +115,7 @@ class _FinalOutputProxy(dict[str, object]):
         """Execute was mutated.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._was_mutated
 
@@ -123,8 +123,8 @@ class _FinalOutputProxy(dict[str, object]):
         """Execute setitem.
 
         Args:
-            key: Input value for this parameter.
-            value: Input value for this parameter.
+            key: Value supplied for ``key``.
+            value: Value supplied for ``value``.
         """
         self._was_mutated = True
         super().__setitem__(key, value)
@@ -133,7 +133,7 @@ class _FinalOutputProxy(dict[str, object]):
         """Execute delitem.
 
         Args:
-            key: Input value for this parameter.
+            key: Value supplied for ``key``.
         """
         self._was_mutated = True
         super().__delitem__(key)
@@ -147,11 +147,11 @@ class _FinalOutputProxy(dict[str, object]):
         """Execute pop.
 
         Args:
-            key: Input value for this parameter.
-            default: Input value for this parameter.
+            key: Value supplied for ``key``.
+            default: Value supplied for ``default``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         self._was_mutated = True
         return super().pop(key, default)
@@ -160,7 +160,7 @@ class _FinalOutputProxy(dict[str, object]):
         """Execute popitem.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         self._was_mutated = True
         return super().popitem()
@@ -169,11 +169,11 @@ class _FinalOutputProxy(dict[str, object]):
         """Execute setdefault.
 
         Args:
-            key: Input value for this parameter.
-            default: Input value for this parameter.
+            key: Value supplied for ``key``.
+            default: Value supplied for ``default``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         self._was_mutated = True
         return super().setdefault(key, default)
@@ -407,20 +407,20 @@ def execute_compiled_code(
     """Execute compiled code with strict runtime sandbox and tool guardrails.
 
     Args:
-        compiled_code: Input value for this parameter.
-        prompt: Input value for this parameter.
-        input_payload: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
-        allowed_tools: Input value for this parameter.
-        tool_runtime: Input value for this parameter.
-        max_tool_calls: Input value for this parameter.
-        execution_timeout_seconds: Input value for this parameter.
-        validate_tool_input_schema: Input value for this parameter.
-        tool_results: Input value for this parameter.
+        compiled_code: Value supplied for ``compiled_code``.
+        prompt: Value supplied for ``prompt``.
+        input_payload: Value supplied for ``input_payload``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
+        allowed_tools: Value supplied for ``allowed_tools``.
+        tool_runtime: Value supplied for ``tool_runtime``.
+        max_tool_calls: Value supplied for ``max_tool_calls``.
+        execution_timeout_seconds: Value supplied for ``execution_timeout_seconds``.
+        validate_tool_input_schema: Value supplied for ``validate_tool_input_schema``.
+        tool_results: Value supplied for ``tool_results``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when validation or execution fails.
@@ -432,11 +432,11 @@ def execute_compiled_code(
         """Execute call tool.
 
         Args:
-            tool_name: Input value for this parameter.
-            tool_input: Input value for this parameter.
+            tool_name: Value supplied for ``tool_name``.
+            tool_input: Value supplied for ``tool_input``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when validation or execution fails.
@@ -518,7 +518,7 @@ def execution_timeout(*, seconds: int) -> Iterator[None]:
     """Enforce execution timeout via POSIX alarms when available.
 
     Args:
-        seconds: Input value for this parameter.
+        seconds: Value supplied for ``seconds``.
 
     Yields:
         The yielded values.
@@ -532,8 +532,8 @@ def execution_timeout(*, seconds: int) -> Iterator[None]:
         """Execute on timeout.
 
         Args:
-            signum: Input value for this parameter.
-            frame: Input value for this parameter.
+            signum: Value supplied for ``signum``.
+            frame: Value supplied for ``frame``.
 
         Raises:
             Exception: Raised when validation or execution fails.
@@ -564,8 +564,8 @@ def validate_input_against_schema(
     """Validate tool input against constrained JSON-schema-like subset.
 
     Args:
-        input_payload: Input value for this parameter.
-        input_schema: Input value for this parameter.
+        input_payload: Value supplied for ``input_payload``.
+        input_schema: Value supplied for ``input_schema``.
 
     Raises:
         Exception: Raised when validation or execution fails.
@@ -609,9 +609,9 @@ def validate_field_type(
     """Validate one input field value against supported schema type hints.
 
     Args:
-        field_name: Input value for this parameter.
-        field_value: Input value for this parameter.
-        field_schema: Input value for this parameter.
+        field_name: Value supplied for ``field_name``.
+        field_value: Value supplied for ``field_value``.
+        field_schema: Value supplied for ``field_schema``.
 
     Raises:
         Exception: Raised when validation or execution fails.
@@ -648,17 +648,17 @@ def failure_result(
     """Build a structured failure result for predictable error handling.
 
     Args:
-        error: Input value for this parameter.
-        model_response: Input value for this parameter.
-        tool_results: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
-        metadata: Input value for this parameter.
-        generated_code: Input value for this parameter.
-        raw_generated_code: Input value for this parameter.
+        error: Value supplied for ``error``.
+        model_response: Value supplied for ``model_response``.
+        tool_results: Value supplied for ``tool_results``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
+        metadata: Value supplied for ``metadata``.
+        generated_code: Value supplied for ``generated_code``.
+        raw_generated_code: Value supplied for ``raw_generated_code``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     output: dict[str, object] = {
         "error": error,

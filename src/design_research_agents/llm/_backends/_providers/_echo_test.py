@@ -22,9 +22,9 @@ class EchoTestBackend(BaseLLMBackend):
         """Configure a deterministic echo backend for tests.
 
         Args:
-            name: Input value for this parameter.
-            model: Input value for this parameter.
-            config_hash: Input value for this parameter.
+            name: Value supplied for ``name``.
+            model: Value supplied for ``model``.
+            config_hash: Value supplied for ``config_hash``.
         """
         super().__init__(
             name=name,
@@ -40,7 +40,7 @@ class EchoTestBackend(BaseLLMBackend):
         """Return capabilities exposed by the echo backend.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return BackendCapabilities(
             streaming=True,
@@ -54,7 +54,7 @@ class EchoTestBackend(BaseLLMBackend):
         """Return an always-healthy status for deterministic test backend.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return BackendStatus(ok=True, message="echo-test backend is always healthy.")
 
@@ -62,10 +62,10 @@ class EchoTestBackend(BaseLLMBackend):
         """Generate one deterministic echo response for the provided request.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         prompt = messages_to_prompt(request.messages)
         cleaned_prompt = " ".join(prompt.strip().split())
@@ -78,7 +78,7 @@ class EchoTestBackend(BaseLLMBackend):
         """Stream one deterministic echo delta for the provided request.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Yields:
             The yielded values.

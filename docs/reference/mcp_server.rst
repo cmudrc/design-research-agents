@@ -1,8 +1,8 @@
 MCP Server Modules
 ==================
 
-This page lists internal MCP server modules. These underscored module paths are
-documented for contributor visibility and are not API-stable.
+This page documents internal MCP server modules for contributor visibility.
+These underscored module paths are intentionally unstable.
 
 .. automodule:: design_research_agents._mcp_server.__main__
    :members:

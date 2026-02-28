@@ -84,27 +84,27 @@ class ConsoleTraceSink:
             self._write_line(rendered)
 
     def _normalize_attributes(self, attrs: object) -> Mapping[str, object]:
-        """Run normalize attributes.
+        """Normalize attributes.
 
         Args:
-            attrs: Input value for this parameter.
+            attrs: Value supplied for ``attrs``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         if isinstance(attrs, Mapping):
             return attrs
         return {}
 
     def _emit_token_delta(self, *, event_type: str, attrs: Mapping[str, object]) -> bool:
-        """Run emit token delta.
+        """Emit token delta.
 
         Args:
-            event_type: Input value for this parameter.
-            attrs: Input value for this parameter.
+            event_type: Value supplied for ``event_type``.
+            attrs: Value supplied for ``attrs``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         if event_type != "ModelCallToken":
             return False
@@ -117,10 +117,10 @@ class ConsoleTraceSink:
         return True
 
     def _maybe_close_streaming_line(self, event_type: str) -> None:
-        """Run maybe close streaming line.
+        """Maybe close streaming line.
 
         Args:
-            event_type: Input value for this parameter.
+            event_type: Value supplied for ``event_type``.
         """
         if self._streaming_line_open and event_type.startswith("ModelCall"):
             self._stream.write("\n")
@@ -133,15 +133,15 @@ class ConsoleTraceSink:
         attrs: Mapping[str, object],
         event: Mapping[str, object],
     ) -> str | None:
-        """Run render event line.
+        """Render event line.
 
         Args:
-            event_type: Input value for this parameter.
-            attrs: Input value for this parameter.
-            event: Input value for this parameter.
+            event_type: Value supplied for ``event_type``.
+            attrs: Value supplied for ``attrs``.
+            event: Value supplied for ``event``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         # Keep renderer table explicit so event-label changes are easy to diff/review.
         event_lines: dict[str, str] = {
@@ -215,10 +215,10 @@ class ConsoleTraceSink:
             self._streaming_line_open = False
 
     def _write_line(self, text: str) -> None:
-        """Run write line.
+        """Write line.
 
         Args:
-            text: Input value for this parameter.
+            text: Value supplied for ``text``.
         """
         self._stream.write(f"{text}\n")
         self._stream.flush()

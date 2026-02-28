@@ -39,7 +39,7 @@ def register_bash_tools(source: InProcessToolSource) -> None:
     """Register BashKit-backed execution tooling in the in-process source.
 
     Args:
-        source: Input value for this parameter.
+        source: Value supplied for ``source``.
     """
     source.register_tool(
         spec=ToolSpec(
@@ -81,15 +81,15 @@ def _bash_exec_handler(
     request_id: str,
     dependencies: Mapping[str, object],
 ) -> Mapping[str, object]:
-    """Run bash exec handler.
+    """Bash exec handler.
 
     Args:
-        input_dict: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -135,13 +135,13 @@ def _bash_exec_handler(
 
 
 def _get_allowed_commands(value: object) -> set[str] | None:
-    """Run get allowed commands.
+    """Get allowed commands.
 
     Args:
-        value: Input value for this parameter.
+        value: Value supplied for ``value``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -162,13 +162,13 @@ def _get_allowed_commands(value: object) -> set[str] | None:
 
 
 def _extract_command_names(script: str) -> tuple[str, ...]:
-    """Run extract command names.
+    """Extract command names.
 
     Args:
-        script: Input value for this parameter.
+        script: Value supplied for ``script``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     commands: list[str] = []
     for raw_line in script.splitlines():
@@ -181,13 +181,13 @@ def _extract_command_names(script: str) -> tuple[str, ...]:
 
 
 def _extract_line_command_names(line: str) -> tuple[str, ...]:
-    """Run extract line command names.
+    """Extract line command names.
 
     Args:
-        line: Input value for this parameter.
+        line: Value supplied for ``line``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     lexer = shlex.shlex(line, posix=True, punctuation_chars="();|&<>")
     lexer.whitespace_split = True
@@ -223,13 +223,13 @@ def _extract_line_command_names(line: str) -> tuple[str, ...]:
 
 
 def _normalize_command_name(token: str) -> str:
-    """Run normalize command name.
+    """Normalize command name.
 
     Args:
-        token: Input value for this parameter.
+        token: Value supplied for ``token``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     candidate = token.strip()
     if not candidate:
@@ -242,13 +242,13 @@ def _normalize_command_name(token: str) -> str:
 
 
 def _is_env_assignment(token: str) -> bool:
-    """Run is env assignment.
+    """Is env assignment.
 
     Args:
-        token: Input value for this parameter.
+        token: Value supplied for ``token``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if "=" not in token:
         return False
@@ -261,13 +261,13 @@ def _is_env_assignment(token: str) -> bool:
 
 
 def _is_redirection_token(token: str) -> bool:
-    """Run is redirection token.
+    """Is redirection token.
 
     Args:
-        token: Input value for this parameter.
+        token: Value supplied for ``token``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if token in {">", ">>", "<", "<<", "<<<", "<>", "&>", "&>>"}:
         return True

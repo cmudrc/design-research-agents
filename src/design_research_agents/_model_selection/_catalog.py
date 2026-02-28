@@ -23,7 +23,7 @@ class ModelCatalog:
     """
 
     models: tuple[ModelSpec, ...]
-    """Field value for ``models``."""
+    """Stored ``models`` value."""
 
     @classmethod
     def default(cls) -> ModelCatalog:
@@ -146,14 +146,14 @@ def _build_default_models() -> list[ModelSpec]:
 
 def _estimate_gguf_memory_hint(size_b: float, quant_bits: int) -> ModelMemoryHint:
     # Weight bytes are a rough proxy for runtime RAM/VRAM needs.
-    """Run estimate gguf memory hint.
+    """Estimate gguf memory hint.
 
     Args:
-        size_b: Input value for this parameter.
-        quant_bits: Input value for this parameter.
+        size_b: Value supplied for ``size_b``.
+        quant_bits: Value supplied for ``quant_bits``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     weight_bytes = size_b * 1e9 * (quant_bits / 8)
     weight_gb = weight_bytes / (1024**3)
@@ -167,13 +167,13 @@ def _estimate_gguf_memory_hint(size_b: float, quant_bits: int) -> ModelMemoryHin
 
 
 def _quality_tier(size_b: float) -> int:
-    """Run quality tier.
+    """Quality tier.
 
     Args:
-        size_b: Input value for this parameter.
+        size_b: Value supplied for ``size_b``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if size_b <= 1.0:
         return 1
@@ -187,14 +187,14 @@ def _quality_tier(size_b: float) -> int:
 
 
 def _latency_tier(size_b: float, quant_name: str) -> LatencyTier:
-    """Run latency tier.
+    """Latency tier.
 
     Args:
-        size_b: Input value for this parameter.
-        quant_name: Input value for this parameter.
+        size_b: Value supplied for ``size_b``.
+        quant_name: Value supplied for ``quant_name``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if size_b <= 1.0:
         return "fast"
@@ -206,14 +206,14 @@ def _latency_tier(size_b: float, quant_name: str) -> LatencyTier:
 
 
 def _speed_tier(latency_tier: LatencyTier, quant_name: str) -> int:
-    """Run speed tier.
+    """Speed tier.
 
     Args:
-        latency_tier: Input value for this parameter.
-        quant_name: Input value for this parameter.
+        latency_tier: Value supplied for ``latency_tier``.
+        quant_name: Value supplied for ``quant_name``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     base = {"fast": 5, "medium": 3, "slow": 1}[latency_tier]
     if quant_name == "q4_k_m":

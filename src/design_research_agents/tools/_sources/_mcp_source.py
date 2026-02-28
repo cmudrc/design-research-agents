@@ -1,4 +1,4 @@
-"""MCP-backed tool source (stdio transport)."""
+"""MCP-backed tool source over the stdio JSON-RPC transport."""
 
 from __future__ import annotations
 
@@ -30,8 +30,8 @@ class _StdioMcpClient:
         """Initialize one stdio MCP client for the configured server.
 
         Args:
-            server: Input value for this parameter.
-            policy: Input value for this parameter.
+            server: Server configuration to launch and connect to.
+            policy: Tool policy used to sanitize subprocess execution.
         """
         self._server = server
         self._policy = policy
@@ -40,13 +40,13 @@ class _StdioMcpClient:
         self._initialized = False
 
     def list_tools(self) -> list[dict[str, object]]:
-        """Run list tools.
+        """Fetch raw tool descriptors from the remote MCP server.
 
         Returns:
-            Computed return value.
+            Parsed ``tools/list`` entries returned by the server.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            McpProtocolError: If the server response is malformed.
         """
         list_tools_response = self._request("tools/list", {})
         response_result = list_tools_response.get("result")
@@ -62,17 +62,17 @@ class _StdioMcpClient:
         return parsed
 
     def call_tool(self, *, tool_name: str, arguments: Mapping[str, object]) -> dict[str, object]:
-        """Run call tool.
+        """Invoke one remote MCP tool and return its raw result envelope.
 
         Args:
-            tool_name: Input value for this parameter.
-            arguments: Input value for this parameter.
+            tool_name: Remote tool name to invoke.
+            arguments: JSON-serializable argument mapping for the tool.
 
         Returns:
-            Computed return value.
+            Parsed ``tools/call`` result payload.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            McpProtocolError: If the server response is malformed or reports an error.
         """
         call_tool_response = self._request(
             "tools/call",
@@ -87,14 +87,14 @@ class _StdioMcpClient:
         """Send one JSON-RPC request to the MCP server and read its response.
 
         Args:
-            method: Input value for this parameter.
-            params: Input value for this parameter.
+            method: JSON-RPC method name to invoke.
+            params: Request parameter mapping to serialize.
 
         Returns:
-            Computed return value.
+            Parsed JSON-RPC response payload for the matching request id.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            McpProtocolError: If the transport is unavailable or the server reports an error.
         """
         self._ensure_started()
         self._ensure_initialized()
@@ -126,7 +126,7 @@ class _StdioMcpClient:
         return response_payload
 
     def _ensure_started(self) -> None:
-        """Run ensure started."""
+        """Start the managed MCP subprocess on first use."""
         if self._process is not None:
             return
 
@@ -146,10 +146,10 @@ class _StdioMcpClient:
         )
 
     def _ensure_initialized(self) -> None:
-        """Run ensure initialized.
+        """Perform the MCP initialize and initialized handshake once.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            McpProtocolError: If the subprocess is unavailable during initialization.
         """
         if self._initialized:
             return
@@ -189,16 +189,16 @@ class _StdioMcpClient:
         self._initialized = True
 
     def _read_response(self, *, expected_id: int) -> dict[str, object]:
-        """Run read response.
+        """Read the next JSON-RPC response matching ``expected_id``.
 
         Args:
-            expected_id: Input value for this parameter.
+            expected_id: Request id that the response must match.
 
         Returns:
-            Computed return value.
+            Parsed response payload for the matching request id.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            McpProtocolError: If the process times out, exits, or emits invalid data.
         """
         process = self._process
         if process is None or process.stdout is None:
@@ -251,14 +251,14 @@ class _StdioMcpClient:
 
 @dataclass(slots=True, frozen=True)
 class _McpRoute:
-    """_McpRoute class."""
+    """Resolved route for one public MCP tool name."""
 
     server_id: str
-    """Field value for ``server_id``."""
+    """Configured server id that owns this route."""
     remote_tool_name: str
-    """Field value for ``remote_tool_name``."""
+    """Tool name exposed by the remote MCP server."""
     spec: ToolSpec
-    """Field value for ``spec``."""
+    """Normalized tool specification exposed locally."""
 
 
 class McpToolSource:
@@ -270,8 +270,8 @@ class McpToolSource:
         """Initialize MCP clients and route table for configured servers.
 
         Args:
-            mcp_config: Input value for this parameter.
-            policy: Input value for this parameter.
+            mcp_config: MCP server configuration for this tool source.
+            policy: Tool policy shared with each managed stdio client.
         """
         self._config = mcp_config
         self._policy = policy
@@ -284,7 +284,7 @@ class McpToolSource:
         """List tools discovered across configured MCP servers.
 
         Returns:
-            Computed return value.
+            Normalized tool specifications from every configured server.
         """
         self._refresh_routes()
         return tuple(route.spec for _, route in sorted(self._routes.items()))
@@ -300,13 +300,13 @@ class McpToolSource:
         """Invoke one routed MCP tool and normalize response payload.
 
         Args:
-            tool_name: Input value for this parameter.
-            input_dict: Input value for this parameter.
-            request_id: Input value for this parameter.
-            dependencies: Input value for this parameter.
+            tool_name: Public MCP tool name requested by the caller.
+            input_dict: Tool input payload to forward to the remote server.
+            request_id: Request identifier passed through the tool runtime.
+            dependencies: Runtime dependency bag supplied by the tool runtime.
 
         Returns:
-            Computed return value.
+            Tool result normalized to the framework's ``ToolResult`` contract.
         """
         del request_id, dependencies
         self._refresh_routes()
@@ -380,7 +380,7 @@ class McpToolSource:
         )
 
     def _refresh_routes(self) -> None:
-        """Run refresh routes."""
+        """Refresh routes."""
         rebuilt: dict[str, _McpRoute] = {}
         for server in self._config.servers:
             client = self._clients[server.id]

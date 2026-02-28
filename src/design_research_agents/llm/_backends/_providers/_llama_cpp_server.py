@@ -38,25 +38,25 @@ class LlamaCppServerBackend:
     """
 
     model: str
-    """Field value for ``model``."""
+    """Stored ``model`` value."""
     hf_model_repo_id: str | None = None
-    """Field value for ``hf_model_repo_id``."""
+    """Stored ``hf_model_repo_id`` value."""
     api_model: str = "local-model"
-    """Field value for ``api_model``."""
+    """Stored ``api_model`` value."""
     host: str = "127.0.0.1"
-    """Field value for ``host``."""
+    """Stored ``host`` value."""
     port: int = 8001
-    """Field value for ``port``."""
+    """Stored ``port`` value."""
     startup_timeout_seconds: float = 60.0
-    """Field value for ``startup_timeout_seconds``."""
+    """Stored ``startup_timeout_seconds`` value."""
     poll_interval_seconds: float = 0.25
-    """Field value for ``poll_interval_seconds``."""
+    """Stored ``poll_interval_seconds`` value."""
     python_executable: str = sys.executable
-    """Field value for ``python_executable``."""
+    """Stored ``python_executable`` value."""
     extra_server_args: tuple[str, ...] = ()
-    """Field value for ``extra_server_args``."""
+    """Stored ``extra_server_args`` value."""
     _process: subprocess.Popen[str] | None = field(default=None, init=False, repr=False)
-    """Field value for ``_process``."""
+    """Stored ``_process`` value."""
 
     def __post_init__(self) -> None:
         """Initialize delegated OpenAI-compatible caller and shutdown hook.

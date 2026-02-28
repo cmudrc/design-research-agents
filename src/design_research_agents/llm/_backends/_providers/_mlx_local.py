@@ -221,7 +221,7 @@ def _mlx_generate(
 
 
 def _mlx_supports_streaming() -> bool:
-    """Run mlx supports streaming.
+    """Mlx supports streaming.
 
     Returns:
         ``True`` when installed ``mlx_lm.generate`` exposes a ``stream`` kwarg.

@@ -12,10 +12,10 @@ def messages_to_prompt(messages: Sequence[LLMMessage]) -> str:
     """Combine messages into a plain prompt for non-chat backends.
 
     Args:
-        messages: Input value for this parameter.
+        messages: Value supplied for ``messages``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     segments: list[str] = []
     for message in messages:
@@ -29,10 +29,10 @@ def parse_usage(payload: Any) -> Usage | None:
     """Parse OpenAI-style usage fields into a typed usage payload.
 
     Args:
-        payload: Input value for this parameter.
+        payload: Value supplied for ``payload``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if not isinstance(payload, dict):
         return None
@@ -52,10 +52,10 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
     """Parse tool-call payloads from provider responses into canonical form.
 
     Args:
-        raw_tool_calls: Input value for this parameter.
+        raw_tool_calls: Value supplied for ``raw_tool_calls``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if not isinstance(raw_tool_calls, list):
         return ()
@@ -84,13 +84,13 @@ def parse_tool_calls(raw_tool_calls: Any) -> tuple[ToolCall, ...]:
 
 
 def _coerce_int(value: Any) -> int | None:
-    """Run coerce int.
+    """Coerce int.
 
     Args:
-        value: Input value for this parameter.
+        value: Value supplied for ``value``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if isinstance(value, bool):
         return None

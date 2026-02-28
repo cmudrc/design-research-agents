@@ -1,7 +1,7 @@
-Tools Modules
+Tool Modules
 =============
 
-This page lists stable public tools modules.
+This page documents the stable public tool runtime facade.
 
 .. automodule:: design_research_agents.tools
    :members:

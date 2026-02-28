@@ -30,7 +30,7 @@ class ToolCallSchemaConfig:
     """Schema configuration for best-effort tool call extraction."""
 
     property_name: str = "tool_calls"
-    """Field value for ``property_name``."""
+    """Top-level property that stores extracted tool calls."""
 
 
 class BaseLLMBackend(ABC):
@@ -58,13 +58,13 @@ class BaseLLMBackend(ABC):
         """Initialize immutable backend identity and routing metadata.
 
         Args:
-            name: Input value for this parameter.
-            kind: Input value for this parameter.
-            default_model: Input value for this parameter.
-            base_url: Input value for this parameter.
-            config_hash: Input value for this parameter.
-            max_retries: Input value for this parameter.
-            model_patterns: Input value for this parameter.
+            name: Stable backend name used in traces and response provenance.
+            kind: Backend-family identifier used by client wrappers.
+            default_model: Default model id used when callers omit one.
+            base_url: Optional provider base URL for managed or remote endpoints.
+            config_hash: Deterministic hash of provider settings for cache invalidation.
+            max_retries: Maximum prompt-and-validate retry count for structured fallbacks.
+            model_patterns: Optional glob-like model patterns accepted by this backend.
         """
         self.name = name
         self.kind = kind
@@ -78,13 +78,14 @@ class BaseLLMBackend(ABC):
         """Generate a response while enforcing backend capability constraints.
 
         Args:
-            request: Input value for this parameter.
+            request: Provider-neutral request to validate and route.
 
         Returns:
-            Computed return value.
+            Normalized response produced by the underlying backend implementation.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            LLMCapabilityError: If the backend cannot satisfy requested features.
+            LLMInvalidRequestError: If the request is structurally incompatible.
         """
         resolved_request = self._resolve_model(request)
         if resolved_request.tools and resolved_request.response_schema:
@@ -109,13 +110,13 @@ class BaseLLMBackend(ABC):
         """Stream response deltas for the given request.
 
         Args:
-            request: Input value for this parameter.
+            request: Provider-neutral request to validate and stream.
 
         Returns:
-            Computed return value.
+            Iterator of normalized streaming deltas.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            LLMCapabilityError: If streaming is unsupported for this backend.
         """
         resolved_request = self._resolve_model(request)
         if not self.capabilities().streaming:
@@ -126,13 +127,13 @@ class BaseLLMBackend(ABC):
         """Return embeddings for the supplied texts (optional).
 
         Args:
-            texts: Input value for this parameter.
+            texts: Input strings to embed.
 
         Returns:
-            Computed return value.
+            Embedding payload for the requested texts.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            LLMCapabilityError: Raised by backends that do not implement embeddings.
         """
         raise LLMCapabilityError(f"Backend '{self.name}' does not support embeddings.")
 
@@ -140,10 +141,10 @@ class BaseLLMBackend(ABC):
         """Return whether the backend claims to support the given model id.
 
         Args:
-            model: Input value for this parameter.
+            model: Model identifier to check against the configured allowlist.
 
         Returns:
-            Computed return value.
+            ``True`` when the model matches the backend's configured patterns.
         """
         if not self.model_patterns:
             return True
@@ -154,7 +155,7 @@ class BaseLLMBackend(ABC):
         """Return declared backend capabilities.
 
         Returns:
-            Computed return value.
+            Capability flags used for request validation.
         """
 
     @abstractmethod
@@ -162,7 +163,7 @@ class BaseLLMBackend(ABC):
         """Return backend healthcheck status.
 
         Returns:
-            Computed return value.
+            Status payload suitable for diagnostics and readiness checks.
         """
 
     @abstractmethod
@@ -170,10 +171,10 @@ class BaseLLMBackend(ABC):
         """Provider-specific non-streaming generation implementation.
 
         Args:
-            request: Input value for this parameter.
+            request: Validated request to send to the provider.
 
         Returns:
-            Computed return value.
+            Provider response normalized to the shared contract.
         """
 
     @abstractmethod
@@ -181,23 +182,23 @@ class BaseLLMBackend(ABC):
         """Provider-specific streaming generation implementation.
 
         Args:
-            request: Input value for this parameter.
+            request: Validated request to send to the provider.
 
         Returns:
-            Computed return value.
+            Iterator of provider deltas normalized to the shared contract.
         """
 
     def _resolve_model(self, request: LLMRequest) -> LLMRequest:
-        """Run resolve model.
+        """Resolve the effective model id for one request.
 
         Args:
-            request: Input value for this parameter.
+            request: Request whose model id may need normalization.
 
         Returns:
-            Computed return value.
+            Request with an explicit concrete model id.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            LLMInvalidRequestError: If no supported explicit model can be resolved.
         """
         model = request.model.strip() if request.model else self.default_model or ""
         if not model or "*" in model:
@@ -209,13 +210,13 @@ class BaseLLMBackend(ABC):
         return _replace_request_model(request, model=model)
 
     def _generate_prompt_validated_json(self, request: LLMRequest) -> LLMResponse:
-        """Run generate prompt validated json.
+        """Run prompt-and-validate structured generation for JSON output.
 
         Args:
-            request: Input value for this parameter.
+            request: Request that requires schema-constrained JSON output.
 
         Returns:
-            Computed return value.
+            Response augmented with normalized structured-output metadata.
         """
         result = generate_json(
             generate_fn=self._generate,
@@ -240,13 +241,13 @@ class BaseLLMBackend(ABC):
         )
 
     def _generate_best_effort_tool_calls(self, request: LLMRequest) -> LLMResponse:
-        """Run generate best effort tool calls.
+        """Run prompt-and-validate extraction for tool-call-capable requests.
 
         Args:
-            request: Input value for this parameter.
+            request: Request containing tools for best-effort extraction.
 
         Returns:
-            Computed return value.
+            Response augmented with normalized tool-call objects.
         """
         tools = request.tools
         tool_schema = _build_tool_call_schema(tools)
@@ -276,14 +277,14 @@ class BaseLLMBackend(ABC):
 
 
 def _replace_request_model(request: LLMRequest, *, model: str) -> LLMRequest:
-    """Run replace request model.
+    """Copy a request while replacing only its resolved model id.
 
     Args:
-        request: Input value for this parameter.
-        model: Input value for this parameter.
+        request: Source request to copy.
+        model: Explicit model id to place on the copied request.
 
     Returns:
-        Computed return value.
+        Request clone with the updated model id.
     """
     return LLMRequest(
         messages=request.messages,
@@ -306,16 +307,16 @@ def _merge_response(
     tool_calls: tuple[ToolCall, ...] | None = None,
     raw: dict[str, object] | None = None,
 ) -> LLMResponse:
-    """Run merge response.
+    """Copy a response while overriding selected top-level fields.
 
     Args:
-        response: Input value for this parameter.
-        text: Input value for this parameter.
-        tool_calls: Input value for this parameter.
-        raw: Input value for this parameter.
+        response: Source response to copy.
+        text: Optional replacement text payload.
+        tool_calls: Optional replacement tool-call tuple.
+        raw: Optional replacement raw provider payload.
 
     Returns:
-        Computed return value.
+        Response clone with the requested field overrides applied.
     """
     return LLMResponse(
         text=response.text if text is None else text,
@@ -334,14 +335,14 @@ def _merge_raw(
     current: dict[str, object] | None,
     update: dict[str, object],
 ) -> dict[str, object]:
-    """Run merge raw.
+    """Merge raw provider metadata with last-write-wins semantics.
 
     Args:
-        current: Input value for this parameter.
-        update: Input value for this parameter.
+        current: Existing raw payload, if any.
+        update: New fields to overlay onto the raw payload.
 
     Returns:
-        Computed return value.
+        Merged raw metadata mapping.
     """
     merged = dict(current or {})
     merged.update(update)
@@ -349,25 +350,25 @@ def _merge_raw(
 
 
 def _normalize_json_text(parsed: object) -> str:
-    """Run normalize json text.
+    """Serialize parsed structured output into stable JSON text.
 
     Args:
-        parsed: Input value for this parameter.
+        parsed: Parsed structured output value.
 
     Returns:
-        Computed return value.
+        Canonical JSON string with deterministic key ordering.
     """
     return json.dumps(parsed, ensure_ascii=True, sort_keys=True)
 
 
 def _build_tool_call_schema(tools: Sequence[ToolSpec]) -> dict[str, object]:
-    """Run build tool call schema.
+    """Build the schema used for prompt-and-validate tool-call extraction.
 
     Args:
-        tools: Input value for this parameter.
+        tools: Tool definitions that constrain allowed tool names.
 
     Returns:
-        Computed return value.
+        JSON-schema-like mapping accepted by the structured-output helper.
     """
     tool_names = [tool.name for tool in tools]
     return {
@@ -392,17 +393,17 @@ def _build_tool_call_schema(tools: Sequence[ToolSpec]) -> dict[str, object]:
 
 
 def _parse_tool_calls(parsed: object, tools: Sequence[ToolSpec]) -> list[ToolCall]:
-    """Run parse tool calls.
+    """Normalize parsed structured output into ``ToolCall`` objects.
 
     Args:
-        parsed: Input value for this parameter.
-        tools: Input value for this parameter.
+        parsed: Parsed structured-output payload to inspect.
+        tools: Allowed tool definitions used to validate tool names.
 
     Returns:
-        Computed return value.
+        Parsed tool calls in the shared contract format.
 
     Raises:
-        Exception: Raised when this operation cannot complete.
+        ValueError: If the payload shape or tool names are invalid.
     """
     tool_names = {tool.name for tool in tools}
     payload = parsed
@@ -441,14 +442,14 @@ def _parse_tool_calls(parsed: object, tools: Sequence[ToolSpec]) -> list[ToolCal
 
 
 def _matches_model_pattern(model: str, pattern: str) -> bool:
-    """Run matches model pattern.
+    """Return whether a model id matches one configured glob-like pattern.
 
     Args:
-        model: Input value for this parameter.
-        pattern: Input value for this parameter.
+        model: Concrete model identifier to test.
+        pattern: Configured literal or ``*``-wildcard pattern.
 
     Returns:
-        Computed return value.
+        ``True`` when the model matches the configured pattern.
     """
     if pattern == model:
         return True

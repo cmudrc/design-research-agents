@@ -147,7 +147,7 @@ class CodeActionStepRunner(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run one workflow-native code-generation and sandbox execution pass."""
+        """One workflow-native code-generation and sandbox execution pass."""
         return self.compile(
             prompt,
             request_id=request_id,
@@ -623,7 +623,7 @@ class CodeActionStepRunner(Delegate):
         allowed_tools: Sequence[AllowedTool],
         tool_results: list[ToolResult],
     ) -> dict[str, object] | None:
-        """Run a deterministic fallback plan when exactly one known tool is allowed.
+        """A deterministic fallback plan when exactly one known tool is allowed.
 
         Args:
             prompt: Prompt text associated with this code step.

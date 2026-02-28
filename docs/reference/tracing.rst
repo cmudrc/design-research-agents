@@ -1,8 +1,8 @@
 Tracing Modules
 ===============
 
-This page lists internal tracing modules. These underscored module paths are
-documented for contributor visibility and are not API-stable.
+This page documents internal tracing modules for contributor visibility.
+These underscored module paths are intentionally unstable.
 
 Observed Event Additions
 ------------------------
@@ -16,7 +16,7 @@ Recent tracing additions emit payload-observation events at key boundaries:
 - ``WorkflowStepContextObserved``
 - ``WorkflowStepResultObserved``
 
-These events are additive and do not replace existing run/model/tool span events.
+These events are additive; existing run/model/tool span events remain unchanged.
 
 Payload Redaction and Preview Policy
 ------------------------------------

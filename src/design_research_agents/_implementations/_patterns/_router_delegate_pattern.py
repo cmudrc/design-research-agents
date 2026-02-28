@@ -444,7 +444,7 @@ class RouterDelegatePattern(Delegate):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ExecutionResult:
-        """Run router-selection workflow and delegated agent execution.
+        """Router-selection workflow and delegated agent execution.
 
         Args:
             prompt: User prompt to route.

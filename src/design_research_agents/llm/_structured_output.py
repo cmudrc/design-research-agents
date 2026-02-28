@@ -23,11 +23,11 @@ class StructuredOutputResult:
     """Normalized structured output result from prompt+validate flows."""
 
     response: LLMResponse
-    """Field value for ``response``."""
+    """Stored ``response`` value."""
     parsed: object
-    """Field value for ``parsed``."""
+    """Stored ``parsed`` value."""
     attempts: int
-    """Field value for ``attempts``."""
+    """Stored ``attempts`` value."""
 
 
 def generate_json(
@@ -41,14 +41,14 @@ def generate_json(
     """Prompt the model for strict JSON output and validate against schema.
 
     Args:
-        generate_fn: Input value for this parameter.
-        request: Input value for this parameter.
-        schema: Input value for this parameter.
-        max_retries: Input value for this parameter.
-        extra_instructions: Input value for this parameter.
+        generate_fn: Value supplied for ``generate_fn``.
+        request: Value supplied for ``request``.
+        schema: Value supplied for ``schema``.
+        max_retries: Value supplied for ``max_retries``.
+        extra_instructions: Value supplied for ``extra_instructions``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -82,10 +82,10 @@ def build_tool_call_instruction(tools: Sequence[ToolSpec]) -> str:
     """Build an instruction block describing available tools.
 
     Args:
-        tools: Input value for this parameter.
+        tools: Value supplied for ``tools``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     lines = [
         "You may select tools by returning JSON that matches the schema below.",
@@ -99,14 +99,14 @@ def build_tool_call_instruction(tools: Sequence[ToolSpec]) -> str:
 
 
 def _with_instruction(request: LLMRequest, instruction: str) -> LLMRequest:
-    """Run with instruction.
+    """With instruction.
 
     Args:
-        request: Input value for this parameter.
-        instruction: Input value for this parameter.
+        request: Value supplied for ``request``.
+        instruction: Value supplied for ``instruction``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     messages = list(request.messages)
     messages.append(LLMMessage(role="system", content=instruction))
@@ -130,15 +130,15 @@ def _build_json_instruction(
     extra_instructions: str | None,
     error_message: str | None,
 ) -> str:
-    """Run build json instruction.
+    """Build json instruction.
 
     Args:
-        schema: Input value for this parameter.
-        extra_instructions: Input value for this parameter.
-        error_message: Input value for this parameter.
+        schema: Value supplied for ``schema``.
+        extra_instructions: Value supplied for ``extra_instructions``.
+        error_message: Value supplied for ``error_message``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     lines = [
         "Return only valid JSON as your entire response.",
@@ -158,13 +158,13 @@ def _build_json_instruction(
 
 
 def _parse_json_strict(text: str) -> Any:
-    """Run parse json strict.
+    """Parse json strict.
 
     Args:
-        text: Input value for this parameter.
+        text: Value supplied for ``text``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -176,11 +176,11 @@ def _parse_json_strict(text: str) -> Any:
 
 
 def _validate_json(schema: dict[str, object] | None, parsed: object) -> None:
-    """Run validate json.
+    """Validate json.
 
     Args:
-        schema: Input value for this parameter.
-        parsed: Input value for this parameter.
+        schema: Value supplied for ``schema``.
+        parsed: Value supplied for ``parsed``.
 
     Raises:
         Exception: Raised when this operation cannot complete.

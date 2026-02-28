@@ -28,9 +28,9 @@ class ModelSelectionPolicy:
     """
 
     catalog: ModelCatalog = field(default_factory=ModelCatalog.default)
-    """Field value for ``catalog``."""
+    """Stored ``catalog`` value."""
     config: ModelSelectionPolicyConfig = field(default_factory=ModelSelectionPolicyConfig)
-    """Field value for ``config``."""
+    """Stored ``config`` value."""
 
     def select_model(
         self,
@@ -143,14 +143,14 @@ def _ram_budget_gb(
     hardware_profile: HardwareProfile,
     config: ModelSelectionPolicyConfig,
 ) -> float | None:
-    """Run ram budget gb.
+    """Ram budget gb.
 
     Args:
-        hardware_profile: Input value for this parameter.
-        config: Input value for this parameter.
+        hardware_profile: Value supplied for ``hardware_profile``.
+        config: Value supplied for ``config``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if hardware_profile.available_ram_gb is not None:
         return max(0.0, hardware_profile.available_ram_gb - config.ram_reserve_gb)
@@ -163,14 +163,14 @@ def _vram_budget_gb(
     hardware_profile: HardwareProfile,
     config: ModelSelectionPolicyConfig,
 ) -> float | None:
-    """Run vram budget gb.
+    """Vram budget gb.
 
     Args:
-        hardware_profile: Input value for this parameter.
-        config: Input value for this parameter.
+        hardware_profile: Value supplied for ``hardware_profile``.
+        config: Value supplied for ``config``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if hardware_profile.gpu_vram_gb is None:
         return None
@@ -178,14 +178,14 @@ def _vram_budget_gb(
 
 
 def _fits_ram_budget(model: ModelSpec, ram_budget_gb: float | None) -> bool:
-    """Run fits ram budget.
+    """Fits ram budget.
 
     Args:
-        model: Input value for this parameter.
-        ram_budget_gb: Input value for this parameter.
+        model: Value supplied for ``model``.
+        ram_budget_gb: Value supplied for ``ram_budget_gb``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if model.memory_hint is None or model.memory_hint.min_ram_gb is None:
         return True
@@ -195,14 +195,14 @@ def _fits_ram_budget(model: ModelSpec, ram_budget_gb: float | None) -> bool:
 
 
 def _should_prefer_remote(hardware_profile: HardwareProfile, config: ModelSelectionPolicyConfig) -> bool:
-    """Run should prefer remote.
+    """Should prefer remote.
 
     Args:
-        hardware_profile: Input value for this parameter.
-        config: Input value for this parameter.
+        hardware_profile: Value supplied for ``hardware_profile``.
+        config: Value supplied for ``config``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     load = hardware_profile.load_average
     cpu_count = hardware_profile.cpu_count
@@ -216,14 +216,14 @@ def _apply_provider_constraints(
     candidates: list[ModelSpec],
     constraints: ModelSelectionConstraints,
 ) -> list[ModelSpec]:
-    """Run apply provider constraints.
+    """Apply provider constraints.
 
     Args:
-        candidates: Input value for this parameter.
-        constraints: Input value for this parameter.
+        candidates: Value supplied for ``candidates``.
+        constraints: Value supplied for ``constraints``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if constraints.preferred_provider:
         # Prefer exact provider matches when available, otherwise preserve original candidate set.
@@ -239,15 +239,15 @@ def _apply_cost_constraints(
     *,
     remote_cost_floor_usd: float,
 ) -> list[ModelSpec]:
-    """Run apply cost constraints.
+    """Apply cost constraints.
 
     Args:
-        candidates: Input value for this parameter.
-        constraints: Input value for this parameter.
-        remote_cost_floor_usd: Input value for this parameter.
+        candidates: Value supplied for ``candidates``.
+        constraints: Value supplied for ``constraints``.
+        remote_cost_floor_usd: Value supplied for ``remote_cost_floor_usd``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if constraints.max_cost_usd is None:
         return candidates
@@ -273,18 +273,18 @@ def _select_candidate_pool(
     remote_candidates: list[ModelSpec],
     fallback_candidates: list[ModelSpec],
 ) -> tuple[list[ModelSpec], str]:
-    """Run select candidate pool.
+    """Select candidate pool.
 
     Args:
-        intent: Input value for this parameter.
-        constraints: Input value for this parameter.
-        prefer_remote_due_to_load: Input value for this parameter.
-        local_candidates: Input value for this parameter.
-        remote_candidates: Input value for this parameter.
-        fallback_candidates: Input value for this parameter.
+        intent: Value supplied for ``intent``.
+        constraints: Value supplied for ``constraints``.
+        prefer_remote_due_to_load: Value supplied for ``prefer_remote_due_to_load``.
+        local_candidates: Value supplied for ``local_candidates``.
+        remote_candidates: Value supplied for ``remote_candidates``.
+        fallback_candidates: Value supplied for ``fallback_candidates``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if constraints.require_local:
         if local_candidates:
@@ -311,17 +311,17 @@ def _pick_best_model(
     vram_budget_gb: float | None,
     prefer_remote_due_to_load: bool,
 ) -> ModelSpec:
-    """Run pick best model.
+    """Pick best model.
 
     Args:
-        candidates: Input value for this parameter.
-        intent: Input value for this parameter.
-        ram_budget_gb: Input value for this parameter.
-        vram_budget_gb: Input value for this parameter.
-        prefer_remote_due_to_load: Input value for this parameter.
+        candidates: Value supplied for ``candidates``.
+        intent: Value supplied for ``intent``.
+        ram_budget_gb: Value supplied for ``ram_budget_gb``.
+        vram_budget_gb: Value supplied for ``vram_budget_gb``.
+        prefer_remote_due_to_load: Value supplied for ``prefer_remote_due_to_load``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     scored = []
     for model in candidates:
@@ -354,17 +354,17 @@ def _score_model(
     vram_budget_gb: float | None,
     prefer_remote_due_to_load: bool,
 ) -> float:
-    """Run score model.
+    """Score model.
 
     Args:
-        model: Input value for this parameter.
-        intent: Input value for this parameter.
-        ram_budget_gb: Input value for this parameter.
-        vram_budget_gb: Input value for this parameter.
-        prefer_remote_due_to_load: Input value for this parameter.
+        model: Value supplied for ``model``.
+        intent: Value supplied for ``intent``.
+        ram_budget_gb: Value supplied for ``ram_budget_gb``.
+        vram_budget_gb: Value supplied for ``vram_budget_gb``.
+        prefer_remote_due_to_load: Value supplied for ``prefer_remote_due_to_load``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     quality = model.quality_tier or 0
     speed = model.speed_tier or 0
@@ -408,19 +408,19 @@ def _build_rationale(
     ram_budget_gb: float | None,
     vram_budget_gb: float | None,
 ) -> str:
-    """Run build rationale.
+    """Build rationale.
 
     Args:
-        selected_model: Input value for this parameter.
-        intent: Input value for this parameter.
-        constraints: Input value for this parameter.
-        hardware_profile: Input value for this parameter.
-        selection_reason: Input value for this parameter.
-        ram_budget_gb: Input value for this parameter.
-        vram_budget_gb: Input value for this parameter.
+        selected_model: Value supplied for ``selected_model``.
+        intent: Value supplied for ``intent``.
+        constraints: Value supplied for ``constraints``.
+        hardware_profile: Value supplied for ``hardware_profile``.
+        selection_reason: Value supplied for ``selection_reason``.
+        ram_budget_gb: Value supplied for ``ram_budget_gb``.
+        vram_budget_gb: Value supplied for ``vram_budget_gb``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     parts = [
         f"priority={intent.priority}",

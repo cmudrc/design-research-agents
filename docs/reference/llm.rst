@@ -1,7 +1,7 @@
 LLM Modules
 ===========
 
-This page lists stable public LLM modules.
+This page documents the stable public LLM facades and client entry points.
 
 .. automodule:: design_research_agents.llm
    :members:

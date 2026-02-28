@@ -198,7 +198,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run the multi-step action-observation loop and return aggregated results."""
+        """The multi-step action-observation loop and return aggregated results."""
         return self.compile(
             prompt=prompt,
             request_id=request_id,

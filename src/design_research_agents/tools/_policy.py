@@ -18,13 +18,13 @@ class ToolPolicyConfig:
     """Runtime guardrail settings used by core, MCP, and script tools."""
 
     workspace_root: str = "."
-    """Field value for ``workspace_root``."""
+    """Stored ``workspace_root`` value."""
     artifacts_dir: str = "artifacts"
-    """Field value for ``artifacts_dir``."""
+    """Stored ``artifacts_dir`` value."""
     allow_writes_outside_artifacts: bool = False
-    """Field value for ``allow_writes_outside_artifacts``."""
+    """Stored ``allow_writes_outside_artifacts`` value."""
     allow_network: bool = False
-    """Field value for ``allow_network``."""
+    """Stored ``allow_network`` value."""
     allowed_commands: tuple[str, ...] = (
         "git",
         "rg",
@@ -34,7 +34,7 @@ class ToolPolicyConfig:
         "ruff",
         "pytest",
     )
-    """Field value for ``allowed_commands``."""
+    """Stored ``allowed_commands`` value."""
     env_allowlist: tuple[str, ...] = (
         "PATH",
         "HOME",
@@ -45,11 +45,11 @@ class ToolPolicyConfig:
         "PYTHONPATH",
         "VIRTUAL_ENV",
     )
-    """Field value for ``env_allowlist``."""
+    """Stored ``env_allowlist`` value."""
     default_timeout_s: int = 30
-    """Field value for ``default_timeout_s``."""
+    """Stored ``default_timeout_s`` value."""
     default_max_output_bytes: int = 65_536
-    """Field value for ``default_max_output_bytes``."""
+    """Stored ``default_max_output_bytes`` value."""
 
 
 class ToolPolicy:
@@ -59,7 +59,7 @@ class ToolPolicy:
         """Initialize policy with resolved workspace and artifacts roots.
 
         Args:
-            config: Input value for this parameter.
+            config: Value supplied for ``config``.
         """
         self._config = config
         # Resolve once at construction time so all checks use canonical absolute paths.
@@ -71,7 +71,7 @@ class ToolPolicy:
         """Return resolved workspace root directory.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._workspace_root
 
@@ -80,7 +80,7 @@ class ToolPolicy:
         """Return resolved artifacts output directory.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._artifacts_root
 
@@ -89,7 +89,7 @@ class ToolPolicy:
         """Return immutable policy configuration.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._config
 
@@ -97,7 +97,7 @@ class ToolPolicy:
         """Validate a tool can run under current global policy settings.
 
         Args:
-            spec: Input value for this parameter.
+            spec: Value supplied for ``spec``.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -111,7 +111,7 @@ class ToolPolicy:
         """Reject commands not present in policy allowlist.
 
         Args:
-            command: Input value for this parameter.
+            command: Value supplied for ``command``.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -127,10 +127,10 @@ class ToolPolicy:
         """Resolve and validate a readable path inside the workspace root.
 
         Args:
-            path: Input value for this parameter.
+            path: Value supplied for ``path``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -144,10 +144,10 @@ class ToolPolicy:
         """Resolve and validate a writable path under policy rules.
 
         Args:
-            path: Input value for this parameter.
+            path: Value supplied for ``path``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -167,11 +167,11 @@ class ToolPolicy:
         """Truncate UTF-8 text to configured output byte limits.
 
         Args:
-            text: Input value for this parameter.
-            max_output_bytes: Input value for this parameter.
+            text: Value supplied for ``text``.
+            max_output_bytes: Value supplied for ``max_output_bytes``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         limit = max_output_bytes or self._config.default_max_output_bytes
         encoded = text.encode("utf-8", errors="replace")
@@ -185,7 +185,7 @@ class ToolPolicy:
         """Ensure artifact paths obey write policy when applicable.
 
         Args:
-            result: Input value for this parameter.
+            result: Value supplied for ``result``.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -210,11 +210,11 @@ class ToolPolicy:
         """Return allowlisted environment variables for subprocesses.
 
         Args:
-            allowlist: Input value for this parameter.
-            extra_env: Input value for this parameter.
+            allowlist: Value supplied for ``allowlist``.
+            extra_env: Value supplied for ``extra_env``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         selected = allowlist if allowlist is not None else self._config.env_allowlist
         env: dict[str, str] = {}
@@ -228,13 +228,13 @@ class ToolPolicy:
         return env
 
     def _resolve_workspace_path(self, path: str | Path) -> Path:
-        """Run resolve workspace path.
+        """Resolve workspace path.
 
         Args:
-            path: Input value for this parameter.
+            path: Value supplied for ``path``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
 
         Raises:
             Exception: Raised when this operation cannot complete.
@@ -249,14 +249,14 @@ class ToolPolicy:
 
     @staticmethod
     def _is_relative_to(path: Path, root: Path) -> bool:
-        """Run is relative to.
+        """Is relative to.
 
         Args:
-            path: Input value for this parameter.
-            root: Input value for this parameter.
+            path: Value supplied for ``path``.
+            root: Value supplied for ``root``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         try:
             path.relative_to(root)

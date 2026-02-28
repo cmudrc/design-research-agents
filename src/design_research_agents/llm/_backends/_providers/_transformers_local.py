@@ -292,7 +292,7 @@ def _move_to_device(inputs: dict[str, Any], model: Any) -> dict[str, Any]:
 
 
 def _streaming_available() -> bool:
-    """Run streaming available.
+    """Streaming available.
 
     Returns:
         ``True`` when ``TextIteratorStreamer`` can be imported.

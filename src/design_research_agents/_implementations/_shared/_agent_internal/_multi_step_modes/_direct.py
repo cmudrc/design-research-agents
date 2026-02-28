@@ -134,7 +134,7 @@ class MultiStepDirectLLMAgent(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run iterative CONTINUE/STOP controller steps until termination."""
+        """Iterative CONTINUE/STOP controller steps until termination."""
         return self.compile(
             prompt=prompt,
             request_id=request_id,

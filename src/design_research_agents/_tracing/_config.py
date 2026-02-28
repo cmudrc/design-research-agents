@@ -21,24 +21,24 @@ class Tracer:
     """Explicitly configured tracer dependency injected into runtimes."""
 
     enabled: bool = True
-    """Field value for ``enabled``."""
+    """Stored ``enabled`` value."""
     trace_dir: Path = Path("traces")
-    """Field value for ``trace_dir``."""
+    """Stored ``trace_dir`` value."""
     enable_jsonl: bool = True
-    """Field value for ``enable_jsonl``."""
+    """Stored ``enable_jsonl`` value."""
     enable_console: bool = True
-    """Field value for ``enable_console``."""
+    """Stored ``enable_console`` value."""
     console_stream: TextIO = sys.stderr
-    """Field value for ``console_stream``."""
+    """Stored ``console_stream`` value."""
 
     def build_trace_path(self, *, run_id: str) -> Path | None:
         """Build a trace JSONL path for one run when JSONL sink is enabled.
 
         Args:
-            run_id: Input value for this parameter.
+            run_id: Value supplied for ``run_id``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         if not self.enable_jsonl:
             return None
@@ -51,10 +51,10 @@ class Tracer:
         """Build concrete sinks for this tracer configuration.
 
         Args:
-            trace_path: Input value for this parameter.
+            trace_path: Value supplied for ``trace_path``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         sinks: list[TraceSink] = []
         if self.enable_jsonl and trace_path is not None:
@@ -73,7 +73,7 @@ class Tracer:
         function: Callable[[], object],
         dependencies: Mapping[str, object] | None = None,
     ) -> object:
-        """Run one callable wrapped in explicit trace session lifecycle.
+        """One callable wrapped in explicit trace session lifecycle.
 
         Args:
             agent_name: Delegate name used in trace metadata.

@@ -17,10 +17,10 @@ def build_step_tools_text(*, tool_specs: Mapping[str, ToolSpec]) -> str:
     """Build formatted tools text for multi-step prompt injection.
 
     Args:
-        tool_specs: Input value for this parameter.
+        tool_specs: Value supplied for ``tool_specs``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     tool_lines: list[str] = []
     for spec in tool_specs.values():
@@ -40,10 +40,10 @@ def resolve_step_error(step_result: ExecutionResult) -> str:
     """Extract a stable step error message from one step result.
 
     Args:
-        step_result: Input value for this parameter.
+        step_result: Value supplied for ``step_result``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     raw_error = step_result.output.get("error")
     if isinstance(raw_error, str) and raw_error.strip():
@@ -60,10 +60,10 @@ def normalize_step_final_output(raw_tool_output: object) -> dict[str, object]:
     """Normalize one step output into a dictionary payload.
 
     Args:
-        raw_tool_output: Input value for this parameter.
+        raw_tool_output: Value supplied for ``raw_tool_output``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if isinstance(raw_tool_output, Mapping):
         return dict(raw_tool_output)
@@ -83,16 +83,16 @@ def failure_result(
     """Build normalized multi-step failure result payload.
 
     Args:
-        error: Input value for this parameter.
-        model_response: Input value for this parameter.
-        tool_results: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
-        metadata: Input value for this parameter.
-        output: Input value for this parameter.
+        error: Value supplied for ``error``.
+        model_response: Value supplied for ``model_response``.
+        tool_results: Value supplied for ``tool_results``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
+        metadata: Value supplied for ``metadata``.
+        output: Value supplied for ``output``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     return build_failure_result(
         error=error,

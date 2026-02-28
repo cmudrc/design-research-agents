@@ -1,4 +1,4 @@
-"""Public memory facade exports."""
+"""Stable public memory facade exports."""
 
 from design_research_agents._memory._embedding import EmbeddingProvider, LLMEmbeddingProvider
 from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore

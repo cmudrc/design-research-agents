@@ -1,7 +1,4 @@
-"""Sphinx configuration.
-
-This file configures how Sphinx builds the docs in `docs/`.
-"""
+"""Sphinx configuration for the project documentation."""
 
 import os
 import re
@@ -10,14 +7,14 @@ from pathlib import Path
 
 from sphinx.application import Sphinx
 
-# Include class docs and __init__
+# Include class docs and ``__init__`` docstrings.
 autoclass_content = "both"
 
-# Add the project `src/` directory to sys.path so autodoc can import the package.
+# Add ``src/`` so autodoc imports the in-workspace package build.
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-# Project metadata shown in the generated documentation.
+# Project metadata shown in generated documentation.
 project = "design-research-agents"
 copyright = "2026, design-research-agents contributors"
 author = "design-research-agents contributors"
@@ -42,7 +39,7 @@ napoleon_numpy_docstring = False
 napoleon_use_param = True
 napoleon_use_rtype = False
 
-# Keep type hints out of rendered docs to avoid unresolved nitpicky targets.
+# Keep type hints out of rendered docs so nitpicky mode stays focused on explicit refs.
 autodoc_typehints = "none"
 
 # Generate autosummary stub pages at build time.
@@ -91,7 +88,7 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # HTML output theme.
-# Prefer the Read the Docs theme; keep a local fallback when not installed.
+# Prefer the Read the Docs theme, with a local fallback when it is unavailable.
 if os.environ.get("READTHEDOCS") == "True":
     html_theme = "sphinx_rtd_theme"
 else:

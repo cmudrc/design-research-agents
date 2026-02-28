@@ -77,7 +77,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Return declared capabilities for this endpoint.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._capabilities
 
@@ -85,7 +85,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Return static status for configured HTTP backend.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return BackendStatus(ok=True, message="OpenAI-compatible backend configured.")
 
@@ -93,10 +93,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Generate one completion using the OpenAI-compatible HTTP endpoint.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         payload = self._build_payload(request, include_response_format=True)
         response = _post_json(self._chat_url, payload, headers=self._headers())
@@ -106,7 +106,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Stream completion deltas from the OpenAI-compatible endpoint.
 
         Args:
-            request: Input value for this parameter.
+            request: Value supplied for ``request``.
 
         Yields:
             The yielded values.
@@ -136,10 +136,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
 
     @property
     def _chat_url(self) -> str:
-        """Run chat url.
+        """Chat url.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         base = self.base_url or ""
         if base.endswith("/v1"):
@@ -154,7 +154,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Build HTTP headers for OpenAI-compatible requests.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         headers = {"Content-Type": "application/json"}
         api_key = self._resolve_api_key()
@@ -163,10 +163,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         return headers
 
     def _resolve_api_key(self) -> str | None:
-        """Run resolve api key.
+        """Resolve api key.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         if self._api_key:
             return self._api_key
@@ -179,14 +179,14 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
-        """Run build payload.
+        """Build payload.
 
         Args:
-            request: Input value for this parameter.
-            include_response_format: Input value for this parameter.
+            request: Value supplied for ``request``.
+            include_response_format: Value supplied for ``include_response_format``.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         payload: dict[str, Any] = {
             "model": request.model,
@@ -207,15 +207,15 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
 
 
 def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> dict[str, Any]:
-    """Run post json.
+    """Post json.
 
     Args:
-        url: Input value for this parameter.
-        payload: Input value for this parameter.
-        headers: Input value for this parameter.
+        url: Value supplied for ``url``.
+        payload: Value supplied for ``payload``.
+        headers: Value supplied for ``headers``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -240,15 +240,15 @@ def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) ->
 
 
 def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> HTTPResponse:
-    """Run post stream.
+    """Post stream.
 
     Args:
-        url: Input value for this parameter.
-        payload: Input value for this parameter.
-        headers: Input value for this parameter.
+        url: Value supplied for ``url``.
+        payload: Value supplied for ``payload``.
+        headers: Value supplied for ``headers``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -268,10 +268,10 @@ def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) 
 
 
 def _iter_sse_events(response: Iterable[bytes]) -> Iterator[str]:
-    """Run iter sse events.
+    """Iter sse events.
 
     Args:
-        response: Input value for this parameter.
+        response: Value supplied for ``response``.
 
     Yields:
         The yielded values.
@@ -296,15 +296,15 @@ def _parse_completion_response(
     *,
     provider: str,
 ) -> LLMResponse:
-    """Run parse completion response.
+    """Parse completion response.
 
     Args:
-        response: Input value for this parameter.
-        request: Input value for this parameter.
-        provider: Input value for this parameter.
+        response: Value supplied for ``response``.
+        request: Value supplied for ``request``.
+        provider: Value supplied for ``provider``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -328,13 +328,13 @@ def _parse_completion_response(
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
-    """Run format messages.
+    """Format messages.
 
     Args:
-        messages: Input value for this parameter.
+        messages: Value supplied for ``messages``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     payloads: list[dict[str, Any]] = []
     for message in messages:
@@ -354,13 +354,13 @@ def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
-    """Run format tool.
+    """Format tool.
 
     Args:
-        tool: Input value for this parameter.
+        tool: Value supplied for ``tool``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     return {
         "type": "function",
@@ -373,13 +373,13 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
 
 
 def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
-    """Run format response format.
+    """Format response format.
 
     Args:
-        request: Input value for this parameter.
+        request: Value supplied for ``request``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if request.response_format and isinstance(request.response_format, dict):
         return request.response_format
@@ -395,13 +395,13 @@ def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
 
 
 def _http_error(exc: HTTPError) -> Exception:
-    """Run http error.
+    """Http error.
 
     Args:
-        exc: Input value for this parameter.
+        exc: Value supplied for ``exc``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     try:
         body = exc.read().decode("utf-8")
@@ -413,13 +413,13 @@ def _http_error(exc: HTTPError) -> Exception:
 
 
 def _extract_tool_call_deltas(raw: Any) -> list[ToolCallDelta]:
-    """Run extract tool call deltas.
+    """Extract tool call deltas.
 
     Args:
-        raw: Input value for this parameter.
+        raw: Value supplied for ``raw``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if not isinstance(raw, list):
         return []

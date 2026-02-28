@@ -15,21 +15,21 @@ class PreparedWorkflow:
     """Normalized workflow graph and dependency maps."""
 
     step_map: dict[str, WorkflowStep]
-    """Field value for ``step_map``."""
+    """Stored ``step_map`` value."""
     dependencies: dict[str, tuple[str, ...]]
-    """Field value for ``dependencies``."""
+    """Stored ``dependencies`` value."""
     dependents: dict[str, list[str]]
-    """Field value for ``dependents``."""
+    """Stored ``dependents`` value."""
 
 
 def prepare_workflow_graph(steps: Sequence[WorkflowStep]) -> PreparedWorkflow:
     """Normalize workflow steps into dependency and dependent lookup maps.
 
     Args:
-        steps: Input value for this parameter.
+        steps: Value supplied for ``steps``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -63,10 +63,10 @@ def normalize_step_id(raw_step_id: object) -> str:
     """Validate and normalize one workflow step id.
 
     Args:
-        raw_step_id: Input value for this parameter.
+        raw_step_id: Value supplied for ``raw_step_id``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -83,10 +83,10 @@ def normalize_dependencies(raw_dependencies: Sequence[str]) -> tuple[str, ...]:
     """Normalize a step dependency list into a tuple of non-empty ids.
 
     Args:
-        raw_dependencies: Input value for this parameter.
+        raw_dependencies: Value supplied for ``raw_dependencies``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     normalized: list[str] = []
     for dependency in raw_dependencies:
@@ -109,10 +109,10 @@ def release_dependents(
     """Release DAG dependents once one step has completed or skipped.
 
     Args:
-        step_id: Input value for this parameter.
-        dependents: Input value for this parameter.
-        in_degree: Input value for this parameter.
-        ready_steps: Input value for this parameter.
+        step_id: Value supplied for ``step_id``.
+        dependents: Value supplied for ``dependents``.
+        in_degree: Value supplied for ``in_degree``.
+        ready_steps: Value supplied for ``ready_steps``.
     """
     # Decrement in-degree once per completed dependency; push only when all prerequisites are satisfied.
     for dependent in dependents.get(step_id, ()):  # pragma: no branch - tiny helper
@@ -128,8 +128,8 @@ def validate_no_cycles(
     """Validate that workflow dependencies form an acyclic graph.
 
     Args:
-        step_map: Input value for this parameter.
-        dependencies: Input value for this parameter.
+        step_map: Value supplied for ``step_map``.
+        dependencies: Value supplied for ``dependencies``.
     """
     visiting: set[str] = set()
     visited: set[str] = set()
@@ -138,8 +138,8 @@ def validate_no_cycles(
         """Traverse dependency edges depth-first and detect cycles.
 
         Args:
-            step_id: Input value for this parameter.
-            path: Input value for this parameter.
+            step_id: Value supplied for ``step_id``.
+            path: Value supplied for ``path``.
 
         Raises:
             Exception: Raised when this operation cannot complete.

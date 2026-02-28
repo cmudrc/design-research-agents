@@ -17,17 +17,17 @@ class TraceScope:
     """Context manager payload for active trace scopes."""
 
     session: TraceSession
-    """Field value for ``session``."""
+    """Stored ``session`` value."""
     span_id: str
-    """Field value for ``span_id``."""
+    """Stored ``span_id`` value."""
     is_root: bool
-    """Field value for ``is_root``."""
+    """Stored ``is_root`` value."""
     trace_token: Token[TraceSession | None] | None = None
-    """Field value for ``trace_token``."""
+    """Stored ``trace_token`` value."""
     span_token: Token[str | None] | None = None
-    """Field value for ``span_token``."""
+    """Stored ``span_token`` value."""
     agent_name: str | None = None
-    """Field value for ``agent_name``."""
+    """Stored ``agent_name`` value."""
 
 
 _CURRENT_TRACE: ContextVar[TraceSession | None] = ContextVar("dra_trace_session", default=None)

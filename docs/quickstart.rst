@@ -1,9 +1,9 @@
 Quickstart
 ==========
 
-Requires Python 3.12+.
+Requires Python 3.12+ and assumes you are working from the repository root.
 
-Install and run from repository root:
+Create and activate a virtual environment:
 
 .. code-block:: bash
 
@@ -16,11 +16,11 @@ Path A: Hosted (fastest)
 
 Use this when you want the shortest path to a working run.
 
-1. Install development dependencies:
+1. Install the default development toolchain:
 
 .. code-block:: bash
 
-   pip install -e ".[dev]"
+   make dev
 
 2. Set API key:
 
@@ -70,6 +70,7 @@ Checks and Docs
 .. code-block:: bash
 
    make test
+   make docs-check
    make docs-build
 
 Next Steps

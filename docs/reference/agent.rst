@@ -1,7 +1,7 @@
 Agent Modules
 =============
 
-This page lists stable public agent modules.
+This page documents the stable public ``design_research_agents.agent`` facade.
 
 .. automodule:: design_research_agents.agent
    :members:

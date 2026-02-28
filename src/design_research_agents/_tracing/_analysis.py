@@ -524,7 +524,7 @@ def _mapping_value(payload: Mapping[str, object], key: str) -> Mapping[str, obje
 
 
 def main(argv: Iterable[str] | None = None) -> int:
-    """Run trace-analysis CLI."""
+    """Trace-analysis CLI."""
     parser = argparse.ArgumentParser(description="Analyze trace JSONL files and compute summary metrics.")
     parser.add_argument("--trace-dir", required=True, help="Directory containing trace JSONL files.")
     parser.add_argument("--glob", default="run_*.jsonl", help="Glob pattern within trace directory.")

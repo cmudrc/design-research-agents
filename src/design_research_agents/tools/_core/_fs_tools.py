@@ -21,8 +21,8 @@ def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> Non
     """Register policy-guarded filesystem read/write utility tools.
 
     Args:
-        source: Input value for this parameter.
-        policy: Input value for this parameter.
+        source: Value supplied for ``source``.
+        policy: Value supplied for ``policy``.
     """
     read_metadata = ToolMetadata(
         source="core",
@@ -149,14 +149,14 @@ def register_fs_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> Non
 
 
 def _list_dir(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run list dir.
+    """List dir.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     path = policy.resolve_read_path(get_str(input_dict, "path", default="."))
     pattern = get_str(input_dict, "pattern", default="*")
@@ -179,14 +179,14 @@ def _list_dir(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
 
 
 def _read_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run read text.
+    """Read text.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     max_bytes = get_int(input_dict, "max_bytes", default=65_536)
@@ -207,14 +207,14 @@ def _read_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappi
 
 
 def _write_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run write text.
+    """Write text.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -237,11 +237,11 @@ def _glob(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[st
     """Match filesystem paths recursively from a validated root directory.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     root = policy.resolve_read_path(get_str(input_dict, "path"))
     pattern = get_str(input_dict, "pattern")
@@ -258,11 +258,11 @@ def _stat(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[st
     """Return basic metadata for one validated filesystem path.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     stat = path.stat()
@@ -281,11 +281,11 @@ def _hash(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[st
     """Compute a content hash for one validated filesystem path.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.

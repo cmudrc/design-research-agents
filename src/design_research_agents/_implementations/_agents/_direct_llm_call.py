@@ -104,7 +104,7 @@ class DirectLLMCall(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run one direct model call and return normalized workflow-first output."""
+        """One direct model call and return normalized workflow-first output."""
         return self.compile(
             prompt=prompt,
             request_id=request_id,

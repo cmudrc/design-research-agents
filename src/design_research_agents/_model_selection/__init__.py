@@ -1,4 +1,4 @@
-"""Public model selection API."""
+"""Stable facade exports for model selection."""
 
 from __future__ import annotations
 

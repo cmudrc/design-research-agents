@@ -140,7 +140,7 @@ class Toolbox(ToolRuntime):
         """Return the source-merging registry.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._registry
 
@@ -149,7 +149,7 @@ class Toolbox(ToolRuntime):
         """Return active runtime configuration.
 
         Returns:
-            Computed return value.
+            Result produced by this call.
         """
         return self._config
 
@@ -284,12 +284,12 @@ class Toolbox(ToolRuntime):
             """Invoke one user-registered callable tool handler.
 
             Args:
-                input_dict: Input value for this parameter.
-                _request_id: Input value for this parameter.
-                _dependencies: Input value for this parameter.
+                input_dict: Value supplied for ``input_dict``.
+                _request_id: Value supplied for ``_request_id``.
+                _dependencies: Value supplied for ``_dependencies``.
 
             Returns:
-                Computed return value.
+                Result produced by this call.
             """
             del _request_id, _dependencies
             return callable_tool.handler(input_dict)

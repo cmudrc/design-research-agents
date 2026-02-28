@@ -488,7 +488,7 @@ class DebatePattern(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run the debate pattern and return one final judged result."""
+        """The debate pattern and return one final judged result."""
         return self.compile(
             prompt=prompt,
             request_id=request_id,

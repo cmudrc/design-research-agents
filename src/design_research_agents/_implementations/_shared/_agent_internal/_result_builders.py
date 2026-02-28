@@ -22,16 +22,16 @@ def build_failure_result(
     """Build a structured failure result with stable metadata fields.
 
     Args:
-        error: Input value for this parameter.
-        model_response: Input value for this parameter.
-        tool_results: Input value for this parameter.
-        request_id: Input value for this parameter.
-        dependencies: Input value for this parameter.
-        metadata: Input value for this parameter.
-        output: Input value for this parameter.
+        error: Value supplied for ``error``.
+        model_response: Value supplied for ``model_response``.
+        tool_results: Value supplied for ``tool_results``.
+        request_id: Value supplied for ``request_id``.
+        dependencies: Value supplied for ``dependencies``.
+        metadata: Value supplied for ``metadata``.
+        output: Value supplied for ``output``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     return ExecutionResult(
         output={"error": error, **dict(output)},

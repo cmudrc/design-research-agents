@@ -1,4 +1,4 @@
-"""Trace event models and span session management."""
+"""Trace event models plus run-scoped span bookkeeping."""
 
 from __future__ import annotations
 
@@ -19,23 +19,23 @@ class TraceEvent:
     """Normalized trace event payload."""
 
     event_type: str
-    """Field value for ``event_type``."""
+    """Normalized event type name."""
     run_id: str
-    """Field value for ``run_id``."""
+    """Run identifier that owns the event."""
     span_id: str
-    """Field value for ``span_id``."""
+    """Span identifier associated with the event."""
     parent_span_id: str | None
-    """Field value for ``parent_span_id``."""
+    """Parent span identifier, when the event is nested."""
     timestamp: str
-    """Field value for ``timestamp``."""
+    """ISO 8601 UTC timestamp for event emission."""
     timestamp_ms: int
-    """Field value for ``timestamp_ms``."""
+    """Unix timestamp in milliseconds."""
     duration_ms: int | None = None
-    """Field value for ``duration_ms``."""
+    """Elapsed duration for completed spans, when known."""
     attributes: dict[str, object] = field(default_factory=dict)
-    """Field value for ``attributes``."""
+    """Normalized event-attribute payload."""
     event_index: int | None = None
-    """Field value for ``event_index``."""
+    """Monotonic sequence number within the trace session."""
 
     def to_dict(self) -> dict[str, object]:
         """Return JSON-serializable dictionary representation.
@@ -50,12 +50,12 @@ class TraceEvent:
 
 @dataclass(slots=True, frozen=True)
 class _SpanInfo:
-    """_SpanInfo class."""
+    """Internal bookkeeping record for one open span."""
 
     start_time: float
-    """Field value for ``start_time``."""
+    """Performance-counter timestamp captured when the span opened."""
     parent_span_id: str | None
-    """Field value for ``parent_span_id``."""
+    """Parent span id recorded when the span opened."""
 
 
 class TraceSession:

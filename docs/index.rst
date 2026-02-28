@@ -1,7 +1,7 @@
 design-research-agents
 ======================
 
-A flexible, modular framework for researching AI agents for design workflows.
+A flexible, modular framework for researching AI agents in design workflows.
 
 Build and compare agent behaviors, swap LLM backends, and capture traces
 without rewriting your pipeline. The library favors small, composable
@@ -42,7 +42,7 @@ Get started
 - :doc:`agents/index` to understand agent execution tradeoffs.
 - :doc:`workflows/index` for workflow builder primitives and composition.
 - :doc:`patterns/index` for prebuilt workflow implementations.
-- :doc:`api` for reference details.
+- :doc:`api` for the guaranteed public API surface.
 - `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
   for contribution workflow and PR expectations.
 

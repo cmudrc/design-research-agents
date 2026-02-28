@@ -136,7 +136,7 @@ def _memory_search(
     dependencies: Mapping[str, object],
     policy: ToolPolicy,
 ) -> Mapping[str, object]:
-    """Run one memory search request.
+    """One memory search request.
 
     Args:
         input_dict: Tool input payload.
@@ -187,7 +187,7 @@ def _memory_write(
     dependencies: Mapping[str, object],
     policy: ToolPolicy,
 ) -> Mapping[str, object]:
-    """Run one memory write request.
+    """One memory write request.
 
     Args:
         input_dict: Tool input payload.

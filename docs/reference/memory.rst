@@ -1,7 +1,7 @@
 Memory Modules
 ==============
 
-This page lists stable public memory modules.
+This page documents the stable public memory facade.
 
 .. automodule:: design_research_agents.memory
    :members:

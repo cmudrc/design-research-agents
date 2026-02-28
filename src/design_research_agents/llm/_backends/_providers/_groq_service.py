@@ -129,7 +129,7 @@ class GroqServiceBackend(BaseLLMBackend):
                 yield LLMDelta(usage_delta=usage_payload)
 
     def _fallback_prompt_validate(self, request: LLMRequest) -> LLMResponse:
-        """Run prompt+validate fallback for structured output compatibility."""
+        """Prompt+validate fallback for structured output compatibility."""
         structured_output_result = generate_json(
             generate_fn=lambda req: self._generate_without_response_format(req),
             request=request,

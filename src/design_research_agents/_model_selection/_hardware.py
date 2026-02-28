@@ -27,21 +27,21 @@ class HardwareProfile:
     """
 
     total_ram_gb: float | None
-    """Field value for ``total_ram_gb``."""
+    """Total system memory in GiB."""
     available_ram_gb: float | None
-    """Field value for ``available_ram_gb``."""
+    """Available system memory in GiB."""
     cpu_count: int | None
-    """Field value for ``cpu_count``."""
+    """Logical CPU count when it can be detected."""
     load_average: tuple[float, float, float] | None
-    """Field value for ``load_average``."""
+    """One-, five-, and fifteen-minute load averages when supported."""
     gpu_present: bool | None
-    """Field value for ``gpu_present``."""
+    """Whether a GPU appears to be available."""
     gpu_vram_gb: float | None
-    """Field value for ``gpu_vram_gb``."""
+    """Best-effort GPU memory estimate in GiB."""
     gpu_name: str | None = None
-    """Field value for ``gpu_name``."""
+    """Detected GPU name, when available."""
     platform_name: str | None = None
-    """Field value for ``platform_name``."""
+    """Platform identifier used during detection."""
 
     @classmethod
     def detect(cls) -> HardwareProfile:
@@ -93,20 +93,20 @@ class HardwareProfile:
 
 
 class _WindowsMemoryStatus(Protocol):
-    """_WindowsMemoryStatus class."""
+    """Minimal protocol for the Windows memory fields used by this module."""
 
     ullTotalPhys: int
     ullAvailPhys: int
 
 
 def _bytes_to_gib(value: int | None) -> float | None:
-    """Run bytes to gib.
+    """Convert a byte count to GiB.
 
     Args:
-        value: Input value for this parameter.
+        value: Byte count to convert.
 
     Returns:
-        Computed return value.
+        Converted GiB value, or ``None`` when ``value`` is missing.
     """
     if value is None:
         return None
@@ -114,10 +114,10 @@ def _bytes_to_gib(value: int | None) -> float | None:
 
 
 def _detect_load_average() -> tuple[float, float, float] | None:
-    """Run detect load average.
+    """Return the current system load average when available.
 
     Returns:
-        Computed return value.
+        Three-sample load average tuple, or ``None`` on unsupported platforms.
     """
     try:
         return os.getloadavg()
@@ -126,10 +126,10 @@ def _detect_load_average() -> tuple[float, float, float] | None:
 
 
 def _detect_total_ram_bytes() -> int | None:
-    """Run detect total ram bytes.
+    """Detect total system memory in bytes.
 
     Returns:
-        Computed return value.
+        Best-effort total memory count, or ``None`` when detection fails.
     """
     system = platform.system()
     # Prefer OS-specific APIs for more accurate totals.
@@ -145,10 +145,10 @@ def _detect_total_ram_bytes() -> int | None:
 
 
 def _detect_available_ram_bytes() -> int | None:
-    """Run detect available ram bytes.
+    """Detect available system memory in bytes.
 
     Returns:
-        Computed return value.
+        Best-effort available memory count, or ``None`` when detection fails.
     """
     system = platform.system()
     # Prefer OS-specific APIs for more accurate availability.
@@ -164,10 +164,10 @@ def _detect_available_ram_bytes() -> int | None:
 
 
 def _read_proc_meminfo() -> dict[str, int] | None:
-    """Run read proc meminfo.
+    """Read ``/proc/meminfo`` into a ``kB``-based mapping.
 
     Returns:
-        Computed return value.
+        Parsed ``/proc/meminfo`` values, or ``None`` when the file is unavailable.
     """
     if not os.path.exists("/proc/meminfo"):
         return None
@@ -191,10 +191,10 @@ def _read_proc_meminfo() -> dict[str, int] | None:
 
 
 def _detect_sysconf_total_ram_bytes() -> int | None:
-    """Run detect sysconf total ram bytes.
+    """Read total system memory from POSIX ``sysconf`` values.
 
     Returns:
-        Computed return value.
+        Total memory in bytes, or ``None`` when ``sysconf`` cannot provide it.
     """
     try:
         pages = os.sysconf("SC_PHYS_PAGES")
@@ -207,10 +207,10 @@ def _detect_sysconf_total_ram_bytes() -> int | None:
 
 
 def _detect_sysconf_available_ram_bytes() -> int | None:
-    """Run detect sysconf available ram bytes.
+    """Read available system memory from POSIX ``sysconf`` values.
 
     Returns:
-        Computed return value.
+        Available memory in bytes, or ``None`` when ``sysconf`` cannot provide it.
     """
     try:
         pages = os.sysconf("SC_AVPHYS_PAGES")
@@ -223,10 +223,10 @@ def _detect_sysconf_available_ram_bytes() -> int | None:
 
 
 def _detect_windows_total_ram_bytes() -> int | None:
-    """Run detect windows total ram bytes.
+    """Read total physical memory from the Windows memory-status API.
 
     Returns:
-        Computed return value.
+        Total physical memory in bytes, or ``None`` when the API is unavailable.
     """
     status = _windows_memory_status()
     if status is None:
@@ -235,10 +235,10 @@ def _detect_windows_total_ram_bytes() -> int | None:
 
 
 def _detect_windows_available_ram_bytes() -> int | None:
-    """Run detect windows available ram bytes.
+    """Read available physical memory from the Windows memory-status API.
 
     Returns:
-        Computed return value.
+        Available physical memory in bytes, or ``None`` when the API is unavailable.
     """
     status = _windows_memory_status()
     if status is None:
@@ -247,10 +247,10 @@ def _detect_windows_available_ram_bytes() -> int | None:
 
 
 def _detect_macos_total_ram_bytes() -> int | None:
-    """Run detect macos total ram bytes.
+    """Read total system memory from ``sysctl`` on macOS.
 
     Returns:
-        Computed return value.
+        Total memory in bytes, or ``None`` when the command fails.
     """
     output = _run_command(["sysctl", "-n", "hw.memsize"])
     if output is None:
@@ -262,10 +262,10 @@ def _detect_macos_total_ram_bytes() -> int | None:
 
 
 def _detect_macos_available_ram_bytes() -> int | None:
-    """Run detect macos available ram bytes.
+    """Estimate available system memory from ``vm_stat`` on macOS.
 
     Returns:
-        Computed return value.
+        Available memory in bytes, or ``None`` when the command fails.
     """
     output = _run_command(["vm_stat"])
     if output is None:
@@ -293,13 +293,13 @@ def _detect_macos_available_ram_bytes() -> int | None:
 
 
 def _run_command(args: list[str]) -> str | None:
-    """Run run command.
+    """Run a short-lived detection command and capture stdout.
 
     Args:
-        args: Input value for this parameter.
+        args: Command and arguments to execute.
 
     Returns:
-        Computed return value.
+        Command stdout, or ``None`` when execution fails.
     """
     try:
         result = subprocess.run(
@@ -319,10 +319,10 @@ def _run_command(args: list[str]) -> str | None:
 
 def _detect_gpu_info() -> tuple[bool | None, int | None, str | None]:
     # Probe NVIDIA first, then fall back to platform-specific inspection.
-    """Run detect gpu info.
+    """Detect GPU presence, VRAM, and a display name when possible.
 
     Returns:
-        Computed return value.
+        ``(present, vram_bytes, gpu_name)`` using best-effort platform probes.
     """
     nvidia_info = _detect_nvidia_gpu_info()
     if nvidia_info is not None:
@@ -340,10 +340,10 @@ def _detect_gpu_info() -> tuple[bool | None, int | None, str | None]:
 
 
 def _detect_nvidia_gpu_info() -> tuple[bool, int | None, str | None] | None:
-    """Run detect nvidia gpu info.
+    """Probe NVIDIA GPUs via ``nvidia-smi``.
 
     Returns:
-        Computed return value.
+        NVIDIA GPU details, or ``None`` when no usable data is available.
     """
     output = _run_command(
         [
@@ -377,10 +377,10 @@ def _detect_nvidia_gpu_info() -> tuple[bool, int | None, str | None] | None:
 
 
 def _detect_macos_gpu_info() -> tuple[bool, int | None, str | None] | None:
-    """Run detect macos gpu info.
+    """Probe GPU details from ``system_profiler`` on macOS.
 
     Returns:
-        Computed return value.
+        macOS GPU details, or ``None`` when no usable data is available.
     """
     output = _run_command(["system_profiler", "SPDisplaysDataType"])
     if output is None:
@@ -403,10 +403,10 @@ def _detect_macos_gpu_info() -> tuple[bool, int | None, str | None] | None:
 
 
 def _detect_windows_gpu_info() -> tuple[bool, int | None, str | None] | None:
-    """Run detect windows gpu info.
+    """Probe GPU details from ``wmic`` on Windows.
 
     Returns:
-        Computed return value.
+        Windows GPU details, or ``None`` when no usable data is available.
     """
     output = _run_command(
         [
@@ -444,10 +444,10 @@ def _detect_windows_gpu_info() -> tuple[bool, int | None, str | None] | None:
 
 
 def _windows_memory_status() -> _WindowsMemoryStatus | None:
-    """Run windows memory status.
+    """Return the Windows ``GlobalMemoryStatusEx`` payload when available.
 
     Returns:
-        Computed return value.
+        Memory-status structure exposing total and available RAM fields.
     """
     if platform.system() != "Windows":
         return None
@@ -457,7 +457,7 @@ def _windows_memory_status() -> _WindowsMemoryStatus | None:
         return None
 
     class _MemoryStatus(ctypes.Structure):
-        """_MemoryStatus class."""
+        """ctypes mirror of the ``MEMORYSTATUSEX`` structure."""
 
         _fields_ = [
             ("dwLength", ctypes.c_ulong),

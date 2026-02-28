@@ -1,4 +1,4 @@
-"""Public agent facade exports with lazy loading."""
+"""Stable public agent facade exports with lazy loading."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ __all__ = list(_EXPORTS.keys())
 
 
 def __getattr__(name: str) -> object:
-    """Lazily resolve exported agent symbols.
+    """Resolve exported agent symbols on first access.
 
     Args:
         name: Exported symbol name requested by the caller.
@@ -35,7 +35,7 @@ def __getattr__(name: str) -> object:
 
 
 def __dir__() -> list[str]:
-    """Return module attributes including lazy exports.
+    """Return module attributes, including lazy exports.
 
     Returns:
         Sorted attribute names visible on this module.

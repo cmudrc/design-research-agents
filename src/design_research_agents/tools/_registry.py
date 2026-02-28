@@ -16,14 +16,14 @@ from ._sources._base import ToolSource
 
 @dataclass(slots=True, frozen=True)
 class _ToolRoute:
-    """_ToolRoute class."""
+    """Resolved registry entry for one externally visible tool name."""
 
     source_id: str
-    """Field value for ``source_id``."""
+    """Identifier of the source that owns this tool."""
     source_tool_name: str
-    """Field value for ``source_tool_name``."""
+    """Underlying tool name used when invoking the source directly."""
     spec: ToolSpec
-    """Field value for ``spec``."""
+    """Normalized tool specification exposed by the registry."""
 
 
 class ToolRegistry:
@@ -38,7 +38,7 @@ class ToolRegistry:
         """Add a source and rebuild routing tables.
 
         Args:
-            source: Input value for this parameter.
+            source: Tool source to register.
         """
         self._sources[source.source_id] = source
         self._rebuild_routes()
@@ -47,7 +47,7 @@ class ToolRegistry:
         """Remove a source by id and rebuild routing tables.
 
         Args:
-            source_id: Input value for this parameter.
+            source_id: Identifier of the source to remove.
         """
         self._sources.pop(source_id, None)
         self._rebuild_routes()
@@ -56,7 +56,7 @@ class ToolRegistry:
         """List routed tool specs across all registered sources.
 
         Returns:
-            Computed return value.
+            Stable snapshot of routed tool specifications.
         """
         # Recompute on demand so dynamically added/removed sources are immediately reflected.
         self._rebuild_routes()
@@ -73,13 +73,13 @@ class ToolRegistry:
         """Invoke a routed tool name.
 
         Args:
-            tool_name: Input value for this parameter.
-            input_dict: Input value for this parameter.
-            request_id: Input value for this parameter.
-            dependencies: Input value for this parameter.
+            tool_name: Public tool name requested by the caller.
+            input_dict: Normalized tool-input payload.
+            request_id: Trace-friendly request identifier for this invocation.
+            dependencies: Runtime dependency bag forwarded to the selected source.
 
         Returns:
-            Computed return value.
+            Tool result normalized to the outward-facing tool name.
         """
         self._rebuild_routes()
         route = self._routes.get(tool_name)
@@ -148,10 +148,10 @@ class ToolRegistry:
         return normalized_result
 
     def _rebuild_routes(self) -> None:
-        """Run rebuild routes.
+        """Recompute the outward-facing tool-name routing table.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ValueError: If multiple sources expose the same public tool name.
         """
         rebuilt_routes: dict[str, _ToolRoute] = {}
         for source_id, source in sorted(self._sources.items()):

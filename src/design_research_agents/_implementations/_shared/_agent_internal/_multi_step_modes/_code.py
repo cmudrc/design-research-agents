@@ -202,7 +202,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run the multi-step loop and return aggregated code-agent output."""
+        """The multi-step loop and return aggregated code-agent output."""
         return self.compile(
             prompt=prompt,
             request_id=request_id,

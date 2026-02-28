@@ -20,8 +20,8 @@ def register_data_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> N
     """Register CSV loading and summary tools with policy-guarded reads.
 
     Args:
-        source: Input value for this parameter.
-        policy: Input value for this parameter.
+        source: Value supplied for ``source``.
+        policy: Value supplied for ``policy``.
     """
     metadata = ToolMetadata(
         source="core",
@@ -70,14 +70,14 @@ def register_data_tools(source: InProcessToolSource, *, policy: ToolPolicy) -> N
 
 
 def _load_csv(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[str, object]:
-    """Run load csv.
+    """Load csv.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     path = policy.resolve_read_path(get_str(input_dict, "path"))
     nrows = get_int(input_dict, "nrows", default=100)
@@ -106,11 +106,11 @@ def _describe(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
     """Describe tabular data using lightweight CSV summary statistics.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.

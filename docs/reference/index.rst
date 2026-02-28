@@ -1,8 +1,8 @@
 Module Reference
 ================
 
-This section provides module-level documentation for both guaranteed public
-facades and internal implementation modules.
+This section provides module-level documentation for both compatibility-guaranteed
+public facades and internal implementation modules that are useful to contributors.
 
 Public usage should prefer the curated top-level exports in :doc:`/api`.
 

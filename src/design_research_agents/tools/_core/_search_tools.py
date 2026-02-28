@@ -23,8 +23,8 @@ def register_search_tools(source: InProcessToolSource, *, policy: ToolPolicy) ->
     """Register workspace text-search tools with rg and Python fallback.
 
     Args:
-        source: Input value for this parameter.
-        policy: Input value for this parameter.
+        source: Value supplied for ``source``.
+        policy: Value supplied for ``policy``.
     """
     source.register_tool(
         spec=ToolSpec(
@@ -62,11 +62,11 @@ def _search(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[
     """Search text content under a validated root using rg or Python fallback.
 
     Args:
-        input_dict: Input value for this parameter.
-        policy: Input value for this parameter.
+        input_dict: Value supplied for ``input_dict``.
+        policy: Value supplied for ``policy``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
 
     Raises:
         Exception: Raised when this operation cannot complete.
@@ -110,18 +110,18 @@ def _search_with_rg(
     max_matches: int,
     context_lines: int,
 ) -> Mapping[str, object]:
-    """Run search with rg.
+    """Search with rg.
 
     Args:
-        rg_binary: Input value for this parameter.
-        root: Input value for this parameter.
-        query: Input value for this parameter.
-        globs: Input value for this parameter.
-        max_matches: Input value for this parameter.
-        context_lines: Input value for this parameter.
+        rg_binary: Value supplied for ``rg_binary``.
+        root: Value supplied for ``root``.
+        query: Value supplied for ``query``.
+        globs: Value supplied for ``globs``.
+        max_matches: Value supplied for ``max_matches``.
+        context_lines: Value supplied for ``context_lines``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     command = [
         rg_binary,
@@ -183,15 +183,15 @@ def _search_with_python(
     query: str,
     max_matches: int,
 ) -> Mapping[str, object]:
-    """Run search with python.
+    """Search with python.
 
     Args:
-        root: Input value for this parameter.
-        query: Input value for this parameter.
-        max_matches: Input value for this parameter.
+        root: Value supplied for ``root``.
+        query: Value supplied for ``query``.
+        max_matches: Value supplied for ``max_matches``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     pattern = re.compile(query)
     matches: list[dict[str, object]] = []

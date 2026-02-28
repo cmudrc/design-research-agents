@@ -23,10 +23,10 @@ def _normalize_value(value: object) -> object:
     """Normalize one value into a JSON-serializable representation.
 
     Args:
-        value: Input value for this parameter.
+        value: Value supplied for ``value``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         # Flatten dataclasses recursively so trace sinks only handle plain JSON-like structures.
@@ -44,10 +44,10 @@ def _sanitize_filename(value: str) -> str:
     """Normalize one arbitrary string for safe trace-file naming.
 
     Args:
-        value: Input value for this parameter.
+        value: Value supplied for ``value``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     safe = "".join(char if char.isalnum() or char in {"-", "_"} else "_" for char in value)
     # Fall back to UUID so empty/fully-sanitized ids still produce unique filenames.
@@ -58,11 +58,11 @@ def _preview(value: object, *, max_len: int = 120) -> str:
     """Build a bounded preview string for trace payload rendering.
 
     Args:
-        value: Input value for this parameter.
-        max_len: Input value for this parameter.
+        value: Value supplied for ``value``.
+        max_len: Value supplied for ``max_len``.
 
     Returns:
-        Computed return value.
+        Result produced by this call.
     """
     if value is None:
         return "None"

@@ -1,4 +1,4 @@
-"""Tool runtime public surface."""
+"""Stable public tool runtime exports."""
 
 from design_research_agents._contracts import ToolResult
 

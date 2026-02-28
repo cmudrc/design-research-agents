@@ -1,4 +1,4 @@
-"""Public tracing API for agent run instrumentation."""
+"""Stable tracing exports for run instrumentation."""
 
 from __future__ import annotations
 

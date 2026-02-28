@@ -1,8 +1,8 @@
 Prompt Modules
 ==============
 
-This page lists internal prompt-library modules. These underscored module paths
-are documented for contributor visibility and are not API-stable.
+This page documents internal prompt-library modules for contributor visibility.
+These underscored module paths are intentionally unstable.
 
 .. automodule:: design_research_agents._prompts._library
    :members:

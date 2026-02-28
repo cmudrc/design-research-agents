@@ -1,4 +1,4 @@
-"""Curated public package interface with deferred top-level exports."""
+"""Curated public package interface with lazily resolved top-level exports."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ except PackageNotFoundError:
 
 
 def __getattr__(name: str) -> object:
-    """Lazily resolve and cache one public export.
+    """Resolve and cache one deferred public export.
 
     Args:
         name: Public symbol name requested from the package module.
@@ -83,7 +83,7 @@ def __getattr__(name: str) -> object:
 
 
 def __dir__() -> list[str]:
-    """Return package attribute names including deferred exports.
+    """Return package attributes, including deferred exports.
 
     Returns:
         Sorted attribute list for interactive discovery.
