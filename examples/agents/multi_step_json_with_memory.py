@@ -77,7 +77,7 @@ def main() -> None:
     with (
         Toolbox() as tool_runtime,
         SQLiteMemoryStore(db_path=db_path) as store,
-        LlamaCppServerLLMClient() as llm_client,
+        LlamaCppServerLLMClient(context_window=8192) as llm_client,
     ):
         # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
         tool_runtime.invoke_dict(
@@ -104,12 +104,16 @@ def main() -> None:
             max_steps=3,
             memory_store=store,
             memory_namespace="design_examples",
-            memory_read_top_k=3,
+            memory_read_top_k=1,
             memory_write_observations=True,
+            allowed_tools=("text.word_count",),
             tracer=tracer,
         )
         result = agent.run(
-            "Compute one design-check text metric and retain the observation history.",
+            (
+                "Compute exactly one text metric from the retrieved design note, then stop after "
+                "the first successful observation. Retain the observation history."
+            ),
             request_id=request_id,
         )
     summary = result.summary()

@@ -221,6 +221,17 @@ def test_fs_helpers_cover_read_write_stat_hash_and_glob(tmp_path: Path) -> None:
         fs_tools._hash({"path": "dir/a.txt", "algo": "__invalid_algo__"}, policy=policy)
 
 
+def test_fs_read_text_rejects_blank_paths_and_directories(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    (tmp_path / "dir").mkdir()
+
+    with pytest.raises(ValueError, match="'path' is required"):
+        fs_tools._read_text({}, policy=policy)
+
+    with pytest.raises(ValueError, match="Path is not a file"):
+        fs_tools._read_text({"path": "dir"}, policy=policy)
+
+
 def test_git_helpers_build_expected_arguments_and_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

@@ -45,6 +45,9 @@ def resolve_step_error(step_result: ExecutionResult) -> str:
     Returns:
         Result produced by this call.
     """
+    if step_result.success:
+        return ""
+
     raw_error = step_result.output.get("error")
     if isinstance(raw_error, str) and raw_error.strip():
         return raw_error

@@ -42,6 +42,7 @@ from design_research_agents._implementations._shared._agent_internal._prompt_alt
 )
 from design_research_agents._implementations._shared._agent_internal._tool_input import (
     infer_expression,
+    infer_file_path,
     resolve_known_tool_input,
 )
 
@@ -220,6 +221,9 @@ def test_tool_input_helpers_cover_known_tool_resolution() -> None:
     assert infer_expression(input_payload={"text": "2*3"}, prompt="ignored") == "2*3"
     assert infer_expression(input_payload={}, prompt="Compute 4 + 5") == "4 + 5"
     assert infer_expression(input_payload={}, prompt="no math") == "no math"
+    assert infer_file_path(input_payload={}, prompt="Read README.md next.") == "README.md"
+    assert infer_file_path(input_payload={"path": "docs/api.rst"}, prompt="ignored") == "docs/api.rst"
+    assert infer_file_path(input_payload={}, prompt="No file mentioned here.") is None
 
     calc_input = resolve_known_tool_input(tool_name="calculator", input_payload={"prompt": "7*8"})
     assert calc_input == {"expression": "7*8"}
@@ -229,6 +233,9 @@ def test_tool_input_helpers_cover_known_tool_resolution() -> None:
         input_payload={"analysis_text": "hello world"},
     )
     assert word_count == {"text": "hello world"}
+    assert resolve_known_tool_input(tool_name="fs.read_text", input_payload={"prompt": "Read README.md"}) == {
+        "path": "README.md"
+    }
     assert resolve_known_tool_input(tool_name="unknown", input_payload={"prompt": "x"}) is None
 
 
@@ -349,6 +356,22 @@ def test_json_tool_helpers_cover_choice_resolution_and_tool_input_precedence() -
         input_payload={"prompt": "1+2"},
     )
     assert resolved_known == {"expression": "1+2"}
+
+    resolved_from_schema_mismatch = resolve_tool_input(
+        selected_choice=ToolChoice(
+            tool_name="fs.read_text",
+            description="",
+            input_schema={
+                "type": "object",
+                "required": ["path"],
+                "properties": {"path": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        parsed_tool_call={"tool_input": {"text": "wrong field"}},
+        input_payload={"prompt": "Read README.md and summarize it."},
+    )
+    assert resolved_from_schema_mismatch == {"path": "README.md"}
 
     assert coerce_tool_input("bad") is None
 

@@ -33,7 +33,6 @@ classifiers = [
 dependencies = [
   "bashkit>=0.1.4",
   "jsonschema>=4.23,<5",
-  "mcp>=1.6,<2",
   "openai>=1.40,<2",
 ]
 

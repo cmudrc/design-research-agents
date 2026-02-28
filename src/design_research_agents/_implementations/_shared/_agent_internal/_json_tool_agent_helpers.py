@@ -299,12 +299,18 @@ def resolve_tool_input(
             "tool_input",
             parsed_tool_call.get("arguments", parsed_tool_call.get("args")),
         )
-        normalized_from_model = coerce_tool_input(raw_tool_input)
+        normalized_from_model = _coerce_validated_tool_input(
+            raw_tool_input=raw_tool_input,
+            input_schema=selected_choice.input_schema,
+        )
         if normalized_from_model:
             return normalized_from_model
 
     raw_tool_input = input_payload.get("tool_input")
-    normalized_from_input = coerce_tool_input(raw_tool_input)
+    normalized_from_input = _coerce_validated_tool_input(
+        raw_tool_input=raw_tool_input,
+        input_schema=selected_choice.input_schema,
+    )
     if normalized_from_input:
         return normalized_from_input
 
@@ -334,6 +340,50 @@ def coerce_tool_input(raw_tool_input: object) -> dict[str, object] | None:
         if parsed is not None:
             return parsed
     return None
+
+
+def _coerce_validated_tool_input(
+    *,
+    raw_tool_input: object,
+    input_schema: Mapping[str, object],
+) -> dict[str, object] | None:
+    """Parse tool input and reject payloads that violate the declared shape."""
+    normalized = coerce_tool_input(raw_tool_input)
+    if normalized is None:
+        return None
+    if not _matches_tool_input_shape(
+        input_payload=normalized,
+        input_schema=input_schema,
+    ):
+        return None
+    return normalized
+
+
+def _matches_tool_input_shape(
+    *,
+    input_payload: Mapping[str, object],
+    input_schema: Mapping[str, object],
+) -> bool:
+    """Return whether the payload satisfies required keys and field allowlisting."""
+    schema_type = input_schema.get("type")
+    if isinstance(schema_type, str) and schema_type != "object":
+        return False
+
+    required_fields = input_schema.get("required")
+    if isinstance(required_fields, list):
+        for field_name in required_fields:
+            if isinstance(field_name, str) and field_name not in input_payload:
+                return False
+
+    if input_schema.get("additionalProperties") is False:
+        raw_properties = input_schema.get("properties")
+        properties = raw_properties if isinstance(raw_properties, Mapping) else {}
+        if properties:
+            for field_name in input_payload:
+                if field_name not in properties:
+                    return False
+
+    return True
 
 
 __all__ = [

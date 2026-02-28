@@ -130,6 +130,7 @@ def test_multi_step_json_tool_call_then_continuation_stop() -> None:
     assert agent.workflow is not None
     assert result.output["steps_executed"] == 1
     assert result.output["final_output"] == {"value": 5}
+    assert result.output["step_outputs"][0]["error"] == ""
     assert isinstance(result.output["workflow"], dict)
     assert isinstance(result.output["artifacts"], list)
     assert str(result.output["terminated_reason"]).startswith("continuation_stopped")

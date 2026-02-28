@@ -187,8 +187,16 @@ def _read_text(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappi
 
     Returns:
         Result produced by this call.
+
+    Raises:
+        ValueError: If ``path`` is blank or resolves to a directory.
     """
-    path = policy.resolve_read_path(get_str(input_dict, "path"))
+    raw_path = get_str(input_dict, "path").strip()
+    if not raw_path:
+        raise ValueError("'path' is required.")
+    path = policy.resolve_read_path(raw_path)
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {path}")
     max_bytes = get_int(input_dict, "max_bytes", default=65_536)
 
     raw_bytes = path.read_bytes()

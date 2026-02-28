@@ -65,6 +65,7 @@ _JSON_ALLOWED_TOOLS: tuple[str, ...] = (
     "eval.decision_matrix",
     "eval.pairwise_rank",
 )
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 
 
 def main() -> None:
@@ -77,7 +78,8 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
+    # Pin the tool workspace root so README.md resolves consistently outside the repo root.
+    with Toolbox(workspace_root=_WORKSPACE_ROOT) as tool_runtime, LlamaCppServerLLMClient() as llm_client:
         agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
@@ -88,7 +90,7 @@ def main() -> None:
             tracer=tracer,
         )
         result = agent.run(
-            prompt="Read README.md and summarize one implementation insight from the text.",
+            prompt="Read the workspace-root README.md and summarize one implementation insight from the text.",
             request_id=request_id,
         )
 
