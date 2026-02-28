@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 import textwrap
@@ -15,6 +14,12 @@ def _write_file(repo_root: Path, relative_path: str, content: str) -> None:
     path = repo_root / relative_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(textwrap.dedent(content).lstrip("\n"), encoding="utf-8")
+
+
+def _repo_root(tmp_path: Path, name: str) -> Path:
+    repo_root = tmp_path / name
+    repo_root.mkdir()
+    return repo_root
 
 
 def _run_checker(
@@ -54,7 +59,7 @@ def _error_codes(lines: list[str]) -> set[str]:
     return codes
 
 
-def test_missing_module_class_and_callable_docstrings_fail() -> None:
+def test_missing_module_class_and_callable_docstrings_fail(tmp_path: Path) -> None:
     with_missing_docs = """
     class Example:
         def __init__(self, value: int) -> None:
@@ -63,9 +68,7 @@ def test_missing_module_class_and_callable_docstrings_fail() -> None:
     def build(value: int) -> int:
         return value
     """
-    repo_root = Path("artifacts/tests/docstring_checker_missing_docs")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_missing_docs")
     _write_file(repo_root, "src/pkg/example.py", with_missing_docs)
 
     exit_code, lines = _run_checker(repo_root)
@@ -74,7 +77,7 @@ def test_missing_module_class_and_callable_docstrings_fail() -> None:
     assert {"DGS001", "DGS003", "DGS005"} <= _error_codes(lines)
 
 
-def test_missing_args_entries_are_reported() -> None:
+def test_missing_args_entries_are_reported(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -89,9 +92,7 @@ def test_missing_args_entries_are_reported() -> None:
         \"\"\"
         return alpha + beta
     """
-    repo_root = Path("artifacts/tests/docstring_checker_args")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_args")
     _write_file(repo_root, "src/pkg/args_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -100,7 +101,7 @@ def test_missing_args_entries_are_reported() -> None:
     assert "DGS007" in _error_codes(lines)
 
 
-def test_yields_and_returns_rules_apply_correctly() -> None:
+def test_yields_and_returns_rules_apply_correctly(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -126,9 +127,7 @@ def test_yields_and_returns_rules_apply_correctly() -> None:
         \"\"\"
         return value + 1
     """
-    repo_root = Path("artifacts/tests/docstring_checker_yields_returns")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_yields_returns")
     _write_file(repo_root, "src/pkg/returns_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -139,7 +138,7 @@ def test_yields_and_returns_rules_apply_correctly() -> None:
     assert "DGS009" in codes
 
 
-def test_raises_rule_is_enforced() -> None:
+def test_raises_rule_is_enforced(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -156,9 +155,7 @@ def test_raises_rule_is_enforced() -> None:
             raise ValueError("boom")
         return 1
     """
-    repo_root = Path("artifacts/tests/docstring_checker_raises")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_raises")
     _write_file(repo_root, "src/pkg/raises_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -167,7 +164,7 @@ def test_raises_rule_is_enforced() -> None:
     assert "DGS010" in _error_codes(lines)
 
 
-def test_varargs_kwargs_and_noreturn_are_supported() -> None:
+def test_varargs_kwargs_and_noreturn_are_supported(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -196,9 +193,7 @@ def test_varargs_kwargs_and_noreturn_are_supported() -> None:
         \"\"\"
         raise RuntimeError(message)
     """
-    repo_root = Path("artifacts/tests/docstring_checker_varargs")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_varargs")
     _write_file(repo_root, "src/pkg/varargs_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -207,7 +202,7 @@ def test_varargs_kwargs_and_noreturn_are_supported() -> None:
     assert lines == ["Google-style docstring checks passed."]
 
 
-def test_tests_directory_is_out_of_scope() -> None:
+def test_tests_directory_is_out_of_scope(tmp_path: Path) -> None:
     valid_source = """
     \"\"\"Module summary.\"\"\"
 
@@ -223,9 +218,7 @@ def test_tests_directory_is_out_of_scope() -> None:
     def no_doc(value: int) -> int:
         return value
     """
-    repo_root = Path("artifacts/tests/docstring_checker_scope")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_scope")
     _write_file(repo_root, "src/pkg/valid.py", valid_source)
     _write_file(repo_root, "tests/test_ignore_me.py", missing_doc_source)
 
@@ -235,7 +228,7 @@ def test_tests_directory_is_out_of_scope() -> None:
     assert lines == ["Google-style docstring checks passed."]
 
 
-def test_dataclass_fields_require_inline_docstrings() -> None:
+def test_dataclass_fields_require_inline_docstrings(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -251,9 +244,7 @@ def test_dataclass_fields_require_inline_docstrings() -> None:
         \"\"\"Number of items.\"\"\"
         metadata: ClassVar[dict[str, int]] = {}
     """
-    repo_root = Path("artifacts/tests/docstring_checker_dataclass_fields")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_dataclass_fields")
     _write_file(repo_root, "src/pkg/dataclass_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -262,7 +253,7 @@ def test_dataclass_fields_require_inline_docstrings() -> None:
     assert "DGS011" in _error_codes(lines)
 
 
-def test_dataclass_alias_and_field_docstrings_pass() -> None:
+def test_dataclass_alias_and_field_docstrings_pass(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -277,9 +268,7 @@ def test_dataclass_alias_and_field_docstrings_pass() -> None:
         count: int = 0
         \"\"\"Number of items.\"\"\"
     """
-    repo_root = Path("artifacts/tests/docstring_checker_dataclass_alias")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_dataclass_alias")
     _write_file(repo_root, "src/pkg/dataclass_alias_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -288,14 +277,12 @@ def test_dataclass_alias_and_field_docstrings_pass() -> None:
     assert lines == ["Google-style docstring checks passed."]
 
 
-def test_baseline_suppresses_known_violations() -> None:
+def test_baseline_suppresses_known_violations(tmp_path: Path) -> None:
     source = """
     def undocumented(value: int) -> int:
         return value
     """
-    repo_root = Path("artifacts/tests/docstring_checker_baseline")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_baseline")
     _write_file(repo_root, "src/pkg/baseline_example.py", source)
 
     baseline_path = repo_root / "baseline.txt"
@@ -311,14 +298,12 @@ def test_baseline_suppresses_known_violations() -> None:
     assert lines == ["Google-style docstring checks passed."]
 
 
-def test_changed_file_with_baseline_entry_reports_dgs013_and_unsuppressed_violations() -> None:
+def test_changed_file_with_baseline_entry_reports_dgs013_and_unsuppressed_violations(tmp_path: Path) -> None:
     source = """
     def undocumented(value: int) -> int:
         return value
     """
-    repo_root = Path("artifacts/tests/docstring_checker_changed_file_baseline_blocked")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_changed_file_baseline_blocked")
     _write_file(repo_root, "src/pkg/blocked_example.py", source)
 
     baseline_path = repo_root / "baseline.txt"
@@ -345,14 +330,12 @@ def test_changed_file_with_baseline_entry_reports_dgs013_and_unsuppressed_violat
     ) in lines
 
 
-def test_unchanged_file_can_still_use_baseline_suppression() -> None:
+def test_unchanged_file_can_still_use_baseline_suppression(tmp_path: Path) -> None:
     source = """
     def undocumented(value: int) -> int:
         return value
     """
-    repo_root = Path("artifacts/tests/docstring_checker_unchanged_file_baseline")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_unchanged_file_baseline")
     _write_file(repo_root, "src/pkg/unchanged_example.py", source)
 
     baseline_path = repo_root / "baseline.txt"
@@ -375,7 +358,7 @@ def test_unchanged_file_can_still_use_baseline_suppression() -> None:
     assert lines == ["Google-style docstring checks passed."]
 
 
-def test_changed_file_with_stale_baseline_entry_reports_dgs013() -> None:
+def test_changed_file_with_stale_baseline_entry_reports_dgs013(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -390,9 +373,7 @@ def test_changed_file_with_stale_baseline_entry_reports_dgs013() -> None:
         \"\"\"
         return value
     """
-    repo_root = Path("artifacts/tests/docstring_checker_stale_baseline")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_stale_baseline")
     _write_file(repo_root, "src/pkg/stale_example.py", source)
 
     baseline_path = repo_root / "baseline.txt"
@@ -414,7 +395,7 @@ def test_changed_file_with_stale_baseline_entry_reports_dgs013() -> None:
     assert _error_codes(lines) == {"DGS013"}
 
 
-def test_placeholder_docstrings_are_reported() -> None:
+def test_placeholder_docstrings_are_reported(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -429,9 +410,7 @@ def test_placeholder_docstrings_are_reported() -> None:
         \"\"\"
         return alpha + 1
     """
-    repo_root = Path("artifacts/tests/docstring_checker_placeholders")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_placeholders")
     _write_file(repo_root, "src/pkg/placeholder_example.py", source)
 
     exit_code, lines = _run_checker(repo_root)
@@ -440,7 +419,7 @@ def test_placeholder_docstrings_are_reported() -> None:
     assert {"DGS014", "DGS015"} <= _error_codes(lines)
 
 
-def test_placeholder_docstrings_are_suppressed_when_changed_file_list_is_empty() -> None:
+def test_placeholder_docstrings_are_suppressed_when_changed_file_list_is_empty(tmp_path: Path) -> None:
     source = """
     \"\"\"Module summary.\"\"\"
 
@@ -455,9 +434,7 @@ def test_placeholder_docstrings_are_suppressed_when_changed_file_list_is_empty()
         \"\"\"
         return alpha + 1
     """
-    repo_root = Path("artifacts/tests/docstring_checker_placeholders_empty_changed_scope")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_placeholders_empty_changed_scope")
     _write_file(repo_root, "src/pkg/placeholder_example.py", source)
 
     changed_files_path = repo_root / "changed_files.txt"
@@ -472,7 +449,7 @@ def test_placeholder_docstrings_are_suppressed_when_changed_file_list_is_empty()
     assert lines == ["Google-style docstring checks passed."]
 
 
-def test_placeholder_docstrings_only_fail_changed_files_when_changed_list_is_provided() -> None:
+def test_placeholder_docstrings_only_fail_changed_files_when_changed_list_is_provided(tmp_path: Path) -> None:
     placeholder_source = """
     \"\"\"Module summary.\"\"\"
 
@@ -487,9 +464,7 @@ def test_placeholder_docstrings_only_fail_changed_files_when_changed_list_is_pro
         \"\"\"
         return alpha + 1
     """
-    repo_root = Path("artifacts/tests/docstring_checker_placeholders_changed_scope")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+    repo_root = _repo_root(tmp_path, "docstring_checker_placeholders_changed_scope")
     _write_file(repo_root, "src/pkg/placeholder_example.py", placeholder_source)
     _write_file(
         repo_root,

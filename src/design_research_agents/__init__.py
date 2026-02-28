@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Final
+
+from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
@@ -57,10 +58,8 @@ __all__ = ["__version__", *_EXPORTS.keys()]
 
 try:
     __version__ = version("design-research-agents")
-    """The current version of the design-research-agents package."""
 except PackageNotFoundError:
     __version__ = "unknown"
-    """The current version of the design-research-agents package."""
 
 
 def __getattr__(name: str) -> object:
@@ -75,14 +74,12 @@ def __getattr__(name: str) -> object:
     Raises:
         AttributeError: If ``name`` is not part of the public export map.
     """
-    export_ref = _EXPORTS.get(name)
-    if export_ref is None:
-        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
-
-    module_name, attr_name = export_ref.split(":")
-    value = getattr(import_module(module_name), attr_name)
-    globals()[name] = value
-    return value
+    return resolve_lazy_export(
+        module_name=__name__,
+        exports=_EXPORTS,
+        export_name=name,
+        namespace=globals(),
+    )
 
 
 def __dir__() -> list[str]:
@@ -91,7 +88,7 @@ def __dir__() -> list[str]:
     Returns:
         Sorted attribute list for interactive discovery.
     """
-    return sorted(set(globals()) | set(__all__))
+    return module_dir(globals(), __all__)
 
 
 if TYPE_CHECKING:

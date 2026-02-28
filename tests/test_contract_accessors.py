@@ -19,8 +19,6 @@ from design_research_agents._contracts import (
     ToolResult,
     WorkflowStepResult,
 )
-from design_research_agents.llm._backends._base import BaseLLMBackend
-from design_research_agents.llm.clients._shared import _SingleBackendLLMClient
 from design_research_agents.llm import (
     AnthropicServiceLLMClient,
     AzureOpenAIServiceLLMClient,
@@ -29,6 +27,8 @@ from design_research_agents.llm import (
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
 )
+from design_research_agents.llm._backends._base import BaseLLMBackend
+from design_research_agents.llm.clients._shared import _SingleBackendLLMClient
 
 
 class _StubBackend(BaseLLMBackend):

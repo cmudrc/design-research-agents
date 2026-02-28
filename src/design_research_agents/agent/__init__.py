@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 from typing import Final
+
+from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents._implementations._agents:DirectLLMCall",
@@ -25,13 +26,12 @@ def __getattr__(name: str) -> object:
     Raises:
         AttributeError: Raised when ``name`` is not part of the public exports.
     """
-    export_ref = _EXPORTS.get(name)
-    if export_ref is None:
-        raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
-    module_name, attr_name = export_ref.split(":")
-    value = getattr(import_module(module_name), attr_name)
-    globals()[name] = value
-    return value
+    return resolve_lazy_export(
+        module_name=__name__,
+        exports=_EXPORTS,
+        export_name=name,
+        namespace=globals(),
+    )
 
 
 def __dir__() -> list[str]:
@@ -40,4 +40,4 @@ def __dir__() -> list[str]:
     Returns:
         Sorted attribute names visible on this module.
     """
-    return sorted(set(globals()) | set(__all__))
+    return module_dir(globals(), __all__)

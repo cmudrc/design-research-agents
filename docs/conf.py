@@ -29,11 +29,12 @@ author = "design-research-agents contributors"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
 ]
+if os.environ.get("DRA_DOCS_ENABLE_INTERSPHINX") == "1":
+    extensions.append("sphinx.ext.intersphinx")
 
 # Docstring style: prefer Google-style (works well with type hints).
 napoleon_google_docstring = True
@@ -50,9 +51,13 @@ autosummary_imported_members = True
 
 # Treat unresolved cross references as errors.
 nitpicky = True
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3", None),
-}
+intersphinx_mapping = (
+    {
+        "python": ("https://docs.python.org/3", None),
+    }
+    if "sphinx.ext.intersphinx" in extensions
+    else {}
+)
 nitpick_ignore = [
     ("py:class", "ExecutionResult"),
     ("py:class", "LlamaCppServerBackend"),
@@ -76,6 +81,10 @@ nitpick_ignore = [
     ),
     ("py:class", "design_research_agents._model_selection._types.ModelSpec"),
     ("py:exc", "SchemaValidationError"),
+]
+nitpick_ignore_regex = [
+    # Offline docs builds do not resolve stdlib inventory targets via intersphinx.
+    ("py:class", r"collections\.abc\..+"),
 ]
 
 templates_path = ["_templates"]

@@ -9,6 +9,9 @@ from pathlib import Path
 BLOCKED_PATH_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?:^|/)\.DS_Store$"), ".DS_Store"),
     (re.compile(r"(?:^|/)__pycache__(?:/|$)"), "__pycache__"),
+    (re.compile(r"\.py[co]$"), "compiled Python"),
+    (re.compile(r"^docs/_build(?:/|$)"), "docs/_build"),
+    (re.compile(r"^htmlcov(?:/|$)"), "htmlcov"),
 )
 
 
@@ -48,6 +51,24 @@ def _tracked_paths(repo_root: Path) -> list[str]:
     return sorted(path for path in output.split("\0") if path)
 
 
+def _find_offending_paths(paths: list[str]) -> list[str]:
+    """Return tracked paths that match blocked junk patterns.
+
+    Args:
+        paths: Candidate tracked paths.
+
+    Returns:
+        Sorted junk artifact paths.
+    """
+    offending_paths: list[str] = []
+    for path in paths:
+        for pattern, _label in BLOCKED_PATH_PATTERNS:
+            if pattern.search(path):
+                offending_paths.append(path)
+                break
+    return offending_paths
+
+
 def main() -> int:
     """Run tracked junk checks and return a process status code.
 
@@ -55,12 +76,7 @@ def main() -> int:
         ``0`` when checks pass, otherwise ``1``.
     """
     repo_root = _repo_root()
-    offending_paths: list[str] = []
-    for path in _tracked_paths(repo_root):
-        for pattern, _label in BLOCKED_PATH_PATTERNS:
-            if pattern.search(path):
-                offending_paths.append(path)
-                break
+    offending_paths = _find_offending_paths(_tracked_paths(repo_root))
 
     if not offending_paths:
         print("Tracked junk check passed.")

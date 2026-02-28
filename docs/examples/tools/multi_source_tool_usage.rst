@@ -1,4 +1,4 @@
-Multi-Source Tool Usage
+Multi Source Tool Usage
 =======================
 
 Source: ``examples/tools/multi_source_tool_usage.py``

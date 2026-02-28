@@ -26,8 +26,8 @@ from design_research_agents.workflow import Workflow, list_of, scalar, typed_dic
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 
-def _write_dataset(*, filename: str) -> str:
-    path = Path("artifacts/tests") / filename
+def _write_dataset(*, base_dir: str, filename: str) -> str:
+    path = Path(base_dir) / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
@@ -175,10 +175,11 @@ def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | DelegateStep
     ]
 
 
-def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
-    dataset_path = _write_dataset(filename="pure_arbitrary_dataset.csv")
+def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs(tmp_path: Path) -> None:
+    dataset_path = _write_dataset(base_dir=str(tmp_path), filename="pure_arbitrary_dataset.csv")
+    report_path = tmp_path / "artifacts" / "pure_arbitrary_report.json"
     workflow = Workflow(
-        tool_runtime=Toolbox(),
+        tool_runtime=Toolbox(workspace_root=tmp_path),
         steps=_pure_dataset_steps(),
         input_schema=_pure_input_schema(),
     )
@@ -186,7 +187,7 @@ def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
     result = workflow.run(
         {
             "dataset_csv_path": dataset_path,
-            "quality_report_path": "artifacts/tests/pure_arbitrary_report.json",
+            "quality_report_path": str(report_path),
             "required_columns": ["participant_id", "study_arm"],
             "sample_nrows": 3,
             "max_missing_ratio_per_column": 0.3,
@@ -196,15 +197,13 @@ def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
 
     assert result.success
     assert result.step_results["finalize"].status == "completed"
-    assert str(result.step_results["finalize"].output["report_path"]).endswith(
-        "artifacts/tests/pure_arbitrary_report.json"
-    )
+    assert str(result.step_results["finalize"].output["report_path"]) == str(report_path)
 
 
-def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
-    dataset_path = _write_dataset(filename="pure_schema_dataset.csv")
+def test_workflow_schema_mode_validates_inputs_with_schema_hook(tmp_path: Path) -> None:
+    dataset_path = _write_dataset(base_dir=str(tmp_path), filename="pure_schema_dataset.csv")
     workflow = Workflow(
-        tool_runtime=Toolbox(),
+        tool_runtime=Toolbox(workspace_root=tmp_path),
         steps=_pure_dataset_steps(),
         input_schema=_pure_input_schema(),
     )
@@ -213,7 +212,7 @@ def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
         workflow.run(
             {
                 "dataset_csv_path": dataset_path,
-                "quality_report_path": "artifacts/tests/pure_schema_report.json",
+                "quality_report_path": str(tmp_path / "artifacts" / "pure_schema_report.json"),
                 "required_columns": ["participant_id"],
                 "sample_nrows": "3",
                 "max_missing_ratio_per_column": 0.2,

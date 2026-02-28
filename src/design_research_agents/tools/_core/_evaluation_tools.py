@@ -68,7 +68,7 @@ def register_evaluation_tools(source: InProcessToolSource) -> None:
     source.register_tool(
         spec=ToolSpec(
             name="eval.pairwise_rank",
-            description=("Rank alternatives from pairwise outcomes using Copeland scoring (wins - losses + 0.5*ties)."),
+            description="Rank alternatives from pairwise outcomes using Copeland scoring (wins - losses + 0.5*ties).",
             input_schema={
                 "type": "object",
                 "additionalProperties": False,

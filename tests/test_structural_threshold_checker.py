@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -34,10 +33,14 @@ def _run_checker(repo_root: Path) -> tuple[int, list[str]]:
     return completed.returncode, output_lines
 
 
-def test_implementation_paths_are_bucketed_as_implementation() -> None:
-    repo_root = Path("artifacts/tests/structural_threshold_impl_bucket")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+def _repo_root(tmp_path: Path, name: str) -> Path:
+    repo_root = tmp_path / name
+    repo_root.mkdir()
+    return repo_root
+
+
+def test_implementation_paths_are_bucketed_as_implementation(tmp_path: Path) -> None:
+    repo_root = _repo_root(tmp_path, "structural_threshold_impl_bucket")
     _write_python_lines(
         repo_root,
         "src/design_research_agents/implementations/patterns/example.py",
@@ -53,10 +56,8 @@ def test_implementation_paths_are_bucketed_as_implementation() -> None:
     )
 
 
-def test_general_paths_are_not_misclassified_as_implementation() -> None:
-    repo_root = Path("artifacts/tests/structural_threshold_general_bucket")
-    if repo_root.exists():
-        shutil.rmtree(repo_root)
+def test_general_paths_are_not_misclassified_as_implementation(tmp_path: Path) -> None:
+    repo_root = _repo_root(tmp_path, "structural_threshold_general_bucket")
     _write_python_lines(
         repo_root,
         "src/design_research_agents/workflow/core/example.py",

@@ -28,7 +28,7 @@ help:
 	@echo "  ci               Full CI checks used in GitHub Actions."
 	@echo "  coverage         Run tests with coverage threshold check."
 	@echo "  docs             Build docs (same as docs-build)."
-	@echo "  clean            Remove generated build artifacts."
+	@echo "  clean            Remove generated build artifacts and local caches."
 
 check-python:
 	@$(PYTHON) -c "import sys, pathlib; print(f'Using Python {sys.version.split()[0]} at {pathlib.Path(sys.executable)}'); raise SystemExit(0 if sys.version_info >= (3, 12) else 1)" || (echo "Python >= 3.12 is required by pyproject.toml"; exit 1)
@@ -124,6 +124,10 @@ docs: docs-build
 ci: qa coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check docs-check examples-smoke
 
 clean:
-	rm -rf docs/_build artifacts src/design_research_agents.egg-info
+	rm -rf docs/_build artifacts build htmlcov src/design_research_agents.egg-info .coverage coverage.xml
 	find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
+	find examples -type d -name artifacts -prune -exec rm -rf {} + 2>/dev/null || true
+	find . -type d \( -name "__pycache__" -o -name ".mypy_cache" -o -name ".pytest_cache" -o -name ".ruff_cache" \) -prune -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name ".DS_Store" -exec rm -f {} + 2>/dev/null || true
+	find . -type f \( -name "*.pyc" -o -name "*.pyo" -o -name ".coverage.*" \) -exec rm -f {} + 2>/dev/null || true
 	find . -type d -name traces -prune -exec rm -rf {} + 2>/dev/null || true
