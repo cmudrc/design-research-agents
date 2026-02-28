@@ -114,35 +114,36 @@ def main() -> None:
     def _decrease(payload: Mapping[str, object]) -> dict[str, object]:
         return _step(-1.0, payload)
 
-    tools = Toolbox(
-        enable_core_tools=False,
-        callable_tools=(
-            CallableToolConfig(
-                name="optimizer.decrease_x",
-                description="Decrease x by step (default 1).",
-                handler=_decrease,
-                input_schema={
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {"step": {"type": "number"}},
-                    "required": [],
-                },
+    with (
+        Toolbox(
+            enable_core_tools=False,
+            callable_tools=(
+                CallableToolConfig(
+                    name="optimizer.decrease_x",
+                    description="Decrease x by step (default 1).",
+                    handler=_decrease,
+                    input_schema={
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {"step": {"type": "number"}},
+                        "required": [],
+                    },
+                ),
+                CallableToolConfig(
+                    name="optimizer.increase_x",
+                    description="Increase x by step (default 1).",
+                    handler=_increase,
+                    input_schema={
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {"step": {"type": "number"}},
+                        "required": [],
+                    },
+                ),
             ),
-            CallableToolConfig(
-                name="optimizer.increase_x",
-                description="Increase x by step (default 1).",
-                handler=_increase,
-                input_schema={
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {"step": {"type": "number"}},
-                    "required": [],
-                },
-            ),
-        ),
-    )
-
-    with LlamaCppServerLLMClient() as llm_client:
+        ) as tools,
+        LlamaCppServerLLMClient() as llm_client,
+    ):
         agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
@@ -150,17 +151,14 @@ def main() -> None:
             max_steps=6,
             tracer=tracer,
         )
-        try:
-            result = agent.run(
-                prompt=(
-                    "Your job is to find a value of x to minimize the blackbox function f(x). "
-                    "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
-                    "Keep iterating until no one-step move improves the value."
-                ),
-                request_id=request_id,
-            )
-        finally:
-            tools.close()
+        result = agent.run(
+            prompt=(
+                "Your job is to find a value of x to minimize the blackbox function f(x). "
+                "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
+                "Keep iterating until no one-step move improves the value."
+            ),
+            request_id=request_id,
+        )
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

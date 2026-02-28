@@ -24,6 +24,7 @@ _SUMMARY_REQUIRED_KEYS = (
 
 _EXECUTION_RESULT_EXAMPLES = {
     "examples/agents/direct_llm_call.py",
+    "examples/agents/direct_llm_compiled_execution.py",
     "examples/agents/multi_step_direct_llm_agent.py",
     "examples/agents/multi_step_json_tool_calling_agent.py",
     "examples/agents/multi_step_code_tool_calling_agent.py",

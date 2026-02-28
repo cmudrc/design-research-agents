@@ -88,17 +88,19 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    tool_runtime = Toolbox(
-        callable_tools=(
-            CallableToolConfig(
-                name="repo.readme_metrics",
-                description="Return README line-count and first heading.",
-                # Inject one deterministic local tool so planning can reference concrete capabilities.
-                handler=_readme_metrics,
+    with (
+        Toolbox(
+            callable_tools=(
+                CallableToolConfig(
+                    name="repo.readme_metrics",
+                    description="Return README line-count and first heading.",
+                    # Inject one deterministic local tool so planning can reference concrete capabilities.
+                    handler=_readme_metrics,
+                ),
             ),
-        ),
-    )
-    with LlamaCppServerLLMClient() as llm_client:
+        ) as tool_runtime,
+        LlamaCppServerLLMClient() as llm_client,
+    ):
         workflow = PlanExecutePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,

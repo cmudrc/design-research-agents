@@ -68,8 +68,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    tool_runtime = Toolbox()
-    with LlamaCppServerLLMClient() as llm_client:
+    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
         workflow = DebatePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,

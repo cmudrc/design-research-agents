@@ -82,7 +82,12 @@ def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
 
 
 def _run_report() -> dict[str, object]:
-    runtime = Toolbox(
+    source_text = (
+        "Design review checklist: verify latch durability, reduce assembly time, "
+        "and keep maintenance steps field-serviceable."
+    )
+
+    with Toolbox(
         workspace_root=".",
         enable_core_tools=True,
         script_tools=(
@@ -111,14 +116,7 @@ def _run_report() -> dict[str, object]:
                 timeout_s=20,
             ),
         ),
-    )
-
-    source_text = (
-        "Design review checklist: verify latch durability, reduce assembly time, "
-        "and keep maintenance steps field-serviceable."
-    )
-
-    try:
+    ) as runtime:
         source_tool_counts = _source_tool_counts(runtime)
         write_result = runtime.invoke_dict(
             "fs.write_text",
@@ -172,9 +170,6 @@ def _run_report() -> dict[str, object]:
             dependencies={},
         )
         report["report_path"] = report_write["path"]
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        runtime.close()
 
     return report
 

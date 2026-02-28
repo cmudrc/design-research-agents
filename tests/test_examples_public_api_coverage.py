@@ -10,7 +10,7 @@ PACKAGE_INIT = REPO_ROOT / "src" / "design_research_agents" / "__init__.py"
 
 def _public_symbols() -> tuple[str, ...]:
     module = ast.parse(PACKAGE_INIT.read_text(encoding="utf-8"), filename=str(PACKAGE_INIT))
-    exports: list[str] = ["__version__"]
+    exports: list[str] = []
 
     export_dict: ast.Dict | None = None
     for node in module.body:
@@ -35,7 +35,7 @@ def _public_symbols() -> tuple[str, ...]:
         if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
             raise AssertionError("_EXPORTS contains a non-string key")
         exports.append(key.value)
-    return tuple(exports)
+    return tuple(name for name in exports if not (name.startswith("__") and name.endswith("__")))
 
 
 def _python_examples() -> tuple[Path, ...]:

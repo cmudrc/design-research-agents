@@ -52,7 +52,6 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
-from contextlib import ExitStack
 from pathlib import Path
 
 from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
@@ -75,8 +74,11 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
-    with ExitStack() as stack:
-        tool_runtime = stack.enter_context(Toolbox())
+    with (
+        Toolbox() as tool_runtime,
+        SQLiteMemoryStore(db_path=db_path) as store,
+        LlamaCppServerLLMClient() as llm_client,
+    ):
         # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
         tool_runtime.invoke_dict(
             "memory.write",
@@ -95,8 +97,6 @@ def main() -> None:
             request_id=f"{request_id}:seed_memory",
             dependencies={},
         )
-        store = stack.enter_context(SQLiteMemoryStore(db_path=db_path))
-        llm_client = stack.enter_context(LlamaCppServerLLMClient())
         agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,

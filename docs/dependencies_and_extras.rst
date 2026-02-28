@@ -24,6 +24,19 @@ Reproducible install
 
    make repro REPRO_EXTRAS="dev full"
 
+``REPRO_EXTRAS`` defaults to ``dev full``. The frozen install fails when
+``uv.lock`` is out of date.
+
+Maintainer release baseline
+---------------------------
+
+Use this when preparing a tagged release:
+
+1. Use Python ``3.12.12`` (the pinned interpreter in ``.python-version``).
+2. Regenerate lock data: ``make lock``.
+3. Verify the frozen install and full checks: ``make repro REPRO_EXTRAS="dev full"`` and ``make ci``.
+4. Commit ``uv.lock`` (and any dependency spec changes), then tag and publish.
+
 Extras matrix
 -------------
 

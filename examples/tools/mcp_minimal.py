@@ -65,7 +65,7 @@ from design_research_agents import MCPServerConfig, Toolbox, ToolResult, Tracer
 
 
 def _run_report() -> dict[str, object]:
-    runtime = Toolbox(
+    with Toolbox(
         mcp_servers=(
             MCPServerConfig(
                 id="local_core",
@@ -76,8 +76,7 @@ def _run_report() -> dict[str, object]:
         ),
         workspace_root=".",
         enable_core_tools=False,
-    )
-    try:
+    ) as runtime:
         mcp_tools = sorted(spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::"))
         direct_result: ToolResult = runtime.invoke(
             "local_core::text.word_count",
@@ -90,9 +89,6 @@ def _run_report() -> dict[str, object]:
         if not isinstance(direct_result.result, dict):
             raise RuntimeError("MCP tool call returned non-dict payload.")
         direct = direct_result.result
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        runtime.close()
 
     return {
         "mcp_tool_count": len(mcp_tools),

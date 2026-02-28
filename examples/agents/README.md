@@ -5,6 +5,7 @@ These examples cover traced agent entrypoints and multi-step execution modes for
 ## Scripts
 
 - `direct_llm_call.py`
+- `direct_llm_compiled_execution.py`
 - `multi_step_direct_llm_agent.py`
 - `multi_step_json_tool_calling_agent.py`
 - `multi_step_code_tool_calling_agent.py`
@@ -14,6 +15,7 @@ These examples cover traced agent entrypoints and multi-step execution modes for
 
 ```bash
 PYTHONPATH=src python3 examples/agents/direct_llm_call.py
+PYTHONPATH=src python3 examples/agents/direct_llm_compiled_execution.py
 PYTHONPATH=src python3 examples/agents/multi_step_direct_llm_agent.py
 PYTHONPATH=src python3 examples/agents/multi_step_json_tool_calling_agent.py
 PYTHONPATH=src python3 examples/agents/multi_step_code_tool_calling_agent.py

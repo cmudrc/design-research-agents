@@ -56,17 +56,14 @@ import json
 from pathlib import Path
 
 from design_research_agents import (
-    CompiledExecution,
     DirectLLMCall,
     LlamaCppServerLLMClient,
     Tracer,
-    __version__,
 )
 
 
 def main() -> None:
     """Execute one direct model call with explicit tracing."""
-    assert __version__
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-direct-llm-design-001"
     tracer = Tracer(
@@ -81,11 +78,10 @@ def main() -> None:
             "Write one sentence describing the primary engineering objective for a "
             "field-repairable wearable sensor enclosure."
         )
-        compiled: CompiledExecution = agent.compile(
+        result = agent.run(
             prompt=prompt,
             request_id=request_id,
         )
-        result = compiled.run()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

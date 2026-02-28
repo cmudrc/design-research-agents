@@ -52,7 +52,6 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
-from contextlib import ExitStack
 from pathlib import Path
 
 from design_research_agents import (
@@ -84,9 +83,10 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
-    with ExitStack() as stack:
-        store = stack.enter_context(SQLiteMemoryStore(db_path=db_path))
-        llm_client = stack.enter_context(LlamaCppServerLLMClient())
+    with (
+        SQLiteMemoryStore(db_path=db_path) as store,
+        LlamaCppServerLLMClient() as llm_client,
+    ):
         # Two delegates share the same backend client to model role-specific prompts over one transport.
         manufacturing_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         reliability_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)

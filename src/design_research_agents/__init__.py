@@ -59,7 +59,7 @@ __all__ = ["__version__", *_EXPORTS.keys()]
 try:
     __version__ = version("design-research-agents")
 except PackageNotFoundError:
-    __version__ = "unknown"
+    __version__ = "0+unknown"
 
 
 def __getattr__(name: str) -> object:

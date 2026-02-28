@@ -77,8 +77,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    tool_runtime = Toolbox()
-    with LlamaCppServerLLMClient() as llm_client:
+    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
         agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,

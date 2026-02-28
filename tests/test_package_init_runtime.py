@@ -22,6 +22,6 @@ def test_package_init_falls_back_to_unknown_version(
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    assert module.__version__ == "unknown"
+    assert module.__version__ == "0+unknown"
     assert "__version__" in module.__dir__()
     assert "ModelSelector" in module.__dir__()

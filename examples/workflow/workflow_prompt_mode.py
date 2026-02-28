@@ -91,8 +91,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    with LlamaCppServerLLMClient() as llm_client:
-        tool_runtime = Toolbox()
+    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
         writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
         workflow_steps = [

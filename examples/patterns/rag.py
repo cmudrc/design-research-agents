@@ -53,7 +53,6 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
-from contextlib import ExitStack
 from pathlib import Path
 
 from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Toolbox, Tracer
@@ -76,8 +75,11 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
-    with ExitStack() as stack:
-        seed_toolbox = stack.enter_context(Toolbox())
+    with (
+        Toolbox() as seed_toolbox,
+        SQLiteMemoryStore(db_path=db_path) as store,
+        LlamaCppServerLLMClient() as llm_client,
+    ):
         seed_toolbox.invoke_dict(
             "memory.write",
             {
@@ -93,8 +95,6 @@ def main() -> None:
             request_id=f"{request_id}:seed_memory",
             dependencies={},
         )
-        store = stack.enter_context(SQLiteMemoryStore(db_path=db_path))
-        llm_client = stack.enter_context(LlamaCppServerLLMClient())
         pattern = RAGPattern(
             reasoning_delegate=DirectLLMCall(llm_client=llm_client, tracer=tracer),
             memory_store=store,
