@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from design_research_agents._contracts._agent import ExecutionResult
+from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolSpec
 from design_research_agents._implementations._shared._agent_internal._result_builders import (

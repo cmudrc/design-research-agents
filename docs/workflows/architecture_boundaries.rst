@@ -20,7 +20,7 @@ Step primitives
 
 - ``LogicStep``: deterministic local logic and optional branching map.
 - ``ToolStep``: single tool call via ``ToolRuntime``.
-- ``AgentStep``: single delegate invocation via direct ``delegate`` object.
+- ``DelegateStep``: single delegate invocation via direct ``delegate`` object.
 - ``LoopStep``: iterative nested workflow body with state transitions.
 - ``DelegateBatchStep``: explicit multi-delegate fan-out step.
 - ``MemoryReadStep`` and ``MemoryWriteStep``: workflow-native memory primitives.

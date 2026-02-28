@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._tools import ToolRuntime
@@ -26,11 +26,12 @@ from design_research_agents._implementations._shared._agent_internal._prompt_alt
     AlternativesPromptTarget,
 )
 from design_research_agents._tracing import Tracer
+from design_research_agents.workflow import CompiledExecution
 
 MultiStepMode = Literal["direct", "json", "code"]
 
 
-class MultiStepAgent(Agent):
+class MultiStepAgent(Delegate):
     """Single multi-step runtime entrypoint for direct/json/code strategies."""
 
     def __init__(
@@ -110,7 +111,7 @@ class MultiStepAgent(Agent):
 
         # Additional validation for code mode
         self._mode: MultiStepMode = normalized_mode  # type: ignore[assignment]
-        self._strategy: Agent
+        self._strategy: Delegate
         if self._mode == "direct":
             self._strategy = _DirectModeStrategy(
                 llm_client=llm_client,
@@ -175,12 +176,28 @@ class MultiStepAgent(Agent):
 
     @property
     def workflow(self) -> object | None:
-        """Expose underlying strategy workflow for runtime inspection.
-
-        Returns:
-            Underlying mode-strategy workflow object when available.
-        """
+        """Expose the most recently compiled workflow from the selected strategy."""
         return getattr(self._strategy, "workflow", None)
+
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one run through the selected strategy mode."""
+        compile_callable = getattr(self._strategy, "compile", None)
+        if not callable(compile_callable):
+            raise TypeError("Selected multi-step strategy does not implement compile().")
+        compiled_execution = compile_callable(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        if not isinstance(compiled_execution, CompiledExecution):
+            raise TypeError("Selected multi-step strategy compile() must return CompiledExecution.")
+        return compiled_execution
 
     def run(
         self,
@@ -189,21 +206,12 @@ class MultiStepAgent(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute one run through the selected strategy mode.
-
-        Args:
-            prompt: Prompt text for this run.
-            request_id: Optional request identifier for tracing/correlation.
-            dependencies: Optional dependency mapping passed through to runtime calls.
-
-        Returns:
-            Execution result produced by the selected mode strategy.
-        """
-        return self._strategy.run(
+        """Execute one run through the selected strategy mode."""
+        return self.compile(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
-        )
+        ).run()
 
 
 __all__ = [

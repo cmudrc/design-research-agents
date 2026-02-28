@@ -6,17 +6,17 @@ import json
 from collections.abc import Mapping
 from contextlib import suppress
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient, LLMMessage, LLMRequest, LLMResponse
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._contracts._workflow import (
-    AgentStep,
     DelegateBatchCall,
     DelegateBatchStep,
+    DelegateStep,
+    DelegateTarget,
     LogicStep,
     LoopStep,
     ModelStep,
-    WorkflowDelegate,
 )
 from design_research_agents._implementations._agents._direct_llm_call import DirectLLMCall
 from design_research_agents._implementations._shared._agent_internal._input_parsing import (
@@ -27,8 +27,8 @@ from design_research_agents._implementations._shared._agent_internal._model_reso
 )
 from design_research_agents._runtime._patterns import (
     MODE_DEBATE,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     normalize_request_id_prefix,
     render_prompt_template,
     resolve_pattern_run_context,
@@ -54,7 +54,7 @@ from design_research_agents._schemas import (
     validate_payload_against_schema,
 )
 from design_research_agents._tracing import Tracer
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 _VERDICT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -116,9 +116,9 @@ class _DebateWorkflowCallbacks:
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-        affirmative_delegate: WorkflowDelegate,
-        negative_delegate: WorkflowDelegate,
-        judge_delegate: WorkflowDelegate | None,
+        affirmative_delegate: DelegateTarget,
+        negative_delegate: DelegateTarget,
+        judge_delegate: DelegateTarget | None,
         resolved_model: str,
         runtime_state: dict[str, object],
     ) -> None:
@@ -413,7 +413,7 @@ class _DebateWorkflowCallbacks:
         }
 
 
-class DebatePattern(Agent):
+class DebatePattern(Delegate):
     """Configured reusable debate pattern with affirmative, negative, and judge phases."""
 
     def __init__(
@@ -421,9 +421,9 @@ class DebatePattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        affirmative_delegate: WorkflowDelegate | None = None,
-        negative_delegate: WorkflowDelegate | None = None,
-        judge_delegate: WorkflowDelegate | None = None,
+        affirmative_delegate: DelegateTarget | None = None,
+        negative_delegate: DelegateTarget | None = None,
+        judge_delegate: DelegateTarget | None = None,
         max_rounds: int = 3,
         affirmative_system_prompt: str | None = None,
         affirmative_user_prompt_template: str | None = None,
@@ -489,26 +489,50 @@ class DebatePattern(Agent):
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         """Run the debate pattern and return one final judged result."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
+
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one debate workflow."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        return execute_pattern_with_trace(
-            agent_name="DebatePattern",
+        input_payload = {"prompt": prompt, "max_rounds": self._max_rounds, "mode": MODE_DEBATE}
+        workflow = self._build_workflow(
+            prompt,
             request_id=run_context.request_id,
-            input_payload={"prompt": prompt, "max_rounds": self._max_rounds, "mode": MODE_DEBATE},
+            dependencies=run_context.dependencies,
+        )
+        runtime_state = self._debate_runtime_state or {"last_model_response": None}
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="DebatePattern",
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_debate(
-                prompt=prompt,
+            input_payload=input_payload,
+            workflow_request_id=f"{run_context.request_id}:debate_workflow",
+            finalize=lambda workflow_result: _build_debate_result(
+                workflow_result=workflow_result,
+                runtime_state=runtime_state,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -545,7 +569,7 @@ class DebatePattern(Agent):
             runtime_state=runtime_state,
         )
 
-        steps: list[LoopStep | AgentStep | ModelStep | LogicStep] = [
+        steps: list[LoopStep | DelegateStep | ModelStep | LogicStep] = [
             LoopStep(
                 step_id="debate_rounds",
                 steps=(
@@ -602,7 +626,7 @@ class DebatePattern(Agent):
         else:
             steps.extend(
                 [
-                    AgentStep(
+                    DelegateStep(
                         step_id="debate_judge_delegate",
                         dependencies=("debate_rounds",),
                         delegate=self._judge_delegate,
@@ -634,7 +658,7 @@ class DebatePattern(Agent):
         dependencies: Mapping[str, object],
     ) -> ExecutionResult:
         """Execute debate rounds then judge verdict."""
-        workflow = self.build_workflow(
+        workflow = self._build_workflow(
             prompt,
             request_id=request_id,
             dependencies=dependencies,

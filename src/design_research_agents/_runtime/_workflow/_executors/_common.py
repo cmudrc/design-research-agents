@@ -13,9 +13,9 @@ from design_research_agents._contracts._memory import (
 )
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._contracts._workflow import (
-    AgentStep,
     DelegateBatchCall,
     DelegateBatchStep,
+    DelegateStep,
     LogicStep,
     MemoryReadStep,
     MemoryWriteStep,
@@ -33,7 +33,7 @@ from design_research_agents._tracing import (
 
 from .._step_context import (
     build_invocation_dependencies,
-    resolve_agent_prompt,
+    resolve_delegate_prompt,
     resolve_tool_input,
 )
 
@@ -132,9 +132,9 @@ def run_tool_step(
     )
 
 
-def run_agent_step(
+def run_delegate_step(
     *,
-    step: AgentStep,
+    step: DelegateStep,
     step_id: str,
     step_context: Mapping[str, object],
     request_id: str,
@@ -145,7 +145,7 @@ def run_agent_step(
     """Execute one agent-like step and return normalized workflow step result.
 
     Args:
-        step: Agent step definition to execute.
+        step: Delegate step definition to execute.
         step_id: Step identifier for result metadata.
         step_context: Step execution context with dependency outputs.
         request_id: Workflow request id for scoped delegate invocation ids.
@@ -159,7 +159,7 @@ def run_agent_step(
     selected_delegate = step.delegate
 
     try:
-        prompt = resolve_agent_prompt(step=step, step_context=step_context)
+        prompt = resolve_delegate_prompt(step=step, step_context=step_context)
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,

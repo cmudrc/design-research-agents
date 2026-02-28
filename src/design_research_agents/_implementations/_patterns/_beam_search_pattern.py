@@ -6,31 +6,31 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from typing import TypeGuard, cast
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
-from design_research_agents._contracts._workflow import LogicStep, LoopStep, WorkflowDelegate
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
+from design_research_agents._contracts._workflow import DelegateTarget, LogicStep, LoopStep
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
     MODE_BEAM_SEARCH,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     resolve_pattern_run_context,
 )
 from design_research_agents._tracing import Tracer
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 GeneratorValue = Mapping[str, object] | str | int | float
 GeneratorDelegate = Callable[[Mapping[str, object]], Sequence[GeneratorValue]]
 EvaluatorDelegate = Callable[[Mapping[str, object]], float | int | Mapping[str, object]]
 
 
-class BeamSearchPattern(Agent):
+class BeamSearchPattern(Delegate):
     """Beam-style tree search over generated candidate states."""
 
     def __init__(
         self,
         *,
-        generator_delegate: GeneratorDelegate | WorkflowDelegate,
-        evaluator_delegate: EvaluatorDelegate | WorkflowDelegate,
+        generator_delegate: GeneratorDelegate | DelegateTarget,
+        evaluator_delegate: EvaluatorDelegate | DelegateTarget,
         max_depth: int = 3,
         branch_factor: int = 3,
         beam_width: int = 2,
@@ -72,45 +72,72 @@ class BeamSearchPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute tree search and return the highest-scoring candidate.
+        """Execute tree search and return the highest-scoring candidate."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Task prompt.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Returns:
-            Tree search result payload.
-
-        Raises:
-            Exception: Propagated delegate invocation errors.
-        """
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one tree-search workflow."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
             dependencies=dependencies,
         )
-        return execute_pattern_with_trace(
-            agent_name="BeamSearchPattern",
+        input_payload = {
+            "prompt": prompt,
+            "mode": MODE_BEAM_SEARCH,
+            "max_depth": self._max_depth,
+            "branch_factor": self._branch_factor,
+            "beam_width": self._beam_width,
+        }
+        workflow = self._build_workflow(
+            prompt,
             request_id=run_context.request_id,
-            input_payload={
-                "prompt": prompt,
-                "mode": MODE_BEAM_SEARCH,
-                "max_depth": self._max_depth,
-                "branch_factor": self._branch_factor,
-                "beam_width": self._beam_width,
-            },
+            dependencies=run_context.dependencies,
+        )
+        runtime = self._beam_search_runtime or {}
+        maybe_root_node = runtime.get("root_node")
+        root_node = (
+            dict(maybe_root_node)
+            if isinstance(maybe_root_node, Mapping)
+            else {
+                "node_id": "root",
+                "candidate": {"text": prompt, "depth": 0},
+                "score": 0.0,
+                "depth": 0,
+                "parent_id": None,
+            }
+        )
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="BeamSearchPattern",
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_beam_search(
-                prompt=prompt,
+            input_payload=input_payload,
+            workflow_request_id=f"{run_context.request_id}:beam_search_workflow",
+            finalize=lambda workflow_result: _build_beam_search_result(
+                workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
+                max_depth=self._max_depth,
+                branch_factor=self._branch_factor,
+                beam_width=self._beam_width,
+                root_node=root_node,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -331,7 +358,7 @@ class BeamSearchPattern(Agent):
         Raises:
             RuntimeError: Raised when the loop step result is missing.
         """
-        workflow = self.build_workflow(
+        workflow = self._build_workflow(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
@@ -357,54 +384,14 @@ class BeamSearchPattern(Agent):
             request_id=f"{request_id}:beam_search_workflow",
             dependencies=dependencies,
         )
-        loop_step_result = workflow_result.step_results.get("beam_search_loop")
-        if loop_step_result is None:
-            raise RuntimeError("Tree search loop step result is missing.")
-        loop_output = loop_step_result.output
-        final_state_raw = loop_output.get("final_state")
-        final_state = dict(final_state_raw) if isinstance(final_state_raw, Mapping) else {}
-        best_node_raw = final_state.get("best_node")
-        best_node = dict(best_node_raw) if isinstance(best_node_raw, Mapping) else root_node
-        best_candidate = _json_ready(best_node.get("candidate", {}))
-        best_score = _safe_float(best_node.get("score"))
-        explored_nodes = _safe_int(final_state.get("explored_nodes"))
-        raw_frontier_trace = final_state.get("frontier_trace")
-        frontier_trace = (
-            [dict(entry) for entry in raw_frontier_trace if isinstance(entry, Mapping)]
-            if isinstance(raw_frontier_trace, list)
-            else []
-        )
-
-        return build_pattern_execution_result(
-            success=workflow_result.success,
-            final_output={
-                "best_candidate": best_candidate,
-                "best_score": best_score,
-            },
-            terminated_reason=str(
-                final_state.get(
-                    "terminated_reason",
-                    loop_output.get("terminated_reason", "completed"),
-                )
-            ),
-            details={
-                "frontier_trace": frontier_trace,
-                "explored_nodes": explored_nodes,
-            },
-            workflow_payload=workflow_result.to_dict(),
-            artifacts=workflow_result.output.get("artifacts", []),
+        return _build_beam_search_result(
+            workflow_result=workflow_result,
             request_id=request_id,
             dependencies=dependencies,
-            mode=MODE_BEAM_SEARCH,
-            metadata={
-                "max_depth": self._max_depth,
-                "branch_factor": self._branch_factor,
-                "beam_width": self._beam_width,
-            },
-            tool_results=[],
-            model_response=None,
-            requested_mode=MODE_BEAM_SEARCH,
-            resolved_mode=MODE_BEAM_SEARCH,
+            max_depth=self._max_depth,
+            branch_factor=self._branch_factor,
+            beam_width=self._beam_width,
+            root_node=root_node,
         )
 
     def _generate_children(
@@ -494,9 +481,79 @@ class BeamSearchPattern(Agent):
         return _extract_score(delegate_result.output)
 
 
+def _build_beam_search_result(
+    *,
+    workflow_result: ExecutionResult,
+    request_id: str,
+    dependencies: Mapping[str, object],
+    max_depth: int,
+    branch_factor: int,
+    beam_width: int,
+    root_node: Mapping[str, object],
+) -> ExecutionResult:
+    """Build the final beam-search result from one workflow execution."""
+    loop_step_result = workflow_result.step_results.get("beam_search_loop")
+    if loop_step_result is None:
+        raise RuntimeError("Beam search loop step result is missing.")
+
+    loop_output = loop_step_result.output
+    final_state_raw = loop_output.get("final_state")
+    final_state = dict(final_state_raw) if isinstance(final_state_raw, Mapping) else {}
+
+    best_node_raw = final_state.get("best_node")
+    best_node = dict(best_node_raw) if isinstance(best_node_raw, Mapping) else dict(root_node)
+    best_candidate_raw = best_node.get("candidate")
+    best_candidate = (
+        dict(best_candidate_raw)
+        if isinstance(best_candidate_raw, Mapping)
+        else {"value": _json_ready(best_candidate_raw)}
+    )
+    best_score = _safe_float(best_node.get("score"))
+
+    raw_frontier_trace = final_state.get("frontier_trace")
+    frontier_trace = (
+        [dict(item) for item in raw_frontier_trace if isinstance(item, Mapping)]
+        if isinstance(raw_frontier_trace, list)
+        else []
+    )
+    explored_nodes = _safe_int(final_state.get("explored_nodes"))
+    terminated_reason = str(
+        final_state.get(
+            "terminated_reason",
+            loop_output.get("terminated_reason", "max_depth_reached"),
+        )
+    )
+    success = bool(loop_output.get("success", loop_step_result.success))
+
+    return build_pattern_execution_result(
+        success=success,
+        final_output={
+            "best_candidate": _json_ready(best_candidate),
+            "best_score": best_score,
+        },
+        terminated_reason=terminated_reason,
+        details={
+            "best_node": _json_ready(best_node),
+            "explored_nodes": explored_nodes,
+            "frontier_trace": [_json_ready(item) for item in frontier_trace],
+        },
+        workflow_payload=workflow_result.to_dict(),
+        artifacts=workflow_result.output.get("artifacts", []),
+        request_id=request_id,
+        dependencies=dependencies,
+        mode=MODE_BEAM_SEARCH,
+        metadata={
+            "max_depth": max_depth,
+            "branch_factor": branch_factor,
+            "beam_width": beam_width,
+        },
+        error=loop_step_result.error,
+    )
+
+
 def _normalize_generator_delegate(
-    delegate: GeneratorDelegate | WorkflowDelegate,
-) -> WorkflowDelegate:
+    delegate: GeneratorDelegate | DelegateTarget,
+) -> DelegateTarget:
     """Normalize generator delegate into one object-delegate contract.
 
     Args:
@@ -511,8 +568,8 @@ def _normalize_generator_delegate(
 
 
 def _normalize_evaluator_delegate(
-    delegate: EvaluatorDelegate | WorkflowDelegate,
-) -> WorkflowDelegate:
+    delegate: EvaluatorDelegate | DelegateTarget,
+) -> DelegateTarget:
     """Normalize evaluator delegate into one object-delegate contract.
 
     Args:
@@ -539,25 +596,33 @@ class _GeneratorCallableDelegateAdapter:
 
     def run(
         self,
-        prompt: str,
         *,
+        context: Mapping[str, object] | None = None,
+        execution_mode: str = "dag",
+        failure_policy: str = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         """Execute callable generator delegate and normalize output.
 
         Args:
-            prompt: Serialized delegate context payload.
+            context: Optional delegate-runner context mapping.
+            execution_mode: Unused workflow execution mode passthrough.
+            failure_policy: Unused workflow failure policy passthrough.
             request_id: Optional request identifier.
             dependencies: Optional dependency mapping.
 
         Returns:
             Normalized execution result containing ``candidates`` output.
         """
-        del request_id, dependencies
-        context = _parse_json_context(prompt)
+        del execution_mode, failure_policy, request_id, dependencies
+        prompt = ""
+        if isinstance(context, Mapping):
+            raw_prompt = context.get("prompt")
+            prompt = raw_prompt if isinstance(raw_prompt, str) else ""
+        parsed_context = _parse_json_context(prompt)
         try:
-            raw_children = self._delegate(context)
+            raw_children = self._delegate(parsed_context)
         except Exception as exc:
             return ExecutionResult(
                 output={"error": str(exc)},
@@ -588,25 +653,33 @@ class _EvaluatorCallableDelegateAdapter:
 
     def run(
         self,
-        prompt: str,
         *,
+        context: Mapping[str, object] | None = None,
+        execution_mode: str = "dag",
+        failure_policy: str = "skip_dependents",
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         """Execute callable evaluator delegate and normalize score output.
 
         Args:
-            prompt: Serialized delegate context payload.
+            context: Optional delegate-runner context mapping.
+            execution_mode: Unused workflow execution mode passthrough.
+            failure_policy: Unused workflow failure policy passthrough.
             request_id: Optional request identifier.
             dependencies: Optional dependency mapping.
 
         Returns:
             Normalized execution result containing a numeric score payload.
         """
-        del request_id, dependencies
-        context = _parse_json_context(prompt)
+        del execution_mode, failure_policy, request_id, dependencies
+        prompt = ""
+        if isinstance(context, Mapping):
+            raw_prompt = context.get("prompt")
+            prompt = raw_prompt if isinstance(raw_prompt, str) else ""
+        parsed_context = _parse_json_context(prompt)
         try:
-            raw_score = self._delegate(context)
+            raw_score = self._delegate(parsed_context)
         except Exception as exc:
             return ExecutionResult(
                 output={"error": str(exc)},
@@ -648,7 +721,7 @@ def _parse_json_context(prompt: str) -> dict[str, object]:
     return {"task": prompt}
 
 
-def _is_workflow_delegate(delegate: object) -> TypeGuard[WorkflowDelegate]:
+def _is_workflow_delegate(delegate: object) -> TypeGuard[DelegateTarget]:
     """Return whether delegate appears to implement workflow-delegate contract.
 
     Args:

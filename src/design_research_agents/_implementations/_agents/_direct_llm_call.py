@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents._contracts._agent import Agent
+from design_research_agents._contracts._delegate import Delegate
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMClient, LLMRequest, LLMResponse
 from design_research_agents._contracts._workflow import LogicStep, WorkflowStepResult
@@ -27,8 +27,7 @@ from design_research_agents._implementations._shared._agent_internal._direct_llm
     merge_provider_options,
 )
 from design_research_agents._implementations._shared._agent_internal._execution_context import (
-    finish_agent_execution,
-    prepare_agent_execution,
+    resolve_agent_execution_context,
 )
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
@@ -41,13 +40,10 @@ from design_research_agents._tracing import (
     finish_model_call,
     start_model_call,
 )
-from design_research_agents._tracing._result_metadata import (
-    enrich_execution_result_trace_metadata,
-)
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 
-class DirectLLMCall(Agent):
+class DirectLLMCall(Delegate):
     """One-shot direct model call with no tool runtime.
 
     Design choices:
@@ -108,30 +104,25 @@ class DirectLLMCall(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run one direct model call and return normalized workflow-first output.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Returns:
-            Final agent result payload.
-
-        Raises:
-            RuntimeError: If the internal workflow fails to complete successfully.
-            TypeError: If workflow finalize output is missing the expected ``LLMResponse`` payload.
-        """
-        # Construct a normalized execution context:
-        # - standardizes the input payload
-        # - assigns a stable request_id
-        # - sets up trace scopes and dependency injection for downstream steps
-        execution_context = prepare_agent_execution(
+        """Run one direct model call and return normalized workflow-first output."""
+        return self.compile(
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="DirectLLMCall",
-            tracer=self._tracer,
+        ).run()
+
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one direct model call into a bound workflow execution."""
+        execution_context = resolve_agent_execution_context(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
         )
 
         # Build a fresh workflow graph for this run.
@@ -139,23 +130,8 @@ class DirectLLMCall(Agent):
         # is stateful, so this class is not designed for concurrent runs on the same instance.)
         self.workflow = self._build_workflow()
 
-        try:
+        def _finalize(workflow_result: ExecutionResult) -> ExecutionResult:
             # Run the workflow with just the minimal inputs required for step handlers.
-            # The workflow runtime will:
-            # - execute steps in dependency order
-            # - skip dependents on failure (failure_policy="skip_dependents")
-            # - aggregate step results and a success flag
-            workflow_result = self.workflow.run(
-                {
-                    "normalized_input": execution_context.normalized_input,
-                    "request_id": execution_context.request_id,
-                },
-                execution_mode="sequential",
-                failure_policy="skip_dependents",
-                request_id=f"{execution_context.request_id}:direct_call",
-                dependencies=execution_context.dependencies,
-            )
-
             # Workflow success means "no step failure that caused overall failure"
             # but we still require the finalize step output to build a valid agent result.
             if not workflow_result.success:
@@ -220,15 +196,22 @@ class DirectLLMCall(Agent):
                 model_response=model_response,
                 metadata=metadata,
             )
-        except Exception as exc:
-            # Always close the agent trace scope with an error to keep traces well-formed.
-            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
-            raise
+            return result
 
-        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
-        # Close out the trace scope with the final result.
-        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
-        return result
+        return CompiledExecution(
+            workflow=self.workflow,
+            input={
+                "normalized_input": execution_context.normalized_input,
+                "request_id": execution_context.request_id,
+            },
+            request_id=execution_context.request_id,
+            workflow_request_id=f"{execution_context.request_id}:direct_call",
+            dependencies=execution_context.dependencies,
+            delegate_name="DirectLLMCall",
+            finalize=_finalize,
+            tracer=self._tracer,
+            trace_input=execution_context.normalized_input,
+        )
 
     def _build_workflow(self) -> Workflow:
         """Build one workflow graph for direct LLM execution.

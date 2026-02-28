@@ -73,7 +73,7 @@ def llm_should_continue(
         continuation_response_schema: Response schema used for continuation parsing.
         continuation_memory_tail_items: Memory tail size for continuation prompt rendering.
         alternatives_section_label: Label used for alternatives prompt section.
-        agent_name: Agent name used for tracing/provider options.
+        agent_name: Delegate name used for tracing/provider options.
 
     Returns:
         Tuple of continuation decision, reason, source, and model response.

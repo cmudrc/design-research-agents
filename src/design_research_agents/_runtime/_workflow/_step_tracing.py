@@ -6,8 +6,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from design_research_agents._contracts._workflow import (
-    AgentStep,
     DelegateBatchStep,
+    DelegateStep,
     LoopStep,
     ModelStep,
     ToolStep,
@@ -30,7 +30,7 @@ def step_kind(step: WorkflowStep) -> str:
     """
     if isinstance(step, ToolStep):
         return "tool"
-    if isinstance(step, AgentStep):
+    if isinstance(step, DelegateStep):
         return "agent"
     if isinstance(step, ModelStep):
         return "model"

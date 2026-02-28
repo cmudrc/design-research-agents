@@ -63,7 +63,7 @@ def start_trace_run(
     """Start a trace run scope or nested agent span.
 
     Args:
-        agent_name: Agent name for trace metadata.
+        agent_name: Delegate name for trace metadata.
         request_id: Request identifier for the run.
         input_payload: Normalized input payload mapping.
         dependencies: Dependency payload mapping.

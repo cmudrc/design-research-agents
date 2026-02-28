@@ -5,7 +5,7 @@ agent outputs/events, provider-neutral LLM payloads, tool runtime
 specifications/results, and workflow orchestration contracts.
 """
 
-from ._agent import Agent
+from ._delegate import Delegate
 from ._execution import ExecutionResult
 from ._llm import (
     BackendCapabilities,
@@ -62,11 +62,13 @@ from ._tools import (
     ToolSpec,
 )
 from ._workflow import (
-    AgentStep,
-    AgentStepPromptBuilder,
     DelegateBatchCall,
     DelegateBatchCallsBuilder,
     DelegateBatchStep,
+    DelegateRunner,
+    DelegateStep,
+    DelegateStepPromptBuilder,
+    DelegateTarget,
     LogicStep,
     LogicStepHandler,
     LoopStep,
@@ -86,10 +88,8 @@ from ._workflow import (
     WorkflowArtifactsBuilder,
     WorkflowArtifactSource,
     WorkflowDelegate,
-    WorkflowDelegateRunner,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowObjectDelegate,
     WorkflowRunner,
     WorkflowStep,
     WorkflowStepResult,
@@ -111,14 +111,16 @@ __all__ = [
     "TERMINATED_ROUTING_FAILURE",
     "TERMINATED_STEP_FAILURE",
     "TERMINATED_UNKNOWN_ALTERNATIVE",
-    "Agent",
-    "AgentStep",
-    "AgentStepPromptBuilder",
     "BackendCapabilities",
     "BackendStatus",
+    "Delegate",
     "DelegateBatchCall",
     "DelegateBatchCallsBuilder",
     "DelegateBatchStep",
+    "DelegateRunner",
+    "DelegateStep",
+    "DelegateStepPromptBuilder",
+    "DelegateTarget",
     "EmbeddingResult",
     "ExecutionResult",
     "LLMAuthError",
@@ -172,10 +174,8 @@ __all__ = [
     "WorkflowArtifactSource",
     "WorkflowArtifactsBuilder",
     "WorkflowDelegate",
-    "WorkflowDelegateRunner",
     "WorkflowExecutionMode",
     "WorkflowFailurePolicy",
-    "WorkflowObjectDelegate",
     "WorkflowRunner",
     "WorkflowStep",
     "WorkflowStepResult",

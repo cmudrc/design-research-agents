@@ -16,7 +16,7 @@ workflow composition with agent, logic, and tool steps under one runtime.
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
     B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (AgentStep, LogicStep, ToolStep)"]
+    C --> D["WorkflowRuntime schedules step graph (DelegateStep, LogicStep, ToolStep)"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
     E --> F
@@ -67,7 +67,7 @@ import json
 from pathlib import Path
 
 from design_research_agents import (
-    AgentStep,
+    DelegateStep,
     DirectLLMCall,
     ExecutionResult,
     LlamaCppServerLLMClient,
@@ -106,7 +106,7 @@ def main() -> None:
                 "template_path": ("draft_template",),
             },
         ),
-        AgentStep(
+        DelegateStep(
             step_id="draft_agent",
             delegate=writer_agent,
             dependencies=("router",),

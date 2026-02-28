@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 
-from ._agent import Agent
+from ._delegate import Delegate
 from ._execution import ExecutionResult
 from ._llm import LLMClient, LLMRequest, LLMResponse
 from ._memory import MemoryWriteRecord
@@ -22,7 +22,7 @@ WorkflowStepStatus = Literal["completed", "failed", "skipped"]
 
 
 @runtime_checkable
-class WorkflowDelegateRunner(Protocol):
+class DelegateRunner(Protocol):
     """Protocol for configured orchestration chunks with fixed step topology."""
 
     def run(
@@ -49,7 +49,7 @@ class WorkflowDelegateRunner(Protocol):
 
 
 @runtime_checkable
-class WorkflowObjectDelegate(Protocol):
+class WorkflowDelegate(Protocol):
     """Protocol for raw ``Workflow`` objects used as delegates."""
 
     def run(
@@ -77,8 +77,8 @@ class WorkflowObjectDelegate(Protocol):
 
 # Delegate inputs are intentionally broad so callers can compose agents, workflow
 # wrappers, and direct Workflow objects without adapter boilerplate.
-WorkflowDelegate: TypeAlias = Agent | WorkflowDelegateRunner | WorkflowObjectDelegate
-"""Union type covering all supported delegate types for agent steps and batch delegate calls."""
+DelegateTarget: TypeAlias = Delegate | DelegateRunner | WorkflowDelegate
+"""Union type covering all supported delegate types for delegate steps and batch delegate calls."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -132,7 +132,7 @@ WorkflowArtifactsBuilder: TypeAlias = Callable[
 ToolStepInputBuilder: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
 """Callback type for building tool input payloads from runtime step context."""
 
-AgentStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
+DelegateStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
 """Callback type for building delegate prompt strings from runtime step context."""
 
 ModelStepRequestBuilder: TypeAlias = Callable[[Mapping[str, object]], LLMRequest]
@@ -194,18 +194,18 @@ class ToolStep:
 
 
 @dataclass(slots=True, frozen=True)
-class AgentStep:
+class DelegateStep:
     """Workflow step that invokes one direct delegate."""
 
     step_id: str
     """Unique step identifier used for dependency wiring and result lookup."""
-    delegate: WorkflowDelegate
+    delegate: DelegateTarget
     """Direct delegate object (agent, pattern, or workflow-like runner)."""
     dependencies: tuple[str, ...] = ()
     """Step ids that must complete before this step can run."""
     prompt: str | None = None
     """Static prompt passed to the delegate when ``prompt_builder`` is absent."""
-    prompt_builder: AgentStepPromptBuilder | None = None
+    prompt_builder: DelegateStepPromptBuilder | None = None
     """Optional callback that derives a prompt string from runtime step context."""
     artifacts_builder: WorkflowArtifactsBuilder | None = None
     """Optional callback that extracts user-facing artifact manifests from step context."""
@@ -235,7 +235,7 @@ class DelegateBatchCall:
 
     call_id: str
     """Unique call identifier within the batch."""
-    delegate: WorkflowDelegate
+    delegate: DelegateTarget
     """Delegate object invoked for this call."""
     prompt: str
     """Prompt passed to the delegate for this call."""
@@ -346,7 +346,7 @@ class MemoryWriteStep:
 
 
 WorkflowStep: TypeAlias = (
-    ToolStep | AgentStep | ModelStep | DelegateBatchStep | LogicStep | LoopStep | MemoryReadStep | MemoryWriteStep
+    ToolStep | DelegateStep | ModelStep | DelegateBatchStep | LogicStep | LoopStep | MemoryReadStep | MemoryWriteStep
 )
 """Union type covering all supported workflow step variants for use in step sequences and delegate definitions."""
 

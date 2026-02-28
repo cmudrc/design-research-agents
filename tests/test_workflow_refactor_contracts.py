@@ -8,7 +8,7 @@ import pytest
 
 from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents._contracts._workflow import (
-    AgentStep,
+    DelegateStep,
     LogicStep,
     WorkflowArtifact,
     WorkflowArtifactSource,
@@ -39,7 +39,7 @@ class _StubLLMClient:
 
 def test_agent_step_rejects_legacy_name_based_delegate() -> None:
     with pytest.raises(TypeError):
-        AgentStep(step_id="delegate", agent_name="legacy", prompt="Do work.")  # type: ignore[call-arg]
+        DelegateStep(step_id="delegate", agent_name="legacy", prompt="Do work.")  # type: ignore[call-arg]
 
 
 def test_workflow_rejects_agents_registry_constructor_kwarg() -> None:
@@ -63,7 +63,7 @@ def test_workflow_accepts_pattern_delegate_on_agent_step() -> None:
     workflow = Workflow(
         tool_runtime=None,
         steps=[
-            AgentStep(
+            DelegateStep(
                 step_id="delegate_pattern",
                 delegate=pattern,
                 prompt_builder=lambda context: str(context["prompt"]),

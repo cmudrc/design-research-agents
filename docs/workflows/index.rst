@@ -11,7 +11,7 @@ Quick chooser
 - Need looped orchestration inside a custom graph: use ``LoopStep``.
 - Need deterministic local transforms and branching: use ``LogicStep``.
 - Need explicit tool boundaries: use ``ToolStep``.
-- Need delegated nested execution: use ``AgentStep`` or ``DelegateBatchStep``.
+- Need delegated nested execution: use ``DelegateStep`` or ``DelegateBatchStep``.
 - Need a prebuilt implementation (debate, routing, plan-execute, tree search, RAG):
   use :doc:`/patterns/index`.
 

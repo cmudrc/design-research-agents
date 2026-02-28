@@ -161,7 +161,7 @@ def test_invoke_delegate_agent_path() -> None:
     delegate = _AgentDelegate()
     invocation = _invoke(delegate)
     assert isinstance(invocation, delegate_impl.DelegateInvocation)
-    assert invocation.delegate_type == "agent"
+    assert invocation.delegate_type == "delegate"
     assert invocation.result.success is True
     assert delegate.prompt == "task prompt"
 
@@ -194,7 +194,7 @@ def test_invoke_delegate_workflow_object_schema_mode() -> None:
 
 def test_invoke_delegate_rejects_bad_workflow_input_schema() -> None:
     with pytest.raises(TypeError, match="input schema"):
-        delegate_impl._invoke_workflow_object_delegate(
+        delegate_impl._invoke_workflow_delegate(
             delegate=_BadSchemaWorkflowObject(),  # type: ignore[arg-type]
             prompt="task prompt",
             step_context={},
@@ -212,18 +212,18 @@ def test_invoke_delegate_rejects_bad_result_types() -> None:
     with pytest.raises(TypeError, match="Workflow delegate must return ExecutionResult"):
         _invoke(_BadResultWorkflowObject())
 
-    with pytest.raises(TypeError, match="Agent delegate must return ExecutionResult"):
+    with pytest.raises(TypeError, match="Delegate execution must return ExecutionResult"):
         _invoke(_BadResultAgent())
 
 
 def test_invoke_delegate_rejects_missing_run() -> None:
-    with pytest.raises(TypeError, match="callable run"):
+    with pytest.raises(TypeError, match="callable compile\\(prompt, \\.\\.\\.\\) or run"):
         _invoke(_NoRun())
 
 
 def test_delegate_type_guards_cover_runner_and_object_paths() -> None:
-    assert delegate_impl._is_workflow_object_delegate(_WorkflowPromptObject()) is True
-    assert delegate_impl._is_workflow_object_delegate(_BadSchemaWorkflowObject()) is False
-    assert delegate_impl._is_workflow_object_delegate(_RunnerDelegate()) is False
+    assert delegate_impl._is_workflow_delegate(_WorkflowPromptObject()) is True
+    assert delegate_impl._is_workflow_delegate(_BadSchemaWorkflowObject()) is False
+    assert delegate_impl._is_workflow_delegate(_RunnerDelegate()) is False
     assert delegate_impl._is_workflow_delegate_runner(_RunnerDelegate()) is True
     assert delegate_impl._is_workflow_delegate_runner(_AgentDelegate()) is False

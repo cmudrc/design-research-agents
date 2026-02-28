@@ -18,17 +18,17 @@ from design_research_agents._contracts._memory import (
 )
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._contracts._workflow import (
-    AgentStep,
     DelegateBatchCall,
     DelegateBatchStep,
+    DelegateStep,
     MemoryReadStep,
     MemoryWriteStep,
     ModelStep,
     ToolStep,
 )
 from design_research_agents._runtime._workflow._executors._common import (
-    run_agent_step,
     run_delegate_batch_step,
+    run_delegate_step,
     run_memory_read_step,
     run_memory_write_step,
     run_model_step,
@@ -355,8 +355,8 @@ def test_run_tool_step_covers_failure_and_success_paths() -> None:
 
 
 def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
-    bad_prompt = run_agent_step(
-        step=AgentStep(
+    bad_prompt = run_delegate_step(
+        step=DelegateStep(
             step_id="agent",
             delegate=_AgentSuccess(),
             prompt_builder=lambda _ctx: (_ for _ in ()).throw(ValueError("bad prompt")),
@@ -370,8 +370,8 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     )
     assert bad_prompt.metadata["stage"] == "input_build"
 
-    nested_raises = run_agent_step(
-        step=AgentStep(step_id="agent", delegate=_WorkflowDelegateRaises(), prompt="hello"),
+    nested_raises = run_delegate_step(
+        step=DelegateStep(step_id="agent", delegate=_WorkflowDelegateRaises(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -381,8 +381,8 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     )
     assert nested_raises.success is False
 
-    nested_failure = run_agent_step(
-        step=AgentStep(step_id="agent", delegate=_WorkflowDelegateFailure(), prompt="hello"),
+    nested_failure = run_delegate_step(
+        step=DelegateStep(step_id="agent", delegate=_WorkflowDelegateFailure(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -392,8 +392,8 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     )
     assert nested_failure.error == "Nested workflow execution failed."
 
-    nested_success = run_agent_step(
-        step=AgentStep(step_id="agent", delegate=_WorkflowDelegateSuccess(), prompt="hello"),
+    nested_success = run_delegate_step(
+        step=DelegateStep(step_id="agent", delegate=_WorkflowDelegateSuccess(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -403,8 +403,8 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     )
     assert nested_success.success is True
 
-    agent_raises = run_agent_step(
-        step=AgentStep(step_id="agent", delegate=_AgentRaises(), prompt="hello"),
+    agent_raises = run_delegate_step(
+        step=DelegateStep(step_id="agent", delegate=_AgentRaises(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -414,8 +414,8 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     )
     assert agent_raises.success is False
 
-    agent_failure = run_agent_step(
-        step=AgentStep(step_id="agent", delegate=_AgentFailure(), prompt="hello"),
+    agent_failure = run_delegate_step(
+        step=DelegateStep(step_id="agent", delegate=_AgentFailure(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -425,8 +425,8 @@ def test_run_agent_step_covers_agent_and_delegate_paths() -> None:
     )
     assert agent_failure.error == "agent failed"
 
-    agent_success = run_agent_step(
-        step=AgentStep(step_id="agent", delegate=_AgentSuccess(), prompt="hello"),
+    agent_success = run_delegate_step(
+        step=DelegateStep(step_id="agent", delegate=_AgentSuccess(), prompt="hello"),
         step_id="agent",
         step_context=_common_context(),
         request_id="req",
@@ -546,7 +546,7 @@ def test_run_delegate_batch_step_covers_mixed_delegates_and_fail_fast_controls()
     assert mixed_success.output["all_success"] is True
     assert mixed_success.output["failed_call_id"] is None
     assert len(mixed_success.output["results"]) == 3
-    assert mixed_success.output["results"][0]["delegate_type"] == "agent"
+    assert mixed_success.output["results"][0]["delegate_type"] == "delegate"
     assert mixed_success.output["results"][1]["delegate_type"] == "workflow"
     assert mixed_success.output["results"][2]["delegate_type"] == "workflow"
     assert mixed_success.output["final_output"] == {"delegate_type": "workflow_object"}

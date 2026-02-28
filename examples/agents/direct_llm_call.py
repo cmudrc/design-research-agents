@@ -55,7 +55,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Tracer, __version__
+from design_research_agents import (
+    CompiledExecution,
+    DirectLLMCall,
+    LlamaCppServerLLMClient,
+    Tracer,
+    __version__,
+)
 
 
 def main() -> None:
@@ -72,13 +78,15 @@ def main() -> None:
     llm_client = LlamaCppServerLLMClient()
     try:
         agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
-        result = agent.run(
-            prompt=(
-                "Write one sentence describing the primary engineering objective for a "
-                "field-repairable wearable sensor enclosure."
-            ),
+        prompt = (
+            "Write one sentence describing the primary engineering objective for a "
+            "field-repairable wearable sensor enclosure."
+        )
+        compiled: CompiledExecution = agent.compile(
+            prompt=prompt,
             request_id=request_id,
         )
+        result = compiled.run()
     # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
     finally:
         llm_client.close()

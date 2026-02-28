@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from design_research_agents._contracts._agent import ExecutionResult
+from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse
 from design_research_agents._implementations._shared._agent_internal._input_parsing import (
     parse_json_mapping as _parse_json_mapping,

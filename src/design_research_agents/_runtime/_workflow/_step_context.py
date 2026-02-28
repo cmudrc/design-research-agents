@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Mapping, Sequence
 
 from design_research_agents._contracts._workflow import (
-    AgentStep,
+    DelegateStep,
     LogicStep,
     ToolStep,
     WorkflowExecutionMode,
@@ -130,11 +130,11 @@ def resolve_tool_input(*, step: ToolStep, step_context: Mapping[str, object]) ->
     return dict(step.input_data)
 
 
-def resolve_agent_prompt(*, step: AgentStep, step_context: Mapping[str, object]) -> str:
+def resolve_delegate_prompt(*, step: DelegateStep, step_context: Mapping[str, object]) -> str:
     """Resolve one agent prompt from builder callback, static prompt, or context fallback.
 
     Args:
-        step: Agent step definition.
+        step: Delegate step definition.
         step_context: Step execution context passed to builders.
 
     Returns:
@@ -147,10 +147,10 @@ def resolve_agent_prompt(*, step: AgentStep, step_context: Mapping[str, object])
     if step.prompt_builder is not None:
         built_prompt = step.prompt_builder(step_context)
         if not isinstance(built_prompt, str):
-            raise TypeError("AgentStep prompt_builder must return a string.")
+            raise TypeError("DelegateStep prompt_builder must return a string.")
         normalized_prompt = built_prompt.strip()
         if not normalized_prompt:
-            raise ValueError("AgentStep prompt_builder returned an empty prompt.")
+            raise ValueError("DelegateStep prompt_builder returned an empty prompt.")
         return normalized_prompt
 
     if isinstance(step.prompt, str) and step.prompt.strip():
@@ -160,7 +160,7 @@ def resolve_agent_prompt(*, step: AgentStep, step_context: Mapping[str, object])
     if isinstance(fallback_prompt, str) and fallback_prompt.strip():
         return fallback_prompt.strip()
 
-    raise ValueError(f"AgentStep '{step.step_id}' requires a non-empty prompt or prompt_builder.")
+    raise ValueError(f"DelegateStep '{step.step_id}' requires a non-empty prompt or prompt_builder.")
 
 
 def has_upstream_failure(

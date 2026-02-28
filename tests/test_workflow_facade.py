@@ -14,7 +14,7 @@ from design_research_agents._contracts._llm import (
     LLMResponse,
 )
 from design_research_agents._contracts._workflow import (
-    AgentStep,
+    DelegateStep,
     LogicStep,
     LoopStep,
     ToolStep,
@@ -122,7 +122,7 @@ def _pure_input_schema() -> dict[str, object]:
     }
 
 
-def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | AgentStep | ToolStep]:
+def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | DelegateStep | ToolStep]:
     return [
         LogicStep(
             step_id="router",
@@ -134,7 +134,7 @@ def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | AgentStep | 
                 "template_path": ("draft_template",),
             },
         ),
-        AgentStep(
+        DelegateStep(
             step_id="draft_agent",
             delegate=delegate,
             dependencies=("router",),
@@ -271,7 +271,7 @@ def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
 def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> None:
     writer_agent = StaticJsonDraftAgent(payload={"title": "ignored"})
     custom_steps = [
-        AgentStep(
+        DelegateStep(
             step_id="delegate",
             delegate=writer_agent,
             prompt_builder=lambda context: f"{context['base_tag']}::{context['prompt']}",
@@ -310,7 +310,7 @@ def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
             LoopStep(
                 step_id="agent_loop",
                 steps=(
-                    AgentStep(
+                    DelegateStep(
                         step_id="delegate",
                         delegate=writer_agent,
                         prompt_builder=lambda context: str(context["prompt"]),
@@ -333,7 +333,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
     workflow = Workflow(
         tool_runtime=Toolbox(),
         steps=[
-            AgentStep(step_id="delegate", delegate=capture_agent, prompt="Run"),
+            DelegateStep(step_id="delegate", delegate=capture_agent, prompt="Run"),
             LogicStep(
                 step_id="finalize",
                 dependencies=("delegate",),

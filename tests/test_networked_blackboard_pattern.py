@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents.patterns import BlackboardPattern, RoundBasedCoordinationPattern
 
 
-class _RecordingPeerAgent(Agent):
+class _RecordingPeerAgent(Delegate):
     """Peer agent that records invocation order and emits fixed payload."""
 
     def __init__(self, *, peer_id: str, recorder: list[str], payload: Mapping[str, object]) -> None:
@@ -35,7 +35,7 @@ class _RecordingPeerAgent(Agent):
         )
 
 
-class _FailingPeerAgent(Agent):
+class _FailingPeerAgent(Delegate):
     """Peer agent that deterministically fails."""
 
     def run(

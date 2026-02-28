@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 
-from design_research_agents._contracts._agent import Agent
+from design_research_agents._contracts._delegate import Delegate
 from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
@@ -109,7 +109,7 @@ class NoopLLMClient:
         return "noop-model"
 
 
-class StaticMarkerAgent(Agent):
+class StaticMarkerAgent(Delegate):
     """Deterministic agent that always emits one marker value."""
 
     def __init__(self, *, marker: str) -> None:
@@ -132,7 +132,7 @@ class StaticMarkerAgent(Agent):
         )
 
 
-class StaticJsonDraftAgent(Agent):
+class StaticJsonDraftAgent(Delegate):
     """Agent stub that always returns one JSON object in ``output.model_text``."""
 
     def __init__(self, *, payload: Mapping[str, object]) -> None:
@@ -157,7 +157,7 @@ class StaticJsonDraftAgent(Agent):
         )
 
 
-class CaptureDependenciesAgent(Agent):
+class CaptureDependenciesAgent(Delegate):
     """Agent stub that captures invocation dependencies for assertions."""
 
     def __init__(self) -> None:

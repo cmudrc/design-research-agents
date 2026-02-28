@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, cast
 
-from design_research_agents._contracts._agent import ExecutionResult
+from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMClient,

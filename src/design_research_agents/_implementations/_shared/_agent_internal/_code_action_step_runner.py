@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 
-from design_research_agents._contracts._agent import Agent
+from design_research_agents._contracts._delegate import Delegate
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import (
     LLMChatParams,
@@ -33,8 +33,7 @@ from design_research_agents._implementations._shared._agent_internal._code_tool_
     extract_python_code,
 )
 from design_research_agents._implementations._shared._agent_internal._execution_context import (
-    finish_agent_execution,
-    prepare_agent_execution,
+    resolve_agent_execution_context,
 )
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
@@ -61,10 +60,7 @@ from design_research_agents._tracing import (
     finish_model_call,
     start_model_call,
 )
-from design_research_agents._tracing._result_metadata import (
-    enrich_execution_result_trace_metadata,
-)
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 from ._code_action_step_workflow_helpers import (
     assert_success_handler,
@@ -78,7 +74,7 @@ _DISALLOWED_TOOL_ERROR_FRAGMENT = "is not in the allowed tool list"
 _ARITHMETIC_CANDIDATE_PATTERN = re.compile(r"^[0-9\.\+\-\*\/%\(\)\s]+$")
 
 
-class CodeActionStepRunner(Agent):
+class CodeActionStepRunner(Delegate):
     """Agent that writes and executes one sandboxed Python action program."""
 
     def __init__(
@@ -151,67 +147,65 @@ class CodeActionStepRunner(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run one workflow-native code-generation and sandbox execution pass.
+        """Run one workflow-native code-generation and sandbox execution pass."""
+        return self.compile(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Returns:
-            Final agent result payload.
-
-        Raises:
-            RuntimeError: If the workflow omits required finalize-step output.
-            TypeError: If finalize output does not contain an ``ExecutionResult`` payload.
-        """
-        execution_context = prepare_agent_execution(
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one bound code-generation execution."""
+        execution_context = resolve_agent_execution_context(
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="CodeActionStepRunner",
-            tracer=self._tracer,
         )
-        self.workflow = self._build_workflow()
+        workflow = self._build_workflow()
+        self.workflow = workflow
+        return CompiledExecution(
+            workflow=workflow,
+            input={
+                "normalized_input": execution_context.normalized_input,
+                "request_id": execution_context.request_id,
+                "dependencies": dict(execution_context.dependencies),
+            },
+            request_id=execution_context.request_id,
+            workflow_request_id=f"{execution_context.request_id}:action_step_code",
+            dependencies=execution_context.dependencies,
+            delegate_name="CodeActionStepRunner",
+            tracer=self._tracer,
+            trace_input=execution_context.normalized_input,
+            finalize=self._build_result,
+        )
 
-        try:
-            workflow_result = self.workflow.run(
-                {
-                    "normalized_input": execution_context.normalized_input,
-                    "request_id": execution_context.request_id,
-                    "dependencies": dict(execution_context.dependencies),
-                },
-                execution_mode="sequential",
-                failure_policy="skip_dependents",
-                request_id=f"{execution_context.request_id}:action_step_code",
-                dependencies=execution_context.dependencies,
-            )
-            finalize_step = workflow_result.step_results.get("finalize")
-            if finalize_step is None:
-                raise RuntimeError("Code action-step workflow missing finalize step result.")
-            finalize_output = finalize_step.output
-            raw_agent_result = finalize_output.get("agent_result")
-            if not isinstance(raw_agent_result, ExecutionResult):
-                raise TypeError("Code action-step workflow finalize result is invalid.")
-            output = build_workflow_first_output(
-                base_output=raw_agent_result.output,
-                workflow_result=workflow_result,
-                final_output=raw_agent_result.output.get("final_output", {}),
-            )
-            result = ExecutionResult(
-                output=output,
-                success=raw_agent_result.success and workflow_result.success,
-                tool_results=list(raw_agent_result.tool_results),
-                model_response=raw_agent_result.model_response,
-                metadata=dict(raw_agent_result.metadata),
-            )
-        except Exception as exc:
-            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
-            raise
-
-        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
-        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
-        return result
+    def _build_result(self, workflow_result: ExecutionResult) -> ExecutionResult:
+        """Build one public execution result from compiled workflow output."""
+        finalize_step = workflow_result.step_results.get("finalize")
+        if finalize_step is None:
+            raise RuntimeError("Code action-step workflow missing finalize step result.")
+        finalize_output = finalize_step.output
+        raw_agent_result = finalize_output.get("agent_result")
+        if not isinstance(raw_agent_result, ExecutionResult):
+            raise TypeError("Code action-step workflow finalize result is invalid.")
+        output = build_workflow_first_output(
+            base_output=raw_agent_result.output,
+            workflow_result=workflow_result,
+            final_output=raw_agent_result.output.get("final_output", {}),
+        )
+        return ExecutionResult(
+            output=output,
+            success=raw_agent_result.success and workflow_result.success,
+            tool_results=list(raw_agent_result.tool_results),
+            model_response=raw_agent_result.model_response,
+            metadata=dict(raw_agent_result.metadata),
+        )
 
     def _build_workflow(self) -> Workflow:
         """Build the code generation/validation/execution workflow graph.

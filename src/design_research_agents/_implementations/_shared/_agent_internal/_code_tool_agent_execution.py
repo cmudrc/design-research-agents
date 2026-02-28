@@ -9,7 +9,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from types import CodeType
 
-from design_research_agents._contracts._agent import ExecutionResult
+from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime
 from design_research_agents._implementations._shared._agent_internal._result_builders import (

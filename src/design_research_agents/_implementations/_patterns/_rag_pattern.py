@@ -5,32 +5,33 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._workflow import (
-    AgentStep,
+    DelegateStep,
+    DelegateTarget,
     MemoryReadStep,
     MemoryWriteStep,
-    WorkflowDelegate,
     WorkflowStep,
 )
 from design_research_agents._runtime._patterns import (
     MODE_RAG,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     resolve_pattern_run_context,
 )
 from design_research_agents._tracing import Tracer
+from design_research_agents.workflow import CompiledExecution
 from design_research_agents.workflow.workflow import Workflow
 
 
-class RAGPattern(Agent):
+class RAGPattern(Delegate):
     """Reasoning pattern orchestrated as memory read -> reason -> memory write."""
 
     def __init__(
         self,
         *,
-        reasoning_delegate: WorkflowDelegate,
+        reasoning_delegate: DelegateTarget,
         memory_store: MemoryStore | None,
         memory_namespace: str = "default",
         memory_top_k: int = 5,
@@ -72,45 +73,58 @@ class RAGPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute memory retrieval, delegated reasoning, and optional write-back.
+        """Execute memory retrieval, delegated reasoning, and optional write-back."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Task prompt.
-            request_id: Optional request identifier.
-            dependencies: Optional dependency mapping.
-
-        Returns:
-            Aggregated RAG reasoning result.
-
-        Raises:
-            Exception: Propagated workflow runtime errors.
-        """
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile the read/reason/write workflow."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
             dependencies=dependencies,
         )
-        return execute_pattern_with_trace(
-            agent_name="RAGPattern",
+        input_payload = {
+            "prompt": prompt,
+            "mode": MODE_RAG,
+            "memory_namespace": self._memory_namespace,
+            "memory_top_k": self._memory_top_k,
+            "write_back": self._write_back,
+        }
+        workflow = self._build_workflow(
+            prompt,
             request_id=run_context.request_id,
-            input_payload={
-                "prompt": prompt,
-                "mode": MODE_RAG,
-                "memory_namespace": self._memory_namespace,
-                "memory_top_k": self._memory_top_k,
-                "write_back": self._write_back,
-            },
+            dependencies=run_context.dependencies,
+        )
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="RAGPattern",
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_rag_pattern(
-                prompt=prompt,
+            input_payload=input_payload,
+            workflow_request_id=f"{run_context.request_id}:rag_reasoning",
+            finalize=lambda workflow_result: _build_rag_result(
+                workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
+                memory_namespace=self._memory_namespace,
+                memory_top_k=self._memory_top_k,
+                write_back=self._write_back,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -127,7 +141,7 @@ class RAGPattern(Agent):
                 top_k=self._memory_top_k,
                 min_score=self._memory_min_score,
             ),
-            AgentStep(
+            DelegateStep(
                 step_id="reason",
                 dependencies=("memory_read",),
                 delegate=self._reasoning_delegate,
@@ -187,7 +201,7 @@ class RAGPattern(Agent):
         Returns:
             Aggregated workflow result.
         """
-        workflow = self.build_workflow(
+        workflow = self._build_workflow(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
@@ -198,63 +212,80 @@ class RAGPattern(Agent):
             request_id=f"{request_id}:rag_reasoning",
             dependencies=dependencies,
         )
-
-        memory_read_result = workflow_result.step_results.get("memory_read")
-        reason_result = workflow_result.step_results.get("reason")
-        memory_write_result = workflow_result.step_results.get("memory_write")
-
-        retrieval_output = (
-            dict(memory_read_result.output)
-            if memory_read_result is not None
-            else {
-                "query": {},
-                "matches": [],
-                "count": 0,
-                "namespace": self._memory_namespace,
-            }
-        )
-        reasoning_output = dict(reason_result.output) if reason_result is not None else {}
-        write_back_output = (
-            dict(memory_write_result.output)
-            if memory_write_result is not None
-            else {"written": 0, "namespace": self._memory_namespace, "ids": []}
-        )
-        workflow_payload = workflow_result.to_dict()
-        workflow_artifacts = workflow_result.output.get("artifacts", [])
-        delegate_final_output = reasoning_output.get("output")
-        final_output = (
-            dict(delegate_final_output) if isinstance(delegate_final_output, Mapping) else dict(reasoning_output)
-        )
-        retrieval_details = dict(retrieval_output)
-        retrieval_details["context"] = _build_retrieval_context(retrieval_output)
-
-        result_success = workflow_result.success
-        terminated_reason = "completed" if result_success else "workflow_failure"
-
-        return build_pattern_execution_result(
-            success=result_success,
-            final_output=final_output,
-            terminated_reason=terminated_reason,
-            details={
-                "retrieval": retrieval_details,
-                "reasoning": reasoning_output,
-                "write_back": write_back_output,
-            },
-            workflow_payload=workflow_payload,
-            artifacts=workflow_artifacts,
+        return _build_rag_result(
+            workflow_result=workflow_result,
             request_id=request_id,
             dependencies=dependencies,
-            mode=MODE_RAG,
-            metadata={
-                "memory_namespace": self._memory_namespace,
-                "memory_top_k": self._memory_top_k,
-                "write_back": self._write_back,
-            },
-            tool_results=[],
-            model_response=None,
-            requested_mode=MODE_RAG,
-            resolved_mode=MODE_RAG,
+            memory_namespace=self._memory_namespace,
+            memory_top_k=self._memory_top_k,
+            write_back=self._write_back,
         )
+
+
+def _build_rag_result(
+    *,
+    workflow_result: ExecutionResult,
+    request_id: str,
+    dependencies: Mapping[str, object],
+    memory_namespace: str,
+    memory_top_k: int,
+    write_back: bool,
+) -> ExecutionResult:
+    """Build final RAG result from one workflow execution."""
+    memory_read_result = workflow_result.step_results.get("memory_read")
+    reason_result = workflow_result.step_results.get("reason")
+    memory_write_result = workflow_result.step_results.get("memory_write")
+
+    retrieval_output = (
+        dict(memory_read_result.output)
+        if memory_read_result is not None
+        else {
+            "query": {},
+            "matches": [],
+            "count": 0,
+            "namespace": memory_namespace,
+        }
+    )
+    reasoning_output = dict(reason_result.output) if reason_result is not None else {}
+    write_back_output = (
+        dict(memory_write_result.output)
+        if memory_write_result is not None
+        else {"written": 0, "namespace": memory_namespace, "ids": []}
+    )
+    workflow_payload = workflow_result.to_dict()
+    workflow_artifacts = workflow_result.output.get("artifacts", [])
+    delegate_final_output = reasoning_output.get("output")
+    final_output = dict(delegate_final_output) if isinstance(delegate_final_output, Mapping) else dict(reasoning_output)
+    retrieval_details = dict(retrieval_output)
+    retrieval_details["context"] = _build_retrieval_context(retrieval_output)
+
+    result_success = workflow_result.success
+    terminated_reason = "completed" if result_success else "workflow_failure"
+
+    return build_pattern_execution_result(
+        success=result_success,
+        final_output=final_output,
+        terminated_reason=terminated_reason,
+        details={
+            "retrieval": retrieval_details,
+            "reasoning": reasoning_output,
+            "write_back": write_back_output,
+        },
+        workflow_payload=workflow_payload,
+        artifacts=workflow_artifacts,
+        request_id=request_id,
+        dependencies=dependencies,
+        mode=MODE_RAG,
+        metadata={
+            "memory_namespace": memory_namespace,
+            "memory_top_k": memory_top_k,
+            "write_back": write_back,
+        },
+        tool_results=[],
+        model_response=None,
+        requested_mode=MODE_RAG,
+        resolved_mode=MODE_RAG,
+    )
 
 
 def _extract_dependency_output(

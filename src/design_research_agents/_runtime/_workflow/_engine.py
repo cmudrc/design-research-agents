@@ -9,8 +9,8 @@ from dataclasses import asdict
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._contracts._workflow import (
-    AgentStep,
     DelegateBatchStep,
+    DelegateStep,
     ExecutionResult,
     LogicStep,
     LoopStep,
@@ -38,8 +38,8 @@ from design_research_agents._tracing._result_metadata import (
 
 from ._artifacts import collect_artifacts, dedupe_artifacts, resolve_final_output
 from ._executors._common import (
-    run_agent_step,
     run_delegate_batch_step,
+    run_delegate_step,
     run_logic_step,
     run_memory_read_step,
     run_memory_write_step,
@@ -365,8 +365,8 @@ class WorkflowRuntime(WorkflowRunner):
             )
             if isinstance(step, LogicStep):
                 result = run_logic_step(step=step, step_id=step_id, step_context=step_context)
-            elif isinstance(step, AgentStep):
-                result = run_agent_step(
+            elif isinstance(step, DelegateStep):
+                result = run_delegate_step(
                     step=step,
                     step_id=step_id,
                     step_context=step_context,

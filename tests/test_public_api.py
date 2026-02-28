@@ -26,7 +26,7 @@ EXPECTED_PUBLIC_API = [
     "MCPServerConfig",
     "LogicStep",
     "ToolStep",
-    "AgentStep",
+    "DelegateStep",
     "ModelStep",
     "DelegateBatchStep",
     "LoopStep",
@@ -38,6 +38,7 @@ EXPECTED_PUBLIC_API = [
     "LLMResponse",
     "ToolResult",
     "Workflow",
+    "CompiledExecution",
     "TwoSpeakerConversationPattern",
     "DebatePattern",
     "PlanExecutePattern",
@@ -65,9 +66,10 @@ EXPECTED_PUBLIC_API = [
 
 EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
 EXPECTED_WORKFLOW_API = [
-    "AgentStep",
+    "CompiledExecution",
     "DelegateBatchCall",
     "DelegateBatchStep",
+    "DelegateStep",
     "ExecutionResult",
     "LogicStep",
     "LoopStep",

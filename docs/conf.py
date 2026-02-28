@@ -56,7 +56,7 @@ intersphinx_mapping = {
 nitpick_ignore = [
     ("py:class", "ExecutionResult"),
     ("py:class", "LlamaCppServerBackend"),
-    ("py:class", "design_research_agents._contracts._agent.ExecutionResult"),
+    ("py:class", "design_research_agents._contracts._delegate.ExecutionResult"),
     ("py:class", "design_research_agents._contracts._execution.ExecutionResult"),
     ("py:class", "design_research_agents._contracts._llm.LLMResponse"),
     ("py:class", "design_research_agents._contracts._llm.LLMRequest"),

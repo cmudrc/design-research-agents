@@ -36,7 +36,7 @@ from design_research_agents._implementations._patterns._two_speaker_conversation
     TwoSpeakerConversationPattern,
 )
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
 
 
@@ -131,17 +131,18 @@ from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
         ),
     ],
 )
-def test_exported_patterns_build_workflow_contract(
+def test_exported_patterns_compile_contract(
     pattern: object,
     prompt: str,
 ) -> None:
-    workflow = pattern.build_workflow(  # type: ignore[attr-defined]
+    compiled = pattern.compile(  # type: ignore[attr-defined]
         prompt,
         request_id="req-pattern-build",
         dependencies={},
     )
-    assert isinstance(workflow, Workflow)
-    assert pattern.workflow is workflow  # type: ignore[attr-defined]
+    assert isinstance(compiled, CompiledExecution)
+    assert isinstance(compiled.workflow, Workflow)
+    assert pattern.workflow is compiled.workflow  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(

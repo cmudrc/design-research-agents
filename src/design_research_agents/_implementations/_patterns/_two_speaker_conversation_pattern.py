@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient, LLMResponse
 from design_research_agents._contracts._workflow import (
     DelegateBatchCall,
     DelegateBatchStep,
+    DelegateTarget,
     LogicStep,
     LoopStep,
-    WorkflowDelegate,
 )
 from design_research_agents._implementations._agents._direct_llm_call import (
     DirectLLMCall,
@@ -22,8 +22,8 @@ from design_research_agents._implementations._shared._agent_internal._model_reso
 )
 from design_research_agents._runtime._patterns import (
     MODE_TWO_SPEAKER_CONVERSATION,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
     normalize_request_id_prefix,
@@ -47,7 +47,7 @@ from design_research_agents._runtime._patterns import (
     is_call_success as _runtime_is_call_success,
 )
 from design_research_agents._tracing import Tracer
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 _DEFAULT_SPEAKER_A_NAME = "speaker_a"
 _DEFAULT_SPEAKER_B_NAME = "speaker_b"
@@ -94,8 +94,8 @@ class _ConversationLoopCallbacks:
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-        speaker_a_delegate: WorkflowDelegate,
-        speaker_b_delegate: WorkflowDelegate,
+        speaker_a_delegate: DelegateTarget,
+        speaker_b_delegate: DelegateTarget,
         runtime_state: dict[str, object],
     ) -> None:
         """Store callback dependencies.
@@ -289,7 +289,7 @@ class _ConversationLoopCallbacks:
         return dict(output) if isinstance(output, Mapping) else dict(state)
 
 
-class TwoSpeakerConversationPattern(Agent):
+class TwoSpeakerConversationPattern(Delegate):
     """Two-speaker LLM conversation pattern with per-speaker prompts and clients."""
 
     def __init__(
@@ -297,8 +297,8 @@ class TwoSpeakerConversationPattern(Agent):
         *,
         llm_client_a: LLMClient,
         llm_client_b: LLMClient | None = None,
-        speaker_a_delegate: WorkflowDelegate | None = None,
-        speaker_b_delegate: WorkflowDelegate | None = None,
+        speaker_a_delegate: DelegateTarget | None = None,
+        speaker_b_delegate: DelegateTarget | None = None,
         max_turns: int = 3,
         speaker_a_name: str = _DEFAULT_SPEAKER_A_NAME,
         speaker_b_name: str = _DEFAULT_SPEAKER_B_NAME,
@@ -381,45 +381,60 @@ class TwoSpeakerConversationPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute one two-speaker conversation run.
+        """Execute one two-speaker conversation run."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Task prompt shared by both speakers.
-            request_id: Optional request id for tracing/correlation.
-            dependencies: Optional dependency overrides for this run.
-
-        Returns:
-            Final conversation execution result.
-
-        Raises:
-            Exception: Propagates loop and nested-agent execution failures.
-        """
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one two-speaker conversation workflow."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        return execute_pattern_with_trace(
-            agent_name="TwoSpeakerConversationPattern",
+        input_payload = {
+            "prompt": prompt,
+            "mode": MODE_TWO_SPEAKER_CONVERSATION,
+            "max_turns": self._max_turns,
+            "speaker_a_name": self._speaker_a_name,
+            "speaker_b_name": self._speaker_b_name,
+        }
+        workflow = self._build_workflow(
+            prompt,
             request_id=run_context.request_id,
-            input_payload={
-                "prompt": prompt,
-                "mode": MODE_TWO_SPEAKER_CONVERSATION,
-                "max_turns": self._max_turns,
-                "speaker_a_name": self._speaker_a_name,
-                "speaker_b_name": self._speaker_b_name,
-            },
+            dependencies=run_context.dependencies,
+        )
+        runtime_state = self._conversation_runtime_state or {"last_model_response": None}
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="TwoSpeakerConversationPattern",
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_conversation(
-                prompt=prompt,
+            input_payload=input_payload,
+            workflow_request_id=f"{run_context.request_id}:two_speaker_conversation",
+            finalize=lambda workflow_result: _build_conversation_result(
+                workflow_result=workflow_result,
+                runtime_state=runtime_state,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
+                max_turns=self._max_turns,
+                speaker_a_name=self._speaker_a_name,
+                speaker_b_name=self._speaker_b_name,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -523,7 +538,7 @@ class TwoSpeakerConversationPattern(Agent):
         Raises:
             RuntimeError: If the loop step result is missing.
         """
-        workflow = self.build_workflow(
+        workflow = self._build_workflow(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
@@ -804,7 +819,7 @@ def _extract_model_text(result: ExecutionResult) -> str:
     """Extract one normalized model-text field from an agent result.
 
     Args:
-        result: Agent execution result.
+        result: Delegate execution result.
 
     Returns:
         Trimmed model text fallback.
@@ -826,7 +841,7 @@ def _extract_failure_error(
     """Extract one human-readable failure message from agent result output.
 
     Args:
-        result: Agent execution result.
+        result: Delegate execution result.
         fallback_message: Fallback message when no explicit error is available.
 
     Returns:

@@ -7,7 +7,7 @@ from collections.abc import Mapping
 
 import pytest
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._memory import MemorySearchQuery, MemoryWriteRecord
 from design_research_agents._implementations._patterns import (
     _beam_search_pattern as beam_search_impl,
@@ -19,7 +19,7 @@ from design_research_agents._memory._stores._sqlite_store import SQLiteMemorySto
 from design_research_agents.patterns import BeamSearchPattern, RAGPattern
 
 
-class _CaptureReasoningAgent(Agent):
+class _CaptureReasoningAgent(Delegate):
     """Reasoning delegate that captures prompt text for assertions."""
 
     def __init__(self) -> None:
@@ -46,7 +46,7 @@ class _CaptureReasoningAgent(Agent):
         )
 
 
-class _StaticGeneratorAgent(Agent):
+class _StaticGeneratorAgent(Delegate):
     """Generator agent with deterministic candidate payloads."""
 
     def __init__(self, *, output: Mapping[str, object], success: bool = True) -> None:
@@ -70,7 +70,7 @@ class _StaticGeneratorAgent(Agent):
         )
 
 
-class _StaticEvaluatorAgent(Agent):
+class _StaticEvaluatorAgent(Delegate):
     """Evaluator agent with deterministic score payloads."""
 
     def __init__(self, *, output: Mapping[str, object], success: bool = True) -> None:

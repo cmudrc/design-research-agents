@@ -51,28 +51,49 @@ def prepare_agent_execution(
         prompt: Raw prompt argument passed to ``Agent.run``.
         request_id: Optional caller-provided request identifier.
         dependencies: Optional dependency payload mapping.
-        agent_name: Agent name used for tracing events.
+        agent_name: Delegate name used for tracing events.
         tracer: Optional tracer dependency.
 
     Returns:
         Normalized execution context for the run.
     """
+    execution_context = resolve_agent_execution_context(
+        prompt=prompt,
+        request_id=request_id,
+        dependencies=dependencies,
+    )
+    trace_scope = start_trace_run(
+        agent_name=agent_name,
+        request_id=execution_context.request_id,
+        input_payload=execution_context.normalized_input,
+        dependencies=execution_context.dependencies,
+        tracer=tracer,
+    )
+    return AgentExecutionContext(
+        request_id=execution_context.request_id,
+        dependencies=execution_context.dependencies,
+        normalized_input=execution_context.normalized_input,
+        prompt=execution_context.prompt,
+        trace_scope=trace_scope,
+    )
+
+
+def resolve_agent_execution_context(
+    *,
+    prompt: str,
+    request_id: str | None,
+    dependencies: Mapping[str, object] | None,
+) -> AgentExecutionContext:
+    """Resolve one run's request/dependencies/input payload without tracing."""
     resolved_request_id = resolve_request_id(request_id)
     resolved_dependencies = normalize_dependencies(dependencies)
     normalized_input = normalize_input_payload(prompt)
-    trace_scope = start_trace_run(
-        agent_name=agent_name,
-        request_id=resolved_request_id,
-        input_payload=normalized_input,
-        dependencies=resolved_dependencies,
-        tracer=tracer,
-    )
     return AgentExecutionContext(
         request_id=resolved_request_id,
         dependencies=resolved_dependencies,
         normalized_input=normalized_input,
         prompt=extract_prompt(normalized_input),
-        trace_scope=trace_scope,
+        trace_scope=None,
     )
 
 
@@ -96,4 +117,5 @@ __all__ = [
     "AgentExecutionContext",
     "finish_agent_execution",
     "prepare_agent_execution",
+    "resolve_agent_execution_context",
 ]

@@ -28,7 +28,7 @@ RAG orchestration
 ``RAGPattern`` composes memory and reasoning as:
 
 1. ``MemoryReadStep``
-2. ``AgentStep`` reasoning delegate (with retrieved context injection)
+2. ``DelegateStep`` reasoning delegate (with retrieved context injection)
 3. ``MemoryWriteStep`` (optional write-back)
 
 Background reference

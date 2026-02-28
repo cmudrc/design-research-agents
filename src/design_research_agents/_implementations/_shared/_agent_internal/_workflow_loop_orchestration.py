@@ -54,72 +54,12 @@ def run_workflow_loop(
     Returns:
         Normalized loop orchestration result with final state and termination info.
     """
-
-    def _iteration_logic(step_context: Mapping[str, object]) -> Mapping[str, object]:
-        """Run one loop iteration handler with normalized loop state.
-
-        Args:
-            step_context: Step context payload containing ``_loop`` metadata and state.
-
-        Returns:
-            Next loop state mapping produced by the iteration handler.
-
-        Raises:
-            ValueError: Raised when the iteration handler returns a non-mapping state.
-        """
-        loop_metadata = step_context.get("_loop")
-        raw_iteration = loop_metadata.get("iteration") if isinstance(loop_metadata, Mapping) else 1
-        iteration = _parse_iteration(raw_iteration)
-        loop_state = step_context.get("loop_state")
-        current_state = dict(loop_state) if isinstance(loop_state, Mapping) else {}
-        next_state = iteration_handler(iteration, current_state)
-        if not isinstance(next_state, Mapping):
-            raise ValueError("Loop iteration handler must return a mapping state.")
-        return dict(next_state)
-
-    def _state_reducer(
-        state: Mapping[str, object],
-        iteration_result: ExecutionResult,
-        iteration: int,
-    ) -> Mapping[str, object]:
-        """Reduce loop state after one iteration workflow result.
-
-        Args:
-            state: Current accumulated loop state.
-            iteration_result: Nested workflow result for one loop iteration.
-            iteration: One-based iteration number.
-
-        Returns:
-            Reduced loop state mapping for the next iteration.
-        """
-        del iteration
-        iteration_step = iteration_result.step_results.get("loop_iteration")
-        if iteration_step is None or not getattr(iteration_step, "success", False):
-            return dict(state)
-        output = getattr(iteration_step, "output", {})
-        return dict(output) if isinstance(output, Mapping) else dict(state)
-
-    workflow = Workflow(
-        tool_runtime=None,
+    workflow = compile_workflow_loop(
+        max_iterations=max_iterations,
+        initial_state=initial_state,
+        continue_predicate=continue_predicate,
+        iteration_handler=iteration_handler,
         tracer=tracer,
-        input_schema={"type": "object"},
-        steps=[
-            LoopStep(
-                step_id="agent_loop",
-                steps=(
-                    LogicStep(
-                        step_id="loop_iteration",
-                        handler=_iteration_logic,
-                    ),
-                ),
-                max_iterations=max_iterations,
-                initial_state=dict(initial_state),
-                continue_predicate=continue_predicate,
-                state_reducer=_state_reducer,
-                execution_mode="sequential",
-                failure_policy="skip_dependents",
-            )
-        ],
     )
 
     workflow_result = workflow.run(
@@ -145,6 +85,65 @@ def run_workflow_loop(
     )
 
 
+def compile_workflow_loop(
+    *,
+    max_iterations: int,
+    initial_state: Mapping[str, object],
+    continue_predicate: LoopContinuePredicate,
+    iteration_handler: LoopIterationHandler,
+    tracer: Tracer | None = None,
+) -> Workflow:
+    """Compile a stateful iteration loop into a public ``Workflow``."""
+
+    def _iteration_logic(step_context: Mapping[str, object]) -> Mapping[str, object]:
+        """Run one loop iteration handler with normalized loop state."""
+        loop_metadata = step_context.get("_loop")
+        raw_iteration = loop_metadata.get("iteration") if isinstance(loop_metadata, Mapping) else 1
+        iteration = _parse_iteration(raw_iteration)
+        loop_state = step_context.get("loop_state")
+        current_state = dict(loop_state) if isinstance(loop_state, Mapping) else {}
+        next_state = iteration_handler(iteration, current_state)
+        if not isinstance(next_state, Mapping):
+            raise ValueError("Loop iteration handler must return a mapping state.")
+        return dict(next_state)
+
+    def _state_reducer(
+        state: Mapping[str, object],
+        iteration_result: ExecutionResult,
+        iteration: int,
+    ) -> Mapping[str, object]:
+        """Reduce loop state after one iteration workflow result."""
+        del iteration
+        iteration_step = iteration_result.step_results.get("loop_iteration")
+        if iteration_step is None or not getattr(iteration_step, "success", False):
+            return dict(state)
+        output = getattr(iteration_step, "output", {})
+        return dict(output) if isinstance(output, Mapping) else dict(state)
+
+    return Workflow(
+        tool_runtime=None,
+        tracer=tracer,
+        input_schema={"type": "object"},
+        steps=[
+            LoopStep(
+                step_id="agent_loop",
+                steps=(
+                    LogicStep(
+                        step_id="loop_iteration",
+                        handler=_iteration_logic,
+                    ),
+                ),
+                max_iterations=max_iterations,
+                initial_state=dict(initial_state),
+                continue_predicate=continue_predicate,
+                state_reducer=_state_reducer,
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+            )
+        ],
+    )
+
+
 def _parse_iteration(raw_iteration: object) -> int:
     """Parse raw loop iteration metadata into a positive integer.
 
@@ -167,5 +166,6 @@ __all__ = [
     "LoopContinuePredicate",
     "LoopIterationHandler",
     "WorkflowLoopResult",
+    "compile_workflow_loop",
     "run_workflow_loop",
 ]

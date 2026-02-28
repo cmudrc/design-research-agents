@@ -10,7 +10,7 @@ import pytest
 
 from design_research_agents._contracts._memory import MemoryWriteRecord
 from design_research_agents._contracts._workflow import (
-    AgentStep,
+    DelegateStep,
     LogicStep,
     LoopStep,
     MemoryReadStep,
@@ -339,7 +339,7 @@ def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
 def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
     workflow = WorkflowRuntime()
     steps = [
-        AgentStep(
+        DelegateStep(
             step_id="delegate",
             delegate=StaticMarkerAgent(marker="math"),
             prompt="Solve this.",
@@ -357,7 +357,7 @@ def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
 def test_workflow_runtime_agent_step_accepts_nested_workflow_delegate() -> None:
     workflow = WorkflowRuntime()
     steps = [
-        AgentStep(
+        DelegateStep(
             step_id="delegate",
             delegate=StaticWorkflowDelegateRunner(),
             prompt="Route this prompt.",
@@ -388,7 +388,7 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
             handler=lambda ctx: {"route": "agent_path"},
             route_map={"agent_path": ("delegate",), "other_path": ("unused",)},
         ),
-        AgentStep(
+        DelegateStep(
             step_id="delegate",
             delegate=StaticMarkerAgent(marker="proposal"),
             dependencies=("router",),
@@ -427,7 +427,7 @@ def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
     workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
         ToolStep(step_id="missing_tool", tool_name="unknown_tool"),
-        AgentStep(step_id="missing_agent", delegate=object(), prompt="Do work."),
+        DelegateStep(step_id="missing_agent", delegate=object(), prompt="Do work."),
     ]
 
     result = workflow.run(

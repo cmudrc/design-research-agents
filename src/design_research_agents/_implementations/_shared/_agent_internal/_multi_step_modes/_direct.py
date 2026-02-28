@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMClient,
@@ -31,13 +31,10 @@ from design_research_agents._tracing import (
     finish_model_call,
     start_model_call,
 )
-from design_research_agents._tracing._result_metadata import (
-    enrich_execution_result_trace_metadata,
-)
+from design_research_agents.workflow import CompiledExecution
 
 from .._execution_context import (
-    finish_agent_execution,
-    prepare_agent_execution,
+    resolve_agent_execution_context,
 )
 from .._input_parsing import (
     extract_positive_int as _extract_positive_int,
@@ -62,7 +59,7 @@ from .._result_builders import (
     build_failure_result,
 )
 from .._workflow_loop_orchestration import (
-    run_workflow_loop,
+    compile_workflow_loop,
 )
 
 
@@ -82,7 +79,7 @@ class _ControllerDecision:
     """Decision source label."""
 
 
-class MultiStepDirectLLMAgent(Agent):
+class MultiStepDirectLLMAgent(Delegate):
     """Agent that iterates internal direct-response controller decisions."""
 
     def __init__(
@@ -137,25 +134,25 @@ class MultiStepDirectLLMAgent(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run iterative CONTINUE/STOP controller steps until termination.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional request id for tracing and correlation.
-            dependencies: Optional dependency payload mapping.
-
-        Returns:
-            Final normalized execution result for the run.
-
-        Raises:
-            Exception: Propagates execution failures from nested workflow/LLM calls.
-        """
-        execution_context = prepare_agent_execution(
+        """Run iterative CONTINUE/STOP controller steps until termination."""
+        return self.compile(
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="MultiStepDirectLLMAgent",
-            tracer=self._tracer,
+        ).run()
+
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile iterative CONTINUE/STOP controller steps into one loop workflow."""
+        execution_context = resolve_agent_execution_context(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
         )
         resolved_request_id = execution_context.request_id
         resolved_dependencies = execution_context.dependencies
@@ -347,42 +344,52 @@ class MultiStepDirectLLMAgent(Agent):
                 "fatal_metadata": {},
             }
 
-        try:
-            loop_result = run_workflow_loop(
-                max_iterations=max_steps,
-                initial_state=initial_state,
-                continue_predicate=_continue_predicate,
-                iteration_handler=_run_iteration,
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-                tracer=self._tracer,
-            )
-        except Exception as exc:
-            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
-            raise
+        workflow = compile_workflow_loop(
+            max_iterations=max_steps,
+            initial_state=initial_state,
+            continue_predicate=_continue_predicate,
+            iteration_handler=_run_iteration,
+            tracer=self._tracer,
+        )
+        self.workflow = workflow
 
-        self.workflow = loop_result.workflow
-        final_state = loop_result.final_state
-        workflow_payload = loop_result.workflow_result.to_dict()
-        workflow_artifacts = loop_result.workflow_result.output.get("artifacts", [])
-        step_outputs = _coerce_state_records(final_state.get("step_outputs"))
-        memory = _coerce_state_records(final_state.get("memory"))
-        terminated_reason = str(final_state.get("terminated_reason", TERMINATED_MAX_STEPS_REACHED))
-        final_output = str(final_state.get("final_output", ""))
-        maybe_model_response = final_state.get("last_model_response")
-        last_model_response = maybe_model_response if isinstance(maybe_model_response, LLMResponse) else None
-        fatal_error = final_state.get("fatal_error")
-        fatal_metadata_raw = final_state.get("fatal_metadata")
-        fatal_metadata = dict(fatal_metadata_raw) if isinstance(fatal_metadata_raw, Mapping) else {}
+        def _finalize(workflow_result: ExecutionResult) -> ExecutionResult:
+            loop_step_result = workflow_result.step_results.get("agent_loop")
+            loop_output = loop_step_result.output if loop_step_result is not None else {}
+            final_state_raw = loop_output.get("final_state", {})
+            final_state = dict(final_state_raw) if isinstance(final_state_raw, Mapping) else {}
+            workflow_payload = workflow_result.to_dict()
+            workflow_artifacts = workflow_result.output.get("artifacts", [])
+            step_outputs = _coerce_state_records(final_state.get("step_outputs"))
+            memory = _coerce_state_records(final_state.get("memory"))
+            terminated_reason = str(final_state.get("terminated_reason", TERMINATED_MAX_STEPS_REACHED))
+            final_output = str(final_state.get("final_output", ""))
+            maybe_model_response = final_state.get("last_model_response")
+            last_model_response = maybe_model_response if isinstance(maybe_model_response, LLMResponse) else None
+            fatal_error = final_state.get("fatal_error")
+            fatal_metadata_raw = final_state.get("fatal_metadata")
+            fatal_metadata = dict(fatal_metadata_raw) if isinstance(fatal_metadata_raw, Mapping) else {}
 
-        if isinstance(fatal_error, str) and fatal_error:
-            result = build_failure_result(
-                error=fatal_error,
-                model_response=last_model_response,
-                tool_results=[],
-                request_id=resolved_request_id,
-                dependencies=resolved_dependencies,
-                metadata=fatal_metadata,
+            if isinstance(fatal_error, str) and fatal_error:
+                return build_failure_result(
+                    error=fatal_error,
+                    model_response=last_model_response,
+                    tool_results=[],
+                    request_id=resolved_request_id,
+                    dependencies=resolved_dependencies,
+                    metadata=fatal_metadata,
+                    output={
+                        "final_output": final_output,
+                        "steps_executed": len(step_outputs),
+                        "step_outputs": step_outputs,
+                        "memory": memory,
+                        "terminated_reason": terminated_reason,
+                        "workflow": workflow_payload,
+                        "artifacts": workflow_artifacts,
+                    },
+                )
+
+            return ExecutionResult(
                 output={
                     "final_output": final_output,
                     "steps_executed": len(step_outputs),
@@ -392,37 +399,31 @@ class MultiStepDirectLLMAgent(Agent):
                     "workflow": workflow_payload,
                     "artifacts": workflow_artifacts,
                 },
-            )
-            result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
-            finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
-            return result
-
-        result = ExecutionResult(
-            output={
-                "final_output": final_output,
-                "steps_executed": len(step_outputs),
-                "step_outputs": step_outputs,
-                "memory": memory,
-                "terminated_reason": terminated_reason,
-                "workflow": workflow_payload,
-                "artifacts": workflow_artifacts,
-            },
-            success=True,
-            tool_results=[],
-            model_response=last_model_response,
-            metadata={
-                "request_id": resolved_request_id,
-                "dependency_keys": sorted(resolved_dependencies.keys()),
-                "controller_steps": list(step_outputs),
-                "config": {
-                    "max_steps": max_steps,
-                    "step_memory_tail_items": self._step_memory_tail_items,
+                success=True,
+                tool_results=[],
+                model_response=last_model_response,
+                metadata={
+                    "request_id": resolved_request_id,
+                    "dependency_keys": sorted(resolved_dependencies.keys()),
+                    "controller_steps": list(step_outputs),
+                    "config": {
+                        "max_steps": max_steps,
+                        "step_memory_tail_items": self._step_memory_tail_items,
+                    },
                 },
-            },
+            )
+
+        return CompiledExecution(
+            workflow=workflow,
+            input={},
+            request_id=resolved_request_id,
+            workflow_request_id=f"{resolved_request_id}:workflow_loop",
+            dependencies=resolved_dependencies,
+            delegate_name="MultiStepDirectLLMAgent",
+            tracer=self._tracer,
+            trace_input=execution_context.normalized_input,
+            finalize=_finalize,
         )
-        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
-        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
-        return result
 
 
 def _coerce_state_records(raw_records: object) -> list[dict[str, object]]:

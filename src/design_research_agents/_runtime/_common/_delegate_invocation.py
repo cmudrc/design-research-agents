@@ -7,13 +7,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, TypeGuard, cast
 
+from design_research_agents._contracts._delegate import Delegate
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._workflow import (
+    DelegateRunner,
+    DelegateTarget,
     WorkflowDelegate,
-    WorkflowDelegateRunner,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
-    WorkflowObjectDelegate,
 )
 
 
@@ -24,12 +25,12 @@ class DelegateInvocation:
     result: ExecutionResult
     """Delegate execution result."""
     delegate_type: str
-    """Resolved delegate category label (for example ``agent`` or ``workflow``)."""
+    """Resolved delegate category label (for example ``delegate`` or ``workflow``)."""
 
 
 def invoke_delegate(
     *,
-    delegate: WorkflowDelegate,
+    delegate: DelegateTarget,
     prompt: str,
     step_context: Mapping[str, object] | None,
     request_id: str,
@@ -40,8 +41,8 @@ def invoke_delegate(
     """Invoke a delegate and normalize its result/type metadata."""
     normalized_context = dict(step_context or {})
     # Workflow-object delegates need input-shape adaptation before invocation.
-    if _is_workflow_object_delegate(delegate):
-        workflow_result = _invoke_workflow_object_delegate(
+    if _is_workflow_delegate(delegate):
+        workflow_result = _invoke_workflow_delegate(
             delegate=delegate,
             prompt=prompt,
             step_context=normalized_context,
@@ -67,22 +68,36 @@ def invoke_delegate(
             raise TypeError("Workflow delegate must return ExecutionResult.")
         return DelegateInvocation(result=workflow_result, delegate_type="workflow")
 
-    run_callable = getattr(delegate, "run", None)
-    if not callable(run_callable):
-        raise TypeError("Agent delegate must expose a callable run(prompt, ...) method.")
-    agent_result = run_callable(
-        prompt,
-        request_id=request_id,
-        dependencies=dependencies,
-    )
-    if not isinstance(agent_result, ExecutionResult):
-        raise TypeError("Agent delegate must return ExecutionResult.")
-    return DelegateInvocation(result=agent_result, delegate_type="agent")
+    compile_callable = getattr(delegate, "compile", None)
+    delegate_compile_stub = getattr(Delegate, "compile", None)
+    compile_impl = getattr(type(delegate), "compile", None)
+    if callable(compile_callable) and compile_impl is not delegate_compile_stub:
+        compiled_execution = compile_callable(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        compiled_run = getattr(compiled_execution, "run", None)
+        if not callable(compiled_run):
+            raise TypeError("Delegate compile() must return an object with a callable run() method.")
+        delegate_result = compiled_run()
+    else:
+        run_callable = getattr(delegate, "run", None)
+        if not callable(run_callable):
+            raise TypeError("Delegate must expose a callable compile(prompt, ...) or run(prompt, ...) method.")
+        delegate_result = run_callable(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+    if not isinstance(delegate_result, ExecutionResult):
+        raise TypeError("Delegate execution must return ExecutionResult.")
+    return DelegateInvocation(result=delegate_result, delegate_type="delegate")
 
 
-def _invoke_workflow_object_delegate(
+def _invoke_workflow_delegate(
     *,
-    delegate: WorkflowObjectDelegate,
+    delegate: WorkflowDelegate,
     prompt: str,
     step_context: Mapping[str, object],
     request_id: str,
@@ -113,7 +128,7 @@ def _invoke_workflow_object_delegate(
     return workflow_result
 
 
-def _is_workflow_object_delegate(delegate: WorkflowDelegate) -> TypeGuard[WorkflowObjectDelegate]:
+def _is_workflow_delegate(delegate: DelegateTarget) -> TypeGuard[WorkflowDelegate]:
     """Return whether delegate is a raw workflow object."""
     if not hasattr(delegate, "_input_schema"):
         return False
@@ -125,8 +140,8 @@ def _is_workflow_object_delegate(delegate: WorkflowDelegate) -> TypeGuard[Workfl
 
 
 def _is_workflow_delegate_runner(
-    delegate: WorkflowDelegate,
-) -> TypeGuard[WorkflowDelegateRunner]:
+    delegate: DelegateTarget,
+) -> TypeGuard[DelegateRunner]:
     """Return whether delegate ``run`` signature matches workflow-runner style."""
     run_callable = getattr(delegate, "run", None)
     if run_callable is None:

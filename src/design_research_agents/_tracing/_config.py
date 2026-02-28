@@ -76,7 +76,7 @@ class Tracer:
         """Run one callable wrapped in explicit trace session lifecycle.
 
         Args:
-            agent_name: Agent name used in trace metadata.
+            agent_name: Delegate name used in trace metadata.
             request_id: Request id used for trace run and file naming.
             input_payload: Input payload metadata for trace run start.
             function: Zero-argument callable to execute.

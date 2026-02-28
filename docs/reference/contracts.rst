@@ -4,7 +4,7 @@ Contracts Modules
 This page lists internal contract modules. These underscored module paths are
 documented for contributor visibility and are not API-stable.
 
-.. automodule:: design_research_agents._contracts._agent
+.. automodule:: design_research_agents._contracts._delegate
    :members:
    :undoc-members:
    :no-index:

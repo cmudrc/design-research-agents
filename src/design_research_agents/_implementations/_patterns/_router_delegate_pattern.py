@@ -5,26 +5,27 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient
 from design_research_agents._contracts._termination import (
     TERMINATED_ROUTING_FAILURE,
     TERMINATED_UNKNOWN_ALTERNATIVE,
 )
 from design_research_agents._contracts._tools import ToolRuntime, ToolSpec
-from design_research_agents._contracts._workflow import LogicStep, WorkflowDelegate
+from design_research_agents._contracts._workflow import DelegateTarget, LogicStep
 from design_research_agents._implementations._agents._multi_step_agent import MultiStepAgent
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
     MODE_ROUTER_DELEGATE,
     WorkflowBudgetTracker,
     attach_runtime_metadata,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     normalize_request_id_prefix,
     resolve_pattern_run_context,
 )
 from design_research_agents._tracing import Tracer
+from design_research_agents.workflow import CompiledExecution
 from design_research_agents.workflow.workflow import Workflow
 
 from .._shared._agent_internal._agent_routing_runtime_adapter import (
@@ -253,7 +254,7 @@ def _build_routing_failure_result(
     )
 
 
-class RouterDelegatePattern(Agent):
+class RouterDelegatePattern(Delegate):
     """Routing/delegation pattern built on workflow primitives."""
 
     def __init__(
@@ -261,7 +262,7 @@ class RouterDelegatePattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        alternatives: Mapping[str, WorkflowDelegate],
+        alternatives: Mapping[str, DelegateTarget],
         alternative_descriptions: Mapping[str, str] | None = None,
         router_system_prompt: str | None = None,
         router_user_prompt_template: str | None = None,
@@ -327,19 +328,21 @@ class RouterDelegatePattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute one intent-routing orchestration run.
+        """Execute one intent-routing orchestration run."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: User prompt to route to the best delegate.
-            request_id: Optional request id for tracing and correlation.
-            dependencies: Optional dependency overrides for this run.
-
-        Returns:
-            Final routed agent result with routing metadata.
-
-        Raises:
-            Exception: Propagates runtime failures from routing/delegate execution.
-        """
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one intent-routing orchestration run."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
@@ -348,20 +351,36 @@ class RouterDelegatePattern(Agent):
         )
         normalized_input = normalize_input_payload(prompt)
         resolved_prompt = _extract_prompt(normalized_input)
-        return execute_pattern_with_trace(
-            agent_name="RouterDelegatePattern",
+        workflow = self._build_workflow(
+            resolved_prompt,
             request_id=run_context.request_id,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_ROUTER_DELEGATE},
+            dependencies=run_context.dependencies,
+        )
+        runtime = self._agent_routing_runtime or {}
+        budget_tracker = runtime.get("budget_tracker")
+        execution_state = runtime.get("execution_state")
+        if not isinstance(budget_tracker, WorkflowBudgetTracker) or not isinstance(
+            execution_state, _RoutingExecutionState
+        ):
+            raise RuntimeError("Agent routing runtime state is unavailable before workflow execution.")
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="RouterDelegatePattern",
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_agent_routing(
-                prompt=resolved_prompt,
+            input_payload={"prompt": resolved_prompt, "mode": MODE_ROUTER_DELEGATE},
+            workflow_request_id=f"{run_context.request_id}:router_delegate_workflow",
+            finalize=lambda workflow_result: self._finalize_agent_routing_result(
+                workflow_result=workflow_result,
+                budget_tracker=budget_tracker,
+                execution_state=execution_state,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -438,7 +457,7 @@ class RouterDelegatePattern(Agent):
         Raises:
             RuntimeError: If internal workflow invariants are violated.
         """
-        workflow = self.build_workflow(
+        workflow = self._build_workflow(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
@@ -458,6 +477,24 @@ class RouterDelegatePattern(Agent):
             request_id=f"{request_id}:router_delegate_workflow",
             dependencies=dependencies,
         )
+        return self._finalize_agent_routing_result(
+            workflow_result=workflow_result,
+            budget_tracker=budget_tracker,
+            execution_state=execution_state,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+
+    def _finalize_agent_routing_result(
+        self,
+        *,
+        workflow_result: ExecutionResult,
+        budget_tracker: WorkflowBudgetTracker,
+        execution_state: _RoutingExecutionState,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Build the final routed result from a workflow execution."""
         workflow_payload = workflow_result.to_dict()
         raw_workflow_artifacts = workflow_result.output.get("artifacts")
         workflow_artifacts: list[object] = (

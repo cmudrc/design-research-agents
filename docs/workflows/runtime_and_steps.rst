@@ -17,7 +17,7 @@ All workflow step primitives are available from the workflow module:
 .. code-block:: python
 
    from design_research_agents.workflow import (
-       AgentStep,
+       DelegateStep,
        DelegateBatchStep,
        LogicStep,
        LoopStep,
@@ -37,7 +37,7 @@ Step types
 - ``ToolStep``: tool runtime invocations.
   Key fields: ``step_id``, ``tool_name``, ``input_builder``, ``dependencies``.
   Use it for explicit tool boundary calls through ``Toolbox``.
-- ``AgentStep``: delegated agent/workflow execution.
+- ``DelegateStep``: delegated agent/workflow execution.
   Key fields: ``step_id``, ``delegate``, ``prompt_builder``, ``dependencies``.
   Use it when nested agents/patterns should own their own prompting or tool usage.
 - ``LoopStep``: iterative nested workflow body with loop state callbacks.
@@ -77,7 +77,7 @@ Reusable facade
 - ``Workflow(input_schema=None)`` (default) for string prompt input.
 - ``Workflow(input_schema={...})`` for mapping input with schema validation.
 - ``Workflow(output_schema={...})`` to validate canonical ``output.final_output``.
-- ``AgentStep`` delegates are provided directly on each step object.
+- ``DelegateStep`` delegates are provided directly on each step object.
 
 Input mode contracts
 --------------------

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient, LLMResponse
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._termination import (
@@ -21,13 +21,10 @@ from design_research_agents._contracts._termination import (
 )
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._tracing import Tracer
-from design_research_agents._tracing._result_metadata import (
-    enrich_execution_result_trace_metadata,
-)
+from design_research_agents.workflow import CompiledExecution
 
 from .._execution_context import (
-    finish_agent_execution,
-    prepare_agent_execution,
+    resolve_agent_execution_context,
 )
 from .._input_parsing import (
     extract_boolean as _extract_boolean,
@@ -92,11 +89,11 @@ from .._response_schemas import (
     build_continuation_response_schema,
 )
 from .._workflow_loop_orchestration import (
-    run_workflow_loop,
+    compile_workflow_loop,
 )
 
 
-class MultiStepJsonToolCallingAgent(Agent):
+class MultiStepJsonToolCallingAgent(Delegate):
     """Agent that iterates action-observation steps until continuation stops.
 
     Each iteration asks the model whether to continue, then delegates one action
@@ -201,29 +198,25 @@ class MultiStepJsonToolCallingAgent(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Run the multi-step action-observation loop and return aggregated results.
-
-        The run collects continuation decisions, per-step outputs, and all tool
-        results while preserving memory entries that can be inspected by callers.
-
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Returns:
-            Final agent result payload.
-
-        Raises:
-            RuntimeError: Propagates failures from continuation/model/tool execution
-                helpers while running the loop.
-        """
-        execution_context = prepare_agent_execution(
+        """Run the multi-step action-observation loop and return aggregated results."""
+        return self.compile(
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="MultiStepJsonToolCallingAgent",
-            tracer=self._tracer,
+        ).run()
+
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile the multi-step action-observation loop into one loop workflow."""
+        execution_context = resolve_agent_execution_context(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
         )
         resolved_request_id = execution_context.request_id
         resolved_dependencies = execution_context.dependencies
@@ -256,64 +249,73 @@ class MultiStepJsonToolCallingAgent(Agent):
             tracer=self._tracer,
         )
 
-        try:
-            loop_result = run_workflow_loop(
-                max_iterations=max_steps,
-                initial_state=build_loop_initial_state(
-                    prompt=prompt,
-                    include_continuation=True,
-                ),
-                continue_predicate=continue_loop,
-                iteration_handler=lambda iteration, state: self._run_loop_iteration(
-                    iteration=iteration,
-                    state=state,
-                    prompt=prompt,
-                    max_steps=max_steps,
-                    resolved_model=resolved_model,
-                    alternatives_prompt_target=alternatives_prompt_target,
-                    step_tools_text=step_tools_text,
-                    step_agent=step_agent,
-                    request_id=resolved_request_id,
-                    dependencies=resolved_dependencies,
-                    stop_on_step_failure=stop_on_step_failure,
-                ),
+        workflow = compile_workflow_loop(
+            max_iterations=max_steps,
+            initial_state=build_loop_initial_state(
+                prompt=prompt,
+                include_continuation=True,
+            ),
+            continue_predicate=continue_loop,
+            iteration_handler=lambda iteration, state: self._run_loop_iteration(
+                iteration=iteration,
+                state=state,
+                prompt=prompt,
+                max_steps=max_steps,
+                resolved_model=resolved_model,
+                alternatives_prompt_target=alternatives_prompt_target,
+                step_tools_text=step_tools_text,
+                step_agent=step_agent,
                 request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
-                tracer=self._tracer,
+                stop_on_step_failure=stop_on_step_failure,
+            ),
+            tracer=self._tracer,
+        )
+        self.workflow = workflow
+
+        def _finalize(workflow_result: ExecutionResult) -> ExecutionResult:
+            loop_step_result = workflow_result.step_results.get("agent_loop")
+            loop_output = loop_step_result.output if loop_step_result is not None else {}
+            final_state_raw = loop_output.get("final_state", {})
+            final_state = dict(final_state_raw) if isinstance(final_state_raw, Mapping) else {}
+            result = build_json_final_result(
+                final_state=final_state,
+                request_id=resolved_request_id,
+                dependencies=resolved_dependencies,
+                max_steps=max_steps,
+                stop_on_step_failure=stop_on_step_failure,
+                alternatives_prompt_target=alternatives_prompt_target,
+                continuation_memory_tail_items=self._continuation_memory_tail_items,
+                step_memory_tail_items=self._step_memory_tail_items,
+                memory_namespace=self._memory_namespace,
+                memory_read_top_k=self._memory_read_top_k,
+                memory_write_observations=self._memory_write_observations,
+                memory_store_enabled=self._memory_store is not None,
             )
-        except Exception as exc:
-            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
-            raise
-        self.workflow = loop_result.workflow
-        result = build_json_final_result(
-            final_state=loop_result.final_state,
+            merged_output = dict(result.output)
+            merged_output["workflow"] = workflow_result.to_dict()
+            merged_output["artifacts"] = workflow_result.output.get("artifacts", [])
+            return ExecutionResult(
+                output=merged_output,
+                success=result.success,
+                tool_results=list(result.tool_results),
+                model_response=result.model_response,
+                metadata=dict(result.metadata),
+                step_results=dict(result.step_results),
+                execution_order=list(result.execution_order),
+            )
+
+        return CompiledExecution(
+            workflow=workflow,
+            input={},
             request_id=resolved_request_id,
+            workflow_request_id=f"{resolved_request_id}:workflow_loop",
             dependencies=resolved_dependencies,
-            max_steps=max_steps,
-            stop_on_step_failure=stop_on_step_failure,
-            alternatives_prompt_target=alternatives_prompt_target,
-            continuation_memory_tail_items=self._continuation_memory_tail_items,
-            step_memory_tail_items=self._step_memory_tail_items,
-            memory_namespace=self._memory_namespace,
-            memory_read_top_k=self._memory_read_top_k,
-            memory_write_observations=self._memory_write_observations,
-            memory_store_enabled=self._memory_store is not None,
+            delegate_name="MultiStepJsonToolCallingAgent",
+            tracer=self._tracer,
+            trace_input=execution_context.normalized_input,
+            finalize=_finalize,
         )
-        merged_output = dict(result.output)
-        merged_output["workflow"] = loop_result.workflow_result.to_dict()
-        merged_output["artifacts"] = loop_result.workflow_result.output.get("artifacts", [])
-        result = ExecutionResult(
-            output=merged_output,
-            success=result.success,
-            tool_results=list(result.tool_results),
-            model_response=result.model_response,
-            metadata=dict(result.metadata),
-            step_results=dict(result.step_results),
-            execution_order=list(result.execution_order),
-        )
-        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
-        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
-        return result
 
     def _run_loop_iteration(
         self,

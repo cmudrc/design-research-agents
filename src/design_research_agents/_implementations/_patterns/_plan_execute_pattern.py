@@ -2,31 +2,30 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import (
     LLMClient,
     LLMMessage,
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents._contracts._tools import ToolRuntime
+from design_research_agents._contracts._tools import ToolRuntime, ToolSpec
 from design_research_agents._contracts._workflow import (
-    AgentStep,
+    DelegateStep,
+    DelegateTarget,
     LogicStep,
     LoopStep,
     ModelStep,
-    WorkflowDelegate,
 )
 from design_research_agents._implementations._agents._multi_step_agent import MultiStepAgent
-from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
     MODE_PLAN_EXECUTE,
     WorkflowBudgetTracker,
     attach_runtime_metadata,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     normalize_mapping,
     normalize_mapping_records,
     normalize_request_id_prefix,
@@ -39,7 +38,7 @@ from design_research_agents._schemas import (
     validate_payload_against_schema,
 )
 from design_research_agents._tracing import Tracer
-from design_research_agents.workflow.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 from .._shared._agent_internal._input_parsing import (
     extract_prompt as _extract_prompt,
@@ -59,7 +58,7 @@ from .._shared._workflow_internal._plan_execute_helpers import (
 )
 
 
-class PlanExecutePattern(Agent):
+class PlanExecutePattern(Delegate):
     """Planner/executor orchestration pattern built on workflow primitives."""
 
     def __init__(
@@ -67,8 +66,8 @@ class PlanExecutePattern(Agent):
         *,
         llm_client: LLMClient,
         tool_runtime: ToolRuntime,
-        planner_delegate: WorkflowDelegate | None = None,
-        executor_delegate: WorkflowDelegate | None = None,
+        planner_delegate: DelegateTarget | None = None,
+        executor_delegate: DelegateTarget | None = None,
         max_iterations: int = 3,
         max_tool_calls_per_step: int = 5,
         planner_system_prompt: str | None = None,
@@ -110,7 +109,6 @@ class PlanExecutePattern(Agent):
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._tracer = tracer
         self.workflow: Workflow | None = None
-        self._plan_execute_runtime: dict[str, object] | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._planner_system_prompt = resolve_prompt_override(
@@ -136,19 +134,21 @@ class PlanExecutePattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute one plan-execute orchestration run.
+        """Execute one plan-execute orchestration run."""
+        return self.compile(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Task prompt to plan and execute.
-            request_id: Optional request id for tracing and correlation.
-            dependencies: Optional dependency overrides for this run.
-
-        Returns:
-            Pattern result containing plan, step results, and final output.
-
-        Raises:
-            Exception: Propagates runtime failures from planner or executor phases.
-        """
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one bound plan-execute orchestration."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
@@ -156,167 +156,67 @@ class PlanExecutePattern(Agent):
             dependencies=dependencies,
         )
         resolved_prompt = _extract_prompt(normalize_input_payload(prompt))
-        return execute_pattern_with_trace(
-            agent_name="PlanExecutePattern",
+        budget_tracker = WorkflowBudgetTracker()
+        runtime_state: dict[str, object] = {
+            "planner_response": None,
+            "parsed_plan": None,
+            "plan_steps": [],
+            "callbacks": None,
+            "fatal_error": None,
+            "fatal_stage": None,
+            "failure_reason": None,
+            "failure_error": None,
+        }
+        workflow = self._build_workflow(
+            resolved_prompt,
             request_id=run_context.request_id,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_PLAN_EXECUTE},
+            dependencies=run_context.dependencies,
+            budget_tracker=budget_tracker,
+            runtime_state=runtime_state,
+        )
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="PlanExecutePattern",
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_plan_execute(
-                prompt=resolved_prompt,
+            input_payload={"prompt": resolved_prompt, "mode": MODE_PLAN_EXECUTE},
+            workflow_request_id=f"{run_context.request_id}:plan_execute_workflow",
+            failure_policy="propagate_failed_state",
+            finalize=lambda workflow_result: self._build_plan_execute_result(
+                workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
+                budget_tracker=budget_tracker,
+                runtime_state=runtime_state,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
         request_id: str,
         dependencies: Mapping[str, object],
+        budget_tracker: WorkflowBudgetTracker,
+        runtime_state: dict[str, object],
     ) -> Workflow:
         """Build the plan/execute workflow for one resolved run context."""
-        budget_tracker = WorkflowBudgetTracker()
         runtime_tool_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
-        planner_response: LLMResponse | None = None
-        parsed_plan: dict[str, object] | None = None
-
-        if self._planner_delegate is None:
-            parsed_plan, planner_response = self._run_planner_model_step(
-                prompt=prompt,
-                request_id=request_id,
-                dependencies=dependencies,
-            )
-            budget_tracker.add_model_response(planner_response)
-        else:
-            planner_prompt = render_prompt_template(
-                template_text=self._planner_user_prompt_template,
-                variables={"task_prompt": prompt},
-                field_name="planner_user_prompt_template",
-            )
-            planner_invocation = invoke_delegate(
-                delegate=self._planner_delegate,
-                prompt=planner_prompt,
-                step_context=None,
-                request_id=f"{request_id}:plan_execute:planner_delegate",
-                execution_mode="sequential",
-                failure_policy="skip_dependents",
-                dependencies=dependencies,
-            )
-            planner_result = planner_invocation.result
-            planner_response = planner_result.model_response
-            budget_tracker.add_model_response(planner_response)
-            if planner_result.success:
-                parsed_plan = _extract_planner_payload(planner_result.output)
-
-        failure_result: ExecutionResult | None = None
-        if parsed_plan is None:
-            failure = build_pattern_execution_result(
-                success=False,
-                final_output={},
-                terminated_reason="planner_invalid_json",
-                details={
-                    "plan": None,
-                    "plan_schema_version": PLAN_SCHEMA_VERSION,
-                    "steps_executed": 0,
-                    "step_results": [],
-                },
-                workflow_payload={},
-                artifacts=[],
-                request_id=request_id,
-                dependencies=dependencies,
-                mode=MODE_PLAN_EXECUTE,
-                metadata={"stage": "planner"},
-                tool_results=[],
-                model_response=planner_response,
-                error="Planner did not return valid JSON plan output.",
-            )
-            failure_result = attach_runtime_metadata(
-                agent_result=failure,
-                requested_mode=MODE_PLAN_EXECUTE,
-                resolved_mode=MODE_PLAN_EXECUTE,
-                budget_metadata=budget_tracker.as_metadata(),
-                extra_metadata=None,
-            )
-        else:
-            try:
-                validate_payload_against_schema(
-                    payload=parsed_plan,
-                    schema=PLAN_SCHEMA,
-                    location="plan_execute.plan",
-                )
-            except SchemaValidationError as exc:
-                failure = build_pattern_execution_result(
-                    success=False,
-                    final_output={},
-                    terminated_reason="planner_invalid_schema",
-                    details={
-                        "plan": parsed_plan,
-                        "plan_schema_version": PLAN_SCHEMA_VERSION,
-                        "steps_executed": 0,
-                        "step_results": [],
-                    },
-                    workflow_payload={},
-                    artifacts=[],
-                    request_id=request_id,
-                    dependencies=dependencies,
-                    mode=MODE_PLAN_EXECUTE,
-                    metadata={"stage": "planner"},
-                    tool_results=[],
-                    model_response=planner_response,
-                    error=f"Planner output failed schema validation: {exc}",
-                )
-                failure_result = attach_runtime_metadata(
-                    agent_result=failure,
-                    requested_mode=MODE_PLAN_EXECUTE,
-                    resolved_mode=MODE_PLAN_EXECUTE,
-                    budget_metadata=budget_tracker.as_metadata(),
-                    extra_metadata=None,
-                )
-
-        if failure_result is not None:
-            workflow = Workflow(
-                tool_runtime=None,
-                tracer=self._tracer,
-                input_schema={"type": "object"},
-                steps=[
-                    LogicStep(
-                        step_id="plan_execute_noop",
-                        handler=lambda context: {},
-                    )
-                ],
-            )
-            self.workflow = workflow
-            self._plan_execute_runtime = {"failure": failure_result}
-            return workflow
-
-        assert parsed_plan is not None
-        raw_steps = parsed_plan.get("steps")
-        plan_steps = (
-            [dict(step) for step in raw_steps if isinstance(step, Mapping)] if isinstance(raw_steps, list) else []
-        )
-
-        if self._executor_delegate is None:
-            executor_delegate: WorkflowDelegate = MultiStepAgent(
-                mode="code",
-                llm_client=self._llm_client,
-                tool_runtime=self._tool_runtime,
-                max_steps=1,
-                max_tool_calls_per_step=self._max_tool_calls_per_step,
-                tracer=self._tracer,
-            )
-        else:
-            executor_delegate = self._executor_delegate
-        callbacks = PlanExecuteLoopCallbacks(
+        executor_delegate = self._resolve_executor_delegate()
+        planner_step_id = "plan_execute_planner"
+        planner_step = self._build_planner_step(
             prompt=prompt,
-            plan_steps=plan_steps,
-            executor_step_prompt_template=self._executor_step_prompt_template,
+            planner_step_id=planner_step_id,
+        )
+        prepare_plan_handler = self._build_plan_prepare_handler(
+            prompt=prompt,
+            planner_step_id=planner_step_id,
             request_id=request_id,
             dependencies=dependencies,
             budget_tracker=budget_tracker,
             runtime_tool_specs=runtime_tool_specs,
-            initial_model_response=planner_response,
+            runtime_state=runtime_state,
         )
 
         workflow = Workflow(
@@ -325,33 +225,290 @@ class PlanExecutePattern(Agent):
             input_schema={"type": "object"},
             base_context={"prompt": prompt},
             steps=[
+                planner_step,
+                LogicStep(
+                    step_id="plan_execute_prepare",
+                    handler=prepare_plan_handler,
+                    dependencies=(planner_step_id,),
+                ),
                 LoopStep(
                     step_id="plan_execute_loop",
                     steps=(
-                        AgentStep(
+                        DelegateStep(
                             step_id="execute_plan_step",
                             delegate=executor_delegate,
-                            prompt_builder=callbacks.executor_prompt_builder,
+                            prompt_builder=self._build_plan_prompt_builder(runtime_state),
                         ),
                     ),
+                    dependencies=("plan_execute_prepare",),
                     max_iterations=self._max_iterations,
                     initial_state={"step_results": [], "final_output": {}},
-                    continue_predicate=callbacks.continue_predicate,
-                    state_reducer=callbacks.state_reducer,
+                    continue_predicate=self._build_plan_continue_predicate(runtime_state),
+                    state_reducer=self._build_plan_state_reducer(runtime_state),
                     execution_mode="sequential",
                     failure_policy="skip_dependents",
-                )
+                ),
             ],
+            default_failure_policy="propagate_failed_state",
         )
         self.workflow = workflow
-        self._plan_execute_runtime = {
-            "failure": None,
-            "budget_tracker": budget_tracker,
-            "callbacks": callbacks,
-            "parsed_plan": dict(parsed_plan),
-            "plan_steps": list(plan_steps),
-        }
         return workflow
+
+    def _resolve_executor_delegate(self) -> DelegateTarget:
+        """Resolve the executor delegate for plan-step execution."""
+        if self._executor_delegate is not None:
+            return self._executor_delegate
+        return MultiStepAgent(
+            mode="code",
+            llm_client=self._llm_client,
+            tool_runtime=self._tool_runtime,
+            max_steps=1,
+            max_tool_calls_per_step=self._max_tool_calls_per_step,
+            tracer=self._tracer,
+        )
+
+    def _build_planner_step(
+        self,
+        *,
+        prompt: str,
+        planner_step_id: str,
+    ) -> ModelStep | DelegateStep:
+        """Build the planner step for one compiled execution."""
+        if self._planner_delegate is not None:
+            planner_prompt = render_prompt_template(
+                template_text=self._planner_user_prompt_template,
+                variables={"task_prompt": prompt},
+                field_name="planner_user_prompt_template",
+            )
+            return DelegateStep(
+                step_id=planner_step_id,
+                delegate=self._planner_delegate,
+                prompt=planner_prompt,
+            )
+
+        resolved_model = resolve_agent_model(llm_client=self._llm_client)
+        return ModelStep(
+            step_id=planner_step_id,
+            llm_client=self._llm_client,
+            request_builder=lambda context: self._build_planner_request(
+                context=context,
+                prompt=prompt,
+                resolved_model=resolved_model,
+            ),
+            response_parser=_parse_planner_model_response,
+        )
+
+    def _build_plan_prepare_handler(
+        self,
+        *,
+        prompt: str,
+        planner_step_id: str,
+        request_id: str,
+        dependencies: Mapping[str, object],
+        budget_tracker: WorkflowBudgetTracker,
+        runtime_tool_specs: Mapping[str, ToolSpec],
+        runtime_state: dict[str, object],
+    ) -> Callable[[Mapping[str, object]], Mapping[str, object]]:
+        """Return the planner-output normalization handler for one compiled run."""
+
+        def _prepare_plan_handler(context: Mapping[str, object]) -> Mapping[str, object]:
+            self._reset_plan_runtime_state(runtime_state)
+            dependency_results = context.get("dependency_results")
+            planner_result = (
+                dependency_results.get(planner_step_id) if isinstance(dependency_results, Mapping) else None
+            )
+            if not isinstance(planner_result, Mapping):
+                runtime_state["fatal_stage"] = "planner"
+                runtime_state["fatal_error"] = "Planner step result is missing."
+                return {"plan_valid": False, "plan_steps": []}
+
+            (
+                planner_success,
+                normalized_metadata,
+                planner_response,
+                parsed_plan,
+            ) = self._extract_planner_response_and_plan(planner_result)
+
+            budget_tracker.add_model_response(planner_response)
+            runtime_state["planner_response"] = planner_response
+
+            if not planner_success:
+                if self._planner_delegate is None:
+                    runtime_state["fatal_stage"] = str(normalized_metadata.get("stage", "planner"))
+                    runtime_state["fatal_error"] = str(planner_result.get("error") or "Planner model step failed.")
+                    return {"plan_valid": False, "plan_steps": []}
+                runtime_state["failure_reason"] = "planner_invalid_json"
+                runtime_state["failure_error"] = "Planner did not return valid JSON plan output."
+                return {
+                    "plan_valid": False,
+                    "plan_steps": [],
+                    "terminated_reason": "planner_invalid_json",
+                }
+
+            if parsed_plan is None:
+                runtime_state["failure_reason"] = "planner_invalid_json"
+                runtime_state["failure_error"] = "Planner did not return valid JSON plan output."
+                return {
+                    "plan_valid": False,
+                    "plan_steps": [],
+                    "terminated_reason": "planner_invalid_json",
+                }
+
+            try:
+                validate_payload_against_schema(
+                    payload=parsed_plan,
+                    schema=PLAN_SCHEMA,
+                    location="plan_execute.plan",
+                )
+            except SchemaValidationError as exc:
+                runtime_state["parsed_plan"] = dict(parsed_plan)
+                runtime_state["failure_reason"] = "planner_invalid_schema"
+                runtime_state["failure_error"] = f"Planner output failed schema validation: {exc}"
+                return {
+                    "plan_valid": False,
+                    "plan": dict(parsed_plan),
+                    "plan_steps": [],
+                    "terminated_reason": "planner_invalid_schema",
+                }
+
+            raw_steps = parsed_plan.get("steps")
+            plan_steps = (
+                [dict(step) for step in raw_steps if isinstance(step, Mapping)] if isinstance(raw_steps, list) else []
+            )
+            callbacks = PlanExecuteLoopCallbacks(
+                prompt=prompt,
+                plan_steps=plan_steps,
+                executor_step_prompt_template=self._executor_step_prompt_template,
+                request_id=request_id,
+                dependencies=dependencies,
+                budget_tracker=budget_tracker,
+                runtime_tool_specs=runtime_tool_specs,
+                initial_model_response=planner_response,
+            )
+            runtime_state["parsed_plan"] = dict(parsed_plan)
+            runtime_state["plan_steps"] = list(plan_steps)
+            runtime_state["callbacks"] = callbacks
+            return {
+                "plan_valid": True,
+                "plan": dict(parsed_plan),
+                "plan_steps": list(plan_steps),
+            }
+
+        return _prepare_plan_handler
+
+    @staticmethod
+    def _reset_plan_runtime_state(runtime_state: dict[str, object]) -> None:
+        """Reset mutable plan-execution compile state before one run."""
+        runtime_state["planner_response"] = None
+        runtime_state["parsed_plan"] = None
+        runtime_state["plan_steps"] = []
+        runtime_state["callbacks"] = None
+        runtime_state["fatal_error"] = None
+        runtime_state["fatal_stage"] = None
+        runtime_state["failure_reason"] = None
+        runtime_state["failure_error"] = None
+
+    def _extract_planner_response_and_plan(
+        self,
+        planner_result: Mapping[str, object],
+    ) -> tuple[bool, dict[str, object], LLMResponse | None, dict[str, object] | None]:
+        """Extract planner success metadata, response, and parsed plan payload."""
+        planner_output = planner_result.get("output")
+        normalized_output = dict(planner_output) if isinstance(planner_output, Mapping) else {}
+        planner_success = bool(planner_result.get("success", False))
+        planner_metadata = planner_result.get("metadata")
+        normalized_metadata = dict(planner_metadata) if isinstance(planner_metadata, Mapping) else {}
+
+        if self._planner_delegate is None:
+            planner_response = _extract_model_response_from_model_step_output(normalized_output)
+            parsed_plan = self._extract_model_planner_plan(
+                normalized_output=normalized_output,
+                planner_success=planner_success,
+            )
+            return planner_success, normalized_metadata, planner_response, parsed_plan
+
+        planner_response = _deserialize_model_response(normalized_output.get("model_response"))
+        parsed_plan = self._extract_delegate_planner_plan(
+            normalized_output=normalized_output,
+            planner_success=planner_success,
+        )
+        return planner_success, normalized_metadata, planner_response, parsed_plan
+
+    @staticmethod
+    def _extract_model_planner_plan(
+        *,
+        normalized_output: Mapping[str, object],
+        planner_success: bool,
+    ) -> dict[str, object] | None:
+        """Extract a parsed plan from the model-backed planner step output."""
+        if not planner_success:
+            return None
+        parsed_payload = normalized_output.get("parsed")
+        if not isinstance(parsed_payload, Mapping):
+            return None
+        maybe_plan = parsed_payload.get("plan")
+        if not isinstance(maybe_plan, Mapping):
+            return None
+        return dict(maybe_plan)
+
+    @staticmethod
+    def _extract_delegate_planner_plan(
+        *,
+        normalized_output: Mapping[str, object],
+        planner_success: bool,
+    ) -> dict[str, object] | None:
+        """Extract a parsed plan from the delegate-backed planner step output."""
+        if not planner_success:
+            return None
+        nested_output = normalized_output.get("output")
+        if not isinstance(nested_output, Mapping):
+            return None
+        return _extract_planner_payload(nested_output)
+
+    @staticmethod
+    def _build_plan_continue_predicate(
+        runtime_state: Mapping[str, object],
+    ) -> Callable[[int, Mapping[str, object]], bool]:
+        """Return the loop continue predicate for one compiled plan-execute run."""
+
+        def _continue_predicate(iteration: int, state: Mapping[str, object]) -> bool:
+            del state
+            plan_steps = runtime_state.get("plan_steps")
+            return iteration <= len(plan_steps) if isinstance(plan_steps, list) else False
+
+        return _continue_predicate
+
+    @staticmethod
+    def _build_plan_prompt_builder(
+        runtime_state: Mapping[str, object],
+    ) -> Callable[[Mapping[str, object]], str]:
+        """Return the loop prompt builder for one compiled plan-execute run."""
+
+        def _executor_prompt_builder(step_context: Mapping[str, object]) -> str:
+            callbacks = runtime_state.get("callbacks")
+            if not isinstance(callbacks, PlanExecuteLoopCallbacks):
+                raise RuntimeError("Plan execute callbacks are unavailable for loop execution.")
+            return callbacks.executor_prompt_builder(step_context)
+
+        return _executor_prompt_builder
+
+    @staticmethod
+    def _build_plan_state_reducer(
+        runtime_state: Mapping[str, object],
+    ) -> Callable[[Mapping[str, object], ExecutionResult, int], Mapping[str, object]]:
+        """Return the loop state reducer for one compiled plan-execute run."""
+
+        def _state_reducer(
+            state: Mapping[str, object],
+            iteration_result: ExecutionResult,
+            iteration: int,
+        ) -> Mapping[str, object]:
+            callbacks = runtime_state.get("callbacks")
+            if not isinstance(callbacks, PlanExecuteLoopCallbacks):
+                return dict(state)
+            return callbacks.state_reducer(state, iteration_result, iteration)
+
+        return _state_reducer
 
     def _run_plan_execute(
         self,
@@ -360,50 +517,81 @@ class PlanExecutePattern(Agent):
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ExecutionResult:
-        """Run planner phase then execute planned steps through a loop step.
-
-        Args:
-            prompt: Task prompt to plan and execute.
-            request_id: Resolved request id for this orchestration run.
-            dependencies: Normalized dependency mapping for this run.
-
-        Returns:
-            Final plan-execute pattern result.
-
-        Raises:
-            RuntimeError: If required loop outputs are missing.
-        """
-        workflow = self.build_workflow(
+        """Backwards-compatible internal wrapper over the compile-first path."""
+        return self.compile(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
-        )
-        runtime = self._plan_execute_runtime or {}
-        failure = runtime.get("failure")
-        if isinstance(failure, ExecutionResult):
-            return failure
-        budget_tracker = runtime.get("budget_tracker")
-        callbacks = runtime.get("callbacks")
-        parsed_plan_value = runtime.get("parsed_plan")
-        plan_steps_value = runtime.get("plan_steps")
-        if (
-            not isinstance(budget_tracker, WorkflowBudgetTracker)
-            or not isinstance(callbacks, PlanExecuteLoopCallbacks)
-            or not isinstance(parsed_plan_value, Mapping)
-            or not isinstance(plan_steps_value, list)
-        ):
-            raise RuntimeError("Plan execute runtime state is unavailable before workflow execution.")
-        parsed_plan = dict(parsed_plan_value)
-        plan_steps = [dict(step) for step in plan_steps_value if isinstance(step, Mapping)]
+        ).run()
 
-        loop_workflow_result = workflow.run(
-            input={},
-            execution_mode="sequential",
-            failure_policy="skip_dependents",
-            request_id=f"{request_id}:plan_execute_loop",
-            dependencies=dependencies,
+    def _build_plan_execute_result(
+        self,
+        *,
+        workflow_result: ExecutionResult,
+        request_id: str,
+        dependencies: Mapping[str, object],
+        budget_tracker: WorkflowBudgetTracker,
+        runtime_state: Mapping[str, object],
+    ) -> ExecutionResult:
+        """Build the finalized plan-execute result from compiled workflow state."""
+        fatal_error = runtime_state.get("fatal_error")
+        if isinstance(fatal_error, str) and fatal_error:
+            fatal_stage = str(runtime_state.get("fatal_stage", "planner"))
+            if fatal_stage == "input_build":
+                raise ValueError(fatal_error)
+            raise RuntimeError(fatal_error)
+
+        planner_response = runtime_state.get("planner_response")
+        model_response = planner_response if isinstance(planner_response, LLMResponse) else None
+        parsed_plan_value = runtime_state.get("parsed_plan")
+        parsed_plan = dict(parsed_plan_value) if isinstance(parsed_plan_value, Mapping) else None
+        failure_reason = runtime_state.get("failure_reason")
+        failure_error = runtime_state.get("failure_error")
+
+        if isinstance(failure_reason, str) and failure_reason:
+            failure = build_pattern_execution_result(
+                success=False,
+                final_output={},
+                terminated_reason=failure_reason,
+                details={
+                    "plan": parsed_plan,
+                    "plan_schema_version": PLAN_SCHEMA_VERSION,
+                    "steps_executed": 0,
+                    "step_results": [],
+                },
+                workflow_payload=workflow_result.to_dict(),
+                artifacts=workflow_result.output.get("artifacts", []),
+                request_id=request_id,
+                dependencies=dependencies,
+                mode=MODE_PLAN_EXECUTE,
+                metadata={"stage": "planner"},
+                tool_results=[],
+                model_response=model_response,
+                error=(
+                    str(failure_error)
+                    if isinstance(failure_error, str) and failure_error
+                    else "Planner did not return a valid execution plan."
+                ),
+            )
+            return attach_runtime_metadata(
+                agent_result=failure,
+                requested_mode=MODE_PLAN_EXECUTE,
+                resolved_mode=MODE_PLAN_EXECUTE,
+                budget_metadata=budget_tracker.as_metadata(),
+                extra_metadata=None,
+            )
+
+        callbacks = runtime_state.get("callbacks")
+        if not isinstance(callbacks, PlanExecuteLoopCallbacks) or parsed_plan is None:
+            raise RuntimeError("Plan execute runtime state is unavailable before workflow execution.")
+
+        plan_steps_value = runtime_state.get("plan_steps")
+        plan_steps = (
+            [dict(step) for step in plan_steps_value if isinstance(step, Mapping)]
+            if isinstance(plan_steps_value, list)
+            else []
         )
-        loop_step_result = loop_workflow_result.step_results.get("plan_execute_loop")
+        loop_step_result = workflow_result.step_results.get("plan_execute_loop")
         if loop_step_result is None:
             raise RuntimeError("Plan execute loop step result is missing.")
 
@@ -416,7 +604,6 @@ class PlanExecutePattern(Agent):
             final_output = dict(maybe_final_output)
 
         loop_terminated_reason = str(loop_output.get("terminated_reason", "max_iterations_reached"))
-
         if loop_terminated_reason == "iteration_failed":
             terminated_reason = "step_failure"
         elif len(plan_steps) > self._max_iterations:
@@ -434,8 +621,8 @@ class PlanExecutePattern(Agent):
                 "steps_executed": len(step_results),
                 "step_results": step_results,
             },
-            workflow_payload=loop_workflow_result.to_dict(),
-            artifacts=loop_workflow_result.output.get("artifacts", []),
+            workflow_payload=workflow_result.to_dict(),
+            artifacts=workflow_result.output.get("artifacts", []),
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_PLAN_EXECUTE,
@@ -589,6 +776,16 @@ def _extract_model_response_from_model_step_output(
 ) -> LLMResponse | None:
     """Extract ``LLMResponse`` from serialized ``ModelStep`` output payload."""
     raw_model_response = output.get("model_response")
+    if not isinstance(raw_model_response, Mapping):
+        return None
+    try:
+        return LLMResponse(**dict(raw_model_response))
+    except TypeError:
+        return None
+
+
+def _deserialize_model_response(raw_model_response: object) -> LLMResponse | None:
+    """Deserialize one serialized model-response mapping."""
     if not isinstance(raw_model_response, Mapping):
         return None
     try:

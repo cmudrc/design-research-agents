@@ -6,21 +6,21 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from hashlib import sha256
 
-from design_research_agents._contracts._agent import Agent, ExecutionResult
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult
 from design_research_agents._contracts._workflow import (
     DelegateBatchCall,
     DelegateBatchStep,
+    DelegateTarget,
     LogicStep,
     LoopStep,
-    WorkflowDelegate,
 )
 from design_research_agents._runtime._patterns import (
     MODE_BLACKBOARD,
     MODE_ROUND_BASED_COORDINATION,
+    build_compiled_pattern_execution,
     build_pattern_execution_result,
-    execute_pattern_with_trace,
     resolve_pattern_run_context,
 )
 from design_research_agents._runtime._patterns import (
@@ -36,16 +36,16 @@ from design_research_agents._runtime._patterns import (
     is_call_success as _runtime_is_call_success,
 )
 from design_research_agents._tracing import Tracer
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 
-class RoundBasedCoordinationPattern(Agent):
+class RoundBasedCoordinationPattern(Delegate):
     """Round-based peer coordination pattern with deterministic peer ordering."""
 
     def __init__(
         self,
         *,
-        peers: Mapping[str, WorkflowDelegate],
+        peers: Mapping[str, DelegateTarget],
         max_rounds: int = 4,
         initial_state: Mapping[str, object] | None = None,
         peer_prompt_builder: (Callable[[str, Mapping[str, object], str, int], str] | None) = None,
@@ -86,43 +86,59 @@ class RoundBasedCoordinationPattern(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute peer-only networked coordination rounds.
+        """Execute peer-only networked coordination rounds."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Task prompt shared across peers.
-            request_id: Optional request id.
-            dependencies: Optional dependency mapping.
-
-        Returns:
-            Final pattern result with shared state and round summaries.
-
-        Raises:
-            Exception: Propagated peer or reducer failures.
-        """
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile peer-only networked coordination rounds."""
         run_context = resolve_pattern_run_context(
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
             dependencies=dependencies,
         )
-        return execute_pattern_with_trace(
-            agent_name=self.__class__.__name__,
+        mode = MODE_BLACKBOARD if isinstance(self, BlackboardPattern) else MODE_ROUND_BASED_COORDINATION
+        input_payload = {
+            "prompt": prompt,
+            "mode": mode,
+            "max_rounds": self._max_rounds,
+        }
+        workflow = self._build_workflow(
+            prompt,
             request_id=run_context.request_id,
-            input_payload={
-                "prompt": prompt,
-                "mode": (MODE_BLACKBOARD if isinstance(self, BlackboardPattern) else MODE_ROUND_BASED_COORDINATION),
-                "max_rounds": self._max_rounds,
-            },
+            dependencies=run_context.dependencies,
+        )
+        peer_ids = list(self._network_peer_ids)
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name=self.__class__.__name__,
+            request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            runner=lambda: self._run_network(
-                prompt=prompt,
+            input_payload=input_payload,
+            workflow_request_id=f"{run_context.request_id}:round_based_coordination_workflow",
+            finalize=lambda workflow_result: _build_network_result(
+                final_state=_extract_network_final_state(workflow_result),
+                workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
+                peer_ids=peer_ids,
+                max_rounds=self._max_rounds,
+                mode=mode,
             ),
         )
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -198,7 +214,7 @@ class RoundBasedCoordinationPattern(Agent):
         Returns:
             Final execution result produced by the network workflow.
         """
-        workflow = self.build_workflow(
+        workflow = self._build_workflow(
             prompt,
             request_id=request_id,
             dependencies=dependencies,
@@ -469,7 +485,7 @@ class BlackboardPattern(RoundBasedCoordinationPattern):
     def __init__(
         self,
         *,
-        peers: Mapping[str, WorkflowDelegate],
+        peers: Mapping[str, DelegateTarget],
         max_rounds: int = 6,
         stability_rounds: int = 2,
         initial_state: Mapping[str, object] | None = None,
@@ -501,7 +517,7 @@ class BlackboardPattern(RoundBasedCoordinationPattern):
         )
         self._stability_rounds = stability_rounds
 
-    def build_workflow(
+    def _build_workflow(
         self,
         prompt: str,
         *,
@@ -509,7 +525,7 @@ class BlackboardPattern(RoundBasedCoordinationPattern):
         dependencies: Mapping[str, object],
     ) -> Workflow:
         """Build the blackboard workflow for one resolved run context."""
-        return super().build_workflow(prompt, request_id=request_id, dependencies=dependencies)
+        return super()._build_workflow(prompt, request_id=request_id, dependencies=dependencies)
 
     def _apply_round_reducer(
         self,

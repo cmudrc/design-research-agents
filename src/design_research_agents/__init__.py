@@ -15,7 +15,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "MCPServerConfig": "design_research_agents.tools:MCPServerConfig",
     "LogicStep": "design_research_agents._contracts:LogicStep",
     "ToolStep": "design_research_agents._contracts:ToolStep",
-    "AgentStep": "design_research_agents._contracts:AgentStep",
+    "DelegateStep": "design_research_agents._contracts:DelegateStep",
     "ModelStep": "design_research_agents._contracts:ModelStep",
     "DelegateBatchStep": "design_research_agents._contracts:DelegateBatchStep",
     "LoopStep": "design_research_agents._contracts:LoopStep",
@@ -27,6 +27,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "LLMResponse": "design_research_agents.llm:LLMResponse",
     "ToolResult": "design_research_agents.tools:ToolResult",
     "Workflow": "design_research_agents.workflow:Workflow",
+    "CompiledExecution": "design_research_agents.workflow:CompiledExecution",
     "TwoSpeakerConversationPattern": "design_research_agents.patterns:TwoSpeakerConversationPattern",
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
@@ -94,8 +95,8 @@ def __dir__() -> list[str]:
 
 
 if TYPE_CHECKING:
-    from ._contracts import AgentStep as AgentStep
     from ._contracts import DelegateBatchStep as DelegateBatchStep
+    from ._contracts import DelegateStep as DelegateStep
     from ._contracts import ExecutionResult as ExecutionResult
     from ._contracts import LLMMessage as LLMMessage
     from ._contracts import LLMRequest as LLMRequest
@@ -136,4 +137,5 @@ if TYPE_CHECKING:
     from .tools import ScriptToolConfig as ScriptToolConfig
     from .tools import Toolbox as Toolbox
     from .tools import ToolResult as ToolResult
+    from .workflow import CompiledExecution as CompiledExecution
     from .workflow import Workflow as Workflow

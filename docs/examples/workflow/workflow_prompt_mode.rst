@@ -23,7 +23,7 @@ Technical Implementation
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
        B --> C["Workflow.run(...)"]
-       C --> D["WorkflowRuntime schedules step graph (AgentStep, LogicStep, ToolStep)"]
+       C --> D["WorkflowRuntime schedules step graph (DelegateStep, LogicStep, ToolStep)"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]
        E --> F

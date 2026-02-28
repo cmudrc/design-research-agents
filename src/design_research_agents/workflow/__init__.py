@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from design_research_agents._contracts import (
-    AgentStep,
     DelegateBatchCall,
     DelegateBatchStep,
+    DelegateStep,
     ExecutionResult,
     LogicStep,
     LoopStep,
@@ -17,13 +17,15 @@ from design_research_agents._contracts import (
     WorkflowArtifactSource,
 )
 
+from ._compiled import CompiledExecution
 from ._schema_helpers import list_of, scalar, typed_dict
 from .workflow import Workflow
 
 __all__ = [
-    "AgentStep",
+    "CompiledExecution",
     "DelegateBatchCall",
     "DelegateBatchStep",
+    "DelegateStep",
     "ExecutionResult",
     "LogicStep",
     "LoopStep",

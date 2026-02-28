@@ -7,9 +7,13 @@ from dataclasses import dataclass
 from string import Template
 from typing import Any, cast
 
-from design_research_agents._contracts._agent import ExecutionResult
+from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolSpec
+from design_research_agents._contracts._workflow import (
+    WorkflowExecutionMode,
+    WorkflowFailurePolicy,
+)
 from design_research_agents._implementations._shared._agent_internal._prompt_overrides import (
     validate_prompt_text,
 )
@@ -28,6 +32,7 @@ from design_research_agents._tracing import Tracer, finish_trace_run, start_trac
 from design_research_agents._tracing._result_metadata import (
     enrich_execution_result_trace_metadata,
 )
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 
 @dataclass(slots=True)
@@ -158,6 +163,35 @@ def attach_pattern_workflow(pattern: object, workflow: object) -> object:
     """Attach workflow runtime object to a pattern instance for diagnostics/tests."""
     cast(Any, pattern).workflow = workflow
     return workflow
+
+
+def build_compiled_pattern_execution(
+    *,
+    workflow: Workflow,
+    pattern_name: str,
+    request_id: str,
+    dependencies: Mapping[str, object],
+    tracer: Tracer | None,
+    input_payload: Mapping[str, object],
+    workflow_request_id: str,
+    finalize: Callable[[ExecutionResult], ExecutionResult],
+    execution_mode: WorkflowExecutionMode = "sequential",
+    failure_policy: WorkflowFailurePolicy = "skip_dependents",
+) -> CompiledExecution:
+    """Return a compiled execution wrapper for a workflow-backed pattern."""
+    return CompiledExecution(
+        workflow=workflow,
+        input={},
+        request_id=request_id,
+        workflow_request_id=workflow_request_id,
+        dependencies=dependencies,
+        delegate_name=pattern_name,
+        execution_mode=execution_mode,
+        failure_policy=failure_policy,
+        tracer=tracer,
+        trace_input=dict(input_payload),
+        finalize=finalize,
+    )
 
 
 def build_workflow_output_payload(workflow_result: ExecutionResult) -> dict[str, object]:

@@ -131,6 +131,13 @@ Orchestration
 Workflow Steps and Facade
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+``CompiledExecution`` is the workflow-backed object returned by delegate
+``compile(...)`` methods. Calling ``compiled.run()`` executes the bound
+workflow and applies delegate-specific finalization. Accessing
+``compiled.workflow`` gives the raw workflow graph for inspection and testing.
+Calling ``compiled.workflow.run(...)`` directly bypasses that finalization
+layer and returns the raw workflow result.
+
 .. autoclass:: design_research_agents.LogicStep
    :members:
    :undoc-members:
@@ -139,7 +146,7 @@ Workflow Steps and Facade
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.AgentStep
+.. autoclass:: design_research_agents.DelegateStep
    :members:
    :undoc-members:
 
@@ -167,8 +174,16 @@ Workflow Steps and Facade
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.CompiledExecution
+   :members:
+   :undoc-members:
+
 Patterns
 ^^^^^^^^
+
+Pattern ``compile(...)`` methods are the lower-level construction hook for
+advanced callers. They return a bound ``CompiledExecution`` and omit the
+top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
 
 .. autoclass:: design_research_agents.TwoSpeakerConversationPattern
    :members:

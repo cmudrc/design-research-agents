@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents._contracts._workflow import WorkflowDelegate
+from design_research_agents._contracts._workflow import DelegateTarget
 
 
 class AgentRoutingToolRuntimeAdapter(ToolRuntime):
@@ -14,7 +14,7 @@ class AgentRoutingToolRuntimeAdapter(ToolRuntime):
     def __init__(
         self,
         *,
-        alternatives: Mapping[str, WorkflowDelegate],
+        alternatives: Mapping[str, DelegateTarget],
         descriptions: Mapping[str, str] | None = None,
     ) -> None:
         """Initialize adapter with named alternatives.

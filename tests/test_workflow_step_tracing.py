@@ -5,8 +5,8 @@ from collections.abc import Mapping, Sequence
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse
 from design_research_agents._contracts._workflow import (
-    AgentStep,
     DelegateBatchStep,
+    DelegateStep,
     LogicStep,
     LoopStep,
     ModelStep,
@@ -73,7 +73,7 @@ class _RecordingSession:
 
 def test_step_kind_labels_all_supported_step_types() -> None:
     tool_step = ToolStep(step_id="tool", tool_name="sum")
-    agent_step = AgentStep(step_id="agent", delegate=_NoopDelegate(), prompt="go")
+    agent_step = DelegateStep(step_id="agent", delegate=_NoopDelegate(), prompt="go")
     model_step = ModelStep(
         step_id="model",
         llm_client=_NoopLLMClient(),

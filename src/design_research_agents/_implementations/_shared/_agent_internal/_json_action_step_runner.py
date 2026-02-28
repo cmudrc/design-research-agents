@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from design_research_agents._contracts._agent import Agent
+from design_research_agents._contracts._delegate import Delegate
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMClient, LLMMessage, LLMRequest, LLMResponse
 from design_research_agents._contracts._tools import ToolError, ToolResult, ToolRuntime
@@ -15,8 +15,7 @@ from design_research_agents._contracts._workflow import (
     WorkflowStepResult,
 )
 from design_research_agents._implementations._shared._agent_internal._execution_context import (
-    finish_agent_execution,
-    prepare_agent_execution,
+    resolve_agent_execution_context,
 )
 from design_research_agents._implementations._shared._agent_internal._json_tool_agent_helpers import (
     build_tool_call_prompt,
@@ -58,13 +57,10 @@ from design_research_agents._tracing import (
     finish_model_call,
     start_model_call,
 )
-from design_research_agents._tracing._result_metadata import (
-    enrich_execution_result_trace_metadata,
-)
-from design_research_agents.workflow import Workflow
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 
-class JsonActionStepRunner(Agent):
+class JsonActionStepRunner(Delegate):
     """Agent that asks the model to select one tool and structured arguments."""
 
     def __init__(
@@ -124,51 +120,46 @@ class JsonActionStepRunner(Agent):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute one workflow-native tool selection and invocation cycle.
+        """Execute one workflow-native tool selection and invocation cycle."""
+        return self.compile(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-        Args:
-            prompt: Prompt text for the run.
-            request_id: Optional caller-provided request id for tracing.
-            dependencies: Optional dependency payload mapping.
-
-        Returns:
-            Final agent result payload.
-
-        Raises:
-            Exception: Raised when validation or execution fails.
-        """
-        execution_context = prepare_agent_execution(
+    def compile(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one bound tool-selection execution."""
+        execution_context = resolve_agent_execution_context(
             prompt=prompt,
             request_id=request_id,
             dependencies=dependencies,
-            agent_name="JsonActionStepRunner",
-            tracer=self._tracer,
         )
-        self.workflow = self._build_workflow()
-
-        try:
-            workflow_result = self.workflow.run(
-                {
-                    "normalized_input": execution_context.normalized_input,
-                    "request_id": execution_context.request_id,
-                },
-                execution_mode="sequential",
-                failure_policy="skip_dependents",
-                request_id=f"{execution_context.request_id}:action_step_json",
-                dependencies=execution_context.dependencies,
-            )
-            result = self._build_result(
+        workflow = self._build_workflow()
+        self.workflow = workflow
+        return CompiledExecution(
+            workflow=workflow,
+            input={
+                "normalized_input": execution_context.normalized_input,
+                "request_id": execution_context.request_id,
+            },
+            request_id=execution_context.request_id,
+            workflow_request_id=f"{execution_context.request_id}:action_step_json",
+            dependencies=execution_context.dependencies,
+            delegate_name="JsonActionStepRunner",
+            tracer=self._tracer,
+            trace_input=execution_context.normalized_input,
+            finalize=lambda workflow_result: self._build_result(
                 workflow_result=workflow_result,
                 request_id=execution_context.request_id,
                 dependencies=execution_context.dependencies,
-            )
-        except Exception as exc:
-            finish_agent_execution(trace_scope=execution_context.trace_scope, error=str(exc))
-            raise
-
-        result = enrich_execution_result_trace_metadata(result=result, tracer=self._tracer)
-        finish_agent_execution(trace_scope=execution_context.trace_scope, result=result)
-        return result
+            ),
+        )
 
     def _build_workflow(self) -> Workflow:
         """Compose a route-selection + per-tool invocation workflow graph.

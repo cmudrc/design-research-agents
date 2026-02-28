@@ -2,8 +2,8 @@
 
 from ._engine import WorkflowRuntime
 from ._executors import (
-    run_agent_step,
     run_delegate_batch_step,
+    run_delegate_step,
     run_logic_step,
     run_memory_read_step,
     run_memory_write_step,
@@ -40,8 +40,8 @@ __all__ = [
     "release_dependents",
     "resolve_request_id",
     "route_deactivations",
-    "run_agent_step",
     "run_delegate_batch_step",
+    "run_delegate_step",
     "run_logic_step",
     "run_memory_read_step",
     "run_memory_write_step",
