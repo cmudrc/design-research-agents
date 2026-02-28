@@ -1,4 +1,4 @@
-r"""# Patterns / Conversation Pattern.
+r"""# Patterns / Two Speaker Conversation.
 
 ## Introduction
 AutoGen-style multi-agent conversations can externalize reasoning roles, Human-AI collaboration by design
@@ -62,7 +62,7 @@ from design_research_agents.patterns import TwoSpeakerConversationPattern
 def main() -> None:
     """Run two-speaker brainstorming loop for a serviceable device enclosure."""
     # Fixed request id keeps traces and docs output deterministic across runs.
-    request_id = "example-workflow-conversation-design-001"
+    request_id = "example-workflow-two-speaker-conversation-design-001"
     tracer = Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),

@@ -6,7 +6,7 @@ Source: ``examples/patterns/propose_critic.py``
 Introduction
 ------------
 
-Reflexion and Self-Refine motivate iterative self-critique loops, and Human-AI collaboration by design
+Self-Refine and related critique/revise work motivate iterative self-critique loops, and Human-AI collaboration by design
 explains why critique transparency is critical for trustworthy engineering decisions. This example
 demonstrates a propose-critic refinement cycle with bounded iterations and structured run output.
 
@@ -62,6 +62,6 @@ Example output shape (values vary by run):
 References
 ----------
 
-- `Reflexion <https://arxiv.org/abs/2303.11366>`_
 - `Self-Refine <https://arxiv.org/abs/2303.17651>`_
+- `Reflexion <https://arxiv.org/abs/2303.11366>`_
 - `Human-AI collaboration by design <https://www.cambridge.org/core/journals/proceedings-of-the-design-society/article/humanai-collaboration-by-design/45BC30ADFF2FE3B204D4A29DD67F6353>`_

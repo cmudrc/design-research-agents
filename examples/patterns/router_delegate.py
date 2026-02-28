@@ -1,4 +1,4 @@
-r"""# Patterns / Agent Routing.
+r"""# Patterns / Router Delegate.
 
 ## Introduction
 RouteLLM motivates specialized route selection, AutoGen demonstrates multi-agent delegation patterns, and
@@ -66,7 +66,7 @@ from design_research_agents.patterns import RouterDelegatePattern
 def main() -> None:
     """Route one design prompt to the best delegate and print summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
-    request_id = "example-workflow-agent-routing-design-001"
+    request_id = "example-workflow-router-delegate-design-001"
     tracer = Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),

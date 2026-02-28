@@ -8,8 +8,8 @@ Introduction
 
 Blackboard-system architecture motivates shared-state collaboration among specialized problem solvers,
 AutoGen informs practical multi-agent implementation choices, and Human-AI collaboration by design clarifies
-governance value in shared workspace reasoning. This example builds a networked blackboard pattern with
-explicit execution records.
+governance value in shared workspace reasoning. This example compares round-based coordination and
+blackboard-specialized runs with explicit execution records.
 
 Technical Implementation
 ------------------------
@@ -49,7 +49,7 @@ Example output shape (values vary by run):
 .. code-block:: text
 
    {
-     "networked_pattern": {
+     "round_based_coordination": {
        "success": true,
        "final_output": "<example-specific payload>",
        "terminated_reason": "<string-or-null>",
@@ -60,7 +60,7 @@ Example output shape (values vary by run):
          "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      },
-     "blackboard_pattern": {
+     "blackboard": {
        "success": true,
        "final_output": "<example-specific payload>",
        "terminated_reason": "<string-or-null>",

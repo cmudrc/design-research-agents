@@ -48,7 +48,7 @@ _EXECUTION_RESULT_EXAMPLES = {
 _NESTED_SUMMARY_EXAMPLES: dict[str, tuple[str, ...]] = {
     "examples/workflow/workflow_prompt_mode.py": ("agent_branch_run", "template_branch_run"),
     "examples/workflow/workflow_schema_mode.py": ("strict_run", "relaxed_run"),
-    "examples/patterns/coordination_patterns.py": ("networked_pattern", "blackboard_pattern"),
+    "examples/patterns/coordination_patterns.py": ("blackboard", "round_based_coordination"),
 }
 
 

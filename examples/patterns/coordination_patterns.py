@@ -1,10 +1,10 @@
-r"""# Patterns / Networked Blackboard.
+r"""# Patterns / Coordination Patterns.
 
 ## Introduction
 Blackboard-system architecture motivates shared-state collaboration among specialized problem solvers,
 AutoGen informs practical multi-agent implementation choices, and Human-AI collaboration by design clarifies
-governance value in shared workspace reasoning. This example builds a networked blackboard pattern with
-explicit execution records.
+governance value in shared workspace reasoning. This example compares round-based coordination and
+blackboard-specialized runs with explicit execution records.
 
 
 ## Technical Implementation
@@ -32,7 +32,7 @@ Example output shape (values vary by run):
 .. code-block:: text
 
    {
-     "networked_pattern": {
+     "round_based_coordination": {
        "success": true,
        "final_output": "<example-specific payload>",
        "terminated_reason": "<string-or-null>",
@@ -43,7 +43,7 @@ Example output shape (values vary by run):
          "trace_path": "artifacts/examples/traces/run_<timestamp>_<request_id>.jsonl"
        }
      },
-     "blackboard_pattern": {
+     "blackboard": {
        "success": true,
        "final_output": "<example-specific payload>",
        "terminated_reason": "<string-or-null>",
@@ -81,7 +81,7 @@ def _summarize(result: ExecutionResult) -> dict[str, object]:
 
 
 def main() -> None:
-    """Run one networked and one blackboard coordination pass."""
+    """Run one round-based coordination and one blackboard pass."""
     tracer = Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
@@ -96,8 +96,8 @@ def main() -> None:
 
         # Split ids by pattern variant to keep networked and blackboard traces distinct.
 
-        network_request_id = "example-workflow-networked-pattern-design-001"
-        networked = RoundBasedCoordinationPattern(
+        coordination_request_id = "example-workflow-round-based-coordination-design-001"
+        coordination = RoundBasedCoordinationPattern(
             peers={
                 "peer_b": peer_b,
                 "peer_a": peer_a,
@@ -105,14 +105,14 @@ def main() -> None:
             max_rounds=2,
             tracer=tracer,
         )
-        network_result = networked.run(
+        coordination_result = coordination.run(
             "Coordinate candidate mechanisms for a field-serviceable sensor enclosure.",
-            request_id=network_request_id,
+            request_id=coordination_request_id,
         )
 
         # Split ids by pattern variant to keep networked and blackboard traces distinct.
 
-        blackboard_request_id = "example-workflow-blackboard-pattern-design-001"
+        blackboard_request_id = "example-workflow-blackboard-design-001"
         blackboard = BlackboardPattern(
             peers={
                 "peer_b": peer_b,
@@ -133,8 +133,8 @@ def main() -> None:
     print(
         json.dumps(
             {
-                "networked_pattern": _summarize(network_result),
-                "blackboard_pattern": _summarize(blackboard_result),
+                "blackboard": _summarize(blackboard_result),
+                "round_based_coordination": _summarize(coordination_result),
             },
             ensure_ascii=True,
             indent=2,

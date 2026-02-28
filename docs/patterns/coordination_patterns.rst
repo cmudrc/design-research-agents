@@ -1,5 +1,5 @@
-Networked and Blackboard Patterns
-=================================
+Coordination Patterns
+=====================
 
 ``RoundBasedCoordinationPattern`` and ``BlackboardPattern`` provide peer-only coordination
 without a central orchestrator agent.

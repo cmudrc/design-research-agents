@@ -1,4 +1,4 @@
-r"""# Patterns / Tree Search.
+r"""# Patterns / Beam Search.
 
 ## Introduction
 Tree of Thoughts motivates branching deliberation over single-chain prompting, while Plan-and-Solve and
@@ -83,9 +83,9 @@ def _evaluator(context: Mapping[str, object]) -> float:
 
 
 def main() -> None:
-    """Run one tree-search workflow and print JSON summary."""
+    """Run one beam-search workflow and print JSON summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
-    request_id = "example-workflow-tree-search-design-001"
+    request_id = "example-workflow-beam-search-design-001"
     tracer = Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
