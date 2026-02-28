@@ -36,6 +36,57 @@ def test_unified_runtime_lists_expected_core_tools() -> None:
     assert "eval.confidence_fuse" not in names
 
 
+def test_toolbox_context_manager_returns_self_and_closes_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = Toolbox()
+    close_calls = 0
+    original_close = runtime.close
+
+    def _tracked_close() -> None:
+        nonlocal close_calls
+        close_calls += 1
+        original_close()
+
+    monkeypatch.setattr(runtime, "close", _tracked_close)
+
+    with runtime as entered:
+        assert entered is runtime
+
+    assert close_calls == 1
+
+
+def test_toolbox_context_manager_closes_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+    runtime = Toolbox()
+    close_calls = 0
+    original_close = runtime.close
+
+    def _tracked_close() -> None:
+        nonlocal close_calls
+        close_calls += 1
+        original_close()
+
+    monkeypatch.setattr(runtime, "close", _tracked_close)
+
+    with pytest.raises(RuntimeError, match="boom"), runtime:
+        raise RuntimeError("boom")
+
+    assert close_calls == 1
+
+
+def test_toolbox_close_is_harmless_when_mcp_disabled() -> None:
+    runtime = Toolbox()
+    runtime.close()
+    runtime.close()
+
+    result = runtime.invoke(
+        "text.word_count",
+        {"text": "design research agents"},
+        request_id="unit-test-close-noop",
+        dependencies={},
+    )
+
+    assert result.ok is True
+
+
 def test_text_word_count_invocation() -> None:
     runtime = Toolbox()
 

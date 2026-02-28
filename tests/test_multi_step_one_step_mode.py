@@ -81,6 +81,17 @@ class _JsonToolRuntime(ToolRuntime):
             result={"value": 5},
         )
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _JsonToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 def test_multi_step_json_one_step_mode_runs_single_action_step() -> None:
     llm_client = _SequenceChatLLMClient(

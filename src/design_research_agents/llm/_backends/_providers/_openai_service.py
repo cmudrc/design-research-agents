@@ -49,15 +49,15 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Configure OpenAI client defaults and optional capability overrides.
 
         Args:
-            name: Value supplied for ``name``.
-            default_model: Value supplied for ``default_model``.
-            api_key_env: Value supplied for ``api_key_env``.
-            api_key: Value supplied for ``api_key``.
-            base_url: Value supplied for ``base_url``.
-            capabilities: Value supplied for ``capabilities``.
-            config_hash: Value supplied for ``config_hash``.
-            max_retries: Value supplied for ``max_retries``.
-            model_patterns: Value supplied for ``model_patterns``.
+            name: Stable backend name used in traces and provenance.
+            default_model: Default model id for requests without an explicit model.
+            api_key_env: Environment variable used as the fallback API-key source.
+            api_key: Optional API key override supplied directly by the caller.
+            base_url: Optional alternate API base URL for compatible deployments.
+            capabilities: Optional capability override for nonstandard model behavior.
+            config_hash: Deterministic hash of backend settings.
+            max_retries: Maximum retry count for structured fallbacks and provider retries.
+            model_patterns: Optional model allowlist patterns accepted by this backend.
         """
         super().__init__(
             name=name,
@@ -77,7 +77,7 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Return effective capabilities for this OpenAI backend.
 
         Returns:
-            Result produced by this call.
+            Declared capability flags for request validation.
         """
         default_caps = BackendCapabilities(
             streaming=True,
@@ -92,21 +92,21 @@ class OpenAIServiceBackend(BaseLLMBackend):
         """Return static status for a configured OpenAI backend.
 
         Returns:
-            Result produced by this call.
+            Ready status for a configured backend wrapper.
         """
         return BackendStatus(ok=True, message="OpenAI backend configured.")
 
     def _generate(self, request: LLMRequest) -> LLMResponse:
-        """Generate one completion using the OpenAI Responses API.
+        """Generate one completion using OpenAI's chat-completions API.
 
         Args:
-            request: Value supplied for ``request``.
+            request: Validated request to send to OpenAI.
 
         Returns:
-            Result produced by this call.
+            Normalized completion response.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            Exception: Propagated after provider errors are normalized.
         """
         request_payload = self._build_payload(request, include_response_format=True)
         try:
@@ -124,16 +124,16 @@ class OpenAIServiceBackend(BaseLLMBackend):
             raise mapped_error from exc
 
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
-        """Stream completion deltas from the OpenAI Responses API.
+        """Stream completion deltas from OpenAI's chat-completions API.
 
         Args:
-            request: Value supplied for ``request``.
+            request: Validated request to stream from OpenAI.
 
         Yields:
-            The yielded values.
+            Normalized text, tool-call, and usage deltas.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            Exception: Propagated after provider errors are normalized.
         """
         stream_payload = self._build_payload(request, include_response_format=True)
         stream_payload["stream"] = True
@@ -173,13 +173,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
                 yield LLMDelta(usage_delta=usage_payload)
 
     def _fallback_prompt_validate(self, request: LLMRequest) -> LLMResponse:
-        """Fallback prompt validate.
+        """Fallback to prompt-and-validate JSON generation when native JSON mode fails.
 
         Args:
-            request: Value supplied for ``request``.
+            request: Structured-output request that failed native formatting.
 
         Returns:
-            Result produced by this call.
+            Structured response merged back into the standard response shape.
         """
         structured_output_result = generate_json(
             generate_fn=lambda req: self._generate_without_response_format(req),
@@ -191,13 +191,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return _merge_structured_response(structured_output_result)
 
     def _generate_without_response_format(self, request: LLMRequest) -> LLMResponse:
-        """Generate without response format.
+        """Generate once without a ``response_format`` hint.
 
         Args:
-            request: Value supplied for ``request``.
+            request: Request to send after stripping native JSON hints.
 
         Returns:
-            Result produced by this call.
+            Normalized completion response.
         """
         request_payload = self._build_payload(request, include_response_format=False)
         completion_response = self._call_with_retry(request_payload)
@@ -209,14 +209,14 @@ class OpenAIServiceBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
-        """Build payload.
+        """Build the SDK payload for one OpenAI chat-completions request.
 
         Args:
-            request: Value supplied for ``request``.
-            include_response_format: Value supplied for ``include_response_format``.
+            request: Request to translate into OpenAI SDK parameters.
+            include_response_format: Whether native JSON response hints should be included.
 
         Returns:
-            Result produced by this call.
+            Keyword-argument payload passed to ``chat.completions.create``.
         """
         request_payload: dict[str, Any] = {
             "model": request.model,
@@ -237,16 +237,16 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return request_payload
 
     def _call_with_retry(self, request_payload: dict[str, Any]) -> Any:
-        """Call with retry.
+        """Call the OpenAI SDK with bounded retry behavior.
 
         Args:
-            request_payload: Value supplied for ``request_payload``.
+            request_payload: Payload passed to the OpenAI SDK.
 
         Returns:
-            Result produced by this call.
+            Raw SDK response object or stream handle.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            Exception: Propagated after retry-eligible failures are exhausted.
         """
         client = self._client or self._create_client()
         backoff = 0.5
@@ -263,13 +263,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return client.chat.completions.create(**request_payload)
 
     def _create_client(self) -> Any:
-        """Create client.
+        """Instantiate and cache the OpenAI SDK client.
 
         Returns:
-            Result produced by this call.
+            Configured OpenAI client instance.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            RuntimeError: If the SDK is missing.
         """
         api_key = self._resolve_api_key()
         try:
@@ -285,13 +285,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
         return self._client
 
     def _resolve_api_key(self) -> str:
-        """Resolve api key.
+        """Resolve the API key from direct config or environment.
 
         Returns:
-            Result produced by this call.
+            Non-empty API key string.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            RuntimeError: If no API key can be resolved.
         """
         if self._api_key:
             return self._api_key
@@ -302,13 +302,13 @@ class OpenAIServiceBackend(BaseLLMBackend):
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
-    """Format messages.
+    """Translate normalized messages into OpenAI chat payload entries.
 
     Args:
-        messages: Value supplied for ``messages``.
+        messages: Provider-neutral message objects.
 
     Returns:
-        Result produced by this call.
+        OpenAI-compatible message payload list.
     """
     message_payloads: list[dict[str, Any]] = []
     for message in messages:
@@ -328,13 +328,13 @@ def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
-    """Format tool.
+    """Translate one tool spec into OpenAI's function-tool format.
 
     Args:
-        tool: Value supplied for ``tool``.
+        tool: Tool specification exposed by the runtime.
 
     Returns:
-        Result produced by this call.
+        OpenAI-compatible tool descriptor.
     """
     return {
         "type": "function",
@@ -347,13 +347,13 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
 
 
 def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
-    """Format response format.
+    """Translate structured-output hints into OpenAI ``response_format`` payloads.
 
     Args:
-        request: Value supplied for ``request``.
+        request: Request containing response-format or schema hints.
 
     Returns:
-        Result produced by this call.
+        OpenAI ``response_format`` mapping, or ``None`` when not requested.
     """
     if request.response_format and isinstance(request.response_format, dict):
         return request.response_format
@@ -374,18 +374,18 @@ def _parse_completion_response(
     *,
     provider: str,
 ) -> LLMResponse:
-    """Parse completion response.
+    """Normalize one OpenAI SDK completion response.
 
     Args:
-        completion_response: Value supplied for ``completion_response``.
-        request: Value supplied for ``request``.
-        provider: Value supplied for ``provider``.
+        completion_response: Raw response object returned by the SDK.
+        request: Original request used to produce the response.
+        provider: Provider name to stamp into the normalized response.
 
     Returns:
-        Result produced by this call.
+        Response converted into the shared ``LLMResponse`` contract.
 
     Raises:
-        Exception: Raised when this operation cannot complete.
+        LLMInvalidRequestError: If the SDK response is missing completion choices.
     """
     choices = getattr(completion_response, "choices", None) or []
     if not choices:
@@ -409,13 +409,13 @@ def _parse_completion_response(
 
 
 def _response_to_dict(completion_response: Any) -> dict[str, Any]:
-    """Response to dict.
+    """Best-effort conversion of an SDK response into a serializable mapping.
 
     Args:
-        completion_response: Value supplied for ``completion_response``.
+        completion_response: Raw OpenAI SDK response object.
 
     Returns:
-        Result produced by this call.
+        Serializable mapping suitable for ``LLMResponse.raw``.
     """
     try:
         response_payload = completion_response.model_dump()
@@ -427,13 +427,13 @@ def _response_to_dict(completion_response: Any) -> dict[str, Any]:
 
 
 def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
-    """Tool calls to list.
+    """Convert raw OpenAI tool-call payloads into plain dictionaries.
 
     Args:
-        raw_tool_calls: Value supplied for ``raw_tool_calls``.
+        raw_tool_calls: Tool-call payload from the SDK response.
 
     Returns:
-        Result produced by this call.
+        Plain-dict tool-call entries, or ``None`` when no usable payload exists.
     """
     if raw_tool_calls is None:
         return None
@@ -446,13 +446,13 @@ def _tool_calls_to_list(raw_tool_calls: Any) -> list[dict[str, Any]] | None:
 
 
 def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
-    """Usage to dict.
+    """Convert raw OpenAI usage payloads into a plain dictionary.
 
     Args:
-        raw_usage: Value supplied for ``raw_usage``.
+        raw_usage: Usage payload from the SDK response.
 
     Returns:
-        Result produced by this call.
+        Plain usage mapping, or ``None`` when conversion is not possible.
     """
     if raw_usage is None:
         return None
@@ -468,38 +468,38 @@ def _usage_to_dict(raw_usage: Any) -> dict[str, Any] | None:
 
 
 def _is_response_format_error(error: Exception) -> bool:
-    """Is response format error.
+    """Return whether an error appears tied to native JSON response formatting.
 
     Args:
-        error: Value supplied for ``error``.
+        error: Normalized backend exception to inspect.
 
     Returns:
-        Result produced by this call.
+        ``True`` when the error message suggests ``response_format`` incompatibility.
     """
     message = str(error).lower()
     return "response_format" in message or "json_schema" in message
 
 
 def _should_retry(error: Exception) -> bool:
-    """Should retry.
+    """Return whether a normalized OpenAI error is retryable.
 
     Args:
-        error: Value supplied for ``error``.
+        error: Normalized backend exception to inspect.
 
     Returns:
-        Result produced by this call.
+        ``True`` for transient provider or rate-limit failures.
     """
     return isinstance(error, (LLMRateLimitError, LLMProviderError))
 
 
 def _merge_structured_response(structured_output_result: Any) -> LLMResponse:
-    """Merge structured response.
+    """Merge prompt-and-validate output back into a standard response object.
 
     Args:
-        structured_output_result: Value supplied for ``structured_output_result``.
+        structured_output_result: Result returned by ``generate_json``.
 
     Returns:
-        Result produced by this call.
+        ``LLMResponse`` containing both normalized text and structured metadata.
     """
     parsed_text = structured_output_result.parsed
     if not isinstance(parsed_text, str):

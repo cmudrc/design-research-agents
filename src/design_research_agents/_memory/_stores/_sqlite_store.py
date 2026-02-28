@@ -9,6 +9,8 @@ import sqlite3
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from types import TracebackType
+from typing import Self
 from uuid import uuid4
 
 from design_research_agents._contracts._memory import (
@@ -73,6 +75,21 @@ class SQLiteMemoryStore(MemoryStore):
     def close(self) -> None:
         """Close sqlite connection."""
         self._connection.close()
+
+    def __enter__(self) -> Self:
+        """Return this store for ``with``-statement usage."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        """Close the store on ``with``-statement exit."""
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def write(
         self,

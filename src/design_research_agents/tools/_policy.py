@@ -18,13 +18,13 @@ class ToolPolicyConfig:
     """Runtime guardrail settings used by core, MCP, and script tools."""
 
     workspace_root: str = "."
-    """Stored ``workspace_root`` value."""
+    """Workspace root used as the trust boundary for path validation."""
     artifacts_dir: str = "artifacts"
-    """Stored ``artifacts_dir`` value."""
+    """Workspace-relative directory allowed for writes by default."""
     allow_writes_outside_artifacts: bool = False
-    """Stored ``allow_writes_outside_artifacts`` value."""
+    """Whether writes outside ``artifacts/`` are permitted."""
     allow_network: bool = False
-    """Stored ``allow_network`` value."""
+    """Whether tools may perform network I/O."""
     allowed_commands: tuple[str, ...] = (
         "git",
         "rg",
@@ -34,7 +34,7 @@ class ToolPolicyConfig:
         "ruff",
         "pytest",
     )
-    """Stored ``allowed_commands`` value."""
+    """Command allowlist enforced for subprocess-based tools."""
     env_allowlist: tuple[str, ...] = (
         "PATH",
         "HOME",
@@ -45,11 +45,11 @@ class ToolPolicyConfig:
         "PYTHONPATH",
         "VIRTUAL_ENV",
     )
-    """Stored ``env_allowlist`` value."""
+    """Environment variables preserved for subprocess execution."""
     default_timeout_s: int = 30
-    """Stored ``default_timeout_s`` value."""
+    """Default subprocess timeout in seconds."""
     default_max_output_bytes: int = 65_536
-    """Stored ``default_max_output_bytes`` value."""
+    """Default maximum captured subprocess output size in bytes."""
 
 
 class ToolPolicy:
@@ -59,7 +59,7 @@ class ToolPolicy:
         """Initialize policy with resolved workspace and artifacts roots.
 
         Args:
-            config: Value supplied for ``config``.
+            config: Immutable runtime policy configuration.
         """
         self._config = config
         # Resolve once at construction time so all checks use canonical absolute paths.
@@ -71,7 +71,7 @@ class ToolPolicy:
         """Return resolved workspace root directory.
 
         Returns:
-            Result produced by this call.
+            Absolute workspace root path.
         """
         return self._workspace_root
 
@@ -80,7 +80,7 @@ class ToolPolicy:
         """Return resolved artifacts output directory.
 
         Returns:
-            Result produced by this call.
+            Absolute artifacts root path.
         """
         return self._artifacts_root
 
@@ -89,7 +89,7 @@ class ToolPolicy:
         """Return immutable policy configuration.
 
         Returns:
-            Result produced by this call.
+            Policy configuration object backing this policy engine.
         """
         return self._config
 
@@ -97,10 +97,10 @@ class ToolPolicy:
         """Validate a tool can run under current global policy settings.
 
         Args:
-            spec: Value supplied for ``spec``.
+            spec: Tool specification to validate against global policy.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ToolPolicyError: If the tool requires disallowed side effects.
         """
         side_effects = spec.metadata.side_effects
         # Network access is guarded globally regardless of per-tool preference.
@@ -111,10 +111,10 @@ class ToolPolicy:
         """Reject commands not present in policy allowlist.
 
         Args:
-            command: Value supplied for ``command``.
+            command: Command name requested by a subprocess-based tool.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ToolPolicyError: If the command is blank or not allowlisted.
         """
         normalized = command.strip()
         if not normalized:
@@ -127,13 +127,13 @@ class ToolPolicy:
         """Resolve and validate a readable path inside the workspace root.
 
         Args:
-            path: Value supplied for ``path``.
+            path: Candidate path that must stay within the workspace.
 
         Returns:
-            Result produced by this call.
+            Absolute readable path inside the workspace root.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ToolPolicyError: If the path escapes the workspace or does not exist.
         """
         candidate = self._resolve_workspace_path(path)
         if not candidate.exists():
@@ -144,13 +144,13 @@ class ToolPolicy:
         """Resolve and validate a writable path under policy rules.
 
         Args:
-            path: Value supplied for ``path``.
+            path: Candidate path that must satisfy write policy.
 
         Returns:
-            Result produced by this call.
+            Absolute writable path permitted by the current policy.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ToolPolicyError: If the path escapes the workspace or write boundary.
         """
         candidate = self._resolve_workspace_path(path)
         if self._config.allow_writes_outside_artifacts:
@@ -167,11 +167,11 @@ class ToolPolicy:
         """Truncate UTF-8 text to configured output byte limits.
 
         Args:
-            text: Value supplied for ``text``.
-            max_output_bytes: Value supplied for ``max_output_bytes``.
+            text: Captured text to clamp.
+            max_output_bytes: Optional byte limit override.
 
         Returns:
-            Result produced by this call.
+            Tuple of ``(clipped_text, was_truncated)``.
         """
         limit = max_output_bytes or self._config.default_max_output_bytes
         encoded = text.encode("utf-8", errors="replace")
@@ -185,10 +185,10 @@ class ToolPolicy:
         """Ensure artifact paths obey write policy when applicable.
 
         Args:
-            result: Value supplied for ``result``.
+            result: Tool result whose artifact paths should be validated.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ToolPolicyError: If an artifact escapes the configured write boundary.
         """
         if self._config.allow_writes_outside_artifacts:
             return
@@ -210,11 +210,11 @@ class ToolPolicy:
         """Return allowlisted environment variables for subprocesses.
 
         Args:
-            allowlist: Value supplied for ``allowlist``.
-            extra_env: Value supplied for ``extra_env``.
+            allowlist: Optional environment allowlist override.
+            extra_env: Optional explicit environment values to merge in.
 
         Returns:
-            Result produced by this call.
+            Sanitized environment mapping safe for subprocess use.
         """
         selected = allowlist if allowlist is not None else self._config.env_allowlist
         env: dict[str, str] = {}
@@ -228,16 +228,16 @@ class ToolPolicy:
         return env
 
     def _resolve_workspace_path(self, path: str | Path) -> Path:
-        """Resolve workspace path.
+        """Resolve one path and enforce the workspace-root boundary.
 
         Args:
-            path: Value supplied for ``path``.
+            path: Candidate path to resolve.
 
         Returns:
-            Result produced by this call.
+            Absolute resolved path inside the workspace root.
 
         Raises:
-            Exception: Raised when this operation cannot complete.
+            ToolPolicyError: If the resolved path escapes the workspace root.
         """
         raw_path = Path(path).expanduser()
         if not raw_path.is_absolute():
@@ -249,14 +249,14 @@ class ToolPolicy:
 
     @staticmethod
     def _is_relative_to(path: Path, root: Path) -> bool:
-        """Is relative to.
+        """Return whether ``path`` is nested under ``root``.
 
         Args:
-            path: Value supplied for ``path``.
-            root: Value supplied for ``root``.
+            path: Candidate path to test.
+            root: Boundary root path.
 
         Returns:
-            Result produced by this call.
+            ``True`` when ``path`` is inside ``root``.
         """
         try:
             path.relative_to(root)

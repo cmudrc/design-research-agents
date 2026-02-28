@@ -28,9 +28,9 @@ class ModelSelectionPolicy:
     """
 
     catalog: ModelCatalog = field(default_factory=ModelCatalog.default)
-    """Stored ``catalog`` value."""
+    """Catalog queried for candidate models."""
     config: ModelSelectionPolicyConfig = field(default_factory=ModelSelectionPolicyConfig)
-    """Stored ``config`` value."""
+    """Policy thresholds and default selection behavior."""
 
     def select_model(
         self,
@@ -143,14 +143,14 @@ def _ram_budget_gb(
     hardware_profile: HardwareProfile,
     config: ModelSelectionPolicyConfig,
 ) -> float | None:
-    """Ram budget gb.
+    """Compute the usable RAM budget after applying policy reserves.
 
     Args:
-        hardware_profile: Value supplied for ``hardware_profile``.
-        config: Value supplied for ``config``.
+        hardware_profile: Detected or injected system hardware snapshot.
+        config: Policy settings containing reserve thresholds.
 
     Returns:
-        Result produced by this call.
+        Available RAM budget in GiB, or ``None`` when memory is unknown.
     """
     if hardware_profile.available_ram_gb is not None:
         return max(0.0, hardware_profile.available_ram_gb - config.ram_reserve_gb)
@@ -163,14 +163,14 @@ def _vram_budget_gb(
     hardware_profile: HardwareProfile,
     config: ModelSelectionPolicyConfig,
 ) -> float | None:
-    """Vram budget gb.
+    """Compute the usable VRAM budget after applying policy reserves.
 
     Args:
-        hardware_profile: Value supplied for ``hardware_profile``.
-        config: Value supplied for ``config``.
+        hardware_profile: Detected or injected system hardware snapshot.
+        config: Policy settings containing reserve thresholds.
 
     Returns:
-        Result produced by this call.
+        Available VRAM budget in GiB, or ``None`` when GPU memory is unknown.
     """
     if hardware_profile.gpu_vram_gb is None:
         return None
@@ -178,14 +178,14 @@ def _vram_budget_gb(
 
 
 def _fits_ram_budget(model: ModelSpec, ram_budget_gb: float | None) -> bool:
-    """Fits ram budget.
+    """Return whether a model's RAM hint fits within the current budget.
 
     Args:
-        model: Value supplied for ``model``.
-        ram_budget_gb: Value supplied for ``ram_budget_gb``.
+        model: Candidate model to evaluate.
+        ram_budget_gb: Available RAM budget in GiB.
 
     Returns:
-        Result produced by this call.
+        ``True`` when the model can plausibly run within the RAM budget.
     """
     if model.memory_hint is None or model.memory_hint.min_ram_gb is None:
         return True
@@ -195,14 +195,14 @@ def _fits_ram_budget(model: ModelSpec, ram_budget_gb: float | None) -> bool:
 
 
 def _should_prefer_remote(hardware_profile: HardwareProfile, config: ModelSelectionPolicyConfig) -> bool:
-    """Should prefer remote.
+    """Return whether system load suggests preferring remote execution.
 
     Args:
-        hardware_profile: Value supplied for ``hardware_profile``.
-        config: Value supplied for ``config``.
+        hardware_profile: Hardware snapshot containing CPU and load information.
+        config: Policy settings containing the load-ratio threshold.
 
     Returns:
-        Result produced by this call.
+        ``True`` when local CPU load exceeds the configured threshold.
     """
     load = hardware_profile.load_average
     cpu_count = hardware_profile.cpu_count
@@ -216,14 +216,14 @@ def _apply_provider_constraints(
     candidates: list[ModelSpec],
     constraints: ModelSelectionConstraints,
 ) -> list[ModelSpec]:
-    """Apply provider constraints.
+    """Apply preferred-provider filtering without forcing an empty candidate set.
 
     Args:
-        candidates: Value supplied for ``candidates``.
-        constraints: Value supplied for ``constraints``.
+        candidates: Candidate models remaining in the selection pipeline.
+        constraints: Caller-supplied model selection constraints.
 
     Returns:
-        Result produced by this call.
+        Provider-filtered candidates, or the original set when no preferred match exists.
     """
     if constraints.preferred_provider:
         # Prefer exact provider matches when available, otherwise preserve original candidate set.
@@ -239,15 +239,15 @@ def _apply_cost_constraints(
     *,
     remote_cost_floor_usd: float,
 ) -> list[ModelSpec]:
-    """Apply cost constraints.
+    """Apply max-cost filtering and local-only fallback for very low budgets.
 
     Args:
-        candidates: Value supplied for ``candidates``.
-        constraints: Value supplied for ``constraints``.
-        remote_cost_floor_usd: Value supplied for ``remote_cost_floor_usd``.
+        candidates: Candidate models remaining in the selection pipeline.
+        constraints: Caller-supplied model selection constraints.
+        remote_cost_floor_usd: Threshold below which remote models are excluded entirely.
 
     Returns:
-        Result produced by this call.
+        Cost-filtered candidates that satisfy the configured budget.
     """
     if constraints.max_cost_usd is None:
         return candidates
@@ -273,18 +273,18 @@ def _select_candidate_pool(
     remote_candidates: list[ModelSpec],
     fallback_candidates: list[ModelSpec],
 ) -> tuple[list[ModelSpec], str]:
-    """Select candidate pool.
+    """Choose the candidate pool to score next and explain why.
 
     Args:
-        intent: Value supplied for ``intent``.
-        constraints: Value supplied for ``constraints``.
-        prefer_remote_due_to_load: Value supplied for ``prefer_remote_due_to_load``.
-        local_candidates: Value supplied for ``local_candidates``.
-        remote_candidates: Value supplied for ``remote_candidates``.
-        fallback_candidates: Value supplied for ``fallback_candidates``.
+        intent: Task intent that shapes local-versus-remote tradeoffs.
+        constraints: Caller-supplied model selection constraints.
+        prefer_remote_due_to_load: Whether current load favors remote execution.
+        local_candidates: Local candidates that fit the RAM budget.
+        remote_candidates: Remote candidates still under consideration.
+        fallback_candidates: Full filtered candidate set used as a last resort.
 
     Returns:
-        Result produced by this call.
+        Tuple of ``(candidate_pool, selection_reason)`` for downstream scoring.
     """
     if constraints.require_local:
         if local_candidates:
@@ -311,17 +311,17 @@ def _pick_best_model(
     vram_budget_gb: float | None,
     prefer_remote_due_to_load: bool,
 ) -> ModelSpec:
-    """Pick best model.
+    """Score and deterministically select the best model from one pool.
 
     Args:
-        candidates: Value supplied for ``candidates``.
-        intent: Value supplied for ``intent``.
-        ram_budget_gb: Value supplied for ``ram_budget_gb``.
-        vram_budget_gb: Value supplied for ``vram_budget_gb``.
-        prefer_remote_due_to_load: Value supplied for ``prefer_remote_due_to_load``.
+        candidates: Candidate models selected for final scoring.
+        intent: Task intent that controls scoring weights.
+        ram_budget_gb: Available RAM budget in GiB.
+        vram_budget_gb: Available VRAM budget in GiB.
+        prefer_remote_due_to_load: Whether current load penalizes local models.
 
     Returns:
-        Result produced by this call.
+        Highest-ranked model after deterministic tie-breaking.
     """
     scored = []
     for model in candidates:
@@ -354,17 +354,17 @@ def _score_model(
     vram_budget_gb: float | None,
     prefer_remote_due_to_load: bool,
 ) -> float:
-    """Score model.
+    """Compute a ranking score for one model under the current constraints.
 
     Args:
-        model: Value supplied for ``model``.
-        intent: Value supplied for ``intent``.
-        ram_budget_gb: Value supplied for ``ram_budget_gb``.
-        vram_budget_gb: Value supplied for ``vram_budget_gb``.
-        prefer_remote_due_to_load: Value supplied for ``prefer_remote_due_to_load``.
+        model: Candidate model being evaluated.
+        intent: Task intent that determines the quality-versus-speed weighting.
+        ram_budget_gb: Available RAM budget in GiB.
+        vram_budget_gb: Available VRAM budget in GiB.
+        prefer_remote_due_to_load: Whether current load penalizes local models.
 
     Returns:
-        Result produced by this call.
+        Numeric score used for deterministic ordering.
     """
     quality = model.quality_tier or 0
     speed = model.speed_tier or 0
@@ -408,19 +408,19 @@ def _build_rationale(
     ram_budget_gb: float | None,
     vram_budget_gb: float | None,
 ) -> str:
-    """Build rationale.
+    """Build a compact rationale string for the final selection decision.
 
     Args:
-        selected_model: Value supplied for ``selected_model``.
-        intent: Value supplied for ``intent``.
-        constraints: Value supplied for ``constraints``.
-        hardware_profile: Value supplied for ``hardware_profile``.
-        selection_reason: Value supplied for ``selection_reason``.
-        ram_budget_gb: Value supplied for ``ram_budget_gb``.
-        vram_budget_gb: Value supplied for ``vram_budget_gb``.
+        selected_model: Final model chosen by the policy.
+        intent: Task intent that influenced scoring.
+        constraints: Caller-supplied model selection constraints.
+        hardware_profile: Hardware snapshot used during selection.
+        selection_reason: High-level reason emitted by pool selection.
+        ram_budget_gb: Available RAM budget in GiB.
+        vram_budget_gb: Available VRAM budget in GiB.
 
     Returns:
-        Result produced by this call.
+        Semicolon-delimited rationale string for tracing and debugging.
     """
     parts = [
         f"priority={intent.priority}",

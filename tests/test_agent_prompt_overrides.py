@@ -98,6 +98,17 @@ class _ArglessToolRuntime(ToolRuntime):
         del input, request_id, dependencies
         return ToolResult(tool_name=tool_name, ok=True, result={})
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ArglessToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class _EmptyToolRuntime(ToolRuntime):
     def list_tools(self) -> list[ToolSpec]:
@@ -113,6 +124,17 @@ class _EmptyToolRuntime(ToolRuntime):
     ) -> ToolResult:
         del tool_name, input, request_id, dependencies
         raise AssertionError("invoke should not be called for empty runtime")
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _EmptyToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 def test_multi_step_agent_rejects_missing_runtime_for_json_or_code_modes() -> None:

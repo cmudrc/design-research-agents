@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
-from typing import Any, Protocol
+from types import TracebackType
+from typing import Any, Protocol, Self
 
 
 @dataclass(slots=True, frozen=True)
@@ -111,6 +112,29 @@ class MemoryStore(Protocol):
         Returns:
             Ordered list of matching records.
         """
+
+    def close(self) -> None:
+        """Release any store-owned resources.
+
+        Implementations that do not own external resources may implement this
+        as a no-op so callers can use a uniform lifecycle pattern.
+        """
+        return None
+
+    def __enter__(self) -> Self:
+        """Return this store for use in a ``with`` statement."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
+        """Close the store when exiting a ``with`` block."""
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 __all__ = [

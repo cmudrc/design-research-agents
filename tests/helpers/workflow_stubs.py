@@ -255,6 +255,17 @@ class StubToolRuntime(ToolRuntime):
 
         return ToolResult(tool_name=tool_name, ok=True, result=output)
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> StubToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class StaticWorkflowDelegateRunner:
     """Deterministic nested workflow used for workflow delegation tests."""

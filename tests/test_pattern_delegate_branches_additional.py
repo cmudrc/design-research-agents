@@ -86,6 +86,17 @@ class _SingleToolRuntime(ToolRuntime):
         # Echo-style runtime keeps pattern tests focused on orchestration, not tool behavior.
         return ToolResult(tool_name=tool_name, ok=True, result=dict(input))
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _SingleToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 def test_plan_execute_pattern_delegate_paths_and_payload_extraction() -> None:
     # Cover payload extraction fallbacks in priority order.

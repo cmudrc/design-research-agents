@@ -29,11 +29,11 @@ class ToolChoice:
     """Normalized tool option used by planning and validation logic."""
 
     tool_name: str
-    """Stored ``tool_name`` value."""
+    """Canonical tool name exposed to the model."""
     description: str
-    """Stored ``description`` value."""
+    """Human-readable tool description included in prompts."""
     input_schema: dict[str, object]
-    """Stored ``input_schema`` value."""
+    """Normalized input schema used for prompting and validation."""
 
 
 def extract_tool_choices(
@@ -44,14 +44,14 @@ def extract_tool_choices(
     """Extract normalized tool choices from runtime specs.
 
     Args:
-        tool_specs: Value supplied for ``tool_specs``.
-        allowed_tool_names: Value supplied for ``allowed_tool_names``.
+        tool_specs: Runtime tool specs keyed by tool name.
+        allowed_tool_names: Optional allowlist restricting which tools are exposed.
 
     Returns:
-        Result produced by this call.
+        Normalized tool choices available to the planner.
 
     Raises:
-        Exception: Raised when validation or execution fails.
+        ValueError: If no usable tools remain after filtering.
     """
     allowed_name_set = set(allowed_tool_names or [])
     filtered_specs = [spec for spec in tool_specs.values() if not allowed_name_set or spec.name in allowed_name_set]
@@ -72,12 +72,12 @@ def build_tool_call_prompt(*, prompt: str, choices_block: str, prompt_template: 
     """Build prompt asking model to select tool and structured arguments.
 
     Args:
-        prompt: Value supplied for ``prompt``.
-        choices_block: Value supplied for ``choices_block``.
-        prompt_template: Value supplied for ``prompt_template``.
+        prompt: User prompt that needs a tool selection.
+        choices_block: Formatted tool-choice text inserted into the prompt.
+        prompt_template: Template used to render the final planner prompt.
 
     Returns:
-        Result produced by this call.
+        Rendered prompt instructing the model to choose a tool.
     """
     return render_template_text(
         template_text=prompt_template,
@@ -97,14 +97,14 @@ def resolve_allowed_tool_names(
     """Resolve tool allowlist against runtime specs.
 
     Args:
-        runtime_specs: Value supplied for ``runtime_specs``.
-        allowed_tools: Value supplied for ``allowed_tools``.
+        runtime_specs: Runtime tool specs keyed by tool name.
+        allowed_tools: Optional raw allowlist supplied by configuration.
 
     Returns:
-        Result produced by this call.
+        Deduplicated allowlist limited to registered runtime tools.
 
     Raises:
-        Exception: Raised when validation or execution fails.
+        ValueError: If an explicit allowlist resolves to no runtime tools.
     """
     if allowed_tools is None:
         return None
@@ -124,10 +124,10 @@ def build_tool_choices_text(*, choices: Sequence[ToolChoice]) -> str:
     """Build formatted runtime tool choices text.
 
     Args:
-        choices: Value supplied for ``choices``.
+        choices: Tool choices to format for prompt rendering.
 
     Returns:
-        Result produced by this call.
+        Deterministic multiline description of available tools.
     """
     choice_lines: list[str] = []
     for choice in choices:
@@ -147,10 +147,10 @@ def clone_tool_choice(choice: ToolChoice) -> ToolChoice:
     """Clone one tool choice so run-local payloads remain isolated.
 
     Args:
-        choice: Value supplied for ``choice``.
+        choice: Tool choice to clone.
 
     Returns:
-        Result produced by this call.
+        Copy of the tool choice with isolated mutable payloads.
     """
     return ToolChoice(
         tool_name=choice.tool_name,
@@ -167,11 +167,11 @@ def request_tool_call_response(
     """Dispatch one tool-call planning request to the LLM client.
 
     Args:
-        llm_client: Value supplied for ``llm_client``.
-        llm_request: Value supplied for ``llm_request``.
+        llm_client: Client used to perform the planning call.
+        llm_request: Planner request sent to the model.
 
     Returns:
-        Result produced by this call.
+        Model response containing the planned tool call.
     """
     return cast(Callable[[LLMRequest], LLMResponse], llm_client.generate)(llm_request)
 
@@ -180,10 +180,10 @@ def tool_call_response_schema(available_tool_names: Sequence[str]) -> dict[str, 
     """Build the strict tool-call response schema for available tools.
 
     Args:
-        available_tool_names: Value supplied for ``available_tool_names``.
+        available_tool_names: Tool names the model is allowed to select.
 
     Returns:
-        Result produced by this call.
+        Strict schema used to validate planner output.
     """
     return build_tool_call_response_schema(
         tool_names=available_tool_names,
@@ -196,10 +196,10 @@ def parse_tool_call_from_response(
     """Extract first structured tool call payload from provider tool-call metadata.
 
     Args:
-        llm_response: Value supplied for ``llm_response``.
+        llm_response: Model response to inspect.
 
     Returns:
-        Result produced by this call.
+        First tool-call payload normalized from provider metadata, or ``None``.
     """
     if not llm_response.tool_calls:
         return None
@@ -219,10 +219,10 @@ def parse_tool_call(raw_text: str) -> dict[str, object] | None:
     """Parse tool-call JSON payload from model text output.
 
     Args:
-        raw_text: Value supplied for ``raw_text``.
+        raw_text: Raw model text that may contain JSON.
 
     Returns:
-        Result produced by this call.
+        Parsed JSON mapping, or ``None`` when parsing fails.
     """
     return parse_json_mapping(raw_text)
 
@@ -235,11 +235,11 @@ def select_tool_choice(
     """Select a validated tool choice from structured model output.
 
     Args:
-        parsed_tool_call: Value supplied for ``parsed_tool_call``.
-        choices: Value supplied for ``choices``.
+        parsed_tool_call: Parsed tool-call payload from the model.
+        choices: Allowed tool choices exposed to the planner.
 
     Returns:
-        Result produced by this call.
+        Selected tool choice plus source and validation reason, or ``None``.
     """
     if parsed_tool_call is None:
         return None
@@ -287,12 +287,12 @@ def resolve_tool_input(
     """Resolve final tool input from model payload, run input, or heuristics.
 
     Args:
-        selected_choice: Value supplied for ``selected_choice``.
-        parsed_tool_call: Value supplied for ``parsed_tool_call``.
-        input_payload: Value supplied for ``input_payload``.
+        selected_choice: Tool choice selected for execution.
+        parsed_tool_call: Parsed tool-call payload from the model, if any.
+        input_payload: Run input payload used for fallback heuristics.
 
     Returns:
-        Result produced by this call.
+        Final tool input payload to send to the runtime.
     """
     if parsed_tool_call is not None:
         raw_tool_input = parsed_tool_call.get(

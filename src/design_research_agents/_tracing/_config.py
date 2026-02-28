@@ -21,24 +21,24 @@ class Tracer:
     """Explicitly configured tracer dependency injected into runtimes."""
 
     enabled: bool = True
-    """Stored ``enabled`` value."""
+    """Whether tracing is enabled for this tracer instance."""
     trace_dir: Path = Path("traces")
-    """Stored ``trace_dir`` value."""
+    """Directory where JSONL trace files are written."""
     enable_jsonl: bool = True
-    """Stored ``enable_jsonl`` value."""
+    """Whether JSONL trace files should be emitted."""
     enable_console: bool = True
-    """Stored ``enable_console`` value."""
+    """Whether console trace output should be emitted."""
     console_stream: TextIO = sys.stderr
-    """Stored ``console_stream`` value."""
+    """Stream used for console trace output."""
 
     def build_trace_path(self, *, run_id: str) -> Path | None:
         """Build a trace JSONL path for one run when JSONL sink is enabled.
 
         Args:
-            run_id: Value supplied for ``run_id``.
+            run_id: Request or run identifier used in the trace filename.
 
         Returns:
-            Result produced by this call.
+            JSONL output path for the run, or ``None`` when JSONL output is disabled.
         """
         if not self.enable_jsonl:
             return None
@@ -51,10 +51,10 @@ class Tracer:
         """Build concrete sinks for this tracer configuration.
 
         Args:
-            trace_path: Value supplied for ``trace_path``.
+            trace_path: Optional JSONL path returned by ``build_trace_path``.
 
         Returns:
-            Result produced by this call.
+            Concrete sink instances enabled by this tracer configuration.
         """
         sinks: list[TraceSink] = []
         if self.enable_jsonl and trace_path is not None:

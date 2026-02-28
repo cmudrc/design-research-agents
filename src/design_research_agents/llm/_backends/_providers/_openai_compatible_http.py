@@ -77,7 +77,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Return declared capabilities for this endpoint.
 
         Returns:
-            Result produced by this call.
+            Capability flags used for request validation.
         """
         return self._capabilities
 
@@ -85,7 +85,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Return static status for configured HTTP backend.
 
         Returns:
-            Result produced by this call.
+            Ready status for a configured HTTP backend wrapper.
         """
         return BackendStatus(ok=True, message="OpenAI-compatible backend configured.")
 
@@ -93,10 +93,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Generate one completion using the OpenAI-compatible HTTP endpoint.
 
         Args:
-            request: Value supplied for ``request``.
+            request: Validated request to send to the remote endpoint.
 
         Returns:
-            Result produced by this call.
+            Normalized completion response.
         """
         payload = self._build_payload(request, include_response_format=True)
         response = _post_json(self._chat_url, payload, headers=self._headers())
@@ -106,10 +106,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Stream completion deltas from the OpenAI-compatible endpoint.
 
         Args:
-            request: Value supplied for ``request``.
+            request: Validated request to stream from the remote endpoint.
 
         Yields:
-            The yielded values.
+            Normalized text, tool-call, and usage deltas.
         """
         payload = self._build_payload(request, include_response_format=True)
         payload["stream"] = True
@@ -136,10 +136,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
 
     @property
     def _chat_url(self) -> str:
-        """Chat url.
+        """Return the normalized chat-completions URL for the configured base path.
 
         Returns:
-            Result produced by this call.
+            Endpoint URL for ``/v1/chat/completions``.
         """
         base = self.base_url or ""
         if base.endswith("/v1"):
@@ -154,7 +154,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """Build HTTP headers for OpenAI-compatible requests.
 
         Returns:
-            Result produced by this call.
+            HTTP headers including JSON content type and optional bearer auth.
         """
         headers = {"Content-Type": "application/json"}
         api_key = self._resolve_api_key()
@@ -163,10 +163,10 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         return headers
 
     def _resolve_api_key(self) -> str | None:
-        """Resolve api key.
+        """Resolve an API key from direct config or environment.
 
         Returns:
-            Result produced by this call.
+            API key string, or ``None`` when the endpoint does not require one.
         """
         if self._api_key:
             return self._api_key
@@ -179,14 +179,14 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         *,
         include_response_format: bool,
     ) -> dict[str, Any]:
-        """Build payload.
+        """Build the JSON request payload for one chat-completions call.
 
         Args:
-            request: Value supplied for ``request``.
-            include_response_format: Value supplied for ``include_response_format``.
+            request: Request to translate into provider payload fields.
+            include_response_format: Whether native JSON response hints should be included.
 
         Returns:
-            Result produced by this call.
+            JSON-serializable payload for the remote endpoint.
         """
         payload: dict[str, Any] = {
             "model": request.model,
@@ -207,18 +207,18 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
 
 
 def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> dict[str, Any]:
-    """Post json.
+    """POST one JSON request and parse a JSON-object response.
 
     Args:
-        url: Value supplied for ``url``.
-        payload: Value supplied for ``payload``.
-        headers: Value supplied for ``headers``.
+        url: Endpoint URL to call.
+        payload: JSON-serializable request payload.
+        headers: Request headers, including auth when needed.
 
     Returns:
-        Result produced by this call.
+        Parsed JSON response object.
 
     Raises:
-        Exception: Raised when this operation cannot complete.
+        LLMInvalidRequestError: If the server returns a non-object JSON payload.
     """
     request = Request(
         url,
@@ -240,18 +240,18 @@ def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) ->
 
 
 def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> HTTPResponse:
-    """Post stream.
+    """POST one streaming request and return the raw HTTP response handle.
 
     Args:
-        url: Value supplied for ``url``.
-        payload: Value supplied for ``payload``.
-        headers: Value supplied for ``headers``.
+        url: Endpoint URL to call.
+        payload: JSON-serializable request payload.
+        headers: Request headers, including auth when needed.
 
     Returns:
-        Result produced by this call.
+        Open HTTP response object suitable for SSE iteration.
 
     Raises:
-        Exception: Raised when this operation cannot complete.
+        Exception: Propagated after transport failures are normalized.
     """
     request = Request(
         url,
@@ -268,13 +268,13 @@ def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) 
 
 
 def _iter_sse_events(response: Iterable[bytes]) -> Iterator[str]:
-    """Iter sse events.
+    """Iterate complete SSE ``data:`` payloads from a byte stream.
 
     Args:
-        response: Value supplied for ``response``.
+        response: Raw byte-stream iterable returned by ``urlopen``.
 
     Yields:
-        The yielded values.
+        Concatenated event payload strings.
     """
     buffer: list[str] = []
     for raw_line in response:
@@ -296,18 +296,18 @@ def _parse_completion_response(
     *,
     provider: str,
 ) -> LLMResponse:
-    """Parse completion response.
+    """Normalize one OpenAI-compatible completion response payload.
 
     Args:
-        response: Value supplied for ``response``.
-        request: Value supplied for ``request``.
-        provider: Value supplied for ``provider``.
+        response: Parsed JSON response from the remote endpoint.
+        request: Original request used to produce the response.
+        provider: Provider name to stamp into the normalized response.
 
     Returns:
-        Result produced by this call.
+        Response converted into the shared ``LLMResponse`` contract.
 
     Raises:
-        Exception: Raised when this operation cannot complete.
+        LLMInvalidRequestError: If the payload is missing completion choices.
     """
     choices = response.get("choices") or []
     if not choices:
@@ -328,13 +328,13 @@ def _parse_completion_response(
 
 
 def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
-    """Format messages.
+    """Translate normalized messages into OpenAI-compatible payload entries.
 
     Args:
-        messages: Value supplied for ``messages``.
+        messages: Provider-neutral message objects.
 
     Returns:
-        Result produced by this call.
+        OpenAI-compatible message payload list.
     """
     payloads: list[dict[str, Any]] = []
     for message in messages:
@@ -354,13 +354,13 @@ def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
 
 
 def _format_tool(tool: ToolSpec) -> dict[str, Any]:
-    """Format tool.
+    """Translate one tool spec into OpenAI-compatible function-tool format.
 
     Args:
-        tool: Value supplied for ``tool``.
+        tool: Tool specification exposed by the runtime.
 
     Returns:
-        Result produced by this call.
+        OpenAI-compatible tool descriptor.
     """
     return {
         "type": "function",
@@ -373,13 +373,13 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
 
 
 def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
-    """Format response format.
+    """Translate structured-output hints into ``response_format`` payloads.
 
     Args:
-        request: Value supplied for ``request``.
+        request: Request containing response-format or schema hints.
 
     Returns:
-        Result produced by this call.
+        OpenAI-compatible ``response_format`` mapping, or ``None`` when absent.
     """
     if request.response_format and isinstance(request.response_format, dict):
         return request.response_format
@@ -395,13 +395,13 @@ def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
 
 
 def _http_error(exc: HTTPError) -> Exception:
-    """Http error.
+    """Convert an HTTP error response into a more specific backend error.
 
     Args:
-        exc: Value supplied for ``exc``.
+        exc: ``urllib`` HTTP error raised by the request.
 
     Returns:
-        Result produced by this call.
+        Normalized exception when the error payload can be parsed.
     """
     try:
         body = exc.read().decode("utf-8")
@@ -413,13 +413,13 @@ def _http_error(exc: HTTPError) -> Exception:
 
 
 def _extract_tool_call_deltas(raw: Any) -> list[ToolCallDelta]:
-    """Extract tool call deltas.
+    """Extract streaming tool-call deltas from one chunk payload.
 
     Args:
-        raw: Value supplied for ``raw``.
+        raw: Raw ``tool_calls`` field from a streaming delta payload.
 
     Returns:
-        Result produced by this call.
+        Parsed tool-call delta objects ready for streaming emission.
     """
     if not isinstance(raw, list):
         return []

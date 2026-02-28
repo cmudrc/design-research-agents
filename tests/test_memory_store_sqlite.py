@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from design_research_agents._contracts._memory import MemorySearchQuery, MemoryWriteRecord
 from design_research_agents._memory import EmbeddingProvider, SQLiteMemoryStore
@@ -73,6 +76,57 @@ def test_sqlite_memory_store_respects_namespace_isolation(tmp_path: Path) -> Non
     assert len(beta_matches) == 1
     assert alpha_matches[0].namespace == "alpha"
     assert beta_matches[0].namespace == "beta"
+
+
+def test_sqlite_memory_store_context_manager_returns_self_and_closes_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    close_calls = 0
+    original_close = store.close
+
+    def _tracked_close() -> None:
+        nonlocal close_calls
+        close_calls += 1
+        original_close()
+
+    monkeypatch.setattr(store, "close", _tracked_close)
+
+    with store as entered:
+        assert entered is store
+        entered.write([MemoryWriteRecord(content="inside context")], namespace="ctx")
+
+    assert close_calls == 1
+
+
+def test_sqlite_memory_store_context_manager_closes_on_exception(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    close_calls = 0
+    original_close = store.close
+
+    def _tracked_close() -> None:
+        nonlocal close_calls
+        close_calls += 1
+        original_close()
+
+    monkeypatch.setattr(store, "close", _tracked_close)
+
+    with pytest.raises(RuntimeError, match="boom"), store:
+        raise RuntimeError("boom")
+
+    assert close_calls == 1
+
+
+def test_sqlite_memory_store_raises_after_close(tmp_path: Path) -> None:
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    store.close()
+
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        store.write([MemoryWriteRecord(content="after close")], namespace="default")
 
 
 def test_sqlite_memory_store_applies_metadata_filters(tmp_path: Path) -> None:

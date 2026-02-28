@@ -53,6 +53,7 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack
 from pathlib import Path
 
 from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Toolbox, Tracer
@@ -75,26 +76,25 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
-    seed_toolbox = Toolbox()
-    seed_toolbox.invoke_dict(
-        "memory.write",
-        {
-            "db_path": str(db_path),
-            "namespace": "design_examples",
-            "records": [
-                {
-                    "content": "Design requirement: include graceful shutdown and runtime monitoring.",
-                    "metadata": {"kind": "requirement"},
-                }
-            ],
-        },
-        request_id=f"{request_id}:seed_memory",
-        dependencies={},
-    )
-    seed_toolbox.close()
-
-    store = SQLiteMemoryStore(db_path=db_path)
-    with LlamaCppServerLLMClient() as llm_client:
+    with ExitStack() as stack:
+        seed_toolbox = stack.enter_context(Toolbox())
+        seed_toolbox.invoke_dict(
+            "memory.write",
+            {
+                "db_path": str(db_path),
+                "namespace": "design_examples",
+                "records": [
+                    {
+                        "content": "Design requirement: include graceful shutdown and runtime monitoring.",
+                        "metadata": {"kind": "requirement"},
+                    }
+                ],
+            },
+            request_id=f"{request_id}:seed_memory",
+            dependencies={},
+        )
+        store = stack.enter_context(SQLiteMemoryStore(db_path=db_path))
+        llm_client = stack.enter_context(LlamaCppServerLLMClient())
         pattern = RAGPattern(
             reasoning_delegate=DirectLLMCall(llm_client=llm_client, tracer=tracer),
             memory_store=store,
@@ -103,13 +103,10 @@ def main() -> None:
             write_back=False,
             tracer=tracer,
         )
-        try:
-            result = pattern.run(
-                "Draft a concise architecture recommendation for a serviceable edge device.",
-                request_id=request_id,
-            )
-        finally:
-            store.close()
+        result = pattern.run(
+            "Draft a concise architecture recommendation for a serviceable edge device.",
+            request_id=request_id,
+        )
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

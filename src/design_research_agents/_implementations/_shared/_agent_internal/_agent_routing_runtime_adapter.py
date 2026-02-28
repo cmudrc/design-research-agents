@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from types import TracebackType
+from typing import Self
 
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._contracts._workflow import DelegateTarget
@@ -103,3 +105,22 @@ class AgentRoutingToolRuntimeAdapter(ToolRuntime):
                 "virtual": True,
             },
         )
+
+    def close(self) -> None:
+        """Release runtime-owned resources."""
+        return None
+
+    def __enter__(self) -> Self:
+        """Return this runtime for ``with``-statement usage."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        """Close the runtime on ``with``-statement exit."""
+        del exc_type, exc, tb
+        self.close()
+        return None

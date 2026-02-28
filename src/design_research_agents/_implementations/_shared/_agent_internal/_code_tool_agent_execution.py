@@ -24,10 +24,10 @@ def compile_sandboxed_code(code_text: str) -> CodeType:
     """Validate and compile generated code under strict sandbox constraints.
 
     Args:
-        code_text: Value supplied for ``code_text``.
+        code_text: Generated Python source emitted by the model.
 
     Returns:
-        Result produced by this call.
+        Compiled code object ready for sandbox execution.
 
     Raises:
         Exception: Raised when validation or execution fails.
@@ -44,10 +44,10 @@ def validate_sandbox_syntax_tree(syntax_tree: ast.AST) -> None:
     """Validate AST uses only explicitly allowed constructs and names.
 
     Args:
-        syntax_tree: Value supplied for ``syntax_tree``.
+        syntax_tree: Parsed syntax tree to validate before execution.
 
     Raises:
-        Exception: Raised when validation or execution fails.
+        ValueError: If the tree contains banned syntax or names.
     """
     banned_node_types: tuple[type[ast.AST], ...] = (
         ast.Import,
@@ -106,80 +106,80 @@ class _FinalOutputProxy(dict[str, object]):
     """Mutable placeholder used to detect whether ``final_output`` was touched."""
 
     def __init__(self) -> None:
-        """Execute init."""
+        """Initialize the proxy with mutation tracking disabled."""
         super().__init__()
         self._was_mutated = False
 
     @property
     def was_mutated(self) -> bool:
-        """Execute was mutated.
+        """Return whether any mutating dictionary API has been used.
 
         Returns:
-            Result produced by this call.
+            ``True`` after the proxy has been modified at least once.
         """
         return self._was_mutated
 
     def __setitem__(self, key: str, value: object) -> None:
-        """Execute setitem.
+        """Mark the proxy as mutated before setting one item.
 
         Args:
-            key: Value supplied for ``key``.
-            value: Value supplied for ``value``.
+            key: Dictionary key to assign.
+            value: Value to store under ``key``.
         """
         self._was_mutated = True
         super().__setitem__(key, value)
 
     def __delitem__(self, key: str) -> None:
-        """Execute delitem.
+        """Mark the proxy as mutated before deleting one item.
 
         Args:
-            key: Value supplied for ``key``.
+            key: Dictionary key to remove.
         """
         self._was_mutated = True
         super().__delitem__(key)
 
     def clear(self) -> None:
-        """Execute clear."""
+        """Mark the proxy as mutated before clearing all items."""
         self._was_mutated = True
         super().clear()
 
     def pop(self, key: str, default: object = None) -> object:
-        """Execute pop.
+        """Mark the proxy as mutated before popping one item.
 
         Args:
-            key: Value supplied for ``key``.
-            default: Value supplied for ``default``.
+            key: Dictionary key to remove.
+            default: Fallback value when ``key`` is absent.
 
         Returns:
-            Result produced by this call.
+            Removed value, or ``default`` when the key is absent.
         """
         self._was_mutated = True
         return super().pop(key, default)
 
     def popitem(self) -> tuple[str, object]:
-        """Execute popitem.
+        """Mark the proxy as mutated before removing the last item.
 
         Returns:
-            Result produced by this call.
+            Removed ``(key, value)`` pair.
         """
         self._was_mutated = True
         return super().popitem()
 
     def setdefault(self, key: str, default: object = None) -> object:
-        """Execute setdefault.
+        """Mark the proxy as mutated before applying ``setdefault``.
 
         Args:
-            key: Value supplied for ``key``.
-            default: Value supplied for ``default``.
+            key: Dictionary key to look up or initialize.
+            default: Value to insert when ``key`` is absent.
 
         Returns:
-            Result produced by this call.
+            Existing or inserted value associated with ``key``.
         """
         self._was_mutated = True
         return super().setdefault(key, default)
 
     def update(self, *args: object, **kwargs: object) -> None:
-        """Execute update.
+        """Mark the proxy as mutated before applying a bulk update.
 
         Args:
             *args: Additional positional arguments.
@@ -407,39 +407,39 @@ def execute_compiled_code(
     """Execute compiled code with strict runtime sandbox and tool guardrails.
 
     Args:
-        compiled_code: Value supplied for ``compiled_code``.
-        prompt: Value supplied for ``prompt``.
-        input_payload: Value supplied for ``input_payload``.
-        request_id: Value supplied for ``request_id``.
-        dependencies: Value supplied for ``dependencies``.
-        allowed_tools: Value supplied for ``allowed_tools``.
-        tool_runtime: Value supplied for ``tool_runtime``.
-        max_tool_calls: Value supplied for ``max_tool_calls``.
-        execution_timeout_seconds: Value supplied for ``execution_timeout_seconds``.
-        validate_tool_input_schema: Value supplied for ``validate_tool_input_schema``.
-        tool_results: Value supplied for ``tool_results``.
+        compiled_code: Prevalidated code object to execute in the sandbox.
+        prompt: Original user prompt exposed to generated code.
+        input_payload: Structured input payload exposed to generated code.
+        request_id: Request id forwarded into tool-runtime calls.
+        dependencies: Runtime dependency bag forwarded into tool calls.
+        allowed_tools: Tool definitions the generated code is allowed to call.
+        tool_runtime: Tool runtime used to execute normalized tool invocations.
+        max_tool_calls: Hard limit on tool calls for this execution.
+        execution_timeout_seconds: Hard timeout applied to sandbox execution when supported.
+        validate_tool_input_schema: Whether tool inputs must satisfy declared schemas.
+        tool_results: Mutable collector that accumulates tool results in order.
 
     Returns:
-        Result produced by this call.
+        Final output mapping produced by the generated code.
 
     Raises:
-        Exception: Raised when validation or execution fails.
+        Exception: Propagated when sandbox validation or execution fails.
     """
     allowed_tools_map = {tool.tool_name: tool for tool in allowed_tools}
     tool_call_count = 0
 
     def call_tool(tool_name: str, tool_input: object) -> dict[str, object]:
-        """Execute call tool.
+        """Sandbox-visible helper that validates and executes one tool call.
 
         Args:
-            tool_name: Value supplied for ``tool_name``.
-            tool_input: Value supplied for ``tool_input``.
+            tool_name: Tool name requested by generated code.
+            tool_input: Tool input payload requested by generated code.
 
         Returns:
-            Result produced by this call.
+            Normalized tool result payload.
 
         Raises:
-            Exception: Raised when validation or execution fails.
+            Exception: Propagated when guardrails or tool execution fail.
         """
         nonlocal tool_call_count
         normalized_tool_name = _normalize_tool_name(
@@ -518,10 +518,10 @@ def execution_timeout(*, seconds: int) -> Iterator[None]:
     """Enforce execution timeout via POSIX alarms when available.
 
     Args:
-        seconds: Value supplied for ``seconds``.
+        seconds: Maximum allowed execution time in seconds.
 
     Yields:
-        The yielded values.
+        Control to the wrapped execution block.
     """
     if not hasattr(signal, "SIGALRM"):
         # Non-POSIX fallback: no hard timeout support.
@@ -529,14 +529,14 @@ def execution_timeout(*, seconds: int) -> Iterator[None]:
         return
 
     def _on_timeout(signum: int, frame: object) -> None:
-        """Execute on timeout.
+        """Raise a timeout error when the alarm signal fires.
 
         Args:
-            signum: Value supplied for ``signum``.
-            frame: Value supplied for ``frame``.
+            signum: POSIX signal number received from ``SIGALRM``.
+            frame: Current execution frame supplied by the signal handler.
 
         Raises:
-            Exception: Raised when validation or execution fails.
+            TimeoutError: Always raised when the alarm fires.
         """
         del signum, frame
         raise TimeoutError(f"Execution exceeded timeout ({seconds}s).")
@@ -564,11 +564,11 @@ def validate_input_against_schema(
     """Validate tool input against constrained JSON-schema-like subset.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        input_schema: Value supplied for ``input_schema``.
+        input_payload: Tool input payload to validate.
+        input_schema: Declared tool input schema subset.
 
     Raises:
-        Exception: Raised when validation or execution fails.
+        ValueError: If the payload violates the supported schema subset.
     """
     schema_type = input_schema.get("type")
     if isinstance(schema_type, str) and schema_type != "object":
@@ -609,12 +609,12 @@ def validate_field_type(
     """Validate one input field value against supported schema type hints.
 
     Args:
-        field_name: Value supplied for ``field_name``.
-        field_value: Value supplied for ``field_value``.
-        field_schema: Value supplied for ``field_schema``.
+        field_name: Name of the field being validated.
+        field_value: Field value supplied by generated code.
+        field_schema: Schema fragment describing the expected field type.
 
     Raises:
-        Exception: Raised when validation or execution fails.
+        ValueError: If the field does not match its declared primitive type.
     """
     field_type = field_schema.get("type")
     if not isinstance(field_type, str):
@@ -648,17 +648,17 @@ def failure_result(
     """Build a structured failure result for predictable error handling.
 
     Args:
-        error: Value supplied for ``error``.
-        model_response: Value supplied for ``model_response``.
-        tool_results: Value supplied for ``tool_results``.
-        request_id: Value supplied for ``request_id``.
-        dependencies: Value supplied for ``dependencies``.
-        metadata: Value supplied for ``metadata``.
-        generated_code: Value supplied for ``generated_code``.
-        raw_generated_code: Value supplied for ``raw_generated_code``.
+        error: Human-readable error message for the failure.
+        model_response: Optional model response associated with the failed step.
+        tool_results: Tool results collected before the failure occurred.
+        request_id: Request id associated with the failed execution.
+        dependencies: Runtime dependency bag forwarded through the step.
+        metadata: Additional execution metadata to preserve in the result.
+        generated_code: Normalized generated code text, if available.
+        raw_generated_code: Unnormalized generated code text before rewriting, if available.
 
     Returns:
-        Result produced by this call.
+        Structured failure result that matches the standard execution contract.
     """
     output: dict[str, object] = {
         "error": error,

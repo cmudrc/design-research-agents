@@ -9,6 +9,9 @@ from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._implementations._patterns import _router_delegate_pattern as routing_impl
 from design_research_agents._implementations._shared._agent_internal import (
+    AgentRoutingToolRuntimeAdapter,
+)
+from design_research_agents._implementations._shared._agent_internal import (
     _code_action_step_workflow_helpers as code_helpers,
 )
 from design_research_agents._runtime._patterns._run_context import (
@@ -37,6 +40,17 @@ class _SingleToolRuntime(ToolRuntime):
     ) -> ToolResult:
         del request_id, dependencies
         return ToolResult(tool_name=tool_name, ok=True, result=dict(input))
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _SingleToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 def test_code_action_step_workflow_helpers_cover_success_and_failure_branches() -> None:
@@ -169,3 +183,27 @@ def test_agent_routing_helper_extractors_cover_selection_shapes() -> None:
 
     runtime = _SingleToolRuntime()
     assert runtime.list_tools()[0].name == "sum"
+
+
+def test_agent_routing_runtime_adapter_supports_context_manager() -> None:
+    class _RouteTarget:
+        def run(
+            self,
+            prompt: str,
+            *,
+            request_id: str | None = None,
+            dependencies: Mapping[str, object] | None = None,
+        ) -> ExecutionResult:
+            del prompt, request_id, dependencies
+            return ExecutionResult(success=True, output={"selected": True})
+
+    adapter = AgentRoutingToolRuntimeAdapter(alternatives={"alpha": _RouteTarget()})
+
+    with adapter as entered:
+        assert entered is adapter
+        tool_names = [spec.name for spec in entered.list_tools()]
+        result = entered.invoke("alpha", {}, request_id="req", dependencies={})
+
+    assert tool_names == ["alpha"]
+    assert result.ok is True
+    assert result.result["selected_alternative"] == "alpha"

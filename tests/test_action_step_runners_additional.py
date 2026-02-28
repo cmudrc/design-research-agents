@@ -68,6 +68,17 @@ class _ActionRuntime(ToolRuntime):
             )
         return ToolResult(tool_name=tool_name, ok=False, result={}, error="unknown")
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ActionRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class _EmptyRuntime(ToolRuntime):
     def list_tools(self) -> Sequence[ToolSpec]:
@@ -83,6 +94,17 @@ class _EmptyRuntime(ToolRuntime):
     ) -> ToolResult:
         del tool_name, input, request_id, dependencies
         return ToolResult(tool_name="none", ok=False, result={}, error="no tools")
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _EmptyRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 class _CalculatorRuntime(ToolRuntime):
@@ -122,6 +144,17 @@ class _CalculatorRuntime(ToolRuntime):
             ok=True,
             result={"expression": expression, "result": result},
         )
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _CalculatorRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 def test_json_action_step_runner_success_path() -> None:

@@ -14,13 +14,13 @@ class AllowedTool:
     """Normalized allowed-tool definition used during one run."""
 
     tool_name: str
-    """Stored ``tool_name`` value."""
+    """Canonical tool name exposed to generated code."""
     description: str
-    """Stored ``description`` value."""
+    """Human-readable tool description shown in prompts."""
     input_schema: dict[str, object]
-    """Stored ``input_schema`` value."""
+    """Normalized input schema used for validation."""
     default_tool_input: dict[str, object] | None = None
-    """Stored ``default_tool_input`` value."""
+    """Optional default input merged in when generated code passes an empty object."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -28,26 +28,26 @@ class CodeNormalizationResult:
     """Captures optional pre-validation code normalization details."""
 
     code_text: str
-    """Stored ``code_text`` value."""
+    """Normalized code text after safe rewrites."""
     raw_code_text: str
-    """Stored ``raw_code_text`` value."""
+    """Original code text before normalization."""
     stripped_safe_tool_imports: int
-    """Stored ``stripped_safe_tool_imports`` value."""
+    """Count of removable safe tool imports that were stripped."""
     rewritten_tool_calls: int
-    """Stored ``rewritten_tool_calls`` value."""
+    """Count of tool-call expressions rewritten into canonical form."""
     rewritten_direct_name_calls: int
-    """Stored ``rewritten_direct_name_calls`` value."""
+    """Count of direct-name tool calls rewritten."""
     rewritten_module_attr_calls: int
-    """Stored ``rewritten_module_attr_calls`` value."""
+    """Count of module-attribute tool calls rewritten."""
     parse_error: str | None = None
-    """Stored ``parse_error`` value."""
+    """Parse error captured when normalization could not inspect the code."""
 
     @property
     def changed(self) -> bool:
         """Return whether normalization altered imports/calls.
 
         Returns:
-            Result produced by this call.
+            ``True`` when code was rewritten or safe imports were stripped.
         """
         return self.stripped_safe_tool_imports > 0 or self.rewritten_tool_calls > 0
 
@@ -55,7 +55,7 @@ class CodeNormalizationResult:
         """Return a compact normalization metadata payload.
 
         Returns:
-            Result produced by this call.
+            Serializable metadata describing the normalization pass.
         """
         return {
             "changed": self.changed,
@@ -74,10 +74,10 @@ def extract_allowed_tools(
     """Return allowed tools compiled at initialization time.
 
     Args:
-        default_allowed_tools: Value supplied for ``default_allowed_tools``.
+        default_allowed_tools: Run-level default tool definitions.
 
     Returns:
-        Result produced by this call.
+        Cloned allowed-tool list plus a source label for metadata.
     """
     return (
         [clone_allowed_tool(tool) for tool in default_allowed_tools],
@@ -93,11 +93,11 @@ def compile_default_allowed_tools(
     """Compile default allowed tools from init config and runtime tool specs.
 
     Args:
-        runtime_specs: Value supplied for ``runtime_specs``.
-        default_tools: Value supplied for ``default_tools``.
+        runtime_specs: Runtime tool specs keyed by tool name.
+        default_tools: Optional explicit allowlist payload supplied at initialization.
 
     Returns:
-        Result produced by this call.
+        Immutable allowed-tool tuple for future runs.
     """
     if default_tools is not None:
         compiled_from_input = normalize_allowed_tools(
@@ -124,11 +124,11 @@ def normalize_allowed_tools(
     """Normalize explicit allowed-tool payload into runtime-backed tool entries.
 
     Args:
-        raw_tools: Value supplied for ``raw_tools``.
-        runtime_specs: Value supplied for ``runtime_specs``.
+        raw_tools: Raw allowlist payload to normalize.
+        runtime_specs: Runtime tool specs keyed by tool name.
 
     Returns:
-        Result produced by this call.
+        Normalized allowed tools that map to registered runtime tools.
     """
     if not isinstance(raw_tools, Sequence) or isinstance(raw_tools, (str, bytes)):
         return []
@@ -179,10 +179,10 @@ def clone_allowed_tool(allowed_tool: AllowedTool) -> AllowedTool:
     """Clone one allowed tool to isolate run-level payload mutations.
 
     Args:
-        allowed_tool: Value supplied for ``allowed_tool``.
+        allowed_tool: Allowed-tool definition to clone.
 
     Returns:
-        Result produced by this call.
+        Deep-ish copy safe for run-level mutations.
     """
     return AllowedTool(
         tool_name=allowed_tool.tool_name,
@@ -198,10 +198,10 @@ def extract_prompt(input_payload: Mapping[str, object]) -> str:
     """Extract prompt text from run input.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
+        input_payload: Run input payload that may contain prompt text.
 
     Returns:
-        Result produced by this call.
+        Prompt text to send to the model.
     """
     raw_prompt = input_payload.get("prompt", input_payload.get("text", "Provide a concise response."))
     return str(raw_prompt)
@@ -216,12 +216,12 @@ def extract_positive_int(
     """Extract a positive integer option from run input.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        key: Value supplied for ``key``.
-        default_value: Value supplied for ``default_value``.
+        input_payload: Run input payload that may contain the option.
+        key: Option name to read from ``input_payload``.
+        default_value: Fallback value when the option is missing or invalid.
 
     Returns:
-        Result produced by this call.
+        Positive integer value resolved from input or fallback.
     """
     raw_value = input_payload.get(key)
     if raw_value is None:
@@ -242,12 +242,12 @@ def extract_boolean(
     """Extract a boolean option from run input.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        key: Value supplied for ``key``.
-        default_value: Value supplied for ``default_value``.
+        input_payload: Run input payload that may contain the option.
+        key: Option name to read from ``input_payload``.
+        default_value: Fallback value when the option is missing or invalid.
 
     Returns:
-        Result produced by this call.
+        Boolean value resolved from input or fallback.
     """
     raw_value = input_payload.get(key)
     if isinstance(raw_value, bool):
@@ -259,10 +259,10 @@ def extract_python_code(raw_model_text: str) -> str:
     """Extract Python code from model output text, preferring fenced blocks.
 
     Args:
-        raw_model_text: Value supplied for ``raw_model_text``.
+        raw_model_text: Raw text emitted by the model.
 
     Returns:
-        Result produced by this call.
+        Candidate Python code text for compilation.
     """
     fenced_match = match_fenced_code_block(raw_model_text)
     if fenced_match is not None:
@@ -274,10 +274,10 @@ def match_fenced_code_block(raw_text: str) -> str | None:
     """Return first Python-like fenced code block when present and well-formed.
 
     Args:
-        raw_text: Value supplied for ``raw_text``.
+        raw_text: Raw model text to inspect.
 
     Returns:
-        Result produced by this call.
+        First Python-like fenced code block, or ``None`` when none is found.
     """
     fence = "```"
     start_index = raw_text.find(fence)
@@ -302,10 +302,10 @@ class _CodeCanonicalizer(ast.NodeTransformer):
     """Conservative AST normalizer for common tool-call variants."""
 
     def __init__(self, *, allowed_tool_names: set[str]) -> None:
-        """Execute init.
+        """Initialize the canonicalizer with the set of allowed tool names.
 
         Args:
-            allowed_tool_names: Value supplied for ``allowed_tool_names``.
+            allowed_tool_names: Tool names that may be rewritten into ``call_tool``.
         """
         self._allowed_tool_names = allowed_tool_names
         self.stripped_safe_tool_imports = 0
@@ -314,13 +314,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         self.rewritten_module_attr_calls = 0
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
-        """Execute visit Module.
+        """Strip safe imports and rewrite calls across the module body.
 
         Args:
-            node: Value supplied for ``node``.
+            node: Module node being normalized.
 
         Returns:
-            Result produced by this call.
+            Rewritten module node.
         """
         new_body: list[ast.stmt] = []
         for statement in node.body:
@@ -338,13 +338,13 @@ class _CodeCanonicalizer(ast.NodeTransformer):
         return node
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
-        """Execute visit Call.
+        """Rewrite supported tool-call forms into canonical ``call_tool`` calls.
 
         Args:
-            node: Value supplied for ``node``.
+            node: Call node being normalized.
 
         Returns:
-            Result produced by this call.
+            Rewritten call node, or the original node when no rewrite applies.
         """
         visited_node = self.generic_visit(node)
         if not isinstance(visited_node, ast.Call):

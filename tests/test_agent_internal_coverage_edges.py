@@ -52,6 +52,17 @@ class _SearchErrorStore:
         del query
         raise RuntimeError("search failed")
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _SearchErrorStore:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class _EmptySearchStore:
     def write(self, records: list[object], *, namespace: str = "default") -> list[MemoryRecord]:
@@ -61,6 +72,17 @@ class _EmptySearchStore:
     def search(self, query: object) -> list[MemoryRecord]:
         del query
         return []
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _EmptySearchStore:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 def test_schema_builders_cover_active_variants() -> None:

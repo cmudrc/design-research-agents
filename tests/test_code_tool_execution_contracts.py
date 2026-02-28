@@ -62,6 +62,17 @@ class _Runtime(ToolRuntime):
             result={"value": a_value + b_value},
         )
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _Runtime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 def _allowed_tools() -> tuple[AllowedTool, ...]:
     return (

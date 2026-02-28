@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
+from types import TracebackType
+from typing import Self
 
 from design_research_agents._contracts._tools import (
     ToolMetadata,
@@ -140,7 +142,7 @@ class Toolbox(ToolRuntime):
         """Return the source-merging registry.
 
         Returns:
-            Result produced by this call.
+            Registry that owns source routing and invocation dispatch.
         """
         return self._registry
 
@@ -149,7 +151,7 @@ class Toolbox(ToolRuntime):
         """Return active runtime configuration.
 
         Returns:
-            Result produced by this call.
+            Fully resolved runtime configuration for this toolbox.
         """
         return self._config
 
@@ -284,12 +286,12 @@ class Toolbox(ToolRuntime):
             """Invoke one user-registered callable tool handler.
 
             Args:
-                input_dict: Value supplied for ``input_dict``.
-                _request_id: Value supplied for ``_request_id``.
-                _dependencies: Value supplied for ``_dependencies``.
+                input_dict: Tool input payload supplied by the runtime.
+                _request_id: Request id forwarded by the runtime.
+                _dependencies: Dependency bag forwarded by the runtime.
 
             Returns:
-                Result produced by this call.
+                Raw handler result before ``ToolResult`` wrapping.
             """
             del _request_id, _dependencies
             return callable_tool.handler(input_dict)
@@ -300,6 +302,21 @@ class Toolbox(ToolRuntime):
         """Release external source resources."""
         if self._mcp_source is not None and hasattr(self._mcp_source, "close"):
             self._mcp_source.close()
+
+    def __enter__(self) -> Self:
+        """Return this runtime for ``with``-statement usage."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        """Close the runtime on ``with``-statement exit."""
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
         """Best-effort cleanup for external sources during GC."""

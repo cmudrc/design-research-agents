@@ -84,27 +84,27 @@ class ConsoleTraceSink:
             self._write_line(rendered)
 
     def _normalize_attributes(self, attrs: object) -> Mapping[str, object]:
-        """Normalize attributes.
+        """Normalize arbitrary event attributes into a mapping.
 
         Args:
-            attrs: Value supplied for ``attrs``.
+            attrs: Raw attribute payload from the trace event.
 
         Returns:
-            Result produced by this call.
+            Mapping view of the attributes, or an empty mapping.
         """
         if isinstance(attrs, Mapping):
             return attrs
         return {}
 
     def _emit_token_delta(self, *, event_type: str, attrs: Mapping[str, object]) -> bool:
-        """Emit token delta.
+        """Render inline token deltas for streaming model output.
 
         Args:
-            event_type: Value supplied for ``event_type``.
-            attrs: Value supplied for ``attrs``.
+            event_type: Trace event type currently being processed.
+            attrs: Normalized event attributes.
 
         Returns:
-            Result produced by this call.
+            ``True`` when the event was handled inline and needs no extra line output.
         """
         if event_type != "ModelCallToken":
             return False
@@ -117,10 +117,10 @@ class ConsoleTraceSink:
         return True
 
     def _maybe_close_streaming_line(self, event_type: str) -> None:
-        """Maybe close streaming line.
+        """Close an inline token stream before printing the next model event.
 
         Args:
-            event_type: Value supplied for ``event_type``.
+            event_type: Trace event type currently being processed.
         """
         if self._streaming_line_open and event_type.startswith("ModelCall"):
             self._stream.write("\n")
@@ -133,15 +133,15 @@ class ConsoleTraceSink:
         attrs: Mapping[str, object],
         event: Mapping[str, object],
     ) -> str | None:
-        """Render event line.
+        """Render one human-readable console line for a known event type.
 
         Args:
-            event_type: Value supplied for ``event_type``.
-            attrs: Value supplied for ``attrs``.
-            event: Value supplied for ``event``.
+            event_type: Trace event type currently being processed.
+            attrs: Normalized event attributes.
+            event: Full normalized event payload.
 
         Returns:
-            Result produced by this call.
+            Rendered console line, or ``None`` when the event is intentionally hidden.
         """
         # Keep renderer table explicit so event-label changes are easy to diff/review.
         event_lines: dict[str, str] = {
@@ -215,10 +215,10 @@ class ConsoleTraceSink:
             self._streaming_line_open = False
 
     def _write_line(self, text: str) -> None:
-        """Write line.
+        """Write one newline-terminated line to the configured stream.
 
         Args:
-            text: Value supplied for ``text``.
+            text: Rendered line text to write.
         """
         self._stream.write(f"{text}\n")
         self._stream.flush()

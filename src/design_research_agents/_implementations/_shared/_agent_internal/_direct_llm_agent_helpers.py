@@ -27,11 +27,11 @@ def generate_response(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResp
     """Issue one non-streaming LLM request.
 
     Args:
-        llm_client: Value supplied for ``llm_client``.
-        llm_request: Value supplied for ``llm_request``.
+        llm_client: Client used to execute the request.
+        llm_request: Normalized request to send to the client.
 
     Returns:
-        Result produced by this call.
+        Normalized model response from ``generate`` or compatible ``chat`` APIs.
 
     Raises:
         AttributeError: Raised when the client exposes neither ``generate`` nor ``chat``.
@@ -86,15 +86,15 @@ def build_success_result(
     """Build a success result payload from one completed model response.
 
     Args:
-        llm_response: Value supplied for ``llm_response``.
-        request_id: Value supplied for ``request_id``.
-        dependencies: Value supplied for ``dependencies``.
-        message_source: Value supplied for ``message_source``.
-        message_count: Value supplied for ``message_count``.
-        llm_request: Value supplied for ``llm_request``.
+        llm_response: Completed model response.
+        request_id: Request id associated with the run.
+        dependencies: Runtime dependency bag supplied to the agent.
+        message_source: Label describing how the prompt messages were constructed.
+        message_count: Number of messages sent to the model.
+        llm_request: Request object used for the model call.
 
     Returns:
-        Result produced by this call.
+        Successful execution result in the shared delegate contract.
     """
     output: dict[str, object] = {
         "model": llm_response.model,
@@ -129,11 +129,11 @@ def extract_messages(
     """Extract normalized message list from explicit messages or prompt fallback.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        default_system_prompt: Value supplied for ``default_system_prompt``.
+        input_payload: Raw run input payload.
+        default_system_prompt: Optional default system prompt from agent configuration.
 
     Returns:
-        Result produced by this call.
+        Normalized messages plus a label describing their source.
     """
     normalized_input_messages = normalize_messages(input_payload.get("messages"))
     if normalized_input_messages:
@@ -167,11 +167,11 @@ def extract_system_prompt(
     """Extract optional system prompt override from run input or defaults.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        default_system_prompt: Value supplied for ``default_system_prompt``.
+        input_payload: Raw run input payload.
+        default_system_prompt: Optional default system prompt from agent configuration.
 
     Returns:
-        Result produced by this call.
+        Normalized system prompt, or ``None`` when no prompt is available.
     """
     raw_system_prompt = input_payload.get("system_prompt", default_system_prompt)
     if raw_system_prompt is None:
@@ -184,10 +184,10 @@ def normalize_messages(raw_messages: object) -> list[LLMMessage]:
     """Normalize optional message payload into a validated ``LLMMessage`` list.
 
     Args:
-        raw_messages: Value supplied for ``raw_messages``.
+        raw_messages: Raw ``messages`` payload to validate.
 
     Returns:
-        Result produced by this call.
+        Validated ``LLMMessage`` objects ready for request construction.
     """
     if not isinstance(raw_messages, Sequence) or isinstance(raw_messages, (str, bytes)):
         return []
@@ -218,11 +218,11 @@ def inject_alternatives_into_messages(
     """Inject optional alternatives context into either system or user prompt.
 
     Args:
-        messages: Value supplied for ``messages``.
-        input_payload: Value supplied for ``input_payload``.
+        messages: Existing normalized messages.
+        input_payload: Raw input payload that may contain alternatives.
 
     Returns:
-        Result produced by this call.
+        Message list with alternatives context injected when requested.
     """
     alternatives_text = format_raw_alternatives(input_payload.get("alternatives"))
     if not alternatives_text:
@@ -242,11 +242,11 @@ def inject_alternatives_into_system_message(
     """Inject alternatives text into the first system message or create one.
 
     Args:
-        messages: Value supplied for ``messages``.
-        alternatives_text: Value supplied for ``alternatives_text``.
+        messages: Existing normalized messages.
+        alternatives_text: Preformatted alternatives text block.
 
     Returns:
-        Result produced by this call.
+        Message list with alternatives injected into the system prompt.
     """
     injected_messages = list(messages)
     for index, message in enumerate(injected_messages):
@@ -284,11 +284,11 @@ def inject_alternatives_into_user_message(
     """Inject alternatives text into the last user message or append one.
 
     Args:
-        messages: Value supplied for ``messages``.
-        alternatives_text: Value supplied for ``alternatives_text``.
+        messages: Existing normalized messages.
+        alternatives_text: Preformatted alternatives text block.
 
     Returns:
-        Result produced by this call.
+        Message list with alternatives injected into the user prompt.
     """
     injected_messages = list(messages)
     for index in range(len(injected_messages) - 1, -1, -1):
@@ -325,10 +325,10 @@ def extract_response_schema(
     """Extract optional response-schema mapping from run input.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
+        input_payload: Raw run input payload.
 
     Returns:
-        Result produced by this call.
+        Response schema mapping, or ``None`` when none is provided.
     """
     raw_response_schema = input_payload.get("response_schema")
     if isinstance(raw_response_schema, Mapping):
@@ -344,11 +344,11 @@ def extract_temperature(
     """Extract optional sampling temperature from input payload.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        default_value: Value supplied for ``default_value``.
+        input_payload: Raw run input payload.
+        default_value: Fallback temperature from agent configuration.
 
     Returns:
-        Result produced by this call.
+        Parsed temperature value, or the fallback when input is invalid.
     """
     raw_temperature = input_payload.get("temperature", default_value)
     if isinstance(raw_temperature, (int, float)):
@@ -372,11 +372,11 @@ def extract_max_tokens(
     """Extract optional positive max-token value from input payload.
 
     Args:
-        input_payload: Value supplied for ``input_payload``.
-        default_value: Value supplied for ``default_value``.
+        input_payload: Raw run input payload.
+        default_value: Fallback max-token value from agent configuration.
 
     Returns:
-        Result produced by this call.
+        Parsed positive max-token value, or the fallback when input is invalid.
     """
     raw_max_tokens = input_payload.get("max_tokens", default_value)
     if isinstance(raw_max_tokens, int):
@@ -397,11 +397,11 @@ def merge_provider_options(
     """Merge default and input provider options into a plain dictionary.
 
     Args:
-        default_provider_options: Value supplied for ``default_provider_options``.
-        raw_provider_options: Value supplied for ``raw_provider_options``.
+        default_provider_options: Provider options defined on the agent configuration.
+        raw_provider_options: Optional provider options supplied at run time.
 
     Returns:
-        Result produced by this call.
+        Merged provider options dictionary.
     """
     merged = dict(default_provider_options)
     merged.update(coerce_provider_options(raw_provider_options))
@@ -412,10 +412,10 @@ def coerce_provider_options(raw_provider_options: object) -> dict[str, object]:
     """Normalize optional provider options into ``dict[str, object]``.
 
     Args:
-        raw_provider_options: Value supplied for ``raw_provider_options``.
+        raw_provider_options: Raw provider-options payload to validate.
 
     Returns:
-        Result produced by this call.
+        Plain dictionary containing only string-keyed provider options.
     """
     if not isinstance(raw_provider_options, Mapping):
         return {}

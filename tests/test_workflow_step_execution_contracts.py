@@ -83,6 +83,17 @@ class _Runtime(ToolRuntime):
             )
         return ToolResult(tool_name=tool_name, ok=True, result={"input": dict(input)})
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _Runtime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class _AgentSuccess:
     def run(
@@ -276,6 +287,17 @@ class _MemoryStore:
             MemoryRecord(item_id=f"id-{index}", namespace=namespace, content=record.content)
             for index, record in enumerate(records, start=1)
         ]
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _MemoryStore:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 def _common_context() -> dict[str, object]:

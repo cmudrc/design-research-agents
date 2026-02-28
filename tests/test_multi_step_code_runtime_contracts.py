@@ -35,6 +35,21 @@ class _MemoryStore:
             for index, record in enumerate(records, start=1)
         ]
 
+    def search(self, query: object) -> list[MemoryRecord]:
+        del query
+        return []
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _MemoryStore:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> None:
     defaults = code_runtime.MultiStepCodeRunConfig(

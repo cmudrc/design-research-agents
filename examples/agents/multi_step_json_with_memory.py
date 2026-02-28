@@ -52,6 +52,7 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
+from contextlib import ExitStack
 from pathlib import Path
 
 from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
@@ -74,28 +75,28 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
-    tool_runtime = Toolbox()
-
-    # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
-    tool_runtime.invoke_dict(
-        "memory.write",
-        {
-            "db_path": str(db_path),
-            "namespace": "design_examples",
-            "records": [
-                {
-                    "content": (
-                        "Prior design note: target quick maintenance by minimizing tool changes and "
-                        "favoring reusable fasteners."
-                    )
-                }
-            ],
-        },
-        request_id=f"{request_id}:seed_memory",
-        dependencies={},
-    )
-    store = SQLiteMemoryStore(db_path=db_path)
-    with LlamaCppServerLLMClient() as llm_client:
+    with ExitStack() as stack:
+        tool_runtime = stack.enter_context(Toolbox())
+        # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
+        tool_runtime.invoke_dict(
+            "memory.write",
+            {
+                "db_path": str(db_path),
+                "namespace": "design_examples",
+                "records": [
+                    {
+                        "content": (
+                            "Prior design note: target quick maintenance by minimizing tool changes and "
+                            "favoring reusable fasteners."
+                        )
+                    }
+                ],
+            },
+            request_id=f"{request_id}:seed_memory",
+            dependencies={},
+        )
+        store = stack.enter_context(SQLiteMemoryStore(db_path=db_path))
+        llm_client = stack.enter_context(LlamaCppServerLLMClient())
         agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
@@ -107,15 +108,10 @@ def main() -> None:
             memory_write_observations=True,
             tracer=tracer,
         )
-        try:
-            result = agent.run(
-                "Compute one design-check text metric and retain the observation history.",
-                request_id=request_id,
-            )
-        finally:
-            # Explicit shutdown keeps local handles/sockets from leaking in long-lived sessions.
-            tool_runtime.close()
-            store.close()
+        result = agent.run(
+            "Compute one design-check text metric and retain the observation history.",
+            request_id=request_id,
+        )
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
