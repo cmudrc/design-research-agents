@@ -95,7 +95,7 @@ def _run_code(
     runtime: ToolRuntime,
     max_tool_calls: int = 3,
     validate_schema: bool = True,
-) -> tuple[dict[str, object], list[ToolResult]]:
+) -> tuple[code_exec.CodeExecutionOutcome, list[ToolResult]]:
     compiled_code = compile_sandboxed_code(code_text)
     tool_results: list[ToolResult] = []
     output = execute_compiled_code(
@@ -127,7 +127,9 @@ def test_compile_sandboxed_code_rejects_empty_and_banned_syntax() -> None:
 
 def test_execute_compiled_code_uses_last_tool_result_as_final_output_fallback() -> None:
     output, tool_results = _run_code('call_tool("sum", {"a": 2, "b": 3})', runtime=_Runtime())
-    assert output == {"value": 5}
+    assert output.final_output == {"value": 5}
+    assert output.final_answer_called is False
+    assert output.used_tool_output_fallback is True
     assert len(tool_results) == 1
 
 
@@ -156,6 +158,34 @@ def test_execute_compiled_code_handles_tool_failures_and_result_shapes() -> None
             runtime=_Runtime(),
         )
 
+    with pytest.raises(ValueError, match=r"final_answer\(\) payload must be a dict/object"):
+        _run_code('final_answer(["not-a-mapping"])', runtime=_Runtime())
+
+
+def test_execute_compiled_code_supports_explicit_final_answer_and_non_terminal_final_output() -> None:
+    terminal_output, terminal_tool_results = _run_code('final_answer({"done": True})', runtime=_Runtime())
+    assert terminal_output.final_output == {"done": True}
+    assert terminal_output.final_answer_called is True
+    assert terminal_output.used_tool_output_fallback is False
+    assert terminal_tool_results == []
+
+    step_output, step_tool_results = _run_code(
+        "\n".join(
+            [
+                'result = call_tool("sum", {"a": 1, "b": 2})',
+                'final_output = {"value": result["value"]}',
+            ]
+        ),
+        runtime=_Runtime(),
+    )
+    assert step_output.final_output == {"value": 3}
+    assert step_output.final_answer_called is False
+    assert step_output.used_tool_output_fallback is False
+    assert len(step_tool_results) == 1
+
+    with pytest.raises(ValueError, match="call at least one tool or use `final_answer"):
+        _run_code("final_output = {}", runtime=_Runtime())
+
 
 def test_execute_compiled_code_schema_validation_is_enforced() -> None:
     with pytest.raises(ValueError, match="must be an integer"):
@@ -166,7 +196,7 @@ def test_execute_compiled_code_schema_validation_is_enforced() -> None:
         runtime=_Runtime(),
         validate_schema=False,
     )
-    assert output == {"ok": True}
+    assert output.final_output == {"ok": True}
 
 
 def test_validation_helpers_cover_required_additional_and_field_types() -> None:

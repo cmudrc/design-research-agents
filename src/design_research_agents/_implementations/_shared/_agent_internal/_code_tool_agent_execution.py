@@ -6,7 +6,8 @@ import ast
 import json
 import signal
 from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
+from dataclasses import dataclass
 from types import CodeType
 
 from design_research_agents._contracts._delegate import ExecutionResult
@@ -18,6 +19,8 @@ from design_research_agents._implementations._shared._agent_internal._result_bui
 from design_research_agents._tracing import emit_guardrail_decision
 
 from ._code_tool_agent_parsing import AllowedTool
+
+_FINAL_ANSWER_TOOL_NAME = "final_answer"
 
 
 def compile_sandboxed_code(code_text: str) -> CodeType:
@@ -189,6 +192,24 @@ class _FinalOutputProxy(dict[str, object]):
         super().update(*args, **kwargs)
 
 
+@dataclass(slots=True, frozen=True)
+class CodeExecutionOutcome:
+    """Structured outcome returned from sandboxed code execution."""
+
+    final_output: dict[str, object]
+    """Per-step output payload resolved after sandbox execution."""
+
+    final_answer_called: bool
+    """Whether the built-in ``final_answer()`` helper terminated the step."""
+
+    used_tool_output_fallback: bool
+    """Whether the last tool result was used as the step output fallback."""
+
+
+class _FinalAnswerSignal(Exception):
+    """Internal control-flow signal used to stop execution after ``final_answer()``."""
+
+
 def _normalize_tool_name(
     *,
     tool_name: str,
@@ -339,55 +360,108 @@ def _invoke_tool_runtime(
     raise RuntimeError(f"Tool '{tool_name}' returned a non-object payload: {type(tool_result.result).__name__}.")
 
 
-def _serialize_final_output(
+def _serialize_mapping_payload(
     *,
-    sandbox_locals: Mapping[str, object],
-    tool_results: Sequence[ToolResult],
+    raw_payload: object,
+    type_guardrail: str,
+    type_reason: str,
+    type_error: str,
+    json_guardrail: str,
+    json_reason: str,
+    json_error: str,
 ) -> dict[str, object]:
-    """Resolve and serialize the final output mapping from sandbox locals.
+    """Validate and serialize one mapping payload into a JSON object.
 
     Args:
-        sandbox_locals: Sandbox local variable mapping after code execution.
-        tool_results: Tool results collected during execution.
+        raw_payload: Candidate payload to validate.
+        type_guardrail: Guardrail id emitted for invalid payload types.
+        type_reason: Guardrail reason for invalid payload types.
+        type_error: Exception message for invalid payload types.
+        json_guardrail: Guardrail id emitted for invalid JSON serialization shape.
+        json_reason: Guardrail reason for invalid JSON serialization shape.
+        json_error: Exception message for invalid JSON serialization shape.
 
     Returns:
-        JSON-serializable final output mapping.
+        JSON-serializable mapping payload.
 
     Raises:
-        ValueError: If final output is missing or not object-serializable.
+        ValueError: If the payload is not a JSON-serializable mapping.
     """
-    raw_final_output = sandbox_locals.get("final_output")
-    if isinstance(raw_final_output, _FinalOutputProxy):
-        final_output: object | None
-        final_output = dict(raw_final_output) if raw_final_output.was_mutated else None
-    else:
-        final_output = raw_final_output
-
-    if final_output is None:
-        if not tool_results:
-            raise ValueError("Generated code must call at least one tool.")
-        if not isinstance(tool_results[-1].result, Mapping):
-            raise ValueError("final_output fallback requires the last tool result to be an object.")
-        final_output = dict(tool_results[-1].result)
-
-    if not isinstance(final_output, Mapping):
+    if not isinstance(raw_payload, Mapping):
         emit_guardrail_decision(
-            guardrail="final_output_type",
+            guardrail=type_guardrail,
             decision="reject",
-            reason="final_output must be a dict/object",
+            reason=type_reason,
         )
-        raise ValueError("Generated code must assign `final_output` to a dict/object.")
+        raise ValueError(type_error)
 
-    serialized = json.loads(json.dumps(dict(final_output)))
+    serialized = json.loads(json.dumps(dict(raw_payload)))
     if isinstance(serialized, dict):
         return serialized
 
     emit_guardrail_decision(
-        guardrail="final_output_json",
+        guardrail=json_guardrail,
         decision="reject",
-        reason="final_output must serialize to a JSON object",
+        reason=json_reason,
     )
-    raise ValueError("final_output must serialize to a JSON object.")
+    raise ValueError(json_error)
+
+
+def _resolve_execution_outcome(
+    *,
+    sandbox_locals: Mapping[str, object],
+    tool_results: Sequence[ToolResult],
+    final_answer_payload: dict[str, object] | None,
+) -> CodeExecutionOutcome:
+    """Resolve the canonical per-step outcome after sandbox execution."""
+    if final_answer_payload is not None:
+        return CodeExecutionOutcome(
+            final_output=dict(final_answer_payload),
+            final_answer_called=True,
+            used_tool_output_fallback=False,
+        )
+
+    raw_final_output = sandbox_locals.get("final_output")
+    if isinstance(raw_final_output, _FinalOutputProxy):
+        explicit_final_output: object | None
+        explicit_final_output = dict(raw_final_output) if raw_final_output.was_mutated else None
+    else:
+        explicit_final_output = raw_final_output
+
+    if explicit_final_output is not None:
+        if not tool_results:
+            raise ValueError("Generated code must call at least one tool or use `final_answer({...})`.")
+        return CodeExecutionOutcome(
+            final_output=_serialize_mapping_payload(
+                raw_payload=explicit_final_output,
+                type_guardrail="final_output_type",
+                type_reason="final_output must be a dict/object",
+                type_error="Generated code must assign `final_output` to a dict/object.",
+                json_guardrail="final_output_json",
+                json_reason="final_output must serialize to a JSON object",
+                json_error="final_output must serialize to a JSON object.",
+            ),
+            final_answer_called=False,
+            used_tool_output_fallback=False,
+        )
+
+    if not tool_results:
+        raise ValueError("Generated code must call at least one tool or use `final_answer({...})`.")
+    if not isinstance(tool_results[-1].result, Mapping):
+        raise ValueError("final_output fallback requires the last tool result to be an object.")
+    return CodeExecutionOutcome(
+        final_output=_serialize_mapping_payload(
+            raw_payload=tool_results[-1].result,
+            type_guardrail="final_output_type",
+            type_reason="final_output must be a dict/object",
+            type_error="Generated code must assign `final_output` to a dict/object.",
+            json_guardrail="final_output_json",
+            json_reason="final_output must serialize to a JSON object",
+            json_error="final_output must serialize to a JSON object.",
+        ),
+        final_answer_called=False,
+        used_tool_output_fallback=True,
+    )
 
 
 def execute_compiled_code(
@@ -403,7 +477,7 @@ def execute_compiled_code(
     execution_timeout_seconds: int,
     validate_tool_input_schema: bool,
     tool_results: list[ToolResult],
-) -> dict[str, object]:
+) -> CodeExecutionOutcome:
     """Execute compiled code with strict runtime sandbox and tool guardrails.
 
     Args:
@@ -420,13 +494,16 @@ def execute_compiled_code(
         tool_results: Mutable collector that accumulates tool results in order.
 
     Returns:
-        Final output mapping produced by the generated code.
+        Structured per-step outcome produced by the generated code.
 
     Raises:
         Exception: Propagated when sandbox validation or execution fails.
     """
     allowed_tools_map = {tool.tool_name: tool for tool in allowed_tools}
+    if _FINAL_ANSWER_TOOL_NAME in allowed_tools_map:
+        raise ValueError(f"Allowed tools cannot include reserved tool name '{_FINAL_ANSWER_TOOL_NAME}'.")
     tool_call_count = 0
+    final_answer_payload: dict[str, object] | None = None
 
     def call_tool(tool_name: str, tool_input: object) -> dict[str, object]:
         """Sandbox-visible helper that validates and executes one tool call.
@@ -467,6 +544,20 @@ def execute_compiled_code(
             tool_results=tool_results,
         )
 
+    def final_answer(payload: object) -> None:
+        """Sandbox-visible helper that ends the step with a terminal payload."""
+        nonlocal final_answer_payload
+        final_answer_payload = _serialize_mapping_payload(
+            raw_payload=payload,
+            type_guardrail="final_answer_type",
+            type_reason="final_answer payload must be a dict/object",
+            type_error="final_answer() payload must be a dict/object.",
+            json_guardrail="final_answer_json",
+            json_reason="final_answer payload must serialize to a JSON object",
+            json_error="final_answer() payload must serialize to a JSON object.",
+        )
+        raise _FinalAnswerSignal()
+
     sandbox_globals = {
         "__builtins__": {
             "len": len,
@@ -489,6 +580,7 @@ def execute_compiled_code(
             "any": any,
         },
         "call_tool": call_tool,
+        "final_answer": final_answer,
     }
     sandbox_locals: dict[str, object] = {
         "prompt": prompt,
@@ -499,18 +591,21 @@ def execute_compiled_code(
         "final_output": _FinalOutputProxy(),
     }
 
-    with execution_timeout(seconds=execution_timeout_seconds):
+    with execution_timeout(seconds=execution_timeout_seconds), suppress(_FinalAnswerSignal):
         exec(compiled_code, sandbox_globals, sandbox_locals)
 
-    if not tool_results:
+    if not tool_results and final_answer_payload is None:
         emit_guardrail_decision(
             guardrail="tool_call_required",
             decision="reject",
-            reason="generated code must call at least one tool",
+            reason="generated code must call at least one tool or use final_answer",
         )
-        raise ValueError("Generated code must call at least one tool.")
 
-    return _serialize_final_output(sandbox_locals=sandbox_locals, tool_results=tool_results)
+    return _resolve_execution_outcome(
+        sandbox_locals=sandbox_locals,
+        tool_results=tool_results,
+        final_answer_payload=final_answer_payload,
+    )
 
 
 @contextmanager
@@ -680,6 +775,7 @@ def failure_result(
 
 
 __all__ = [
+    "CodeExecutionOutcome",
     "compile_sandboxed_code",
     "execute_compiled_code",
     "failure_result",

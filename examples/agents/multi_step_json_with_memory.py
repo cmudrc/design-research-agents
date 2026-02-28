@@ -57,6 +57,14 @@ from pathlib import Path
 from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
 from design_research_agents.memory import SQLiteMemoryStore
 
+_STRONGER_LLAMA_CLIENT_KWARGS = {
+    "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+    "api_model": "qwen3-4b-instruct-2507-q4km",
+    "context_window": 8192,
+    "startup_timeout_seconds": 180.0,
+}
+
 
 def main() -> None:
     """Run one multi-step JSON tool call with memory retrieval and write-back."""
@@ -77,7 +85,7 @@ def main() -> None:
     with (
         Toolbox() as tool_runtime,
         SQLiteMemoryStore(db_path=db_path) as store,
-        LlamaCppServerLLMClient(context_window=8192) as llm_client,
+        LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
         # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
         tool_runtime.invoke_dict(
@@ -101,18 +109,19 @@ def main() -> None:
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            max_steps=3,
+            max_steps=2,
             memory_store=store,
             memory_namespace="design_examples",
             memory_read_top_k=1,
-            memory_write_observations=True,
-            allowed_tools=("text.word_count",),
+            memory_write_observations=False,
+            allowed_tools=("text.word_count", "memory.stats"),
             tracer=tracer,
         )
         result = agent.run(
             (
-                "Compute exactly one text metric from the retrieved design note, then stop after "
-                "the first successful observation. Retain the observation history."
+                "When Current step is 1, use text.word_count exactly once on the retrieved design "
+                "note. When Current step is 2, do not call any tool. Use final_answer with only "
+                "the resulting word_count."
             ),
             request_id=request_id,
         )

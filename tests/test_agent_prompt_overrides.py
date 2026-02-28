@@ -137,6 +137,40 @@ class _EmptyToolRuntime(ToolRuntime):
         return None
 
 
+class _ReservedToolRuntime(ToolRuntime):
+    def list_tools(self) -> list[ToolSpec]:
+        return [
+            ToolSpec(
+                name="final_answer",
+                description="reserved",
+                input_schema={"type": "object", "additionalProperties": False},
+                output_schema={"type": "object", "additionalProperties": True},
+            )
+        ]
+
+    def invoke(
+        self,
+        tool_name: str,
+        input: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del tool_name, input, request_id, dependencies
+        return ToolResult(tool_name="final_answer", ok=True, result={})
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ReservedToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
 def test_multi_step_agent_rejects_missing_runtime_for_json_or_code_modes() -> None:
     llm_client = _SequenceLLMClient(response_texts=['{"continue": false, "thought": "done"}'])
 
@@ -156,6 +190,17 @@ def test_multi_step_agent_rejects_empty_runtime_for_json_or_code_modes() -> None
 
     with pytest.raises(ValueError, match="must expose at least one tool"):
         MultiStepAgent(mode="code", llm_client=llm_client, tool_runtime=empty_runtime)
+
+
+def test_multi_step_agent_rejects_reserved_final_answer_tool_name() -> None:
+    llm_client = _SequenceLLMClient(response_texts=['{"tool_name":"final_answer","tool_input":{}}'])
+    reserved_runtime = _ReservedToolRuntime()
+
+    with pytest.raises(ValueError, match="reserved tool name"):
+        MultiStepAgent(mode="json", llm_client=llm_client, tool_runtime=reserved_runtime)
+
+    with pytest.raises(ValueError, match="reserved tool name"):
+        MultiStepAgent(mode="code", llm_client=llm_client, tool_runtime=reserved_runtime)
 
 
 def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target() -> None:
@@ -179,14 +224,14 @@ def test_multi_step_json_agent_rejects_unmatched_allowed_tools() -> None:
         agent.run("route request")
 
 
-def test_multi_step_code_agent_rejects_empty_prompt_override() -> None:
-    with pytest.raises(ValueError, match="continuation_system_prompt"):
-        MultiStepAgent(
-            mode="code",
-            llm_client=_SequenceLLMClient(response_texts=["final_output = {}"]),
-            tool_runtime=Toolbox(),
-            continuation_system_prompt="   ",
-        )
+def test_multi_step_code_agent_ignores_unused_continuation_prompt_override() -> None:
+    agent = MultiStepAgent(
+        mode="code",
+        llm_client=_SequenceLLMClient(response_texts=['final_answer({"ok": True})']),
+        tool_runtime=Toolbox(),
+        continuation_system_prompt="   ",
+    )
+    assert agent is not None
 
 
 def test_plan_execute_workflow_template_override_supports_task_prompt_variable() -> None:
@@ -195,9 +240,8 @@ def test_plan_execute_workflow_template_override_supports_task_prompt_variable()
             response_texts=[
                 '{"steps":[{"step_id":"one","instruction":"Count words in a short phrase.",'
                 '"success_criteria":"Return word count"}]}',
-                '{"continue": true, "thought": "run step"}',
                 'stats = call_tool("text.word_count", {"text": "design research"})\n'
-                'final_output = {"result": stats["word_count"]}',
+                'final_answer({"result": stats["word_count"]})',
             ]
         ),
         tool_runtime=Toolbox(),

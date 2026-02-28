@@ -18,9 +18,6 @@ from .._code_action_step_runner import (
 from .._execution_context import (
     resolve_agent_execution_context,
 )
-from .._model_resolution import (
-    resolve_agent_model,
-)
 from .._multi_step_code_runtime_helpers import (
     MultiStepCodeRunConfig,
     build_code_final_result,
@@ -32,13 +29,7 @@ from .._multi_step_code_runtime_helpers import (
     build_code_step_agent as _build_code_step_agent,
 )
 from .._multi_step_code_runtime_helpers import (
-    build_continuation_stop_state as _build_continuation_stop_state,
-)
-from .._multi_step_code_runtime_helpers import (
     build_step_input as _build_step_input,
-)
-from .._multi_step_code_runtime_helpers import (
-    build_step_tools_text as _build_step_tools_text,
 )
 from .._multi_step_code_runtime_helpers import (
     resolve_run_config as _resolve_run_config,
@@ -51,9 +42,6 @@ from .._multi_step_code_runtime_helpers import (
 )
 from .._multi_step_common import (
     build_step_prompt,
-)
-from .._multi_step_continuation import (
-    llm_should_continue as _llm_should_continue,
 )
 from .._multi_step_loop_state import (
     build_loop_initial_state,
@@ -81,16 +69,13 @@ from .._prompt_alternatives import (
 from .._prompt_overrides import (
     resolve_prompt_text,
 )
-from .._response_schemas import (
-    build_continuation_response_schema,
-)
 from .._workflow_loop_orchestration import (
     compile_workflow_loop,
 )
 
 
 class MultiStepCodeToolCallingAgent(Delegate):
-    """Iterative code-tool agent with continuation checks between action steps."""
+    """Iterative code-tool agent with explicit in-step completion."""
 
     def __init__(
         self,
@@ -119,7 +104,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
         """Initialize a multi-step code-tool agent.
 
         Args:
-            llm_client: LLM client used for continuation and code-generation steps.
+            llm_client: LLM client used for code-generation steps.
             tool_runtime: Tool runtime shared across all steps.
             max_steps: Maximum number of action-observation iterations.
             max_tool_calls_per_step: Per-step cap on tool calls.
@@ -128,11 +113,11 @@ class MultiStepCodeToolCallingAgent(Delegate):
             normalize_generated_code_per_step: Whether to normalize generated code before run.
             stop_on_step_failure: Whether to stop immediately on step failures.
             default_tools_per_step: Optional default tool allowlist per step.
-            continuation_system_prompt: Optional continuation system prompt override.
-            continuation_user_prompt_template: Optional continuation user template override.
+            continuation_system_prompt: Unused in code mode; preserved for signature stability.
+            continuation_user_prompt_template: Unused in code mode; preserved for signature stability.
             step_user_prompt_template: Optional step user template override.
             alternatives_prompt_target: Prompt target for alternatives blocks.
-            continuation_memory_tail_items: Memory tail size for continuation prompts.
+            continuation_memory_tail_items: Unused in code mode; preserved for signature stability.
             step_memory_tail_items: Memory tail size for step prompts.
             memory_store: Optional persistent memory store.
             memory_namespace: Namespace partition for memory reads/writes.
@@ -149,8 +134,6 @@ class MultiStepCodeToolCallingAgent(Delegate):
             raise ValueError("max_tool_calls_per_step must be >= 1.")
         if execution_timeout_seconds < 1:
             raise ValueError("execution_timeout_seconds must be >= 1.")
-        if continuation_memory_tail_items < 1:
-            raise ValueError("continuation_memory_tail_items must be >= 1.")
         if step_memory_tail_items < 1:
             raise ValueError("step_memory_tail_items must be >= 1.")
         if memory_read_top_k < 1:
@@ -166,23 +149,13 @@ class MultiStepCodeToolCallingAgent(Delegate):
         self._validate_tool_input_schema = validate_tool_input_schema
         self._normalize_generated_code_per_step = normalize_generated_code_per_step
         self._stop_on_step_failure = stop_on_step_failure
-        self._continuation_system_prompt = resolve_prompt_text(
-            override=continuation_system_prompt,
-            default_prompt_name="multi_step_continue_system",
-            field_name="continuation_system_prompt",
-        )
-        self._continuation_user_prompt_template = resolve_prompt_text(
-            override=continuation_user_prompt_template,
-            default_prompt_name="multi_step_continue_user",
-            field_name="continuation_user_prompt_template",
-        )
+        _ = continuation_system_prompt, continuation_user_prompt_template, continuation_memory_tail_items
         self._step_user_prompt_template = resolve_prompt_text(
             override=step_user_prompt_template,
             default_prompt_name="multi_step_step_user",
             field_name="step_user_prompt_template",
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(alternatives_prompt_target)
-        self._continuation_memory_tail_items = continuation_memory_tail_items
         self._step_memory_tail_items = step_memory_tail_items
         self._memory_store = memory_store
         self._memory_namespace = memory_namespace.strip() or "default"
@@ -193,7 +166,6 @@ class MultiStepCodeToolCallingAgent(Delegate):
             if default_tools_per_step is not None
             else None
         )
-        self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
         self,
@@ -242,12 +214,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
         validate_tool_input_schema = run_config.validate_tool_input_schema
         stop_on_step_failure = run_config.stop_on_step_failure
         normalize_generated_code_per_step = self._normalize_generated_code_per_step
-        resolved_model = resolve_agent_model(llm_client=self._llm_client)
         alternatives_prompt_target = self._alternatives_prompt_target
-        step_tools_text = _build_step_tools_text(
-            tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
-            default_tools_per_step=self._default_tools_per_step,
-        )
 
         step_agent = _build_code_step_agent(
             llm_client=self._llm_client,
@@ -272,10 +239,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
                 iteration=iteration,
                 state=state,
                 prompt=prompt,
-                max_steps=max_steps,
-                resolved_model=resolved_model,
                 alternatives_prompt_target=alternatives_prompt_target,
-                step_tools_text=step_tools_text,
                 step_agent=step_agent,
                 normalized_input=execution_context.normalized_input,
                 max_tool_calls_per_step=max_tool_calls_per_step,
@@ -305,7 +269,6 @@ class MultiStepCodeToolCallingAgent(Delegate):
                 normalize_generated_code_per_step=normalize_generated_code_per_step,
                 stop_on_step_failure=stop_on_step_failure,
                 alternatives_prompt_target=alternatives_prompt_target,
-                continuation_memory_tail_items=self._continuation_memory_tail_items,
                 step_memory_tail_items=self._step_memory_tail_items,
                 memory_namespace=self._memory_namespace,
                 memory_read_top_k=self._memory_read_top_k,
@@ -344,10 +307,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
         iteration: int,
         state: Mapping[str, object],
         prompt: str,
-        max_steps: int,
-        resolved_model: str,
         alternatives_prompt_target: AlternativesPromptTarget,
-        step_tools_text: str,
         step_agent: CodeActionStepRunner,
         normalized_input: Mapping[str, object],
         max_tool_calls_per_step: int,
@@ -363,10 +323,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
             iteration: One-based loop iteration number.
             state: Current loop-state mapping.
             prompt: User prompt text.
-            max_steps: Effective max-step limit.
-            resolved_model: Resolved model identifier.
-            alternatives_prompt_target: Prompt target for alternatives injection.
-            step_tools_text: Alternatives/tool block text.
+            alternatives_prompt_target: Prompt target propagated into the step input.
             step_agent: Step-level code tool agent instance.
             normalized_input: Normalized run input payload.
             max_tool_calls_per_step: Effective per-step tool call cap.
@@ -380,9 +337,8 @@ class MultiStepCodeToolCallingAgent(Delegate):
             Next loop-state mapping.
         """
         step_number = iteration
-        step_index = iteration - 1
         memory = _coerce_state_records(state.get("memory"))
-        continuation_trace = _coerce_state_records(state.get("continuation_trace"))
+        decision_trace = _coerce_state_records(state.get("decision_trace"))
         retrieval_trace = _coerce_state_records(state.get("retrieval_trace"))
         memory_errors = _coerce_string_list(state.get("memory_errors"))
         step_outputs = _coerce_state_records(state.get("step_outputs"))
@@ -397,7 +353,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
             top_k=self._memory_read_top_k,
             task_prompt=prompt,
             memory=memory,
-            memory_tail_items=self._continuation_memory_tail_items,
+            memory_tail_items=self._step_memory_tail_items,
         )
         _append_retrieval_trace(
             retrieval_trace=retrieval_trace,
@@ -407,56 +363,6 @@ class MultiStepCodeToolCallingAgent(Delegate):
             namespace=self._memory_namespace,
             retrieved_match_count=len(retrieved_matches),
         )
-
-        should_continue, continue_reason, continue_source, continue_response = _llm_should_continue(
-            llm_client=self._llm_client,
-            prompt=prompt,
-            memory=memory,
-            step_index=step_index,
-            max_steps=max_steps,
-            model=resolved_model,
-            alternatives_prompt_target=alternatives_prompt_target,
-            alternatives_text=step_tools_text,
-            retrieved_context=retrieved_context,
-            continuation_system_prompt=self._continuation_system_prompt,
-            continuation_user_prompt_template=self._continuation_user_prompt_template,
-            continuation_response_schema=self._continuation_response_schema,
-            continuation_memory_tail_items=self._continuation_memory_tail_items,
-            alternatives_section_label="Allowed tools for action steps",
-            agent_name="MultiStepCodeToolCallingAgent",
-        )
-        if continue_response is not None:
-            last_model_response = continue_response
-        continuation_trace.append(
-            {
-                "step": step_number,
-                "continue": should_continue,
-                "thought": continue_reason,
-                "reason": continue_reason,
-                "source": continue_source,
-            }
-        )
-        memory.append(
-            {
-                "kind": "thought",
-                "step": step_number,
-                "continue": should_continue,
-                "text": continue_reason,
-                "source": continue_source,
-            }
-        )
-        if not should_continue:
-            return _build_continuation_stop_state(
-                memory=memory,
-                continuation_trace=continuation_trace,
-                retrieval_trace=retrieval_trace,
-                memory_errors=memory_errors,
-                step_outputs=step_outputs,
-                tool_results=tool_results,
-                final_output=final_output,
-                last_model_response=last_model_response,
-                continue_source=continue_source,
-            )
 
         step_prompt = build_step_prompt(
             prompt=prompt,
@@ -483,12 +389,28 @@ class MultiStepCodeToolCallingAgent(Delegate):
             last_model_response = step_result.model_response
 
         tool_results.extend(step_result.tool_results)
+        step_action_type = str(step_result.output.get("action_type", "tool_call"))
+        final_answer_called = bool(step_result.output.get("final_answer_called", False))
+        action_name = str(step_result.output.get("tool_name", "") or "")
+        decision_trace.append(
+            {
+                "step": step_number,
+                "action_type": step_action_type,
+                "action_name": action_name,
+                "final_answer_called": final_answer_called,
+                "success": step_result.success,
+            }
+        )
         step_outputs.append(
             {
                 "step": step_number,
                 "success": step_result.success,
+                "action_type": step_action_type,
+                "final_answer_called": final_answer_called,
                 "final_output": step_result.output.get("final_output", {}),
                 "error": step_result.output.get("error"),
+                "tool_name": step_result.output.get("tool_name"),
+                "tool_input": step_result.output.get("tool_input", {}),
                 "tool_results_count": len(step_result.tool_results),
             }
         )
@@ -515,7 +437,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
                 namespace=self._memory_namespace,
                 task_prompt=prompt,
                 step_number=step_number,
-                continuation_reason=continue_reason,
+                step_reason="",
                 step_success=step_result.success,
                 generated_code=step_result.output.get("generated_code", ""),
                 final_output=step_result.output.get("final_output"),
@@ -526,14 +448,12 @@ class MultiStepCodeToolCallingAgent(Delegate):
 
         final_output, terminated_reason, should_continue_next, fatal_error, fatal_metadata = _resolve_step_completion(
             step_result=step_result,
-            step_outputs=step_outputs,
-            memory=memory,
             final_output=final_output,
             stop_on_step_failure=stop_on_step_failure,
         )
         return {
             "memory": memory,
-            "continuation_trace": continuation_trace,
+            "decision_trace": decision_trace,
             "retrieval_trace": retrieval_trace,
             "memory_errors": memory_errors,
             "step_outputs": step_outputs,

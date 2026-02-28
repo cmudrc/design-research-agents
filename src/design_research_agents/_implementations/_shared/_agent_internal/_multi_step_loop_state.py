@@ -34,7 +34,7 @@ def build_loop_initial_state(
         "fatal_metadata": {},
     }
     if include_continuation:
-        state["continuation_trace"] = []
+        state["decision_trace"] = []
         state["retrieval_trace"] = []
         state["memory_errors"] = []
     return state

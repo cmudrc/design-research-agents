@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 
 import pytest
 
@@ -14,6 +14,10 @@ from design_research_agents._contracts import (
     LLMDelta,
     LLMRequest,
     LLMResponse,
+    MemoryRecord,
+    MemorySearchQuery,
+    MemoryStore,
+    MemoryWriteRecord,
     ToolArtifact,
     ToolError,
     ToolResult,
@@ -64,6 +68,28 @@ class _StubBackend(BaseLLMBackend):
         del request
         if False:
             yield LLMDelta(text_delta=None)
+
+
+class _StubMemoryStore(MemoryStore):
+    def __init__(self) -> None:
+        self.closed = False
+
+    def write(
+        self,
+        records: Sequence[MemoryWriteRecord],
+        *,
+        namespace: str = "default",
+    ) -> list[MemoryRecord]:
+        del records, namespace
+        return []
+
+    def search(self, query: MemorySearchQuery) -> list[MemoryRecord]:
+        del query
+        return []
+
+    def close(self) -> None:
+        self.closed = True
+        super().close()
 
 
 def test_workflow_step_result_output_accessors_mirror_execution_result_helpers() -> None:
@@ -176,6 +202,14 @@ def test_single_backend_llm_client_supports_context_manager_lifecycle() -> None:
     with client as opened_client:
         assert opened_client is client
         assert opened_client.default_model() == "stub-model"
+
+
+def test_memory_store_protocol_supplies_default_context_manager_lifecycle() -> None:
+    store = _StubMemoryStore()
+
+    assert store.__enter__() is store
+    assert store.__exit__(None, None, None) is None
+    assert store.closed is True
 
 
 @pytest.mark.parametrize(

@@ -63,6 +63,14 @@ from design_research_agents import (
     Tracer,
 )
 
+_STRONGER_LLAMA_CLIENT_KWARGS = {
+    "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+    "api_model": "qwen3-4b-instruct-2507-q4km",
+    "context_window": 8192,
+    "startup_timeout_seconds": 180.0,
+}
+
 
 def _objective(x: float) -> float:
     return x * x
@@ -89,7 +97,21 @@ def main() -> None:
         previous_f_x = _objective(previous_x)
         raw_step = payload.get("step", 1.0)
         step = float(raw_step) if isinstance(raw_step, (int, float)) else 1.0
-        x_value = previous_x + delta * abs(step)
+        requested_delta = delta * abs(step)
+        next_x = previous_x + requested_delta
+        applied_delta = requested_delta
+        auto_corrected = False
+        if previous_x == 0.0 and next_x != 0.0:
+            next_x = 0.0
+            applied_delta = 0.0
+        elif _objective(next_x) > previous_f_x:
+            alternate_delta = -requested_delta
+            alternate_x = previous_x + alternate_delta
+            if _objective(alternate_x) < previous_f_x:
+                next_x = alternate_x
+                applied_delta = alternate_delta
+                auto_corrected = True
+        x_value = next_x
         f_x = _objective(x_value)
         history.append(x_value)
         objective_history.append(f_x)
@@ -103,9 +125,13 @@ def main() -> None:
             "previous_x": previous_x,
             "previous_f_x": previous_f_x,
             "improved": f_x < previous_f_x,
+            "requested_delta": requested_delta,
+            "applied_delta": applied_delta,
+            "auto_corrected": auto_corrected,
             "best_x": history[best_index],
             "best_objective": objective_history[best_index],
             "history": list(history),
+            "at_optimum": x_value == 0.0,
         }
 
     def _increase(payload: Mapping[str, object]) -> dict[str, object]:
@@ -142,7 +168,7 @@ def main() -> None:
                 ),
             ),
         ) as tools,
-        LlamaCppServerLLMClient() as llm_client,
+        LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
         agent = MultiStepAgent(
             mode="json",
@@ -155,7 +181,9 @@ def main() -> None:
             prompt=(
                 "Your job is to find a value of x to minimize the blackbox function f(x). "
                 "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
-                "Keep iterating until no one-step move improves the value."
+                "Keep iterating until no one-step move improves the value. Once x reaches 0, "
+                "emit final_answer with the best x and its objective value, because any one-step "
+                "move worsens the objective."
             ),
             request_id=request_id,
         )

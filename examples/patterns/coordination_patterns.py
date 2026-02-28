@@ -89,7 +89,7 @@ def main() -> None:
         enable_console=True,
     )
 
-    with LlamaCppServerLLMClient() as llm_client:
+    with LlamaCppServerLLMClient(context_window=16384) as llm_client:
         peer_a = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         peer_b = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
@@ -101,11 +101,11 @@ def main() -> None:
                 "peer_b": peer_b,
                 "peer_a": peer_a,
             },
-            max_rounds=2,
+            max_rounds=1,
             tracer=tracer,
         )
         coordination_result = coordination.run(
-            "Coordinate candidate mechanisms for a field-serviceable sensor enclosure.",
+            "Exchange one concise proposal for a field-serviceable sensor enclosure.",
             request_id=coordination_request_id,
         )
 
@@ -117,12 +117,12 @@ def main() -> None:
                 "peer_b": peer_b,
                 "peer_a": peer_a,
             },
-            max_rounds=3,
-            stability_rounds=2,
+            max_rounds=1,
+            stability_rounds=1,
             tracer=tracer,
         )
         blackboard_result = blackboard.run(
-            "Compare two concept options and converge on a serviceable design direction.",
+            "Compare two concept options and make one concise serviceability recommendation.",
             request_id=blackboard_request_id,
         )
 

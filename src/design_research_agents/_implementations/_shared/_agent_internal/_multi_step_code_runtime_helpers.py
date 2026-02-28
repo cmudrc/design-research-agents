@@ -10,13 +10,11 @@ from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import LLMClient, LLMResponse
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._termination import (
-    SOURCE_INVALID_PAYLOAD,
-    TERMINATED_CONTINUATION_INVALID_PAYLOAD,
+    TERMINATED_COMPLETED,
     TERMINATED_MAX_STEPS_REACHED,
     TERMINATED_STEP_FAILURE,
-    continuation_stopped_reason,
 )
-from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._tools import ToolRuntime, ToolSpec
 from design_research_agents._implementations._shared._agent_internal._code_action_step_runner import (
     CodeActionStepRunner,
 )
@@ -232,8 +230,6 @@ def summarize_observation(*, final_output: object, error: object) -> str:
 def resolve_step_completion(
     *,
     step_result: ExecutionResult,
-    step_outputs: list[dict[str, object]],
-    memory: list[dict[str, object]],
     final_output: dict[str, object],
     stop_on_step_failure: bool,
 ) -> tuple[dict[str, object], str, bool, str | None, dict[str, object]]:
@@ -241,8 +237,6 @@ def resolve_step_completion(
 
     Args:
         step_result: Step execution result.
-        step_outputs: Mutable aggregated step output list.
-        memory: Mutable aggregated memory list.
         final_output: Current run-level final output mapping.
         stop_on_step_failure: Effective stop-on-failure setting.
 
@@ -255,9 +249,12 @@ def resolve_step_completion(
     fatal_metadata: dict[str, object] = {}
 
     if step_result.success:
-        raw_final_output = step_result.output.get("final_output")
-        if isinstance(raw_final_output, Mapping):
-            final_output = dict(raw_final_output)
+        if bool(step_result.output.get("final_answer_called", False)):
+            raw_final_output = step_result.output.get("final_output")
+            if isinstance(raw_final_output, Mapping):
+                final_output = dict(raw_final_output)
+            terminated_reason = TERMINATED_COMPLETED
+            should_continue_next = False
         return (
             final_output,
             terminated_reason,
@@ -267,20 +264,6 @@ def resolve_step_completion(
         )
 
     step_error = str(step_result.output.get("error", "Step execution failed."))
-    if is_no_tool_call_step_failure(error=step_error) and not step_result.tool_results and bool(final_output):
-        if step_outputs:
-            step_outputs.pop()
-        if len(memory) >= 2:
-            memory.pop()
-            memory.pop()
-        return (
-            final_output,
-            continuation_stopped_reason("empty_step"),
-            False,
-            None,
-            {},
-        )
-
     terminated_reason = TERMINATED_STEP_FAILURE
     if stop_on_step_failure:
         should_continue_next = False
@@ -310,7 +293,6 @@ def build_code_final_result(
     normalize_generated_code_per_step: bool,
     stop_on_step_failure: bool,
     alternatives_prompt_target: str,
-    continuation_memory_tail_items: int,
     step_memory_tail_items: int,
     memory_namespace: str,
     memory_read_top_k: int,
@@ -331,7 +313,6 @@ def build_code_final_result(
         normalize_generated_code_per_step: Effective code normalization flag.
         stop_on_step_failure: Effective stop-on-failure setting.
         alternatives_prompt_target: Effective alternatives prompt target.
-        continuation_memory_tail_items: Continuation memory tail item count.
         step_memory_tail_items: Step memory tail item count.
         memory_namespace: Memory namespace used for read/write.
         memory_read_top_k: Memory retrieval top-k setting.
@@ -343,7 +324,7 @@ def build_code_final_result(
         Final normalized execution result.
     """
     memory = coerce_state_records(final_state.get("memory"))
-    continuation_trace = coerce_state_records(final_state.get("continuation_trace"))
+    decision_trace = coerce_state_records(final_state.get("decision_trace"))
     retrieval_trace = coerce_state_records(final_state.get("retrieval_trace"))
     memory_errors = coerce_string_list(final_state.get("memory_errors"))
     step_outputs = coerce_state_records(final_state.get("step_outputs"))
@@ -361,7 +342,7 @@ def build_code_final_result(
             tool_results=tool_results,
             request_id=request_id,
             dependencies=dependencies,
-            metadata={**fatal_metadata, "continuation": continuation_trace},
+            metadata={**fatal_metadata, "decision_trace": decision_trace},
             output={
                 "final_output": final_output,
                 "steps_executed": len(step_outputs),
@@ -371,7 +352,7 @@ def build_code_final_result(
             },
         )
 
-    success = all(step_output.get("success") is True for step_output in step_outputs)
+    success = terminated_reason == TERMINATED_COMPLETED
     return ExecutionResult(
         output={
             "final_output": final_output,
@@ -386,7 +367,7 @@ def build_code_final_result(
         metadata={
             "request_id": request_id,
             "dependency_keys": sorted(dependencies.keys()),
-            "continuation": continuation_trace,
+            "decision_trace": decision_trace,
             "config": {
                 "max_steps": max_steps,
                 "max_tool_calls_per_step": max_tool_calls_per_step,
@@ -395,7 +376,6 @@ def build_code_final_result(
                 "normalize_generated_code_per_step": normalize_generated_code_per_step,
                 "stop_on_step_failure": stop_on_step_failure,
                 "alternatives_prompt_target": alternatives_prompt_target,
-                "continuation_memory_tail_items": continuation_memory_tail_items,
                 "step_memory_tail_items": step_memory_tail_items,
                 "memory_namespace": memory_namespace,
                 "memory_read_top_k": memory_read_top_k,
@@ -421,7 +401,7 @@ def write_step_observation(
     namespace: str,
     task_prompt: str,
     step_number: int,
-    continuation_reason: str,
+    step_reason: str,
     step_success: bool,
     generated_code: object,
     final_output: object,
@@ -434,7 +414,7 @@ def write_step_observation(
         namespace: Memory namespace.
         task_prompt: Top-level task prompt text.
         step_number: One-based step number.
-        continuation_reason: Continuation thought/reason text.
+        step_reason: Optional thought/reason text for the step.
         step_success: Whether the step succeeded.
         generated_code: Generated code payload from the step.
         final_output: Final output payload from the step.
@@ -449,7 +429,7 @@ def write_step_observation(
         payload={
             "task": task_prompt,
             "step": step_number,
-            "thought": continuation_reason,
+            "thought": step_reason,
             "selected_action": summarize_code_action(generated_code=generated_code),
             "observation_summary": summarize_observation(final_output=final_output, error=error),
             "success": step_success,
@@ -524,84 +504,13 @@ def build_step_input(
     return step_input
 
 
-def build_continuation_stop_state(
-    *,
-    memory: list[dict[str, object]],
-    continuation_trace: list[dict[str, object]],
-    retrieval_trace: list[dict[str, object]],
-    memory_errors: list[str],
-    step_outputs: list[dict[str, object]],
-    tool_results: list[ToolResult],
-    final_output: dict[str, object],
-    last_model_response: LLMResponse | None,
-    continue_source: str,
-) -> dict[str, object]:
-    """Build loop state for a continuation stop decision.
-
-    Args:
-        memory: Current memory records.
-        continuation_trace: Current continuation trace records.
-        retrieval_trace: Current retrieval trace records.
-        memory_errors: Current memory error records.
-        step_outputs: Current step outputs.
-        tool_results: Current tool results.
-        final_output: Current final output payload.
-        last_model_response: Most recent model response.
-        continue_source: Continuation source label.
-
-    Returns:
-        Next loop-state mapping representing terminal continuation stop.
-    """
-    terminated_reason = (
-        TERMINATED_CONTINUATION_INVALID_PAYLOAD
-        if continue_source == SOURCE_INVALID_PAYLOAD
-        else continuation_stopped_reason(continue_source)
-    )
-    fatal_error: str | None = None
-    fatal_metadata: dict[str, object] = {}
-    if continue_source == SOURCE_INVALID_PAYLOAD:
-        fatal_error = "Continuation output was invalid. Expected JSON payload with boolean `continue`."
-        fatal_metadata = {
-            "stage": "continuation",
-            "terminated_reason": terminated_reason,
-        }
-    return {
-        "memory": memory,
-        "continuation_trace": continuation_trace,
-        "retrieval_trace": retrieval_trace,
-        "memory_errors": memory_errors,
-        "step_outputs": step_outputs,
-        "tool_results": tool_results,
-        "final_output": final_output,
-        "last_model_response": last_model_response,
-        "terminated_reason": terminated_reason,
-        "should_continue": False,
-        "fatal_error": fatal_error,
-        "fatal_metadata": fatal_metadata,
-    }
-
-
-def is_no_tool_call_step_failure(*, error: str) -> bool:
-    """Return whether a step failed because generated code skipped tool calls.
-
-    Args:
-        error: Step error message.
-
-    Returns:
-        ``True`` when the failure indicates no tool call was generated.
-    """
-    return "Generated code must call at least one tool." in error
-
-
 __all__ = [
     "MultiStepCodeRunConfig",
     "append_retrieval_trace",
     "build_code_final_result",
     "build_code_step_agent",
-    "build_continuation_stop_state",
     "build_step_input",
     "build_step_tools_text",
-    "is_no_tool_call_step_failure",
     "resolve_run_config",
     "resolve_step_completion",
     "summarize_code_action",

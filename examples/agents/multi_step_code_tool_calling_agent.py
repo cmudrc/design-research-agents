@@ -51,9 +51,24 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
+from design_research_agents import CallableToolConfig, LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
+
+_STRONGER_LLAMA_CLIENT_KWARGS = {
+    "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+    "api_model": "qwen3-4b-instruct-2507-q4km",
+    "context_window": 8192,
+    "startup_timeout_seconds": 180.0,
+}
+
+
+def _next_action(payload: Mapping[str, object]) -> dict[str, object]:
+    """Return a trivial payload so the first step can record one real tool observation."""
+    del payload
+    return {"result": True}
 
 
 def main() -> None:
@@ -66,21 +81,35 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
+    with (
+        Toolbox(
+            enable_core_tools=False,
+            callable_tools=(
+                CallableToolConfig(
+                    name="workflow.next_action",
+                    description="Return a trivial dict for the next step.",
+                    handler=_next_action,
+                ),
+            ),
+        ) as tool_runtime,
+        LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
+    ):
         agent = MultiStepAgent(
             mode="code",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            max_steps=3,
+            max_steps=2,
             normalize_generated_code_per_step=True,
-            default_tools_per_step=({"tool_name": "text.word_count"},),
+            default_tools_per_step=({"tool_name": "workflow.next_action"},),
             tracer=tracer,
         )
         result = agent.run(
             prompt=(
-                "No imports. Use call_tool only. Compute two design-review metrics using "
-                "text.word_count on these phrases: 'design review metrics' and "
-                "'runtime tool boundaries'. Return final_output with both counts."
+                "Do this in exactly two outer steps. "
+                "On step 1, call workflow.next_action exactly once and assign the returned dict to "
+                "final_output. Do not call final_answer on step 1. "
+                "On step 2, do not call any tool. Call final_answer({}). "
+                "Use only executable Python."
             ),
             request_id=request_id,
         )

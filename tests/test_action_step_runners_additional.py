@@ -157,6 +157,40 @@ class _CalculatorRuntime(ToolRuntime):
         return None
 
 
+class _ReservedNameRuntime(ToolRuntime):
+    def list_tools(self) -> Sequence[ToolSpec]:
+        return (
+            ToolSpec(
+                name="final_answer",
+                description="reserved",
+                input_schema={"type": "object"},
+                output_schema={"type": "object"},
+            ),
+        )
+
+    def invoke(
+        self,
+        tool_name: str,
+        input: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del tool_name, input, request_id, dependencies
+        return ToolResult(tool_name="final_answer", ok=True, result={})
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ReservedNameRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
 def test_json_action_step_runner_success_path() -> None:
     runner = JsonActionStepRunner(
         llm_client=SequenceLLMClient(response_texts=['{"tool_name":"sum","tool_input":{"a":2,"b":3}}']),
@@ -169,9 +203,30 @@ def test_json_action_step_runner_success_path() -> None:
     assert result.output["tool_name"] == "sum"
     assert result.output["tool_output"] == {"value": 5}
     assert result.output["final_output"] == {"value": 5}
+    assert result.output["action_type"] == "tool_call"
+    assert result.output["final_answer_called"] is False
     assert len(result.tool_results) == 1
     assert result.tool_results[0].tool_name == "sum"
     assert result.output["workflow"]["success"] is True
+
+
+def test_json_action_step_runner_supports_final_answer_action() -> None:
+    runner = JsonActionStepRunner(
+        llm_client=SequenceLLMClient(
+            response_texts=['{"tool_name":"final_answer","tool_input":{"answer":"5"},"reason":"done"}']
+        ),
+        tool_runtime=_ActionRuntime(),
+    )
+
+    result = runner.run("Return the answer directly")
+
+    assert result.success is True
+    assert result.tool_results == []
+    assert result.output["tool_name"] == "final_answer"
+    assert result.output["final_output"] == {"answer": "5"}
+    assert result.output["action_type"] == "final_answer"
+    assert result.output["final_answer_called"] is True
+    assert result.output["reason"] == "done"
 
 
 def test_json_action_step_runner_rejects_legacy_tool_selection_payload_shape() -> None:
@@ -190,22 +245,30 @@ def test_json_action_step_runner_rejects_legacy_tool_selection_payload_shape() -
     assert result.metadata["stage"] == "tool_selection"
 
 
-def test_json_action_step_runner_retries_after_controller_style_payload() -> None:
+def test_json_action_step_runner_rejects_controller_style_payload_without_retry() -> None:
     runner = JsonActionStepRunner(
-        llm_client=SequenceLLMClient(
-            response_texts=[
-                '{"continue": true, "thought": "Need to pick one tool."}',
-                '{"tool_name":"sum","tool_input":{"a":3,"b":4}}',
-            ]
-        ),
+        llm_client=SequenceLLMClient(response_texts=['{"continue": true, "thought": "Need to pick one tool."}']),
         tool_runtime=_ActionRuntime(),
     )
 
     result = runner.run("Compute 3 + 4")
 
-    assert result.success is True
-    assert result.output["tool_name"] == "sum"
-    assert result.output["tool_output"] == {"value": 7}
+    assert result.success is False
+    assert "tool selection was invalid" in str(result.output["error"]).lower()
+
+
+def test_json_action_step_runner_rejects_invalid_final_answer_payload() -> None:
+    runner = JsonActionStepRunner(
+        llm_client=SequenceLLMClient(
+            response_texts=['{"tool_name":"final_answer","tool_input":"not-an-object","reason":"done"}']
+        ),
+        tool_runtime=_ActionRuntime(),
+    )
+
+    result = runner.run("Return the answer directly")
+
+    assert result.success is False
+    assert "final_answer" in str(result.output["error"])
 
 
 def test_json_action_step_runner_invalid_selection_and_tool_failure() -> None:
@@ -374,7 +437,28 @@ def test_code_action_step_runner_success_and_failure_modes() -> None:
     success = success_runner.run("Compute 2 + 3")
     assert success.success is True
     assert success.output["final_output"] == {"value": 5}
+    assert success.output["final_answer_called"] is False
+    assert success.output["action_type"] == "tool_call"
     assert success.output["tool_name"] == "sum"
+
+    terminal_runner = CodeActionStepRunner(
+        llm_client=SequenceLLMClient(
+            response_texts=[
+                "\n".join(
+                    [
+                        'calc = call_tool("sum", {"a": 4, "b": 5})',
+                        'final_answer({"value": calc["value"]})',
+                    ]
+                )
+            ]
+        ),
+        tool_runtime=_ActionRuntime(),
+    )
+    terminal_result = terminal_runner.run("Compute 4 + 5")
+    assert terminal_result.success is True
+    assert terminal_result.output["final_output"] == {"value": 9}
+    assert terminal_result.output["final_answer_called"] is True
+    assert terminal_result.output["action_type"] == "final_answer"
 
     validation_runner = CodeActionStepRunner(
         llm_client=SequenceLLMClient(response_texts=["import os\nfinal_output = {}"]),
@@ -413,6 +497,18 @@ def test_code_action_step_runner_success_and_failure_modes() -> None:
     assert no_tools_result.success is False
     assert "no allowed tools" in str(no_tools_result.output["error"]).lower()
     assert no_tools_result.metadata["stage"] == "input_validation"
+
+    with pytest.raises(ValueError, match="reserved tool name"):
+        JsonActionStepRunner(
+            llm_client=SequenceLLMClient(response_texts=['{"tool_name":"final_answer","tool_input":{}}']),
+            tool_runtime=_ReservedNameRuntime(),
+        )
+
+    with pytest.raises(ValueError, match="reserved tool name"):
+        CodeActionStepRunner(
+            llm_client=SequenceLLMClient(response_texts=['final_answer({"done": True})']),
+            tool_runtime=_ReservedNameRuntime(),
+        )
 
 
 class _FinalizePayloadAgent:

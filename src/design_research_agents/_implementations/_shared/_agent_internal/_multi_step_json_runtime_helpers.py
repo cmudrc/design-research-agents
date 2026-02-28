@@ -7,7 +7,7 @@ from collections.abc import Mapping
 
 from design_research_agents._contracts._delegate import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
-from design_research_agents._contracts._termination import TERMINATED_MAX_STEPS_REACHED
+from design_research_agents._contracts._termination import TERMINATED_COMPLETED, TERMINATED_MAX_STEPS_REACHED
 from design_research_agents._implementations._shared._agent_internal._multi_step_json_helpers import (
     failure_result,
 )
@@ -72,7 +72,6 @@ def build_json_final_result(
     max_steps: int,
     stop_on_step_failure: bool,
     alternatives_prompt_target: str,
-    continuation_memory_tail_items: int,
     step_memory_tail_items: int,
     memory_namespace: str,
     memory_read_top_k: int,
@@ -88,7 +87,6 @@ def build_json_final_result(
         max_steps: Effective max-step setting.
         stop_on_step_failure: Effective stop-on-failure setting.
         alternatives_prompt_target: Effective alternatives prompt target.
-        continuation_memory_tail_items: Continuation memory tail item count.
         step_memory_tail_items: Step memory tail item count.
         memory_namespace: Memory namespace used for read/write.
         memory_read_top_k: Memory retrieval top-k setting.
@@ -99,7 +97,7 @@ def build_json_final_result(
         Final normalized execution result.
     """
     memory = coerce_state_records(final_state.get("memory"))
-    continuation_trace = coerce_state_records(final_state.get("continuation_trace"))
+    decision_trace = coerce_state_records(final_state.get("decision_trace"))
     retrieval_trace = coerce_state_records(final_state.get("retrieval_trace"))
     memory_errors = coerce_string_list(final_state.get("memory_errors"))
     step_outputs = coerce_state_records(final_state.get("step_outputs"))
@@ -120,7 +118,7 @@ def build_json_final_result(
             dependencies=dependencies,
             metadata={
                 **fatal_metadata,
-                "continuation": continuation_trace,
+                "decision_trace": decision_trace,
             },
             output={
                 "final_output": final_output,
@@ -131,7 +129,7 @@ def build_json_final_result(
             },
         )
 
-    success = all(step_output.get("success") is True for step_output in step_outputs)
+    success = terminated_reason == TERMINATED_COMPLETED
     return ExecutionResult(
         output={
             "final_output": final_output,
@@ -146,12 +144,11 @@ def build_json_final_result(
         metadata={
             "request_id": request_id,
             "dependency_keys": sorted(dependencies.keys()),
-            "continuation": continuation_trace,
+            "decision_trace": decision_trace,
             "config": {
                 "max_steps": max_steps,
                 "stop_on_step_failure": stop_on_step_failure,
                 "alternatives_prompt_target": alternatives_prompt_target,
-                "continuation_memory_tail_items": continuation_memory_tail_items,
                 "step_memory_tail_items": step_memory_tail_items,
                 "memory_namespace": memory_namespace,
                 "memory_read_top_k": memory_read_top_k,

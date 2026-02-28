@@ -86,11 +86,11 @@ class _EmptySearchStore:
 
 
 def test_schema_builders_cover_active_variants() -> None:
-    tool_call_schema = build_tool_call_response_schema(tool_names=("tool_a", "tool_b"))
+    tool_call_schema = build_tool_call_response_schema(tool_names=("tool_a", "final_answer"))
     direct_controller_schema = build_multi_step_direct_controller_response_schema()
 
     assert tool_call_schema["required"] == ["tool_name"]
-    assert tool_call_schema["properties"]["tool_name"]["enum"] == ["tool_a", "tool_b"]
+    assert tool_call_schema["properties"]["tool_name"]["enum"] == ["tool_a", "final_answer"]
     assert direct_controller_schema["required"] == ["decision", "content"]
     assert direct_controller_schema["properties"]["decision"]["enum"] == ["CONTINUE", "STOP"]
 

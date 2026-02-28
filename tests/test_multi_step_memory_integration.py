@@ -12,9 +12,8 @@ from tests.helpers.workflow_stubs import SequenceLLMClient
 def test_multi_step_json_behavior_unchanged_without_memory_store() -> None:
     llm_client = SequenceLLMClient(
         response_texts=[
-            '{"continue": true, "thought": "start"}',
             '{"tool_name": "text.word_count", "tool_input": {"text": "design research agents"}}',
-            '{"continue": false, "thought": "done"}',
+            '{"tool_name": "final_answer", "tool_input": {"word_count": 3}, "reason": "done"}',
         ]
     )
     agent = MultiStepAgent(
@@ -29,7 +28,7 @@ def test_multi_step_json_behavior_unchanged_without_memory_store() -> None:
 
     assert result.success
     assert result.output["final_output"]["word_count"] == 3
-    assert result.output["steps_executed"] == 1
+    assert result.output["steps_executed"] == 2
 
 
 def test_multi_step_json_reads_memory_context_and_writes_observations(tmp_path) -> None:
@@ -41,9 +40,8 @@ def test_multi_step_json_reads_memory_context_and_writes_observations(tmp_path) 
 
     llm_client = SequenceLLMClient(
         response_texts=[
-            '{"continue": true, "thought": "start"}',
             '{"tool_name": "text.word_count", "tool_input": {"text": "design systems research"}}',
-            '{"continue": false, "thought": "done"}',
+            '{"tool_name": "final_answer", "tool_input": {"word_count": 3}, "reason": "done"}',
         ]
     )
     agent = MultiStepAgent(
@@ -85,14 +83,13 @@ def test_multi_step_code_writes_observations_when_memory_enabled(tmp_path) -> No
 
     llm_client = SequenceLLMClient(
         response_texts=[
-            '{"continue": true, "thought": "start"}',
             "\n".join(
                 [
                     'stats = call_tool("text.word_count", {"text": "design memory trace"})',
                     'final_output = {"result": stats["word_count"]}',
                 ]
             ),
-            '{"continue": false, "thought": "done"}',
+            'final_answer({"result": 3})',
         ]
     )
     agent = MultiStepAgent(

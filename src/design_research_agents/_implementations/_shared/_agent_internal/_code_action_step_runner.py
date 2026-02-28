@@ -72,6 +72,7 @@ from ._code_action_step_workflow_helpers import (
 
 _DISALLOWED_TOOL_ERROR_FRAGMENT = "is not in the allowed tool list"
 _ARITHMETIC_CANDIDATE_PATTERN = re.compile(r"^[0-9\.\+\-\*\/%\(\)\s]+$")
+_FINAL_ANSWER_TOOL_NAME = "final_answer"
 
 
 class CodeActionStepRunner(Delegate):
@@ -134,6 +135,8 @@ class CodeActionStepRunner(Delegate):
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(alternatives_prompt_target)
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
+        if _FINAL_ANSWER_TOOL_NAME in self._runtime_specs:
+            raise ValueError(f"ToolRuntime cannot expose reserved tool name '{_FINAL_ANSWER_TOOL_NAME}'.")
         self._compiled_default_allowed_tools = compile_default_allowed_tools(
             runtime_specs=self._runtime_specs,
             default_tools=default_tools,
@@ -476,7 +479,7 @@ class CodeActionStepRunner(Delegate):
 
         try:
             compiled_code = compile_sandboxed_code(code_text)
-            final_output = execute_compiled_code(
+            execution_outcome = execute_compiled_code(
                 compiled_code=compiled_code,
                 prompt=str(resolved.get("prompt", "")),
                 input_payload=mapping_or_empty(resolved.get("normalized_input")),
@@ -537,7 +540,10 @@ class CodeActionStepRunner(Delegate):
             "model_response": llm_response,
             "generated_code": code_text,
             "raw_generated_code": generated.get("raw_generated_code"),
-            "final_output": final_output,
+            "final_output": execution_outcome.final_output,
+            "final_answer_called": execution_outcome.final_answer_called,
+            "used_tool_output_fallback": execution_outcome.used_tool_output_fallback,
+            "action_type": "final_answer" if execution_outcome.final_answer_called else "tool_call",
             "tool_results": tool_results,
             "code_normalization": mapping_or_empty(generated.get("code_normalization")),
         }
@@ -606,6 +612,9 @@ class CodeActionStepRunner(Delegate):
             "model_response": llm_response,
             "generated_code": generated_code,
             "final_output": recovered_final_output,
+            "final_answer_called": False,
+            "used_tool_output_fallback": False,
+            "action_type": "tool_call",
             "tool_results": tool_results,
             "code_normalization": mapping_or_empty(code_normalization),
         }
@@ -789,6 +798,8 @@ class CodeActionStepRunner(Delegate):
             "model_text": llm_response.text,
             "generated_code": str(executed.get("generated_code", generated.get("generated_code", ""))),
             "final_output": final_output,
+            "final_answer_called": bool(executed.get("final_answer_called", False)),
+            "action_type": str(executed.get("action_type", "tool_call")),
             "tool_name": tool_results[-1].tool_name if tool_results else None,
             "tool_output": tool_results[-1].result if tool_results else {},
         }

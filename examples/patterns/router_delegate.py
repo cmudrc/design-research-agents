@@ -62,6 +62,14 @@ from design_research_agents import (
 )
 from design_research_agents.patterns import RouterDelegatePattern
 
+_STRONGER_LLAMA_CLIENT_KWARGS = {
+    "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+    "api_model": "qwen3-4b-instruct-2507-q4km",
+    "context_window": 8192,
+    "startup_timeout_seconds": 180.0,
+}
+
 
 def main() -> None:
     """Route one design prompt to the best delegate and print summary."""
@@ -73,13 +81,13 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
+    with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client:
         direct_llm_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         json_tool_agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            max_steps=1,
+            max_steps=2,
             tracer=tracer,
         )
 
@@ -98,7 +106,10 @@ def main() -> None:
         )
 
         result = workflow.run(
-            prompt=("Count the words in this design phrase and return the tool result: modular field service workflow"),
+            prompt=(
+                "Count the words in this design phrase. Use a runtime tool first, then finish with "
+                "final_answer: modular field service workflow"
+            ),
             request_id=request_id,
         )
 

@@ -29,6 +29,7 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
 
 type MultiStepMode = Literal["direct", "json", "code"]
+_FINAL_ANSWER_TOOL_NAME = "final_answer"
 
 
 def _normalize_mode(raw_mode: object) -> MultiStepMode:
@@ -116,8 +117,11 @@ class MultiStepAgent(Delegate):
         if normalized_mode in {"json", "code"}:
             if tool_runtime is None:
                 raise ValueError("tool_runtime is required when mode is 'json' or 'code'.")
-            if not tool_runtime.list_tools():
+            runtime_tools = tuple(tool_runtime.list_tools())
+            if not runtime_tools:
                 raise ValueError("tool_runtime must expose at least one tool when mode is 'json' or 'code'.")
+            if any(tool.name == _FINAL_ANSWER_TOOL_NAME for tool in runtime_tools):
+                raise ValueError(f"tool_runtime cannot expose reserved tool name '{_FINAL_ANSWER_TOOL_NAME}'.")
 
         # Additional validation for code mode
         self._mode = normalized_mode

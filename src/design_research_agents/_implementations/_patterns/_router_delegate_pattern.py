@@ -13,7 +13,6 @@ from design_research_agents._contracts._termination import (
 )
 from design_research_agents._contracts._tools import ToolRuntime, ToolSpec
 from design_research_agents._contracts._workflow import DelegateTarget, LogicStep
-from design_research_agents._implementations._agents._multi_step_agent import MultiStepAgent
 from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
     MODE_ROUTER_DELEGATE,
@@ -33,6 +32,9 @@ from .._shared._agent_internal._agent_routing_runtime_adapter import (
 )
 from .._shared._agent_internal._input_parsing import (
     extract_prompt as _extract_prompt,
+)
+from .._shared._agent_internal._json_action_step_runner import (
+    JsonActionStepRunner,
 )
 from .._shared._agent_internal._prompt_overrides import (
     validate_prompt_text,
@@ -60,7 +62,7 @@ class _RoutingWorkflowCallbacks:
         self,
         *,
         pattern: RouterDelegatePattern,
-        router_agent: MultiStepAgent,
+        router_agent: JsonActionStepRunner,
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -393,14 +395,11 @@ class RouterDelegatePattern(Delegate):
             alternatives=self._alternatives,
             descriptions=self._alternative_descriptions,
         )
-        router_agent = MultiStepAgent(
-            mode="json",
+        router_agent = JsonActionStepRunner(
             llm_client=self._llm_client,
             tool_runtime=routing_tool_runtime,
-            max_steps=1,
-            stop_on_step_failure=True,
-            tool_calling_system_prompt=self._router_system_prompt,
-            tool_calling_user_prompt_template=self._router_user_prompt_template,
+            system_prompt=self._router_system_prompt,
+            user_prompt_template=self._router_user_prompt_template,
             allowed_tools=tuple(sorted(self._alternatives)),
             tracer=self._tracer,
         )

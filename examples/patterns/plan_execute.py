@@ -58,10 +58,34 @@ from pathlib import Path
 from design_research_agents import (
     CallableToolConfig,
     LlamaCppServerLLMClient,
+    MultiStepAgent,
     Toolbox,
     Tracer,
 )
 from design_research_agents.patterns import PlanExecutePattern
+
+_STRONGER_LLAMA_CLIENT_KWARGS = {
+    "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+    "api_model": "qwen3-4b-instruct-2507-q4km",
+    "context_window": 8192,
+    "startup_timeout_seconds": 180.0,
+}
+_EXECUTOR_STEP_PROMPT_TEMPLATE = "\n".join(
+    [
+        "Task: $task_prompt",
+        "Plan step id: $step_id",
+        "Instruction: $instruction",
+        "Success criteria: $success_criteria",
+        "Within this executor run, use exactly two internal steps.",
+        "When Current step is 1, call repo.readme_metrics exactly once and assign a compact",
+        "summary dict to final_output. Do not call final_answer on step 1.",
+        "When Current step is 2, do not call any tool. Call final_answer with the same",
+        "summary dict.",
+        "Prior step outputs:",
+        "$prior_step_outputs_json",
+    ]
+)
 
 
 def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:
@@ -90,6 +114,7 @@ def main() -> None:
     )
     with (
         Toolbox(
+            enable_core_tools=False,
             callable_tools=(
                 CallableToolConfig(
                     name="repo.readme_metrics",
@@ -99,18 +124,29 @@ def main() -> None:
                 ),
             ),
         ) as tool_runtime,
-        LlamaCppServerLLMClient() as llm_client,
+        LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
+        executor_delegate = MultiStepAgent(
+            mode="code",
+            llm_client=llm_client,
+            tool_runtime=tool_runtime,
+            max_steps=2,
+            default_tools_per_step=({"tool_name": "repo.readme_metrics"},),
+            tracer=tracer,
+        )
         workflow = PlanExecutePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
+            executor_delegate=executor_delegate,
             max_iterations=1,
+            executor_step_prompt_template=_EXECUTOR_STEP_PROMPT_TEMPLATE,
             tracer=tracer,
         )
         result = workflow.run(
             prompt=(
-                "Create and execute a concise engineering-design audit plan for repository "
-                "tooling surfaces and produce a compact summary."
+                "Create and execute a concise engineering-design audit plan using the available "
+                "repo.readme_metrics tool. The executor must use repo.readme_metrics and end the "
+                "task with an explicit final_answer containing a compact summary."
             ),
             request_id=request_id,
         )

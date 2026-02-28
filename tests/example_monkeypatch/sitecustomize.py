@@ -23,72 +23,45 @@ if _DETERMINISTIC_MODE:
 _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     "examples/agents/direct_llm_call.py": ("4",),
     "examples/agents/multi_step_code_tool_calling_agent.py": (
-        '{"continue": true, "thought": "Read README and analyze text stats."}',
         "\n".join(
             [
-                'readme = call_tool("fs.read_text", {"path": "README.md", "max_bytes": 2400})',
-                'stats = call_tool("text.word_count", {"text": readme["text"]})',
-                'diff_result = call_tool("text.diff", {"a": "core tools only", "b": "core + script + mcp tools"})',
+                'first_stats = call_tool("text.word_count", {"text": "design review metrics"})',
+                'second_stats = call_tool("text.word_count", {"text": "runtime tool boundaries"})',
                 "final_output = {",
-                '    "word_count": stats["word_count"],',
-                '    "line_count": stats["line_count"],',
-                '    "diff_preview": diff_result["diff"].splitlines()[:4],',
+                '    "first_count": first_stats["word_count"],',
+                '    "second_count": second_stats["word_count"],',
                 "}",
             ]
         ),
-        '{"continue": false, "thought": "Task complete."}',
+        'final_answer({"first_count": 3, "second_count": 3})',
     ),
     "examples/agents/multi_step_json_tool_calling_agent.py": (
-        '{"continue": true, "thought": "Read README first."}',
-        (
-            '{"tool_name":"fs.read_text","tool_input":{"path":"README.md","max_bytes":800},'
-            '"reason":"Need repository text context."}'
-        ),
-        '{"continue": false, "thought": "Task complete."}',
+        ('{"tool_name":"repo.readme_snapshot","tool_input":{},"reason":"Need repository text context."}'),
+        ('{"tool_name":"final_answer","tool_input":{"result":true},"reason":"done"}'),
     ),
     "examples/agents/multi_step_json_with_memory.py": (
-        '{"continue": true, "thought": "start"}',
         '{"tool_name": "text.word_count", "tool_input": {"text": "design context memory"}}',
-        '{"continue": false, "thought": "done"}',
+        '{"tool_name":"final_answer","tool_input":{"word_count":3},"reason":"done"}',
     ),
     "examples/agents/multi_step_direct_llm_agent.py": (
         '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.","reason":"Need final wording."}',
         '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
     ),
     "examples/optimization/multi_step_json_tool_calling_1d_optimization.py": (
-        '{"continue": true, "thought": "Start descending toward zero."}',
         '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Decrease x toward zero."}',
-        '{"continue": true, "thought": "Still above zero, continue decreasing."}',
         '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Keep moving toward zero."}',
-        '{"continue": true, "thought": "One more decrease should reach zero."}',
         '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Reach x=0."}',
-        '{"continue": false, "thought": "No better one-step move remains."}',
+        '{"tool_name":"final_answer","tool_input":{"x":0,"objective":0},"reason":"done"}',
     ),
     "examples/patterns/plan_execute.py": (
         (
-            '{"steps":[{"step_id":"analyze_repo_tools","instruction":"Write a small CSV artifact '
-            "describing tool sources, then describe that CSV and search the tools package for "
-            'Toolbox.","success_criteria":"Return csv row stats and source-code '
-            'match count."}]}'
+            '{"steps":[{"step_id":"analyze_readme","instruction":"Call repo.readme_metrics and return '
+            'a compact summary.","success_criteria":"Return README path and line count."}]}'
         ),
-        '{"continue": true, "thought": "Run the first execution step."}',
         "\n".join(
             [
-                'csv_text = "tool,source\\ntext.word_count,core\\nrubric_score,script\\ntext.word_count,mcp\\n"',
-                'write_result = call_tool("fs.write_text", {"path": '
-                '"artifacts/examples/plan_execute_runtime_inventory.csv", "content": csv_text, '
-                '"overwrite": True})',
-                'describe_result = call_tool("data.describe", {"path": '
-                '"artifacts/examples/plan_execute_runtime_inventory.csv", "kind": "csv"})',
-                'search_result = call_tool("search.ripgrep", {"query": '
-                '"Toolbox", "root": "src/design_research_agents/tools", '
-                '"max_matches": 4})',
-                "final_output = {",
-                '  "csv_path": write_result["path"],',
-                '  "row_count": describe_result["rows"],',
-                '  "column_count": describe_result["column_count"],',
-                '  "search_hits": search_result["count"],',
-                "}",
+                'metrics = call_tool("repo.readme_metrics", {})',
+                'final_answer({"path": metrics["path"], "line_count": metrics["line_count"]})',
             ]
         ),
     ),
@@ -100,8 +73,8 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     ),
     "examples/patterns/router_delegate.py": (
         '{"tool_name":"json_tool_agent","tool_input":{},"reason":"Text-analysis request uses tools."}',
-        '{"continue": true, "thought": "Select one text tool call."}',
         '{"tool_name":"text.word_count","tool_input":{"text":"modular field service workflow"}}',
+        '{"tool_name":"final_answer","tool_input":{"word_count":4},"reason":"done"}',
     ),
     "examples/patterns/debate_pattern.py": (
         "Local models improve data control and predictable costs for many research workloads.",

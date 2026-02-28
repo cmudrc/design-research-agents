@@ -141,7 +141,7 @@ def test_multi_step_json_runtime_helpers_cover_summary_and_failure_paths() -> No
     failure = json_runtime.build_json_final_result(
         final_state={
             "memory": [],
-            "continuation_trace": [],
+            "decision_trace": [],
             "retrieval_trace": [],
             "memory_errors": [],
             "step_outputs": [],
@@ -157,7 +157,6 @@ def test_multi_step_json_runtime_helpers_cover_summary_and_failure_paths() -> No
         max_steps=3,
         stop_on_step_failure=True,
         alternatives_prompt_target="user",
-        continuation_memory_tail_items=4,
         step_memory_tail_items=2,
         memory_namespace="default",
         memory_read_top_k=3,

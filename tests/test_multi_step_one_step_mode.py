@@ -9,7 +9,10 @@ from design_research_agents._contracts._llm import (
     LLMRequest,
     LLMResponse,
 )
-from design_research_agents._contracts._termination import TERMINATED_MAX_STEPS_REACHED
+from design_research_agents._contracts._termination import (
+    TERMINATED_COMPLETED,
+    TERMINATED_MAX_STEPS_REACHED,
+)
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.agent import MultiStepAgent
 from design_research_agents.tools import Toolbox
@@ -113,21 +116,21 @@ def test_multi_step_json_one_step_mode_runs_single_action_step() -> None:
 
     result = agent.run("Compute 2+3")
 
-    assert result.success is True
+    assert result.success is False
     assert result.output["steps_executed"] == 1
     assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
-    assert result.output["final_output"] == {"value": 5}
+    assert result.output["final_output"] == {}
     assert len(result.tool_results) == 1
     assert llm_client.chat_calls == 1
 
 
-def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
+def test_multi_step_json_one_step_mode_can_finish_with_immediate_final_answer() -> None:
     llm_client = _SequenceChatLLMClient(
         responses=[
             json.dumps(
                 {
-                    "tool_name": "text.word_count",
-                    "tool_input": {"text": "design research"},
+                    "tool_name": "final_answer",
+                    "tool_input": {"word_count": 2},
                 }
             ),
         ]
@@ -143,20 +146,19 @@ def test_multi_step_json_one_step_mode_runs_single_tool_step() -> None:
 
     assert result.success is True
     assert result.output["steps_executed"] == 1
-    assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
+    assert result.output["terminated_reason"] == TERMINATED_COMPLETED
     assert result.output["final_output"]["word_count"] == 2
-    assert len(result.tool_results) == 1
+    assert len(result.tool_results) == 0
     assert llm_client.chat_calls == 1
 
 
 def test_multi_step_code_one_step_mode_runs_single_code_step() -> None:
     llm_client = _SequenceChatLLMClient(
         responses=[
-            json.dumps({"continue": True, "thought": "run one step"}),
             "\n".join(
                 [
                     'stats = call_tool("text.word_count", {"text": "design research"})',
-                    'final_output = {"result": stats["word_count"]}',
+                    'final_answer({"result": stats["word_count"]})',
                 ]
             ),
         ]
@@ -172,7 +174,7 @@ def test_multi_step_code_one_step_mode_runs_single_code_step() -> None:
 
     assert result.success is True
     assert result.output["steps_executed"] == 1
-    assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
+    assert result.output["terminated_reason"] == TERMINATED_COMPLETED
     assert result.output["final_output"] == {"result": 2}
     assert len(result.tool_results) == 1
-    assert llm_client.chat_calls == 2
+    assert llm_client.chat_calls == 1

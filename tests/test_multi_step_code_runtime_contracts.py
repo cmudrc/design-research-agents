@@ -7,7 +7,10 @@ import pytest
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._memory import MemoryRecord, MemoryWriteRecord
-from design_research_agents._contracts._termination import SOURCE_INVALID_PAYLOAD
+from design_research_agents._contracts._termination import (
+    TERMINATED_COMPLETED,
+    TERMINATED_MAX_STEPS_REACHED,
+)
 from design_research_agents._contracts._tools import ToolResult, ToolSpec
 from design_research_agents._implementations._shared._agent_internal import (
     _multi_step_code_runtime_helpers as code_runtime,
@@ -106,39 +109,35 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
     assert code_runtime.summarize_observation(final_output={"x": 1}, error=None).startswith("{")
     assert code_runtime.summarize_observation(final_output={}, error=" boom ") == "error: boom"
 
-    success_step = ExecutionResult(
+    non_terminal_step = ExecutionResult(
         success=True,
-        output={"final_output": {"value": 9}},
+        output={"final_output": {"value": 9}, "final_answer_called": False},
         tool_results=[],
         model_response=None,
     )
     completion = code_runtime.resolve_step_completion(
-        step_result=success_step,
-        step_outputs=[],
-        memory=[],
+        step_result=non_terminal_step,
         final_output={},
         stop_on_step_failure=True,
     )
-    assert completion[0] == {"value": 9}
+    assert completion[0] == {}
+    assert completion[1] == TERMINATED_MAX_STEPS_REACHED
     assert completion[2] is True
 
-    no_tool_call_step = ExecutionResult(
-        success=False,
-        output={"error": "Generated code must call at least one tool."},
+    terminal_step = ExecutionResult(
+        success=True,
+        output={"final_output": {"done": True}, "final_answer_called": True},
         tool_results=[],
         model_response=None,
     )
-    step_outputs = [{"step": 1}]
-    memory = [{"kind": "task"}, {"kind": "observation"}]
-    completion_no_tool = code_runtime.resolve_step_completion(
-        step_result=no_tool_call_step,
-        step_outputs=step_outputs,
-        memory=memory,
-        final_output={"value": 1},
+    terminal_completion = code_runtime.resolve_step_completion(
+        step_result=terminal_step,
+        final_output={},
         stop_on_step_failure=True,
     )
-    assert completion_no_tool[1] == "continuation_stopped:empty_step"
-    assert completion_no_tool[2] is False
+    assert terminal_completion[0] == {"done": True}
+    assert terminal_completion[1] == TERMINATED_COMPLETED
+    assert terminal_completion[2] is False
 
     failed_step = ExecutionResult(
         success=False,
@@ -148,8 +147,6 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
     )
     completion_fail = code_runtime.resolve_step_completion(
         step_result=failed_step,
-        step_outputs=[],
-        memory=[],
         final_output={},
         stop_on_step_failure=True,
     )
@@ -158,13 +155,13 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
     final_success = code_runtime.build_code_final_result(
         final_state={
             "memory": [],
-            "continuation_trace": [],
+            "decision_trace": [],
             "retrieval_trace": [],
             "memory_errors": [],
             "step_outputs": [{"success": True}],
             "tool_results": [],
             "final_output": {"done": True},
-            "terminated_reason": "ok",
+            "terminated_reason": TERMINATED_COMPLETED,
             "last_model_response": LLMResponse(text="x"),
             "fatal_error": None,
             "fatal_metadata": {},
@@ -178,7 +175,6 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
         normalize_generated_code_per_step=False,
         stop_on_step_failure=True,
         alternatives_prompt_target="user",
-        continuation_memory_tail_items=6,
         step_memory_tail_items=4,
         memory_namespace="default",
         memory_read_top_k=3,
@@ -191,7 +187,7 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
     final_failure = code_runtime.build_code_final_result(
         final_state={
             "memory": [],
-            "continuation_trace": [],
+            "decision_trace": [],
             "retrieval_trace": [],
             "memory_errors": [],
             "step_outputs": [{"success": False}],
@@ -211,7 +207,6 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
         normalize_generated_code_per_step=False,
         stop_on_step_failure=True,
         alternatives_prompt_target="user",
-        continuation_memory_tail_items=6,
         step_memory_tail_items=4,
         memory_namespace="default",
         memory_read_top_k=3,
@@ -228,7 +223,7 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
         namespace="notes",
         task_prompt="task",
         step_number=1,
-        continuation_reason="reason",
+        step_reason="reason",
         step_success=True,
         generated_code='call_tool("x", {})',
         final_output={"x": 1},
@@ -243,7 +238,7 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
         namespace="notes",
         task_prompt="task",
         step_number=1,
-        continuation_reason="reason",
+        step_reason="reason",
         step_success=False,
         generated_code="",
         final_output={},
@@ -273,19 +268,3 @@ def test_multi_step_code_runtime_helpers_cover_terminal_and_success_states() -> 
         alternatives_prompt_target="user",
     )
     assert step_input["prompt"] == "step"
-
-    stop_state = code_runtime.build_continuation_stop_state(
-        memory=[],
-        continuation_trace=[],
-        retrieval_trace=[],
-        memory_errors=[],
-        step_outputs=[],
-        tool_results=[],
-        final_output={},
-        last_model_response=None,
-        continue_source=SOURCE_INVALID_PAYLOAD,
-    )
-    assert stop_state["should_continue"] is False
-    assert stop_state["fatal_error"] is not None
-
-    assert code_runtime.is_no_tool_call_step_failure(error="Generated code must call at least one tool.")

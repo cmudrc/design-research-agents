@@ -1,9 +1,4 @@
-"""Multi-step ReAct-style agent built as a loop over internal JSON action steps.
-
-The agent alternates continuation checks with step execution, recording a
-structured thought-action-observation memory trace and aggregating tool
-results across steps.
-"""
+"""Multi-step ReAct-style agent built as a loop over internal JSON action steps."""
 
 from __future__ import annotations
 
@@ -13,11 +8,9 @@ from design_research_agents._contracts._delegate import Delegate, ExecutionResul
 from design_research_agents._contracts._llm import LLMClient, LLMResponse
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._termination import (
-    SOURCE_INVALID_PAYLOAD,
-    TERMINATED_CONTINUATION_INVALID_PAYLOAD,
+    TERMINATED_COMPLETED,
     TERMINATED_MAX_STEPS_REACHED,
     TERMINATED_STEP_FAILURE,
-    continuation_stopped_reason,
 )
 from design_research_agents._contracts._tools import ToolRuntime
 from design_research_agents._tracing import Tracer
@@ -35,17 +28,10 @@ from .._input_parsing import (
 from .._json_action_step_runner import (
     JsonActionStepRunner,
 )
-from .._model_resolution import (
-    resolve_agent_model,
-)
 from .._multi_step_common import (
     build_step_prompt,
 )
-from .._multi_step_continuation import (
-    llm_should_continue as _llm_should_continue,
-)
 from .._multi_step_json_helpers import (
-    build_step_tools_text,
     normalize_step_final_output,
     resolve_step_error,
 )
@@ -85,21 +71,13 @@ from .._prompt_alternatives import (
 from .._prompt_overrides import (
     resolve_prompt_text,
 )
-from .._response_schemas import (
-    build_continuation_response_schema,
-)
 from .._workflow_loop_orchestration import (
     compile_workflow_loop,
 )
 
 
 class MultiStepJsonToolCallingAgent(Delegate):
-    """Agent that iterates action-observation steps until continuation stops.
-
-    Each iteration asks the model whether to continue, then delegates one action
-    step to ``JsonActionStepRunner``. The loop keeps explicit
-    ReAct-style thought-action-observation entries in memory.
-    """
+    """Agent that iterates explicit JSON action steps until completion."""
 
     def __init__(
         self,
@@ -126,17 +104,17 @@ class MultiStepJsonToolCallingAgent(Delegate):
         """Initialize a multi-step JSON tool-calling agent.
 
         Args:
-            llm_client: LLM client used for continuation and step generation.
+            llm_client: LLM client used for step generation.
             tool_runtime: Tool runtime shared across all steps.
             max_steps: Maximum number of action-observation iterations.
             stop_on_step_failure: Whether to stop immediately when one step fails.
-            continuation_system_prompt: Optional continuation system prompt override.
-            continuation_user_prompt_template: Optional continuation user prompt template.
+            continuation_system_prompt: Unused in JSON mode; preserved for signature stability.
+            continuation_user_prompt_template: Unused in JSON mode; preserved for signature stability.
             step_user_prompt_template: Optional step user prompt template.
             tool_calling_system_prompt: Optional system prompt for tool selection step.
             tool_calling_user_prompt_template: Optional user template for tool selection step.
             alternatives_prompt_target: Prompt target for alternatives blocks.
-            continuation_memory_tail_items: Memory tail size for continuation prompts.
+            continuation_memory_tail_items: Unused in JSON mode; preserved for signature stability.
             step_memory_tail_items: Memory tail size for step prompts.
             memory_store: Optional persistent memory store for retrieval/write-back.
             memory_namespace: Namespace partition used for memory reads/writes.
@@ -146,13 +124,11 @@ class MultiStepJsonToolCallingAgent(Delegate):
             tracer: Optional explicit tracer dependency.
 
         Raises:
-            ValueError: If ``max_steps``, memory tail items, or ``memory_read_top_k`` are
-                less than ``1``.
+            ValueError: If ``max_steps``, ``step_memory_tail_items``, or ``memory_read_top_k``
+                are less than ``1``.
         """
         if max_steps < 1:
             raise ValueError("max_steps must be >= 1.")
-        if continuation_memory_tail_items < 1:
-            raise ValueError("continuation_memory_tail_items must be >= 1.")
         if step_memory_tail_items < 1:
             raise ValueError("step_memory_tail_items must be >= 1.")
         if memory_read_top_k < 1:
@@ -164,16 +140,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
         self.workflow: object | None = None
         self._max_steps = max_steps
         self._stop_on_step_failure = stop_on_step_failure
-        self._continuation_system_prompt = resolve_prompt_text(
-            override=continuation_system_prompt,
-            default_prompt_name="multi_step_continue_system",
-            field_name="continuation_system_prompt",
-        )
-        self._continuation_user_prompt_template = resolve_prompt_text(
-            override=continuation_user_prompt_template,
-            default_prompt_name="multi_step_continue_user",
-            field_name="continuation_user_prompt_template",
-        )
+        _ = continuation_system_prompt, continuation_user_prompt_template, continuation_memory_tail_items
         self._step_user_prompt_template = resolve_prompt_text(
             override=step_user_prompt_template,
             default_prompt_name="multi_step_json_step_user",
@@ -182,14 +149,12 @@ class MultiStepJsonToolCallingAgent(Delegate):
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(alternatives_prompt_target)
         self._tool_calling_system_prompt = tool_calling_system_prompt
         self._tool_calling_user_prompt_template = tool_calling_user_prompt_template
-        self._continuation_memory_tail_items = continuation_memory_tail_items
         self._step_memory_tail_items = step_memory_tail_items
         self._memory_store = memory_store
         self._memory_namespace = memory_namespace.strip() or "default"
         self._memory_read_top_k = memory_read_top_k
         self._memory_write_observations = memory_write_observations
         self._allowed_tools = tuple(allowed_tools) if allowed_tools is not None else None
-        self._continuation_response_schema = build_continuation_response_schema()
 
     def run(
         self,
@@ -231,13 +196,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
             key="stop_on_step_failure",
             default_value=self._stop_on_step_failure,
         )
-        resolved_model = resolve_agent_model(
-            llm_client=self._llm_client,
-        )
         alternatives_prompt_target = self._alternatives_prompt_target
-        step_tools_text = build_step_tools_text(
-            tool_specs={spec.name: spec for spec in self._tool_runtime.list_tools()},
-        )
 
         step_agent = JsonActionStepRunner(
             llm_client=self._llm_client,
@@ -260,10 +219,6 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 iteration=iteration,
                 state=state,
                 prompt=prompt,
-                max_steps=max_steps,
-                resolved_model=resolved_model,
-                alternatives_prompt_target=alternatives_prompt_target,
-                step_tools_text=step_tools_text,
                 step_agent=step_agent,
                 request_id=resolved_request_id,
                 dependencies=resolved_dependencies,
@@ -285,7 +240,6 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 max_steps=max_steps,
                 stop_on_step_failure=stop_on_step_failure,
                 alternatives_prompt_target=alternatives_prompt_target,
-                continuation_memory_tail_items=self._continuation_memory_tail_items,
                 step_memory_tail_items=self._step_memory_tail_items,
                 memory_namespace=self._memory_namespace,
                 memory_read_top_k=self._memory_read_top_k,
@@ -323,10 +277,6 @@ class MultiStepJsonToolCallingAgent(Delegate):
         iteration: int,
         state: Mapping[str, object],
         prompt: str,
-        max_steps: int,
-        resolved_model: str,
-        alternatives_prompt_target: AlternativesPromptTarget,
-        step_tools_text: str,
         step_agent: JsonActionStepRunner,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -338,10 +288,6 @@ class MultiStepJsonToolCallingAgent(Delegate):
             iteration: One-based loop iteration number.
             state: Current loop-state mapping.
             prompt: User prompt text.
-            max_steps: Effective max-step limit.
-            resolved_model: Resolved model identifier.
-            alternatives_prompt_target: Prompt target for alternatives injection.
-            step_tools_text: Alternatives/tool block text.
             step_agent: Step-level JSON tool agent instance.
             request_id: Resolved request identifier.
             dependencies: Normalized dependency payload mapping.
@@ -351,9 +297,8 @@ class MultiStepJsonToolCallingAgent(Delegate):
             Next loop-state mapping.
         """
         step_number = iteration
-        step_index = iteration - 1
         memory = _coerce_state_records(state.get("memory"))
-        continuation_trace = _coerce_state_records(state.get("continuation_trace"))
+        decision_trace = _coerce_state_records(state.get("decision_trace"))
         retrieval_trace = _coerce_state_records(state.get("retrieval_trace"))
         memory_errors = _coerce_string_list(state.get("memory_errors"))
         step_outputs = _coerce_state_records(state.get("step_outputs"))
@@ -368,7 +313,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
             top_k=self._memory_read_top_k,
             task_prompt=prompt,
             memory=memory,
-            memory_tail_items=self._continuation_memory_tail_items,
+            memory_tail_items=self._step_memory_tail_items,
         )
         if retrieval_error is not None:
             memory_errors.append(f"read(step {step_number}): {retrieval_error}")
@@ -379,87 +324,6 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 "namespace": self._memory_namespace,
             }
         )
-
-        skip_continuation_probe = max_steps == 1 and step_number == 1
-
-        if skip_continuation_probe:
-            should_continue = True
-            continue_reason = "single_step_mode"
-            continue_source = "single_step_mode"
-            continue_response = None
-        else:
-            (
-                should_continue,
-                continue_reason,
-                continue_source,
-                continue_response,
-            ) = _llm_should_continue(
-                llm_client=self._llm_client,
-                prompt=prompt,
-                memory=memory,
-                step_index=step_index,
-                max_steps=max_steps,
-                model=resolved_model,
-                alternatives_prompt_target=alternatives_prompt_target,
-                alternatives_text=step_tools_text,
-                retrieved_context=retrieved_context,
-                continuation_system_prompt=self._continuation_system_prompt,
-                continuation_user_prompt_template=self._continuation_user_prompt_template,
-                continuation_response_schema=self._continuation_response_schema,
-                continuation_memory_tail_items=self._continuation_memory_tail_items,
-                alternatives_section_label="Available tools for action steps",
-                agent_name="MultiStepJsonToolCallingAgent",
-            )
-            if continue_response is not None:
-                last_model_response = continue_response
-        continuation_trace.append(
-            {
-                "step": step_number,
-                "continue": should_continue,
-                "thought": continue_reason,
-                "reason": continue_reason,
-                "source": continue_source,
-            }
-        )
-        memory.append(
-            {
-                "kind": "thought",
-                "step": step_number,
-                "continue": should_continue,
-                "text": continue_reason,
-                "source": continue_source,
-            }
-        )
-        if not should_continue:
-            terminated_reason = (
-                TERMINATED_CONTINUATION_INVALID_PAYLOAD
-                if continue_source == SOURCE_INVALID_PAYLOAD
-                else continuation_stopped_reason(continue_source)
-            )
-            continuation_fatal_error: str | None = None
-            continuation_fatal_metadata: dict[str, object] = {}
-            if continue_source == SOURCE_INVALID_PAYLOAD:
-                continuation_fatal_error = (
-                    "Continuation output was invalid. Expected JSON payload with boolean `continue`."
-                )
-                continuation_fatal_metadata = {
-                    "stage": "continuation",
-                    "terminated_reason": terminated_reason,
-                }
-            return {
-                "memory": memory,
-                "continuation_trace": continuation_trace,
-                "retrieval_trace": retrieval_trace,
-                "memory_errors": memory_errors,
-                "step_outputs": step_outputs,
-                "tool_results": tool_results,
-                "final_output": final_output,
-                "last_model_response": last_model_response,
-                "terminated_reason": terminated_reason,
-                "should_continue": False,
-                "fatal_error": continuation_fatal_error,
-                "fatal_metadata": continuation_fatal_metadata,
-            }
 
         step_prompt = build_step_prompt(
             prompt=prompt,
@@ -478,13 +342,28 @@ class MultiStepJsonToolCallingAgent(Delegate):
             last_model_response = step_result.model_response
 
         tool_results.extend(step_result.tool_results)
-        raw_tool_output = step_result.output.get("tool_output")
-        step_final_output = normalize_step_final_output(raw_tool_output)
+        step_final_output = normalize_step_final_output(step_result.output.get("final_output"))
         step_error = resolve_step_error(step_result)
+        step_action_type = str(step_result.output.get("action_type", "tool_call"))
+        final_answer_called = bool(step_result.output.get("final_answer_called", False))
+        step_reason = str(step_result.output.get("reason", "")).strip()
+        action_name = str(step_result.output.get("tool_name", "") or "")
+        decision_record = {
+            "step": step_number,
+            "action_type": step_action_type,
+            "action_name": action_name,
+            "final_answer_called": final_answer_called,
+            "success": step_result.success,
+            "reason": step_reason,
+        }
+        decision_trace.append(decision_record)
         step_outputs.append(
             {
                 "step": step_number,
                 "success": step_result.success,
+                "action_type": step_action_type,
+                "final_answer_called": final_answer_called,
+                "reason": step_reason,
                 "final_output": step_final_output,
                 "tool_name": step_result.output.get("tool_name"),
                 "tool_input": step_result.output.get("tool_input", {}),
@@ -492,6 +371,14 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 "tool_results_count": len(step_result.tool_results),
             }
         )
+        if step_reason:
+            memory.append(
+                {
+                    "kind": "thought",
+                    "step": step_number,
+                    "text": step_reason,
+                }
+            )
         memory.extend(
             [
                 {
@@ -517,7 +404,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 payload={
                     "task": prompt,
                     "step": step_number,
-                    "thought": continue_reason,
+                    "thought": step_reason,
                     "selected_action": _summarize_tool_action(
                         tool_name=step_result.output.get("tool_name"),
                         tool_input=step_result.output.get("tool_input"),
@@ -539,11 +426,13 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 memory_errors.append(f"write(step {step_number}): {memory_write_error}")
 
         terminated_reason = TERMINATED_MAX_STEPS_REACHED
-        should_continue_next = True
+        should_continue_next = not final_answer_called
         fatal_error: str | None = None
         fatal_metadata: dict[str, object] = {}
         if step_result.success:
-            final_output = step_final_output
+            if final_answer_called:
+                final_output = step_final_output
+                terminated_reason = TERMINATED_COMPLETED
         else:
             terminated_reason = TERMINATED_STEP_FAILURE
             if stop_on_step_failure:
@@ -556,7 +445,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
 
         return {
             "memory": memory,
-            "continuation_trace": continuation_trace,
+            "decision_trace": decision_trace,
             "retrieval_trace": retrieval_trace,
             "memory_errors": memory_errors,
             "step_outputs": step_outputs,

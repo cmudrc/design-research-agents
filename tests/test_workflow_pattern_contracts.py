@@ -186,11 +186,10 @@ def test_exported_patterns_compile_contract(
                                 ]
                             }
                         ),
-                        '{"continue": true, "thought": "execute first step"}',
                         "\n".join(
                             [
                                 'stats = call_tool("text.word_count", {"text": "design research agents"})',
-                                'final_output = {"result": stats["word_count"]}',
+                                'final_answer({"result": stats["word_count"]})',
                             ]
                         ),
                     ]
@@ -302,11 +301,10 @@ def test_plan_execute_workflow_output_contract_success_and_failure_paths() -> No
                         ]
                     }
                 ),
-                '{"continue": true, "thought": "execute first step"}',
                 "\n".join(
                     [
                         'stats = call_tool("text.word_count", {"text": "design research agents"})',
-                        'final_output = {"result": stats["word_count"]}',
+                        'final_answer({"result": stats["word_count"]})',
                     ]
                 ),
             ]

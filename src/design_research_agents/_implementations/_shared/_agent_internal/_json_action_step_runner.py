@@ -18,6 +18,7 @@ from design_research_agents._implementations._shared._agent_internal._execution_
     resolve_agent_execution_context,
 )
 from design_research_agents._implementations._shared._agent_internal._json_tool_agent_helpers import (
+    ToolChoice,
     build_tool_call_prompt,
     build_tool_choices_text,
     clone_tool_choice,
@@ -28,6 +29,7 @@ from design_research_agents._implementations._shared._agent_internal._json_tool_
     resolve_allowed_tool_names,
     resolve_tool_input,
     select_tool_choice,
+    tool_call_response_schema,
 )
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
@@ -59,9 +61,11 @@ from design_research_agents._tracing import (
 )
 from design_research_agents.workflow import CompiledExecution, Workflow
 
+_FINAL_ANSWER_TOOL_NAME = "final_answer"
+
 
 class JsonActionStepRunner(Delegate):
-    """Agent that asks the model to select one tool and structured arguments."""
+    """Agent that asks the model to select one action and structured arguments."""
 
     def __init__(
         self,
@@ -100,6 +104,8 @@ class JsonActionStepRunner(Delegate):
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(alternatives_prompt_target)
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
+        if _FINAL_ANSWER_TOOL_NAME in self._runtime_specs:
+            raise ValueError(f"ToolRuntime cannot expose reserved tool name '{_FINAL_ANSWER_TOOL_NAME}'.")
         self._allowed_tool_names = resolve_allowed_tool_names(
             runtime_specs=self._runtime_specs,
             allowed_tools=allowed_tools,
@@ -108,6 +114,7 @@ class JsonActionStepRunner(Delegate):
             tool_specs=self._runtime_specs,
             allowed_tool_names=self._allowed_tool_names,
         )
+        self._action_choices = (*self._compiled_tool_choices, _final_answer_choice())
         self._tool_step_ids = {
             choice.tool_name: _tool_step_id(choice.tool_name) for choice in self._compiled_tool_choices
         }
@@ -171,6 +178,7 @@ class JsonActionStepRunner(Delegate):
         route_map = {
             choice.tool_name: (self._tool_step_ids[choice.tool_name],) for choice in self._compiled_tool_choices
         }
+        route_map[_FINAL_ANSWER_TOOL_NAME] = (_FINAL_ANSWER_TOOL_NAME,)
         route_map["__invalid__"] = ("invalid_selection",)
 
         steps: list[LogicStep | ToolStep] = [
@@ -197,6 +205,13 @@ class JsonActionStepRunner(Delegate):
                 step_id="invalid_selection",
                 dependencies=("select_tool",),
                 handler=_invalid_selection_handler,
+            )
+        )
+        steps.append(
+            LogicStep(
+                step_id=_FINAL_ANSWER_TOOL_NAME,
+                dependencies=("select_tool",),
+                handler=_final_answer_handler,
             )
         )
 
@@ -233,11 +248,11 @@ class JsonActionStepRunner(Delegate):
         resolved_request_id = str(request_id) if request_id is not None else ""
         prompt = extract_prompt(normalized_input)
         resolved_model = resolve_agent_model(llm_client=self._llm_client)
-        choices = [clone_tool_choice(choice) for choice in self._compiled_tool_choices]
+        action_choices = [clone_tool_choice(choice) for choice in self._action_choices]
         alternatives_prompt_target = self._alternatives_prompt_target
-        choices_text = build_tool_choices_text(choices=choices)
+        choices_text = build_tool_choices_text(choices=action_choices)
         choices_block = build_user_prompt_alternatives_block(
-            section_label="Available tools",
+            section_label="Available actions",
             alternatives_text=choices_text,
             target=alternatives_prompt_target,
         )
@@ -250,7 +265,7 @@ class JsonActionStepRunner(Delegate):
         if alternatives_prompt_target == "system":
             system_prompt = append_alternatives_block(
                 prompt_text=system_prompt,
-                section_label="Available tools",
+                section_label="Available actions",
                 alternatives_text=choices_text,
             )
 
@@ -261,7 +276,7 @@ class JsonActionStepRunner(Delegate):
         llm_request = LLMRequest(
             messages=model_messages,
             model=resolved_model,
-            tools=list(self._runtime_specs.values()),
+            response_schema=tool_call_response_schema([choice.tool_name for choice in action_choices]),
             metadata={
                 "request_id": resolved_request_id,
                 "agent": "JsonActionStepRunner",
@@ -284,49 +299,15 @@ class JsonActionStepRunner(Delegate):
             raise
         finish_model_call(model_span_id, response=llm_response)
 
-        parsed_tool_call = parse_tool_call_from_response(llm_response)
+        parsed_tool_call = parse_tool_call(llm_response.text)
         if parsed_tool_call is None:
-            parsed_tool_call = parse_tool_call(llm_response.text)
+            parsed_tool_call = parse_tool_call_from_response(llm_response)
         tool_selection = select_tool_choice(
             parsed_tool_call=parsed_tool_call,
-            choices=choices,
+            choices=action_choices,
         )
-        if tool_selection is None and _should_retry_tool_selection(parsed_tool_call):
-            emit_guardrail_decision(
-                guardrail="tool_selection_output",
-                decision="retry",
-                reason="controller-style payload received while selecting tool",
-                details={"stage": "tool_selection"},
-            )
-            retry_span_id = start_model_call(
-                model=resolved_model,
-                messages=model_messages,
-                params=llm_request,
-                metadata={
-                    "agent": "JsonActionStepRunner",
-                    "phase": "tool_selection_retry",
-                    "step_id": "tool_selection_retry",
-                },
-            )
-            try:
-                retry_response = request_tool_call_response(
-                    llm_client=self._llm_client,
-                    llm_request=llm_request,
-                )
-            except Exception as exc:
-                finish_model_call(retry_span_id, error=str(exc), model=resolved_model)
-            else:
-                finish_model_call(retry_span_id, response=retry_response)
-                llm_response = retry_response
-                parsed_tool_call = parse_tool_call_from_response(llm_response)
-                if parsed_tool_call is None:
-                    parsed_tool_call = parse_tool_call(llm_response.text)
-                tool_selection = select_tool_choice(
-                    parsed_tool_call=parsed_tool_call,
-                    choices=choices,
-                )
 
-        available_tools = [choice.tool_name for choice in choices]
+        available_tools = [choice.tool_name for choice in action_choices]
         if tool_selection is None:
             emit_guardrail_decision(
                 guardrail="tool_selection_output",
@@ -359,12 +340,58 @@ class JsonActionStepRunner(Delegate):
             }
 
         selected_choice, tool_call_source, tool_call_reason = tool_selection
+        selected_reason = _extract_reason(parsed_tool_call)
         emit_tool_selection_decision(
             source=tool_call_source,
             tool_name=selected_choice.tool_name,
             reason=tool_call_reason,
             parsed_tool_call=parsed_tool_call,
         )
+        if selected_choice.tool_name == _FINAL_ANSWER_TOOL_NAME:
+            final_answer_payload = _resolve_final_answer_payload(parsed_tool_call)
+            if final_answer_payload is None:
+                emit_guardrail_decision(
+                    guardrail="final_answer_payload",
+                    decision="reject",
+                    reason="final_answer tool_input must be a JSON object",
+                    details={"stage": "tool_selection"},
+                )
+                return {
+                    "route": "__invalid__",
+                    "selection_valid": False,
+                    "error": "Model selected `final_answer` but `tool_input` was not a JSON object.",
+                    "model_text": llm_response.text,
+                    "tool_name": _FINAL_ANSWER_TOOL_NAME,
+                    "tool_input": {},
+                    "reason": selected_reason,
+                    "available_tools": available_tools,
+                    "parsed_tool_call": parsed_tool_call,
+                    "metadata_tool_call": {
+                        "source": "model_invalid",
+                        "reason": "invalid final_answer payload",
+                        "available_tools": available_tools,
+                        "parsed_tool_call": parsed_tool_call,
+                    },
+                    "model_response": llm_response,
+                }
+            return {
+                "route": _FINAL_ANSWER_TOOL_NAME,
+                "selection_valid": True,
+                "error": None,
+                "model_text": llm_response.text,
+                "tool_name": _FINAL_ANSWER_TOOL_NAME,
+                "tool_input": final_answer_payload,
+                "reason": selected_reason,
+                "available_tools": available_tools,
+                "parsed_tool_call": parsed_tool_call,
+                "metadata_tool_call": {
+                    "source": tool_call_source,
+                    "reason": tool_call_reason,
+                    "available_tools": available_tools,
+                    "parsed_tool_call": parsed_tool_call,
+                },
+                "model_response": llm_response,
+            }
         tool_input = resolve_tool_input(
             selected_choice=selected_choice,
             parsed_tool_call=parsed_tool_call,
@@ -377,6 +404,7 @@ class JsonActionStepRunner(Delegate):
             "model_text": llm_response.text,
             "tool_name": selected_choice.tool_name,
             "tool_input": tool_input,
+            "reason": selected_reason,
             "available_tools": available_tools,
             "parsed_tool_call": parsed_tool_call,
             "metadata_tool_call": {
@@ -422,6 +450,7 @@ class JsonActionStepRunner(Delegate):
         selected_tool_name_text = selected_tool_name if isinstance(selected_tool_name, str) else ""
         selected_tool_step_id = self._tool_step_ids.get(selected_tool_name_text, "")
         selected_tool_step = workflow_result.step_results.get(selected_tool_step_id)
+        selected_reason = str(select_output.get("reason", "")).strip()
 
         if not workflow_result.success:
             typed_selected_step = selected_tool_step if isinstance(selected_tool_step, WorkflowStepResult) else None
@@ -434,6 +463,9 @@ class JsonActionStepRunner(Delegate):
                 "tool_name": selected_tool_name if selected_tool_name_text else None,
                 "tool_input": _mapping_or_empty(select_output.get("tool_input")),
                 "tool_output": _resolve_failed_tool_output(typed_selected_step),
+                "action_type": ("final_answer" if selected_tool_name_text == _FINAL_ANSWER_TOOL_NAME else "tool_call"),
+                "final_answer_called": selected_tool_name_text == _FINAL_ANSWER_TOOL_NAME,
+                "reason": selected_reason,
             }
             base_result = build_failure_result(
                 error=error_text,
@@ -457,6 +489,34 @@ class JsonActionStepRunner(Delegate):
                 metadata=dict(base_result.metadata),
             )
 
+        if selected_tool_name_text == _FINAL_ANSWER_TOOL_NAME:
+            final_payload = _mapping_or_empty(select_output.get("tool_input"))
+            final_base_output = {
+                "model_text": str(select_output.get("model_text", "")),
+                "tool_name": _FINAL_ANSWER_TOOL_NAME,
+                "tool_input": final_payload,
+                "tool_output": {},
+                "action_type": "final_answer",
+                "final_answer_called": True,
+                "reason": selected_reason,
+            }
+            output = build_workflow_first_output(
+                base_output=final_base_output,
+                workflow_result=workflow_result,
+                final_output=final_payload,
+            )
+            return ExecutionResult(
+                output=output,
+                success=True,
+                tool_results=[],
+                model_response=model_response,
+                metadata={
+                    "request_id": request_id,
+                    "dependency_keys": sorted(dependencies.keys()),
+                    "tool_call": tool_call_info,
+                },
+            )
+
         if selected_tool_step is None:
             raise RuntimeError("JSON action-step workflow missing selected tool invocation step.")
         tool_result = _tool_result_from_step_output(
@@ -469,6 +529,9 @@ class JsonActionStepRunner(Delegate):
             "tool_name": selected_tool_name_text,
             "tool_input": _mapping_or_empty(select_output.get("tool_input")),
             "tool_output": tool_output,
+            "action_type": "tool_call",
+            "final_answer_called": False,
+            "reason": selected_reason,
         }
         output = build_workflow_first_output(
             base_output=base_output,
@@ -514,6 +577,27 @@ def _invalid_selection_handler(context: Mapping[str, object]) -> Mapping[str, ob
         str(error_text) if isinstance(error_text, str) and error_text.strip() else "invalid model tool selection"
     )
     raise ValueError(resolved_error)
+
+
+def _final_answer_handler(context: Mapping[str, object]) -> Mapping[str, object]:
+    """Return a stable no-op payload for the synthetic ``final_answer`` branch."""
+    dependency_results = context.get("dependency_results")
+    if not isinstance(dependency_results, Mapping):
+        raise ValueError("Missing dependency_results for final_answer step.")
+    select_result = dependency_results.get("select_tool")
+    if not isinstance(select_result, Mapping):
+        raise ValueError("Missing select_tool result for final_answer step.")
+    select_output = select_result.get("output")
+    if not isinstance(select_output, Mapping):
+        raise ValueError("Invalid select_tool output for final_answer step.")
+    tool_input = select_output.get("tool_input")
+    if not isinstance(tool_input, Mapping):
+        raise ValueError("final_answer tool_input must be a mapping.")
+    return {
+        "tool_name": _FINAL_ANSWER_TOOL_NAME,
+        "result": dict(tool_input),
+        "ok": True,
+    }
 
 
 def _build_tool_input_builder(*, expected_tool_name: str) -> ToolStepInputBuilder:
@@ -690,25 +774,31 @@ def _tool_step_id(tool_name: str) -> str:
     return f"invoke_{suffix}"
 
 
-def _should_retry_tool_selection(parsed_tool_call: Mapping[str, object] | None) -> bool:
-    """Return whether selection should retry after receiving controller-style payload.
+def _final_answer_choice() -> ToolChoice:
+    """Return the synthetic built-in action choice for task completion."""
+    return ToolChoice(
+        tool_name=_FINAL_ANSWER_TOOL_NAME,
+        description="Finish the task and return the terminal answer payload.",
+        input_schema={"type": "object", "additionalProperties": True},
+    )
 
-    Args:
-        parsed_tool_call: Parsed model payload for current selection attempt.
 
-    Returns:
-        ``True`` when payload shape looks like continuation/controller output.
-    """
+def _resolve_final_answer_payload(parsed_tool_call: Mapping[str, object] | None) -> dict[str, object] | None:
+    """Return validated ``final_answer`` payload when present."""
     if not isinstance(parsed_tool_call, Mapping):
-        return False
-    continue_value = parsed_tool_call.get("continue")
-    if isinstance(continue_value, bool):
-        return True
-    decision_value = parsed_tool_call.get("decision")
-    return isinstance(decision_value, str) and decision_value.strip().upper() in {
-        "CONTINUE",
-        "STOP",
-    }
+        return None
+    raw_tool_input = parsed_tool_call.get("tool_input")
+    if isinstance(raw_tool_input, Mapping):
+        return dict(raw_tool_input)
+    return None
+
+
+def _extract_reason(parsed_tool_call: Mapping[str, object] | None) -> str:
+    """Return the optional model-supplied reason string."""
+    if not isinstance(parsed_tool_call, Mapping):
+        return ""
+    raw_reason = parsed_tool_call.get("reason")
+    return str(raw_reason).strip() if isinstance(raw_reason, str) else ""
 
 
 __all__ = [
