@@ -1,4 +1,4 @@
-"""# Tools / Source Fusion Story.
+"""# Tools / Multi-Source Tool Usage.
 
 ## Introduction
 MCP standardizes tool connectivity, data-fusion concepts motivate combining heterogeneous signals, and RAG
@@ -32,7 +32,7 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 
    {
      "core_word_count": 14,
-     "example": "tools/source_fusion_story.py",
+     "example": "tools/multi_source_tool_usage.py",
      "input_path": "artifacts/examples/<truncated-input-path>",
      "mcp_word_count": 14,
      "report_path": "artifacts/examples/<truncated-report-path>",
@@ -46,9 +46,9 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
        "script": 1
      },
      "trace": {
-       "request_id": "example-tools-source-fusion-design-001",
+       "request_id": "example-tools-multi-source-tool-usage-001",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-tools-source-fusion-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-tools-multi-source-tool-usage-001.jsonl"
      },
      "word_count_match": true
    }
@@ -123,29 +123,29 @@ def _run_report() -> dict[str, object]:
         write_result = runtime.invoke_dict(
             "fs.write_text",
             {
-                "path": "artifacts/examples/source_fusion_story_input.txt",
+                "path": "artifacts/examples/multi_source_tool_usage_input.txt",
                 "content": source_text,
                 "overwrite": True,
             },
-            request_id="example-source-fusion",
+            request_id="example-multi-source-tool-usage",
             dependencies={},
         )
         script_score = runtime.invoke_dict(
             "script::rubric_score",
             {"text": source_text, "max_score": 20},
-            request_id="example-source-fusion",
+            request_id="example-multi-source-tool-usage",
             dependencies={},
         )
         core_stats = runtime.invoke_dict(
             "text.word_count",
             {"text": source_text},
-            request_id="example-source-fusion",
+            request_id="example-multi-source-tool-usage",
             dependencies={},
         )
         mcp_stats = runtime.invoke_dict(
             "local_core::text.word_count",
             {"text": source_text},
-            request_id="example-source-fusion",
+            request_id="example-multi-source-tool-usage",
             dependencies={},
         )
         score_percent = (float(script_score["score"]) / float(script_score["max_score"])) * 100.0
@@ -164,11 +164,11 @@ def _run_report() -> dict[str, object]:
         report_write = runtime.invoke_dict(
             "fs.write_text",
             {
-                "path": "artifacts/examples/source_fusion_story_report.json",
+                "path": "artifacts/examples/multi_source_tool_usage_report.json",
                 "content": json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True) + "\n",
                 "overwrite": True,
             },
-            request_id="example-source-fusion",
+            request_id="example-multi-source-tool-usage",
             dependencies={},
         )
         report["report_path"] = report_write["path"]
@@ -182,7 +182,7 @@ def _run_report() -> dict[str, object]:
 def main() -> None:
     """Run traced multi-source report generation."""
     # Fixed request id keeps traces and docs output deterministic across runs.
-    request_id = "example-tools-source-fusion-design-001"
+    request_id = "example-tools-multi-source-tool-usage-001"
     tracer = Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
@@ -190,13 +190,13 @@ def main() -> None:
         enable_console=True,
     )
     report = tracer.run_callable(
-        agent_name="ExamplesSourceFusion",
+        agent_name="ExamplesMultiSourceToolUsage",
         request_id=request_id,
-        input_payload={"scenario": "source-fusion-design"},
+        input_payload={"scenario": "multi-source-tool-usage"},
         function=_run_report,
     )
     assert isinstance(report, dict)
-    report["example"] = "tools/source_fusion_story.py"
+    report["example"] = "tools/multi_source_tool_usage.py"
     report["trace"] = tracer.trace_info(request_id)
     print(json.dumps(report, ensure_ascii=True, indent=2, sort_keys=True))
 

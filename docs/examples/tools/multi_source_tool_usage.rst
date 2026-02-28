@@ -1,7 +1,7 @@
-Source Fusion Story
-===================
+Multi-Source Tool Usage
+=======================
 
-Source: ``examples/tools/source_fusion_story.py``
+Source: ``examples/tools/multi_source_tool_usage.py``
 
 Introduction
 ------------
@@ -29,7 +29,7 @@ Technical Implementation
        E --> F
        F --> G["Printed JSON output"]
 
-.. literalinclude:: ../../../examples/tools/source_fusion_story.py
+.. literalinclude:: ../../../examples/tools/multi_source_tool_usage.py
    :language: python
    :lines: 63-
    :linenos:
@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/tools/source_fusion_story.py
+   PYTHONPATH=src python3 examples/tools/multi_source_tool_usage.py
 
 Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 (timestamps, durations, and trace filenames vary by run):
@@ -50,7 +50,7 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 
    {
      "core_word_count": 14,
-     "example": "tools/source_fusion_story.py",
+     "example": "tools/multi_source_tool_usage.py",
      "input_path": "artifacts/examples/<truncated-input-path>",
      "mcp_word_count": 14,
      "report_path": "artifacts/examples/<truncated-report-path>",
@@ -64,9 +64,9 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
        "script": 1
      },
      "trace": {
-       "request_id": "example-tools-source-fusion-design-001",
+       "request_id": "example-tools-multi-source-tool-usage-001",
        "trace_dir": "artifacts/examples/traces",
-       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-tools-source-fusion-design-001.jsonl"
+       "trace_path": "artifacts/examples/traces/run_20260222T162209Z_example-tools-multi-source-tool-usage-001.jsonl"
      },
      "word_count_match": true
    }

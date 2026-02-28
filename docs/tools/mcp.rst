@@ -57,5 +57,5 @@ Examples
 --------
 
 - ``examples/tools/mcp_minimal.py``
-- ``examples/tools/source_fusion_story.py``
+- ``examples/tools/multi_source_tool_usage.py``
 - ``examples/tools/README.md``

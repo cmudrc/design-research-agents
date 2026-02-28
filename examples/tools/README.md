@@ -7,7 +7,7 @@ sources for design-analysis workflows.
 
 - `mcp_minimal.py`
   - Traced MCP-only runtime and namespaced invocation.
-- `source_fusion_story.py`
+- `multi_source_tool_usage.py`
   - Traced multi-source run combining core/script/MCP tools.
 - `script_tools/README.md`
   - Script-tool examples and direct execution commands.
@@ -16,7 +16,7 @@ sources for design-analysis workflows.
 
 ```bash
 PYTHONPATH=src python3 examples/tools/mcp_minimal.py
-PYTHONPATH=src python3 examples/tools/source_fusion_story.py
+PYTHONPATH=src python3 examples/tools/multi_source_tool_usage.py
 bash examples/tools/script_tools/repo_quickscan.sh <<'JSON'
 {"include_hidden":false}
 JSON
