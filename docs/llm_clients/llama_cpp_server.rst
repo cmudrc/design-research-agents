@@ -18,13 +18,16 @@ Constructor-first usage
    from design_research_agents import LlamaCppServerLLMClient
    from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = LlamaCppServerLLMClient()
-   response = client.generate(
-       LLMRequest(
-           messages=(LLMMessage(role="user", content="Summarize this paragraph."),),
-           model=client.default_model(),
+   with LlamaCppServerLLMClient() as client:
+       response = client.generate(
+           LLMRequest(
+               messages=(LLMMessage(role="user", content="Summarize this paragraph."),),
+               model=client.default_model(),
+           )
        )
-   )
+
+Prefer the context-manager form so the managed local server always shuts down
+deterministically. ``close()`` remains available for explicit lifecycle control.
 
 Dependencies and environment
 ----------------------------

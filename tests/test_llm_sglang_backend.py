@@ -276,27 +276,29 @@ def test_sglang_server_close_forces_kill_when_terminate_stalls() -> None:
 
 
 def test_sglang_client_constructor_and_modes() -> None:
-    managed_client = SGLangServerLLMClient(
+    with SGLangServerLLMClient(
         name="sglang-managed",
         model="Qwen/Qwen2.5-1.5B-Instruct",
         manage_server=True,
         model_patterns=("Qwen/*",),
-    )
-    try:
+    ) as managed_client:
         assert managed_client.default_model() == "Qwen/Qwen2.5-1.5B-Instruct"
         assert managed_client._backend.name == "sglang-managed"
         assert managed_client._backend.model_patterns == ("Qwen/*",)
         assert managed_client._sglang_server is not None
-    finally:
-        managed_client.close()
+
+    assert managed_client._sglang_server is not None
+    assert managed_client._sglang_server._process is None
 
     connect_client = SGLangServerLLMClient(
         manage_server=False,
         base_url="http://127.0.0.1:39000/v1",
         model="custom-model",
     )
-    assert connect_client._sglang_server is None
-    assert connect_client._backend.base_url == "http://127.0.0.1:39000/v1"
+    with connect_client as entered_client:
+        assert entered_client is connect_client
+        assert connect_client._sglang_server is None
+        assert connect_client._backend.base_url == "http://127.0.0.1:39000/v1"
 
     with pytest.raises(ValueError, match="base_url cannot be provided"):
         SGLangServerLLMClient(

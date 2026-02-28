@@ -19,6 +19,17 @@ class _CaptureGenerateClient:
     def default_model(self) -> str:
         return "capture-model"
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _CaptureGenerateClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
         return LLMResponse(
@@ -31,6 +42,17 @@ class _CaptureGenerateClient:
 class _RaisingGenerateClient:
     def default_model(self) -> str:
         return "raising-model"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _RaisingGenerateClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         del request

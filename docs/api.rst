@@ -48,7 +48,9 @@ LLM Clients and Selection
 
 All public LLM clients implement the same introspection helpers in addition to
 generation methods: ``default_model()``, ``capabilities()``,
-``config_snapshot()``, ``server_snapshot()``, and ``describe()``.
+``config_snapshot()``, ``server_snapshot()``, and ``describe()``. They also
+implement ``close()`` plus ``with``-statement lifecycle support; the
+context-manager form is the preferred public usage pattern.
 
 .. autoclass:: design_research_agents.LlamaCppServerLLMClient
    :members:

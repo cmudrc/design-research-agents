@@ -478,6 +478,17 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
         def default_model(self) -> str:
             return "noop-model"
 
+        def close(self) -> None:
+            return None
+
+        def __enter__(self) -> _SequenceLLMClient:
+            return self
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+            self.close()
+            return None
+
     workflow = DebatePattern(
         llm_client=_SequenceLLMClient(
             [

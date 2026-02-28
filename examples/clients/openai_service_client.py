@@ -91,7 +91,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 def _build_payload() -> dict[str, object]:
     assert AzureOpenAIServiceLLMClient.__name__ == "AzureOpenAIServiceLLMClient"
-    client = OpenAIServiceLLMClient(
+    with OpenAIServiceLLMClient(
         name="openai-prod",
         default_model="gpt-4o-mini",
         api_key_env="OPENAI_API_KEY",
@@ -99,8 +99,7 @@ def _build_payload() -> dict[str, object]:
         base_url="https://api.openai.com/v1",
         max_retries=4,
         model_patterns=("gpt-4o-mini", "gpt-4o-*"),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "In one sentence, when should engineering teams use multi-agent design critique?"
         response = client.generate(
@@ -138,9 +137,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:

@@ -92,7 +92,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    client = VLLMServerLLMClient(
+    with VLLMServerLLMClient(
         name="vllm-local-dev",
         model="Qwen/Qwen2.5-1.5B-Instruct",
         api_model="qwen2.5-1.5b-instruct",
@@ -106,8 +106,7 @@ def _build_payload() -> dict[str, object]:
         request_timeout_seconds=60.0,
         max_retries=3,
         model_patterns=("qwen2.5-*",),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "Provide one sentence on why local serving helps reproducible benchmarking."
         response = client.generate(
@@ -136,9 +135,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:

@@ -73,40 +73,35 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
+    with LlamaCppServerLLMClient() as llm_client:
+        direct_llm_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        json_tool_agent = MultiStepAgent(
+            mode="json",
+            llm_client=llm_client,
+            tool_runtime=tool_runtime,
+            max_steps=1,
+            tracer=tracer,
+        )
 
-    direct_llm_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
-    json_tool_agent = MultiStepAgent(
-        mode="json",
-        llm_client=llm_client,
-        tool_runtime=tool_runtime,
-        max_steps=1,
-        tracer=tracer,
-    )
+        workflow = RouterDelegatePattern(
+            llm_client=llm_client,
+            tool_runtime=tool_runtime,
+            alternatives={
+                "direct_llm_agent": direct_llm_agent,
+                "json_tool_agent": json_tool_agent,
+            },
+            alternative_descriptions={
+                "direct_llm_agent": "Use for concise textual design summaries with no runtime tools.",
+                "json_tool_agent": ("Use for design requests needing runtime text analysis or tool calls."),
+            },
+            tracer=tracer,
+        )
 
-    workflow = RouterDelegatePattern(
-        llm_client=llm_client,
-        tool_runtime=tool_runtime,
-        alternatives={
-            "direct_llm_agent": direct_llm_agent,
-            "json_tool_agent": json_tool_agent,
-        },
-        alternative_descriptions={
-            "direct_llm_agent": "Use for concise textual design summaries with no runtime tools.",
-            "json_tool_agent": ("Use for design requests needing runtime text analysis or tool calls."),
-        },
-        tracer=tracer,
-    )
-
-    try:
         result = workflow.run(
             prompt=("Count the words in this design phrase and return the tool result: modular field service workflow"),
             request_id=request_id,
         )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

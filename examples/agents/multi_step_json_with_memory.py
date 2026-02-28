@@ -95,29 +95,27 @@ def main() -> None:
         dependencies={},
     )
     store = SQLiteMemoryStore(db_path=db_path)
-    llm_client = LlamaCppServerLLMClient()
-    agent = MultiStepAgent(
-        mode="json",
-        llm_client=llm_client,
-        tool_runtime=tool_runtime,
-        max_steps=3,
-        memory_store=store,
-        memory_namespace="design_examples",
-        memory_read_top_k=3,
-        memory_write_observations=True,
-        tracer=tracer,
-    )
-    try:
-        result = agent.run(
-            "Compute one design-check text metric and retain the observation history.",
-            request_id=request_id,
+    with LlamaCppServerLLMClient() as llm_client:
+        agent = MultiStepAgent(
+            mode="json",
+            llm_client=llm_client,
+            tool_runtime=tool_runtime,
+            max_steps=3,
+            memory_store=store,
+            memory_namespace="design_examples",
+            memory_read_top_k=3,
+            memory_write_observations=True,
+            tracer=tracer,
         )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        # Explicit shutdown keeps local handles/sockets from leaking in long-lived sessions.
-        llm_client.close()
-        tool_runtime.close()
-        store.close()
+        try:
+            result = agent.run(
+                "Compute one design-check text metric and retain the observation history.",
+                request_id=request_id,
+            )
+        finally:
+            # Explicit shutdown keeps local handles/sockets from leaking in long-lived sessions.
+            tool_runtime.close()
+            store.close()
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

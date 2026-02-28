@@ -90,7 +90,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    client = TransformersLocalLLMClient(
+    with TransformersLocalLLMClient(
         name="transformers-local-dev",
         model_id="Qwen/Qwen2.5-1.5B-Instruct",
         default_model="Qwen/Qwen2.5-1.5B-Instruct",
@@ -101,8 +101,7 @@ def _build_payload() -> dict[str, object]:
         revision="main",
         max_retries=2,
         model_patterns=("Qwen/*", "qwen2.5-*"),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "Provide one sentence on why deterministic local runs aid design reproducibility."
         response = client.generate(
@@ -131,9 +130,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:

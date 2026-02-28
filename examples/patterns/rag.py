@@ -94,8 +94,7 @@ def main() -> None:
     seed_toolbox.close()
 
     store = SQLiteMemoryStore(db_path=db_path)
-    llm_client = LlamaCppServerLLMClient()
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         pattern = RAGPattern(
             reasoning_delegate=DirectLLMCall(llm_client=llm_client, tracer=tracer),
             memory_store=store,
@@ -104,14 +103,13 @@ def main() -> None:
             write_back=False,
             tracer=tracer,
         )
-        result = pattern.run(
-            "Draft a concise architecture recommendation for a serviceable edge device.",
-            request_id=request_id,
-        )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
-        store.close()
+        try:
+            result = pattern.run(
+                "Draft a concise architecture recommendation for a serviceable edge device.",
+                request_id=request_id,
+            )
+        finally:
+            store.close()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

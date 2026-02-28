@@ -289,20 +289,20 @@ def test_ollama_server_pull_and_close_paths(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_ollama_client_constructor_and_modes() -> None:
-    managed_client = OllamaLLMClient(
+    with OllamaLLMClient(
         name="ollama-managed",
         default_model="qwen2.5:1.5b-instruct",
         manage_server=True,
         auto_pull_model=False,
         model_patterns=("qwen2.5:*",),
-    )
-    try:
+    ) as managed_client:
         assert managed_client.default_model() == "qwen2.5:1.5b-instruct"
         assert managed_client._backend.name == "ollama-managed"
         assert managed_client._backend.model_patterns == ("qwen2.5:*",)
         assert managed_client._ollama_server is not None
-    finally:
-        managed_client.close()
+
+    assert managed_client._ollama_server is not None
+    assert managed_client._ollama_server._process is None
 
     connect_client = OllamaLLMClient(
         default_model="custom-model",
@@ -310,8 +310,10 @@ def test_ollama_client_constructor_and_modes() -> None:
         port=12500,
         manage_server=False,
     )
-    assert connect_client._ollama_server is None
-    assert connect_client._backend.base_url == "http://127.0.0.1:12500"
+    with connect_client as entered_client:
+        assert entered_client is connect_client
+        assert connect_client._ollama_server is None
+        assert connect_client._backend.base_url == "http://127.0.0.1:12500"
 
 
 def test__ollama_local_backend_requires_valid_timeout_and_base_url() -> None:

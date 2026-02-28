@@ -8,6 +8,9 @@ then tune model selection.
 Every public client also exposes a shared introspection surface for debugging
 and diagnostics: ``default_model()``, ``capabilities()``,
 ``config_snapshot()``, ``server_snapshot()``, and ``describe()``.
+All public built-in clients also implement ``close()`` and support ``with``.
+Examples prefer the context-manager form, while ``close()`` remains available
+for explicit lifecycle control.
 
 For install profiles and platform constraints for backend extras, see
 :doc:`../dependencies_and_extras`.

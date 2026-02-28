@@ -75,8 +75,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    llm_client = LlamaCppServerLLMClient()
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
             "Write one sentence describing the primary engineering objective for a "
@@ -87,9 +86,6 @@ def main() -> None:
             request_id=request_id,
         )
         result = compiled.run()
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

@@ -86,7 +86,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    client = OpenAICompatibleHTTPLLMClient(
+    with OpenAICompatibleHTTPLLMClient(
         name="local-openai-compat",
         base_url="http://127.0.0.1:8011/v1",
         default_model="qwen2.5-1.5b-q4",
@@ -94,8 +94,7 @@ def _build_payload() -> dict[str, object]:
         api_key="example-key-for-config-demo",
         max_retries=3,
         model_patterns=("qwen2.5-*", "qwen2-*"),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "Provide one sentence on balancing latency and quality in design review assistants."
         response = client.generate(
@@ -124,9 +123,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:

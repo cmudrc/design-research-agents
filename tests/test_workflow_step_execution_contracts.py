@@ -195,6 +195,20 @@ class _GenerateModelClient:
         self.raise_error = raise_error
         self.requests: list[LLMRequest] = []
 
+    def default_model(self) -> str:
+        return "generated-default"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _GenerateModelClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
         if self.raise_error:
@@ -210,6 +224,17 @@ class _ChatOnlyModelClient:
 
     def default_model(self) -> str:
         return "chat-default-model"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ChatOnlyModelClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def chat(
         self,

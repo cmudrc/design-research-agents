@@ -91,79 +91,81 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    llm_client = LlamaCppServerLLMClient()
-    tool_runtime = Toolbox()
-    writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+    with LlamaCppServerLLMClient() as llm_client:
+        tool_runtime = Toolbox()
+        writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
-    workflow_steps = [
-        LogicStep(
-            step_id="router",
-            handler=lambda context: {
-                "route": ("template_path" if str(context["prompt"]).lower().startswith("template:") else "agent_path")
-            },
-            route_map={
-                "agent_path": ("draft_agent",),
-                "template_path": ("draft_template",),
-            },
-        ),
-        DelegateStep(
-            step_id="draft_agent",
-            delegate=writer_agent,
-            dependencies=("router",),
-            prompt_builder=lambda context: (
-                f"Write one JSON object with keys title and summary for this design request: {context['prompt']}"
+        workflow_steps = [
+            LogicStep(
+                step_id="router",
+                handler=lambda context: {
+                    "route": (
+                        "template_path" if str(context["prompt"]).lower().startswith("template:") else "agent_path"
+                    )
+                },
+                route_map={
+                    "agent_path": ("draft_agent",),
+                    "template_path": ("draft_template",),
+                },
             ),
-        ),
-        ToolStep(
-            step_id="parse_agent_json",
-            tool_name="text.extract_json",
-            dependencies=("draft_agent",),
-            input_builder=lambda context: {
-                "text": context["dependency_results"]["draft_agent"]["output"]["output"]["model_text"]
-            },
-        ),
-        LogicStep(
-            step_id="finalize_agent",
-            dependencies=("parse_agent_json",),
-            handler=lambda context: {
-                "branch": "agent",
-                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get("title", ""),
-                "summary": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get(
-                    "summary", ""
+            DelegateStep(
+                step_id="draft_agent",
+                delegate=writer_agent,
+                dependencies=("router",),
+                prompt_builder=lambda context: (
+                    f"Write one JSON object with keys title and summary for this design request: {context['prompt']}"
                 ),
-            },
-        ),
-        LogicStep(
-            step_id="draft_template",
-            dependencies=("router",),
-            handler=lambda context: {
-                "title": "Template fallback design brief",
-                "summary": f"Template mode output for: {context['prompt']}",
-            },
-        ),
-        LogicStep(
-            step_id="finalize_template",
-            dependencies=("draft_template",),
-            handler=lambda context: {
-                "branch": "template",
-                "title": context["dependency_results"]["draft_template"]["output"]["title"],
-                "summary": context["dependency_results"]["draft_template"]["output"]["summary"],
-            },
-        ),
-    ]
+            ),
+            ToolStep(
+                step_id="parse_agent_json",
+                tool_name="text.extract_json",
+                dependencies=("draft_agent",),
+                input_builder=lambda context: {
+                    "text": context["dependency_results"]["draft_agent"]["output"]["output"]["model_text"]
+                },
+            ),
+            LogicStep(
+                step_id="finalize_agent",
+                dependencies=("parse_agent_json",),
+                handler=lambda context: {
+                    "branch": "agent",
+                    "title": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get(
+                        "title", ""
+                    ),
+                    "summary": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get(
+                        "summary", ""
+                    ),
+                },
+            ),
+            LogicStep(
+                step_id="draft_template",
+                dependencies=("router",),
+                handler=lambda context: {
+                    "title": "Template fallback design brief",
+                    "summary": f"Template mode output for: {context['prompt']}",
+                },
+            ),
+            LogicStep(
+                step_id="finalize_template",
+                dependencies=("draft_template",),
+                handler=lambda context: {
+                    "branch": "template",
+                    "title": context["dependency_results"]["draft_template"]["output"]["title"],
+                    "summary": context["dependency_results"]["draft_template"]["output"]["summary"],
+                },
+            ),
+        ]
 
-    workflow = Workflow(
-        tool_runtime=tool_runtime,
-        steps=workflow_steps,
-        tracer=tracer,
-    )
+        workflow = Workflow(
+            tool_runtime=tool_runtime,
+            steps=workflow_steps,
+            tracer=tracer,
+        )
 
-    # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
-
-    agent_request_id = "example-workflow-prompt-design-agent-001"
-    # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
-    template_request_id = "example-workflow-prompt-design-template-001"
-    try:
+        # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
+        agent_request_id = "example-workflow-prompt-design-agent-001"
+        # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
+        template_request_id = "example-workflow-prompt-design-template-001"
         agent_result = workflow.run(
             "Draft a design brief for reducing onboarding friction in a medical-device setup flow.",
             request_id=agent_request_id,
@@ -172,9 +174,6 @@ def main() -> None:
             ("template: Produce a deterministic fallback brief for manufacturability review findings."),
             request_id=template_request_id,
         )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
 
     print(
         json.dumps(

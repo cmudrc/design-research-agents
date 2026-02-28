@@ -33,6 +33,17 @@ class _NoopLLMClient:
     def default_model(self) -> str:
         return "test-model"
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _NoopLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def chat(self, messages: Sequence[LLMMessage], *, model: str, params: object) -> LLMResponse:
         del messages, params
         return LLMResponse(model=model, text="ok", provider="test")

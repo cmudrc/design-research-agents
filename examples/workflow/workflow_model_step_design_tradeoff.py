@@ -67,9 +67,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    llm_client = LlamaCppServerLLMClient()
-
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         workflow = Workflow(
             tool_runtime=None,
             tracer=tracer,
@@ -111,9 +109,6 @@ def main() -> None:
             {"design_goal": "reduce repair time for edge-device battery modules"},
             request_id=request_id,
         )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

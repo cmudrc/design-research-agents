@@ -79,35 +79,29 @@ class _StubBackend(BaseLLMBackend):
 
 
 def test_provider_clients_empty_init_and_default_model() -> None:
-    llama = LlamaCppServerLLMClient()
-    clients = (
-        llama,
-        AnthropicServiceLLMClient(),
-        AzureOpenAIServiceLLMClient(),
-        GeminiServiceLLMClient(),
-        GroqServiceLLMClient(),
-        OpenAIServiceLLMClient(),
-        OpenAICompatibleHTTPLLMClient(),
-        TransformersLocalLLMClient(),
-        MLXLocalLLMClient(),
-        VLLMServerLLMClient(manage_server=False),
-        OllamaLLMClient(manage_server=False),
-        SGLangServerLLMClient(manage_server=False),
-    )
-    try:
+    with LlamaCppServerLLMClient() as llama:
+        clients = (
+            llama,
+            AnthropicServiceLLMClient(),
+            AzureOpenAIServiceLLMClient(),
+            GeminiServiceLLMClient(),
+            GroqServiceLLMClient(),
+            OpenAIServiceLLMClient(),
+            OpenAICompatibleHTTPLLMClient(),
+            TransformersLocalLLMClient(),
+            MLXLocalLLMClient(),
+            VLLMServerLLMClient(manage_server=False),
+            OllamaLLMClient(manage_server=False),
+            SGLangServerLLMClient(manage_server=False),
+        )
         for client in clients:
             assert isinstance(client.default_model(), str)
             assert client.default_model().strip()
-    finally:
-        llama.close()
 
 
 def test_provider_clients_use_expected_default_backend_names() -> None:
-    llama = LlamaCppServerLLMClient()
-    try:
+    with LlamaCppServerLLMClient() as llama:
         assert llama._backend.name == "llama-local"
-    finally:
-        llama.close()
 
     assert AnthropicServiceLLMClient()._backend.name == "anthropic"
     assert AzureOpenAIServiceLLMClient()._backend.name == "azure-openai"
@@ -138,12 +132,41 @@ def test_chat_builds_request_from_chat_params() -> None:
 
     assert response.provider == "chat-backend"
     assert backend.calls
+
+
+def test_single_backend_client_context_manager_closes_on_exit() -> None:
+    backend = _StubBackend(name="ctx-backend", default_model="ctx-model")
+
+    class _TrackingClient(_SingleBackendLLMClient):
+        def __init__(self) -> None:
+            super().__init__(backend=backend)
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    client = _TrackingClient()
+    with client as opened:
+        assert opened is client
+        assert opened.closed is False
+        assert opened.default_model() == "ctx-model"
+        response = opened.generate(
+            LLMRequest(
+                messages=(LLMMessage(role="user", content="context-manager smoke"),),
+                model="ctx-model",
+                temperature=0.1,
+                max_tokens=16,
+            )
+        )
+        assert response.provider == "ctx-backend"
+
+    assert client.closed is True
     request = backend.calls[-1]
-    assert request.model == "chat-model"
-    assert request.temperature == 0.2
-    assert request.max_tokens == 64
+    assert request.model == "ctx-model"
+    assert request.temperature == 0.1
+    assert request.max_tokens == 16
     assert request.response_schema is None
-    assert request.provider_options == {"seed": 7}
+    assert request.provider_options == {}
     assert request.tools == ()
     assert request.response_format is None
 

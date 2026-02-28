@@ -89,8 +89,7 @@ def main() -> None:
         enable_console=True,
     )
 
-    llm_client = LlamaCppServerLLMClient()
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         peer_a = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         peer_b = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
@@ -126,9 +125,6 @@ def main() -> None:
             "Compare two concept options and converge on a serviceable design direction.",
             request_id=blackboard_request_id,
         )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
 
     print(
         json.dumps(

@@ -68,9 +68,8 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    llm_client = LlamaCppServerLLMClient()
     tool_runtime = Toolbox()
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         workflow = DebatePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -84,9 +83,6 @@ def main() -> None:
             ),
             request_id=request_id,
         )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

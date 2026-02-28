@@ -84,8 +84,7 @@ def main() -> None:
         db_path.unlink()
 
     store = SQLiteMemoryStore(db_path=db_path)
-    llm_client = LlamaCppServerLLMClient()
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         # Two delegates share the same backend client to model role-specific prompts over one transport.
         manufacturing_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         reliability_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
@@ -156,11 +155,10 @@ def main() -> None:
             ],
         )
 
-        result = workflow.run({}, request_id=request_id)
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
-        store.close()
+        try:
+            result = workflow.run({}, request_id=request_id)
+        finally:
+            store.close()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

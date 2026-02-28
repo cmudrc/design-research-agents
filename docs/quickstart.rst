@@ -34,10 +34,10 @@ Use this when you want the shortest path to a working run.
 
    from design_research_agents import DirectLLMCall, OpenAIServiceLLMClient
 
-   llm_client = OpenAIServiceLLMClient()
-   agent = DirectLLMCall(llm_client=llm_client)
-   result = agent.run("List three interview themes about onboarding friction.")
-   print(result.output)
+   with OpenAIServiceLLMClient() as llm_client:
+       agent = DirectLLMCall(llm_client=llm_client)
+       result = agent.run("List three interview themes about onboarding friction.")
+       print(result.output)
 
 Path B: Local (privacy-first)
 -----------------------------
@@ -59,10 +59,10 @@ Use this when you want local execution and are willing to manage local runtime/m
 
    from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient
 
-   llm_client = LlamaCppServerLLMClient()
-   agent = DirectLLMCall(llm_client=llm_client)
-   result = agent.run("Summarize this study brief in five bullets.")
-   print(result.output)
+   with LlamaCppServerLLMClient() as llm_client:
+       agent = DirectLLMCall(llm_client=llm_client)
+       result = agent.run("Summarize this study brief in five bullets.")
+       print(result.output)
 
 Checks and Docs
 ---------------

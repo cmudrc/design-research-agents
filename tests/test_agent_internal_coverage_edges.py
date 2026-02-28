@@ -18,6 +18,20 @@ from design_research_agents._implementations._shared._agent_internal._response_s
 
 
 class _RaisingLLMClient:
+    def default_model(self) -> str:
+        return "test-model"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _RaisingLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def chat(
         self,
         messages: list[LLMMessage],

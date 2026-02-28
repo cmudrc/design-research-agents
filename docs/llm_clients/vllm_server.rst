@@ -20,13 +20,16 @@ Constructor-first usage
    from design_research_agents import VLLMServerLLMClient
    from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = VLLMServerLLMClient()
-   response = client.generate(
-       LLMRequest(
-           messages=(LLMMessage(role="user", content="Give one architecture tradeoff."),),
-           model=client.default_model(),
+   with VLLMServerLLMClient() as client:
+       response = client.generate(
+           LLMRequest(
+               messages=(LLMMessage(role="user", content="Give one architecture tradeoff."),),
+               model=client.default_model(),
+           )
        )
-   )
+
+Prefer the context-manager form so managed servers shut down deterministically.
+``close()`` remains available for explicit lifecycle control.
 
 Dependencies and environment
 ----------------------------

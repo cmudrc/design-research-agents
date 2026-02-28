@@ -52,6 +52,17 @@ class _GenerateClient:
     def default_model(self) -> str:
         return "fallback"
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _GenerateClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def generate(self, request: LLMRequest) -> LLMResponse:
         return LLMResponse(text="generated", model=request.model, provider="test")
 
@@ -59,6 +70,17 @@ class _GenerateClient:
 class _ChatClient:
     def default_model(self) -> str:
         return "chat-default"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ChatClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def chat(
         self,
@@ -334,6 +356,20 @@ def test_json_tool_helpers_cover_choice_resolution_and_tool_input_precedence() -
     assert "enum" in str(schema)
 
     class _LLMClient:
+        def default_model(self) -> str:
+            return "m"
+
+        def close(self) -> None:
+            return None
+
+        def __enter__(self) -> _LLMClient:
+            return self
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+            self.close()
+            return None
+
         def generate(self, request: LLMRequest) -> LLMResponse:
             return LLMResponse(text=f"ok:{request.model}")
 

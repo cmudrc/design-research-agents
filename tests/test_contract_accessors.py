@@ -1,20 +1,26 @@
-"""Contract tests for read-only result accessors and LLM client introspection."""
+"""Contract tests for read-only payload helpers and LLM client lifecycle APIs."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 
 import pytest
 
 import design_research_agents.llm as dra_llm
 from design_research_agents._contracts import (
     BackendCapabilities,
+    BackendStatus,
     LLMClient,
+    LLMDelta,
+    LLMRequest,
+    LLMResponse,
     ToolArtifact,
     ToolError,
     ToolResult,
     WorkflowStepResult,
 )
+from design_research_agents.llm._backends._base import BaseLLMBackend
+from design_research_agents.llm.clients._shared import _SingleBackendLLMClient
 from design_research_agents.llm import (
     AnthropicServiceLLMClient,
     AzureOpenAIServiceLLMClient,
@@ -23,6 +29,41 @@ from design_research_agents.llm import (
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
 )
+
+
+class _StubBackend(BaseLLMBackend):
+    def __init__(self) -> None:
+        super().__init__(
+            name="stub",
+            kind="test",
+            default_model="stub-model",
+            base_url=None,
+            config_hash="stub-hash",
+        )
+
+    def capabilities(self) -> BackendCapabilities:
+        return BackendCapabilities(
+            streaming=False,
+            tool_calling="none",
+            json_mode="none",
+            vision=False,
+            max_context_tokens=None,
+        )
+
+    def healthcheck(self) -> BackendStatus:
+        return BackendStatus(ok=True)
+
+    def _generate(self, request: LLMRequest) -> LLMResponse:
+        return LLMResponse(
+            text="ok",
+            model=request.model,
+            provider="stub",
+        )
+
+    def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        del request
+        if False:
+            yield LLMDelta(text_delta=None)
 
 
 def test_workflow_step_result_output_accessors_mirror_execution_result_helpers() -> None:
@@ -117,8 +158,24 @@ def test_tool_result_error_message_reflects_normalized_error_payload(
 def test_all_public_llm_client_classes_expose_introspection_methods(client_name: str) -> None:
     client_cls = getattr(dra_llm, client_name)
 
-    for method_name in ("capabilities", "config_snapshot", "server_snapshot", "describe"):
+    for method_name in (
+        "close",
+        "__enter__",
+        "__exit__",
+        "capabilities",
+        "config_snapshot",
+        "server_snapshot",
+        "describe",
+    ):
         assert callable(getattr(client_cls, method_name, None))
+
+
+def test_single_backend_llm_client_supports_context_manager_lifecycle() -> None:
+    client = _SingleBackendLLMClient(backend=_StubBackend())
+
+    with client as opened_client:
+        assert opened_client is client
+        assert opened_client.default_model() == "stub-model"
 
 
 @pytest.mark.parametrize(
@@ -143,21 +200,20 @@ def test_all_public_llm_client_classes_expose_introspection_methods(client_name:
 def test_representative_public_llm_clients_return_introspection_payloads(
     client_factory: Callable[[], LLMClient],
 ) -> None:
-    client = client_factory()
+    with client_factory() as client:
+        capabilities = client.capabilities()
+        assert isinstance(capabilities, BackendCapabilities)
 
-    capabilities = client.capabilities()
-    assert isinstance(capabilities, BackendCapabilities)
+        config_snapshot = client.config_snapshot()
+        assert isinstance(config_snapshot, Mapping)
+        assert config_snapshot
 
-    config_snapshot = client.config_snapshot()
-    assert isinstance(config_snapshot, Mapping)
-    assert config_snapshot
+        server_snapshot = client.server_snapshot()
+        assert server_snapshot is None or isinstance(server_snapshot, Mapping)
 
-    server_snapshot = client.server_snapshot()
-    assert server_snapshot is None or isinstance(server_snapshot, Mapping)
-
-    description = client.describe()
-    assert isinstance(description, Mapping)
-    assert description["client_class"] == client.__class__.__name__
-    assert description["default_model"] == client.default_model()
-    assert isinstance(description["backend"], Mapping)
-    assert isinstance(description["capabilities"], Mapping)
+        description = client.describe()
+        assert isinstance(description, Mapping)
+        assert description["client_class"] == client.__class__.__name__
+        assert description["default_model"] == client.default_model()
+        assert isinstance(description["backend"], Mapping)
+        assert isinstance(description["capabilities"], Mapping)

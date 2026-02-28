@@ -95,7 +95,7 @@ from design_research_agents.llm.clients import LlamaCppServerLLMClient
 
 
 def _build_payload() -> dict[str, object]:
-    client = LlamaCppServerLLMClient(
+    with LlamaCppServerLLMClient(
         name="llama-local-dev",
         model="Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
         hf_model_repo_id="bartowski/Qwen2.5-1.5B-Instruct-GGUF",
@@ -109,8 +109,7 @@ def _build_payload() -> dict[str, object]:
         extra_server_args=("--threads", "4", "--flash_attn", "1"),
         max_retries=3,
         model_patterns=("qwen2.5-*", "qwen2-*"),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "In one sentence, explain a key tradeoff in engineering design reviews."
         response = client.generate(
@@ -139,9 +138,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:

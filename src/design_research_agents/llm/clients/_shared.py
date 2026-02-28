@@ -6,6 +6,8 @@ import json
 import sys
 from collections.abc import Iterator, Mapping, Sequence
 from hashlib import sha256
+from types import TracebackType
+from typing import Self
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -90,6 +92,29 @@ class _SingleBackendLLMClient(LLMClient):
         # Snapshot fields are intentionally plain JSON-compatible scalars for deterministic example output.
         self._config_snapshot = snapshot
         self._server_snapshot = normalize_snapshot_mapping(server_snapshot) if server_snapshot is not None else None
+
+    def close(self) -> None:
+        """Release client-owned resources.
+
+        The shared default is a no-op so non-managed clients still support a
+        uniform lifecycle contract. Managed clients override this method.
+        """
+        return None
+
+    def __enter__(self) -> Self:
+        """Return this client for ``with``-statement usage."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        """Close the client on ``with``-statement exit."""
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one response using the configured backend.

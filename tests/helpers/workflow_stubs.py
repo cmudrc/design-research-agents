@@ -69,6 +69,17 @@ class SequenceLLMClient:
     def default_model(self) -> str:
         return "test-model"
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> SequenceLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class NoopLLMClient:
     """LLM stub used when tests inject concrete agents directly."""
@@ -107,6 +118,17 @@ class NoopLLMClient:
 
     def default_model(self) -> str:
         return "noop-model"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> NoopLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 class StaticMarkerAgent(Delegate):

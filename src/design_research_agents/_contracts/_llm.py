@@ -10,7 +10,8 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Literal, Protocol
+from types import TracebackType
+from typing import Literal, Protocol, Self
 
 from ._tools import ToolSpec
 
@@ -331,6 +332,24 @@ class LLMClient(Protocol):
         Returns:
             Iterator of normalized response deltas.
         """
+
+    def close(self) -> None:
+        """Release any client-owned resources.
+
+        Implementations that do not own external resources may implement this
+        as a no-op so callers can use a uniform lifecycle pattern.
+        """
+
+    def __enter__(self) -> Self:
+        """Return this client for use in a ``with`` statement."""
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
+        """Close the client when exiting a ``with`` block."""
 
     def default_model(self) -> str:
         """Return default model identifier for the configured backend.

@@ -18,6 +18,17 @@ class _CaptureLLMClient:
     def default_model(self) -> str:
         return self._model
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _CaptureLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def chat(
         self,
         messages: Sequence[LLMMessage],

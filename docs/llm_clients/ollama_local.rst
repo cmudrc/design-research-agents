@@ -18,13 +18,17 @@ Constructor-first usage
    from design_research_agents import OllamaLLMClient
    from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = OllamaLLMClient()
-   response = client.generate(
-       LLMRequest(
-           messages=(LLMMessage(role="user", content="Summarize one design principle."),),
-           model=client.default_model(),
+   with OllamaLLMClient() as client:
+       response = client.generate(
+           LLMRequest(
+               messages=(LLMMessage(role="user", content="Summarize one design principle."),),
+               model=client.default_model(),
+           )
        )
-   )
+
+Prefer the context-manager form so managed local runtime processes shut down
+deterministically. ``close()`` remains available for explicit lifecycle
+control.
 
 Dependencies and environment
 ----------------------------

@@ -87,15 +87,14 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    client = MLXLocalLLMClient(
+    with MLXLocalLLMClient(
         name="mlx-local-dev",
         model_id="mlx-community/Qwen2.5-1.5B-Instruct-4bit",
         default_model="mlx-community/Qwen2.5-1.5B-Instruct-4bit",
         quantization="4bit",
         max_retries=2,
         model_patterns=("mlx-community/*", "qwen2.5-*"),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "Give one concise guideline for maintainable design telemetry schemas."
         response = client.generate(
@@ -124,9 +123,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:

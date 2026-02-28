@@ -142,8 +142,7 @@ def main() -> None:
         ),
     )
 
-    llm_client = LlamaCppServerLLMClient()
-    try:
+    with LlamaCppServerLLMClient() as llm_client:
         agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
@@ -151,18 +150,17 @@ def main() -> None:
             max_steps=6,
             tracer=tracer,
         )
-        result = agent.run(
-            prompt=(
-                "Your job is to find a value of x to minimize the blackbox function f(x). "
-                "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
-                "Keep iterating until no one-step move improves the value."
-            ),
-            request_id=request_id,
-        )
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        llm_client.close()
-        tools.close()
+        try:
+            result = agent.run(
+                prompt=(
+                    "Your job is to find a value of x to minimize the blackbox function f(x). "
+                    "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
+                    "Keep iterating until no one-step move improves the value."
+                ),
+                request_id=request_id,
+            )
+        finally:
+            tools.close()
 
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

@@ -243,7 +243,7 @@ def test_llama_cpp_close_forces_kill_when_terminate_stalls() -> None:
 
 
 def test_llama_cpp_client_constructor_propagates_settings() -> None:
-    client = LlamaCppServerLLMClient(
+    with LlamaCppServerLLMClient(
         name="custom-llama",
         model="/tmp/model.gguf",
         hf_model_repo_id="repo/id",
@@ -253,8 +253,7 @@ def test_llama_cpp_client_constructor_propagates_settings() -> None:
         context_window=2048,
         extra_server_args=("--n-gpu-layers", "35"),
         model_patterns=("custom-model",),
-    )
-    try:
+    ) as client:
         assert client.default_model() == "custom-model"
         assert client._backend.name == "custom-llama"
         assert client._backend.model_patterns == ("custom-model",)
@@ -264,8 +263,6 @@ def test_llama_cpp_client_constructor_propagates_settings() -> None:
         assert "2048" in command
         assert "--n-gpu-layers" in command
         assert "35" in command
-    finally:
-        client.close()
 
 
 def test_memory_contract_dataclasses_are_serializable() -> None:

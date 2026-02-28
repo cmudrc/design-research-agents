@@ -302,6 +302,14 @@ if _DETERMINISTIC_MODE:
         def close(self) -> None:
             return None
 
+        def __enter__(self) -> _DeterministicExampleClient:
+            return self
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+            self.close()
+            return None
+
         def _next(self, model: str) -> LLMResponse:
             if not self._responses:
                 raise RuntimeError("No deterministic responses remaining for this example script.")

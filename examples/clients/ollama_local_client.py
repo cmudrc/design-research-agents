@@ -92,7 +92,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
-    client = OllamaLLMClient(
+    with OllamaLLMClient(
         name="ollama-local-dev",
         default_model="qwen2.5:1.5b-instruct",
         host="127.0.0.1",
@@ -105,8 +105,7 @@ def _build_payload() -> dict[str, object]:
         request_timeout_seconds=60.0,
         max_retries=2,
         model_patterns=("qwen2.5:*", "llama3:*"),
-    )
-    try:
+    ) as client:
         description = client.describe()
         prompt = "Give one sentence on when to use local model pull automation."
         response = client.generate(
@@ -135,9 +134,6 @@ def _build_payload() -> dict[str, object]:
             "capabilities": description["capabilities"],
             "server": description["server"],
         }
-    # Always close runtime resources explicitly to avoid handle leakage in repeated runs.
-    finally:
-        client.close()
 
 
 def main() -> None:
