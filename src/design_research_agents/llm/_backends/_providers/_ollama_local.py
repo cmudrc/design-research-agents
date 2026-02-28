@@ -6,7 +6,7 @@ import json
 import time
 from collections.abc import Iterable, Iterator, Sequence
 from http.client import HTTPResponse
-from typing import Any, cast
+from typing import Any, cast, override
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -87,6 +87,7 @@ class OllamaLocalBackend(BaseLLMBackend):
         self._request_timeout_seconds = request_timeout_seconds
         self._managed_server = managed_server
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return capability metadata for this backend.
 
@@ -95,6 +96,7 @@ class OllamaLocalBackend(BaseLLMBackend):
         """
         return _OLLAMA_CAPABILITIES
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static healthcheck status for configured backend.
 
@@ -103,6 +105,7 @@ class OllamaLocalBackend(BaseLLMBackend):
         """
         return BackendStatus(ok=True, message="Ollama local backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one non-streaming completion.
 
@@ -122,6 +125,7 @@ class OllamaLocalBackend(BaseLLMBackend):
         )
         return _parse_completion_response(response, request, provider=self.name)
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Stream completion deltas for one request.
 

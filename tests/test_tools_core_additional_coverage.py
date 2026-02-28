@@ -255,7 +255,7 @@ def test_evaluation_tools_error_and_edge_branches() -> None:
 
     assert (
         evaluation_tools._decision_value(
-            alternatives=[evaluation_tools._Alternative("A", {"cost": 2.0})],
+            alternatives=[evaluation_tools._Alternative(alt_id="A", scores={"cost": 2.0})],
             criterion=evaluation_tools._Criterion(name="cost", goal="min", weight=1.0),
             raw_value=2.0,
             normalize=False,
@@ -264,7 +264,7 @@ def test_evaluation_tools_error_and_edge_branches() -> None:
     )
     assert (
         evaluation_tools._decision_value(
-            alternatives=[evaluation_tools._Alternative("A", {"same": 1.0})],
+            alternatives=[evaluation_tools._Alternative(alt_id="A", scores={"same": 1.0})],
             criterion=evaluation_tools._Criterion(name="same", goal="max", weight=1.0),
             raw_value=1.0,
             normalize=True,
@@ -273,7 +273,7 @@ def test_evaluation_tools_error_and_edge_branches() -> None:
     )
     with pytest.raises(ValueError, match="missing criterion"):
         evaluation_tools._criterion_values(
-            alternatives=[evaluation_tools._Alternative("A", {"x": 1.0})],
+            alternatives=[evaluation_tools._Alternative(alt_id="A", scores={"x": 1.0})],
             criterion_name="y",
         )
 

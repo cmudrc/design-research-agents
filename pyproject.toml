@@ -11,15 +11,22 @@ description = "A flexible, modular framework for researching AI agents that desi
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
-authors = [{ name = "design-research-agents contributors" }]
+authors = [{ name = "The Design Research Collective" }]
+maintainers = [{ name = "Christopher C. McComb", email = "ccm@cmu.edu"}]
 
 keywords = ["agents", "llm", "mcp", "design", "research", "orchestration"]
 
 classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
 ]
 
 # Core deps: includes a "works everywhere" default backend (OpenAI).
@@ -32,6 +39,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://cmudrc.github.io/design-research-agents/"
+Documentation = "https://cmudrc.github.io/design-research-agents/"
 Repository = "https://github.com/cmudrc/design-research-agents"
 Issues = "https://github.com/cmudrc/design-research-agents/issues"
 
@@ -144,7 +152,6 @@ line-ending = "auto"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "D", "C90"]
-ignore = ["UP040"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 12

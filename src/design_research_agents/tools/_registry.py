@@ -14,7 +14,7 @@ from design_research_agents._tracing import (
 from ._sources._base import ToolSource
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _ToolRoute:
     """Resolved registry entry for one externally visible tool name."""
 

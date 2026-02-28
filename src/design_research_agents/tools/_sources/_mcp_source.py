@@ -249,7 +249,7 @@ class _StdioMcpClient:
         self.close()
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _McpRoute:
     """Resolved route for one public MCP tool name."""
 

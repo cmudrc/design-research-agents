@@ -13,7 +13,7 @@ class ToolPolicyError(RuntimeError):
     """Raised when a tool invocation violates runtime policy."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolPolicyConfig:
     """Runtime guardrail settings used by core, MCP, and script tools."""
 

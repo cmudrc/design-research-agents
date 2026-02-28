@@ -38,7 +38,7 @@ class _StubClient:
         pass
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class _FakeProcess:
     stdout: object
     stderr: object

@@ -24,7 +24,7 @@ from design_research_agents._implementations._shared._agent_internal._tool_input
 )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolChoice:
     """Normalized tool option used by planning and validation logic."""
 

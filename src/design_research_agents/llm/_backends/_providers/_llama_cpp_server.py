@@ -21,7 +21,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class LlamaCppServerBackend:
     """Manage a persistent llama-cpp server process.
 

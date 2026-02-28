@@ -16,7 +16,7 @@ from ._utils import _sanitize_filename
 UTC = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class Tracer:
     """Explicitly configured tracer dependency injected into runtimes."""
 

@@ -11,7 +11,7 @@ from ._llm import LLMResponse
 from ._tools import ToolResult
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ExecutionResult:
     """Structured output produced by one execution entrypoint.
 

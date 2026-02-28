@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Iterator
-from typing import Any, cast
+from typing import Any, cast, override
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -68,6 +68,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         self._tokenizer: Any | None = None
         self._model: Any | None = None
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return capabilities inferred from installed Transformers features.
 
@@ -82,6 +83,7 @@ class TransformersLocalBackend(BaseLLMBackend):
             max_context_tokens=None,
         )
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static health status for configured backend.
 
@@ -90,6 +92,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         """
         return BackendStatus(ok=True, message="Transformers backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate a non-streaming response from the local model.
 
@@ -114,6 +117,7 @@ class TransformersLocalBackend(BaseLLMBackend):
         text = tokenizer.decode(generated_ids, skip_special_tokens=True)
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Generate and yield streaming deltas from the local model.
 

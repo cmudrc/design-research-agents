@@ -25,7 +25,7 @@ from design_research_agents.llm._structured_output import (
 )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolCallSchemaConfig:
     """Schema configuration for best-effort tool call extraction."""
 

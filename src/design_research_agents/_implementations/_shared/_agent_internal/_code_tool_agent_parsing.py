@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from design_research_agents._contracts._tools import ToolSpec
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class AllowedTool:
     """Normalized allowed-tool definition used during one run."""
 
@@ -23,7 +23,7 @@ class AllowedTool:
     """Optional default input merged in when generated code passes an empty object."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class CodeNormalizationResult:
     """Captures optional pre-validation code normalization details."""
 

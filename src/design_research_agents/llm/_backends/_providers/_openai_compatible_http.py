@@ -6,7 +6,7 @@ import json
 import os
 from collections.abc import Iterable, Iterator, Sequence
 from http.client import HTTPResponse
-from typing import Any, cast
+from typing import Any, cast, override
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -73,6 +73,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         self._api_key = api_key
         self._capabilities = capabilities
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return declared capabilities for this endpoint.
 
@@ -81,6 +82,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """
         return self._capabilities
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static status for configured HTTP backend.
 
@@ -89,6 +91,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """
         return BackendStatus(ok=True, message="OpenAI-compatible backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one completion using the OpenAI-compatible HTTP endpoint.
 
@@ -102,6 +105,7 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         response = _post_json(self._chat_url, payload, headers=self._headers())
         return _parse_completion_response(response, request, provider=self.name)
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Stream completion deltas from the OpenAI-compatible endpoint.
 

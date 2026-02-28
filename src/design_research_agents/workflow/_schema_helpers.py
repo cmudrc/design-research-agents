@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from typing import Literal
 
 _SCALAR_TYPES = {"string", "number", "integer", "boolean", "null", "object", "array"}
-SchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"]
+type SchemaType = Literal["string", "number", "integer", "boolean", "null", "object", "array"]
 
 
 def scalar(type_name: SchemaType) -> dict[str, object]:

@@ -10,7 +10,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Literal, cast
 
-AlternativesPromptTarget = Literal["user", "system"]
+type AlternativesPromptTarget = Literal["user", "system"]
 
 
 def normalize_alternatives_prompt_target(

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Protocol, cast
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class HardwareProfile:
     """Snapshot of system hardware capacity for model selection.
 

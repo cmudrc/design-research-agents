@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Iterator
-from typing import Any, cast
+from typing import Any, cast, override
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -58,6 +58,7 @@ class MlxLocalBackend(BaseLLMBackend):
         self._model: Any | None = None
         self._tokenizer: Any | None = None
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return capabilities inferred from installed MLX version.
 
@@ -73,6 +74,7 @@ class MlxLocalBackend(BaseLLMBackend):
             max_context_tokens=None,
         )
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static health state for configured MLX backend.
 
@@ -81,6 +83,7 @@ class MlxLocalBackend(BaseLLMBackend):
         """
         return BackendStatus(ok=True, message="MLX backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate a non-streaming completion for one request.
 
@@ -102,6 +105,7 @@ class MlxLocalBackend(BaseLLMBackend):
         text = output if isinstance(output, str) else "".join(output)
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Generate and yield streaming text deltas for one request.
 

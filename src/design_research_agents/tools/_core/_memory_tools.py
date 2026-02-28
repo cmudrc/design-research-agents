@@ -25,7 +25,7 @@ from design_research_agents.tools._sources._inprocess_source import InProcessToo
 from ._helpers import get_int, get_str
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _ResolvedStore:
     """Resolved store binding for one memory tool call."""
 

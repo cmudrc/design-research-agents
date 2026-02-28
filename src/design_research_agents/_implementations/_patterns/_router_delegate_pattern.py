@@ -42,7 +42,7 @@ from .._shared._agent_internal._run_options import (
 )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class _RoutingExecutionState:
     """Mutable state shared between routing workflow callbacks."""
 

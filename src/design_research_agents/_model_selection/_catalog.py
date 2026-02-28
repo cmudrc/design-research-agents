@@ -14,7 +14,7 @@ from ._types import (
 )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelCatalog:
     """Catalog of known models and their hardware hints.
 

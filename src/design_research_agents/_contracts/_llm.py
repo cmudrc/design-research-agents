@@ -15,14 +15,14 @@ from typing import Literal, Protocol, Self
 
 from ._tools import ToolSpec
 
-LLMRole = Literal["system", "user", "assistant", "tool"]
-LLMStreamEventKind = Literal["delta", "completed"]
-ToolCallingMode = Literal["native", "best_effort", "none"]
-JSONMode = Literal["native", "prompt+validate", "none"]
-TaskPriority = Literal["latency", "quality", "cost", "balanced"]
+type LLMRole = Literal["system", "user", "assistant", "tool"]
+type LLMStreamEventKind = Literal["delta", "completed"]
+type ToolCallingMode = Literal["native", "best_effort", "none"]
+type JSONMode = Literal["native", "prompt+validate", "none"]
+type TaskPriority = Literal["latency", "quality", "cost", "balanced"]
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LLMMessage:
     """One chat message in the provider-neutral completion format.
 
@@ -46,7 +46,7 @@ class LLMMessage:
     """Tool name associated with a tool-response message."""
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class LLMChatParams:
     """Provider-neutral generation controls passed with chat requests."""
 
@@ -60,7 +60,7 @@ class LLMChatParams:
     """Provider-specific raw options forwarded to backend adapters."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolCall:
     """Tool-call intent emitted by a backend."""
 
@@ -72,7 +72,7 @@ class ToolCall:
     """Stable call identifier used to pair call and result."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LLMToolResult:
     """Result payload used to feed tool outputs back into model turns."""
 
@@ -84,7 +84,7 @@ class LLMToolResult:
     """Optional error text when tool execution failed."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class Usage:
     """Token accounting information for an LLM call."""
 
@@ -96,7 +96,7 @@ class Usage:
     """Total token count if reported by the backend."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class TaskProfile:
     """Routing hints for selecting a backend."""
 
@@ -110,7 +110,7 @@ class TaskProfile:
     """Free-form tags used by model selection policies."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LLMRequest:
     """Provider-neutral request payload for LLM generation."""
 
@@ -136,7 +136,7 @@ class LLMRequest:
     """Optional routing profile used by selector-aware clients."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class Provenance:
     """Provenance metadata for reproducibility and audit trails."""
 
@@ -165,7 +165,7 @@ class Provenance:
         return datetime.now(timezone.utc).isoformat()  # noqa: UP017
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LLMResponse:
     """Normalized non-streaming response payload returned by a backend."""
 
@@ -191,7 +191,7 @@ class LLMResponse:
     """Execution provenance metadata for auditability."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LLMStreamEvent:
     """One event emitted from a streaming model response."""
 
@@ -203,7 +203,7 @@ class LLMStreamEvent:
     """Final assembled response for ``kind='completed'`` events."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolCallDelta:
     """Incremental tool-call delta used for streaming responses."""
 
@@ -215,7 +215,7 @@ class ToolCallDelta:
     """Incremental JSON argument text for the streamed call."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LLMDelta:
     """Incremental delta emitted by streaming model responses."""
 
@@ -227,7 +227,7 @@ class LLMDelta:
     """Incremental usage counters emitted mid-stream."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class EmbeddingResult:
     """Embedding response payload returned by a backend."""
 
@@ -239,7 +239,7 @@ class EmbeddingResult:
     """Usage counters associated with the embedding request."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class BackendCapabilities:
     """Capabilities supported by a backend."""
 
@@ -255,7 +255,7 @@ class BackendCapabilities:
     """Maximum context window tokens, if known."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class BackendStatus:
     """Healthcheck status returned by a backend."""
 

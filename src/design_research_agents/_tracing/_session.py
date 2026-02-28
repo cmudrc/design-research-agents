@@ -14,7 +14,7 @@ from ._utils import _normalize_value
 UTC = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class TraceEvent:
     """Normalized trace event payload."""
 
@@ -48,7 +48,7 @@ class TraceEvent:
         return payload
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _SpanInfo:
     """Internal bookkeeping record for one open span."""
 

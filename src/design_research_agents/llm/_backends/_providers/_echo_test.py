@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import override
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -36,6 +37,7 @@ class EchoTestBackend(BaseLLMBackend):
             model_patterns=(model,),
         )
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return capabilities exposed by the echo backend.
 
@@ -50,6 +52,7 @@ class EchoTestBackend(BaseLLMBackend):
             max_context_tokens=None,
         )
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return an always-healthy status for deterministic test backend.
 
@@ -58,6 +61,7 @@ class EchoTestBackend(BaseLLMBackend):
         """
         return BackendStatus(ok=True, message="echo-test backend is always healthy.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one deterministic echo response for the provided request.
 
@@ -74,6 +78,7 @@ class EchoTestBackend(BaseLLMBackend):
         text = f"[{request.model}] {cleaned_prompt}"
         return LLMResponse(text=text, model=request.model, provider=self.name)
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Stream one deterministic echo delta for the provided request.
 

@@ -18,7 +18,7 @@ from design_research_agents._contracts._tools import ToolSpec
 _JSON_SCHEMA_DRAFT = "2020-12"
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class StructuredOutputResult:
     """Normalized structured output result from prompt+validate flows."""
 

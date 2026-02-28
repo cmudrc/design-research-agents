@@ -12,7 +12,7 @@ from types import TracebackType
 from typing import Literal, Protocol, Self
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolCostHints:
     """Approximate cost metadata associated with a tool invocation.
 
@@ -30,7 +30,7 @@ class ToolCostHints:
     """Estimated direct monetary cost in USD."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolSideEffects:
     """Declared side effects for one tool implementation."""
 
@@ -44,7 +44,7 @@ class ToolSideEffects:
     """Command names the tool may execute, when command execution is used."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolMetadata:
     """Tool source and guardrail metadata surfaced to runtimes/agents."""
 
@@ -75,7 +75,7 @@ class ToolMetadata:
         object.__setattr__(self, "risky", is_risky)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolSpec:
     """Static description of a tool available to agent runtimes.
 
@@ -114,7 +114,7 @@ class ToolSpec:
         return self.input_schema
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolArtifact:
     """File-like artifact emitted by a tool invocation."""
 
@@ -124,7 +124,7 @@ class ToolArtifact:
     """MIME type describing artifact content."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolError:
     """Structured tool failure details."""
 
@@ -134,7 +134,7 @@ class ToolError:
     """Human-readable error message."""
 
 
-@dataclass(slots=True, frozen=True, init=False)
+@dataclass(slots=True, frozen=True, kw_only=True, init=False)
 class ToolResult:
     """Result payload emitted from a tool runtime invocation."""
 

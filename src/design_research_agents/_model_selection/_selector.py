@@ -28,9 +28,9 @@ from ._types import (
     ModelSelectionPolicyConfig,
 )
 
-Priority = Literal["quality", "balanced", "speed"]
-SelectionOutput = Literal["client", "decision", "client_config"]
-LocalClientResolver = Callable[[ModelSelectionDecision], dict[str, object]]
+type Priority = Literal["quality", "balanced", "speed"]
+type SelectionOutput = Literal["client", "decision", "client_config"]
+type LocalClientResolver = Callable[[ModelSelectionDecision], dict[str, object]]
 
 _CLIENT_CLASSES: dict[str, type[object]] = {
     "AzureOpenAIServiceLLMClient": AzureOpenAIServiceLLMClient,

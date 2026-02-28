@@ -18,7 +18,7 @@ from ._types import (
 )
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class ModelSelectionPolicy:
     """Policy that selects a model using intent, constraints, and hardware.
 

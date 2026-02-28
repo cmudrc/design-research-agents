@@ -14,7 +14,7 @@ LoopContinuePredicate = Callable[[int, Mapping[str, object]], bool]
 LoopIterationHandler = Callable[[int, Mapping[str, object]], Mapping[str, object]]
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class WorkflowLoopResult:
     """Result returned by ``run_workflow_loop``."""
 

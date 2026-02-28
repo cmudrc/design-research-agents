@@ -63,7 +63,7 @@ from .._workflow_loop_orchestration import (
 )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _ControllerDecision:
     """One parsed controller action for a direct-response step."""
 

@@ -6,7 +6,7 @@ import json
 import os
 import time
 from collections.abc import Iterator, Sequence
-from typing import Any
+from typing import Any, override
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -61,6 +61,7 @@ class GroqServiceBackend(BaseLLMBackend):
         self._client: Any | None = None
         self._capabilities_override = capabilities
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return effective capabilities for this Groq backend."""
         default_caps = BackendCapabilities(
@@ -72,10 +73,12 @@ class GroqServiceBackend(BaseLLMBackend):
         )
         return self._capabilities_override or default_caps
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static status for a configured Groq backend."""
         return BackendStatus(ok=True, message="Groq backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one completion using the Groq chat completions API."""
         request_payload = self._build_payload(request, include_response_format=True)
@@ -93,6 +96,7 @@ class GroqServiceBackend(BaseLLMBackend):
                 return self._fallback_prompt_validate(request)
             raise mapped_error from exc
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Stream completion deltas from the Groq chat completions API."""
         stream_payload = self._build_payload(request, include_response_format=True)

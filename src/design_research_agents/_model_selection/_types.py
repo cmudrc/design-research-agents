@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-LatencyTier = Literal["fast", "medium", "slow"]
-CostTier = Literal["low", "medium", "high"]
-PriorityTier = Literal["quality", "balanced", "speed"]
+type LatencyTier = Literal["fast", "medium", "slow"]
+type CostTier = Literal["low", "medium", "high"]
+type PriorityTier = Literal["quality", "balanced", "speed"]
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelMemoryHint:
     """Memory requirement hints for model selection.
 
@@ -28,7 +28,7 @@ class ModelMemoryHint:
     """Optional annotation explaining caveats in the memory hint."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelLatencyHint:
     """Latency hints for model selection.
 
@@ -43,7 +43,7 @@ class ModelLatencyHint:
     """Optional annotation for latency assumptions."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelCostHint:
     """Cost hints for model selection.
 
@@ -58,7 +58,7 @@ class ModelCostHint:
     """Estimated USD cost per 1K tokens, when available."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSpec:
     """Catalog entry describing one model option.
 
@@ -118,7 +118,7 @@ class ModelSpec:
         }
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSelectionIntent:
     """Intent descriptor used by the model selection policy.
 
@@ -148,7 +148,7 @@ class ModelSelectionIntent:
             object.__setattr__(self, "task", normalized_task)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSelectionConstraints:
     """Constraints that bound model selection choices.
 
@@ -184,7 +184,7 @@ class ModelSelectionConstraints:
             object.__setattr__(self, "preferred_provider", normalized or None)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSafetyConstraints:
     """Safety bounds attached to a model selection decision.
 
@@ -199,7 +199,7 @@ class ModelSafetyConstraints:
     """Latency bound carried into the final decision payload."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSelectionDecision:
     """Selection output describing the chosen model and rationale.
 
@@ -226,7 +226,7 @@ class ModelSelectionDecision:
     """Catalog signature/version used during selection."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSelectionPolicyConfig:
     """Configuration controlling model selection behavior.
 

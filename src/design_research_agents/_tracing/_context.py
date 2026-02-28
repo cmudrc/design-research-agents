@@ -12,7 +12,7 @@ from ._session import TraceSession, _SpanInfo
 from ._utils import _normalize_value
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class TraceScope:
     """Context manager payload for active trace scopes."""
 

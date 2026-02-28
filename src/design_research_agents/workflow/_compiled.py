@@ -23,7 +23,7 @@ def _identity_result(result: ExecutionResult) -> ExecutionResult:
     return result
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class CompiledExecution:
     """Bound compiled delegate execution that can be run repeatedly."""
 

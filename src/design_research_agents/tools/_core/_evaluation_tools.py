@@ -14,7 +14,7 @@ from design_research_agents._contracts._tools import (
 from design_research_agents.tools._sources._inprocess_source import InProcessToolSource
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _Criterion:
     """One weighted decision criterion."""
 
@@ -23,7 +23,7 @@ class _Criterion:
     weight: float
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _Alternative:
     """One decision alternative with criterion scores."""
 

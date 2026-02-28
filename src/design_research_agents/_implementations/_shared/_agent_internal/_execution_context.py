@@ -21,7 +21,7 @@ from design_research_agents._tracing import (
 )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class AgentExecutionContext:
     """Normalized per-run context shared by agent implementations."""
 

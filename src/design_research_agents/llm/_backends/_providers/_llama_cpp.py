@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from typing import override
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -73,6 +74,7 @@ class LlamaCppBackend(BaseLLMBackend):
             model_patterns=model_patterns,
         )
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return capabilities provided by the wrapped llama.cpp server.
 
@@ -81,6 +83,7 @@ class LlamaCppBackend(BaseLLMBackend):
         """
         return _LLAMA_CPP_CAPABILITIES
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static health status for configured llama.cpp backend.
 
@@ -89,6 +92,7 @@ class LlamaCppBackend(BaseLLMBackend):
         """
         return BackendStatus(ok=True, message="llama.cpp backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one response via the managed llama.cpp HTTP backend.
 
@@ -101,6 +105,7 @@ class LlamaCppBackend(BaseLLMBackend):
         self._backend.start()
         return self._http_backend.generate(request)
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Stream one response delta via the managed llama.cpp backend.
 

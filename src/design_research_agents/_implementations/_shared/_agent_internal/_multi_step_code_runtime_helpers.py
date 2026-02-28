@@ -42,7 +42,7 @@ from design_research_agents._implementations._shared._agent_internal._result_bui
 from design_research_agents._tracing import Tracer
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MultiStepCodeRunConfig:
     """Resolved per-run configuration for multi-step code agent execution."""
 

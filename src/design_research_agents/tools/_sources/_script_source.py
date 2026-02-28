@@ -22,7 +22,7 @@ class ScriptToolRuntimeError(RuntimeError):
     """Raised when script-tool execution output is invalid."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class _ScriptToolBinding:
     """Resolved binding for one configured script-backed tool."""
 

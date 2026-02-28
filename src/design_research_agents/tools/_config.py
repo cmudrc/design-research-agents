@@ -11,7 +11,7 @@ from typing import Literal
 CallableToolHandler = Callable[[Mapping[str, object]], object]
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class CoreToolsConfig:
     """Configuration for built-in core tools."""
 
@@ -37,7 +37,7 @@ class CoreToolsConfig:
     """Workspace root path exposed to filesystem-aware tools."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MCPServerConfig:
     """External MCP server definition."""
 
@@ -76,7 +76,7 @@ class MCPServerConfig:
     addition to any variables from the allowlist that are present in the parent process."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class McpConfig:
     """Configuration for attached MCP servers."""
 
@@ -86,7 +86,7 @@ class McpConfig:
     """Configured external MCP servers to attach."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ScriptToolConfig:
     """One explicit script-backed tool definition."""
 
@@ -168,7 +168,7 @@ class ScriptToolConfig:
     This can be used to inform users about the tool's capabilities and potential risks."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ScriptToolsConfig:
     """Configuration for explicitly declared script tools."""
 
@@ -178,7 +178,7 @@ class ScriptToolsConfig:
     """Explicit script-backed tool definitions."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class CallableToolConfig:
     """Simple in-process callable tool wrapper descriptor."""
 
@@ -219,7 +219,7 @@ class CallableToolConfig:
     """Whether the tool performs potentially risky operations."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolRuntimeConfig:
     """Top-level configuration for source-enabled toolbox runtime."""
 

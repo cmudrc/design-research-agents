@@ -28,7 +28,19 @@ from design_research_agents._implementations._shared._agent_internal._prompt_alt
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
 
-MultiStepMode = Literal["direct", "json", "code"]
+type MultiStepMode = Literal["direct", "json", "code"]
+
+
+def _normalize_mode(raw_mode: object) -> MultiStepMode:
+    """Normalize one mode input to the closed set of supported strategy names."""
+    normalized_mode = raw_mode.strip().lower() if isinstance(raw_mode, str) else ""
+    if normalized_mode == "direct":
+        return "direct"
+    if normalized_mode == "json":
+        return "json"
+    if normalized_mode == "code":
+        return "code"
+    raise ValueError("mode must be one of: 'direct', 'json', 'code'.")
 
 
 class MultiStepAgent(Delegate):
@@ -98,9 +110,7 @@ class MultiStepAgent(Delegate):
             ValueError: Raised when mode/tool configuration is invalid.
         """
         # Coerce and validate mode argument
-        normalized_mode = mode.strip().lower() if isinstance(mode, str) else ""
-        if normalized_mode not in {"direct", "json", "code"}:
-            raise ValueError("mode must be one of: 'direct', 'json', 'code'.")
+        normalized_mode = _normalize_mode(mode)
 
         # Validate tool runtime presence for json/code modes
         if normalized_mode in {"json", "code"}:
@@ -110,7 +120,7 @@ class MultiStepAgent(Delegate):
                 raise ValueError("tool_runtime must expose at least one tool when mode is 'json' or 'code'.")
 
         # Additional validation for code mode
-        self._mode: MultiStepMode = normalized_mode  # type: ignore[assignment]
+        self._mode = normalized_mode
         self._strategy: Delegate
         if self._mode == "direct":
             self._strategy = _DirectModeStrategy(

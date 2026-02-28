@@ -18,7 +18,7 @@ from design_research_agents._contracts._workflow import (
 )
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DelegateInvocation:
     """Normalized delegate invocation payload."""
 

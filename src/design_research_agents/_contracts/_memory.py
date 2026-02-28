@@ -8,7 +8,7 @@ from types import TracebackType
 from typing import Any, Protocol, Self
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MemoryWriteRecord:
     """One record payload to be persisted into a memory store."""
 
@@ -28,7 +28,7 @@ class MemoryWriteRecord:
         return asdict(self)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MemorySearchQuery:
     """Structured memory search query."""
 
@@ -52,7 +52,7 @@ class MemorySearchQuery:
         return asdict(self)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MemoryRecord:
     """Retrieved or persisted memory record."""
 

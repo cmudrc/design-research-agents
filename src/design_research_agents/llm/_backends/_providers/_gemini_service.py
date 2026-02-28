@@ -6,7 +6,7 @@ import json
 import os
 import time
 from collections.abc import Iterator, Sequence
-from typing import Any
+from typing import Any, override
 
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -53,6 +53,7 @@ class GeminiServiceBackend(BaseLLMBackend):
         self._client: Any | None = None
         self._capabilities_override = capabilities
 
+    @override
     def capabilities(self) -> BackendCapabilities:
         """Return effective capabilities for this Gemini backend."""
         default_caps = BackendCapabilities(
@@ -64,10 +65,12 @@ class GeminiServiceBackend(BaseLLMBackend):
         )
         return self._capabilities_override or default_caps
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static status for a configured Gemini backend."""
         return BackendStatus(ok=True, message="Gemini backend configured.")
 
+    @override
     def _generate(self, request: LLMRequest) -> LLMResponse:
         """Generate one completion using the Gemini generate content API."""
         call_args = self._build_call_args(request, include_response_format=True)
@@ -85,6 +88,7 @@ class GeminiServiceBackend(BaseLLMBackend):
                 return self._fallback_prompt_validate(request)
             raise mapped_error from exc
 
+    @override
     def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
         """Stream completion deltas from the Gemini generate content stream API."""
         call_args = self._build_call_args(request, include_response_format=True)

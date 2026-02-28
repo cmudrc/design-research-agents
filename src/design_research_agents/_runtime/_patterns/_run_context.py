@@ -35,7 +35,7 @@ from design_research_agents._tracing._result_metadata import (
 from design_research_agents.workflow import CompiledExecution, Workflow
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class WorkflowBudgetTracker:
     """Observed-metrics accumulator for workflow-native orchestration patterns."""
 
@@ -95,7 +95,7 @@ class WorkflowBudgetTracker:
         }
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class PatternRunContext:
     """Normalized request/dependency payload for one pattern run."""
 

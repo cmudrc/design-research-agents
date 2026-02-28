@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from design_research_agents._contracts._workflow import WorkflowStep
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class PreparedWorkflow:
     """Normalized workflow graph and dependency maps."""
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, override
 
 from design_research_agents._contracts._llm import BackendCapabilities, BackendStatus
 
@@ -13,6 +13,7 @@ from ._openai_service import OpenAIServiceBackend
 class AzureOpenAIServiceBackend(OpenAIServiceBackend):
     """Backend that calls Azure OpenAI via the official OpenAI SDK."""
 
+    @override
     def __init__(
         self,
         *,
@@ -47,10 +48,12 @@ class AzureOpenAIServiceBackend(OpenAIServiceBackend):
         self._api_version_env = api_version_env
         self._api_version = api_version
 
+    @override
     def healthcheck(self) -> BackendStatus:
         """Return static status for a configured Azure OpenAI backend."""
         return BackendStatus(ok=True, message="Azure OpenAI backend configured.")
 
+    @override
     def _create_client(self) -> Any:
         """Create and cache the Azure OpenAI SDK client instance."""
         api_key = self._resolve_api_key()

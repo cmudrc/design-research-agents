@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from ._delegate import Delegate
 from ._execution import ExecutionResult
 from ._llm import LLMClient, LLMRequest, LLMResponse
 from ._memory import MemoryWriteRecord
 
-WorkflowExecutionMode = Literal["sequential", "dag"]
+type WorkflowExecutionMode = Literal["sequential", "dag"]
 """Runtime execution mode options for workflow runs and nested loop runs."""
 
-WorkflowFailurePolicy = Literal["skip_dependents", "propagate_failed_state"]
+type WorkflowFailurePolicy = Literal["skip_dependents", "propagate_failed_state"]
 """Failure handling policies for workflow runs and nested loop runs."""
 
-WorkflowStepStatus = Literal["completed", "failed", "skipped"]
+type WorkflowStepStatus = Literal["completed", "failed", "skipped"]
 """Normalized status strings for workflow step execution outcomes."""
 
 
@@ -77,11 +77,11 @@ class WorkflowDelegate(Protocol):
 
 # Delegate inputs are intentionally broad so callers can compose agents, workflow
 # wrappers, and direct Workflow objects without adapter boilerplate.
-DelegateTarget: TypeAlias = Delegate | DelegateRunner | WorkflowDelegate
+type DelegateTarget = Delegate | DelegateRunner | WorkflowDelegate
 """Union type covering all supported delegate types for delegate steps and batch delegate calls."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class WorkflowArtifactSource:
     """Provenance entry describing one artifact source edge."""
 
@@ -93,7 +93,7 @@ class WorkflowArtifactSource:
     """Optional human-readable provenance note."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class WorkflowArtifact:
     """User-facing workflow artifact manifest entry."""
 
@@ -123,49 +123,49 @@ class WorkflowArtifact:
         return asdict(self)
 
 
-WorkflowArtifactsBuilder: TypeAlias = Callable[
+type WorkflowArtifactsBuilder = Callable[
     [Mapping[str, object]],
     Sequence[WorkflowArtifact | Mapping[str, object]],
 ]
 """Optional callback type for building user-facing artifact manifests from runtime step context."""
 
-ToolStepInputBuilder: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
+type ToolStepInputBuilder = Callable[[Mapping[str, object]], Mapping[str, object]]
 """Callback type for building tool input payloads from runtime step context."""
 
-DelegateStepPromptBuilder: TypeAlias = Callable[[Mapping[str, object]], str]
+type DelegateStepPromptBuilder = Callable[[Mapping[str, object]], str]
 """Callback type for building delegate prompt strings from runtime step context."""
 
-ModelStepRequestBuilder: TypeAlias = Callable[[Mapping[str, object]], LLMRequest]
+type ModelStepRequestBuilder = Callable[[Mapping[str, object]], LLMRequest]
 """Callback type for building model request payloads from runtime step context."""
 
-ModelStepResponseParser: TypeAlias = Callable[
+type ModelStepResponseParser = Callable[
     [LLMResponse, Mapping[str, object]],
     Mapping[str, object],
 ]
 """Optional callback type for parsing model responses into structured step output."""
 
-LogicStepHandler: TypeAlias = Callable[[Mapping[str, object]], Mapping[str, object]]
+type LogicStepHandler = Callable[[Mapping[str, object]], Mapping[str, object]]
 """Callback type for executing deterministic logic within a logic step from runtime step context."""
 
-MemoryReadQueryBuilder: TypeAlias = Callable[[Mapping[str, object]], str | Mapping[str, object]]
+type MemoryReadQueryBuilder = Callable[[Mapping[str, object]], str | Mapping[str, object]]
 """Callback type for building memory read query text or payload from runtime step context."""
 
-MemoryWriteRecordsBuilder: TypeAlias = Callable[
+type MemoryWriteRecordsBuilder = Callable[
     [Mapping[str, object]],
     Sequence[str | Mapping[str, object] | MemoryWriteRecord],
 ]
 """Callback type for building memory write record payloads from runtime step context."""
 
-LoopStepContinuePredicate: TypeAlias = Callable[[int, Mapping[str, object]], bool]
+type LoopStepContinuePredicate = Callable[[int, Mapping[str, object]], bool]
 """Callback type for deciding whether to continue iterating the loop body based on iteration count and loop state."""
 
-LoopStepStateReducer: TypeAlias = Callable[
+type LoopStepStateReducer = Callable[
     [Mapping[str, object], ExecutionResult, int],
     Mapping[str, object],
 ]
 """Callback type for computing next loop state from prior state, iteration result, and iteration count."""
 
-LoopStepTerminationReason = Literal[
+type LoopStepTerminationReason = Literal[
     "condition_stopped",
     "max_iterations_reached",
     "iteration_failed",
@@ -175,7 +175,7 @@ LoopStepTerminationReason = Literal[
 # without handling free-form reason strings.
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ToolStep:
     """Workflow step that invokes one runtime tool."""
 
@@ -193,7 +193,7 @@ class ToolStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DelegateStep:
     """Workflow step that invokes one direct delegate."""
 
@@ -211,7 +211,7 @@ class DelegateStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ModelStep:
     """Workflow step that executes one model request through an LLM client."""
 
@@ -229,7 +229,7 @@ class ModelStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DelegateBatchCall:
     """One delegate call specification executed by ``DelegateBatchStep``."""
 
@@ -245,13 +245,13 @@ class DelegateBatchCall:
     """Failure policy propagated when the delegate is workflow-like."""
 
 
-DelegateBatchCallsBuilder: TypeAlias = Callable[
+type DelegateBatchCallsBuilder = Callable[
     [Mapping[str, object]],
     Sequence[DelegateBatchCall | Mapping[str, object]],
 ]
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class DelegateBatchStep:
     """Workflow step that executes multiple delegate invocations in sequence."""
 
@@ -267,7 +267,7 @@ class DelegateBatchStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LogicStep:
     """Workflow step that executes deterministic local logic."""
 
@@ -283,7 +283,7 @@ class LogicStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class LoopStep:
     """Workflow step that executes an iterative nested workflow body."""
 
@@ -309,7 +309,7 @@ class LoopStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MemoryReadStep:
     """Workflow step that reads relevant records from the memory store."""
 
@@ -329,7 +329,7 @@ class MemoryReadStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class MemoryWriteStep:
     """Workflow step that writes records into the memory store."""
 
@@ -345,13 +345,13 @@ class MemoryWriteStep:
     """Optional callback that extracts user-facing artifact manifests from step context."""
 
 
-WorkflowStep: TypeAlias = (
+type WorkflowStep = (
     ToolStep | DelegateStep | ModelStep | DelegateBatchStep | LogicStep | LoopStep | MemoryReadStep | MemoryWriteStep
 )
 """Union type covering all supported workflow step variants for use in step sequences and delegate definitions."""
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class WorkflowStepResult:
     """Result payload for one workflow step execution."""
 
