@@ -1,8 +1,5 @@
 # design-research-agents
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Coverage](.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Examples Passing](.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Public API In Examples](.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
 `design-research-agents` is a modular framework for prototyping and researching engineering design AI agents.
@@ -46,19 +43,19 @@ make test
 PYTHONPATH=src python3 examples/patterns/plan_execute.py
 ```
 
-For frozen installs, optional extras, and release maintenance, see [`docs/dependencies_and_extras.rst`](docs/dependencies_and_extras.rst).
+For frozen installs, optional extras, and release maintenance, see [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
 
 ## Examples
 
-Start with [`examples/README.md`](examples/README.md) for runnable examples grouped by agents, clients, workflows, patterns, model selection, and tools.
+Start with [examples/README.md](https://github.com/cmudrc/design-research-agents/blob/main/examples/README.md) for runnable examples grouped by agents, clients, workflows, patterns, model selection, and tools.
 
 
 ## Docs
 
-See [`docs/index.rst`](docs/index.rst) for the full guide set, including quickstart, backend setup, workflows, patterns, and API reference.
+See the [documentation site](https://cmudrc.github.io/design-research-agents/) for the full guide set, including quickstart, backend setup, workflows, patterns, and API reference.
 
 Build docs locally with `make docs`.
 
 ## Contributing
 
-Contribution guidelines now live in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Contribution guidelines now live in [CONTRIBUTING.md](https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md).

@@ -4,6 +4,8 @@ PYTEST ?= $(PYTHON) -m pytest
 RUFF ?= $(PYTHON) -m ruff
 MYPY ?= $(PYTHON) -m mypy
 SPHINX ?= $(PYTHON) -m sphinx
+BUILD ?= $(PYTHON) -m build
+TWINE ?= $(PYTHON) -m twine
 UV ?= uv
 REPRO_PYTHON ?= $(shell cat .python-version 2>/dev/null || echo 3.12.12)
 REPRO_EXTRAS ?= dev full
@@ -13,6 +15,7 @@ DOCSTRING_CHANGED_FILES_DEFAULT := artifacts/docstrings_changed_files.txt
 
 .PHONY: help check-python check-uv dev install-dev repro lock \
 	lint fmt fmt-check type test qa ci coverage \
+	release-check \
 	structure-check docstrings-check legacy-check baseline-integrity-check junk-check \
 	examples-smoke examples-test examples-metrics run-example \
 	docs docs-build docs-check docs-linkcheck clean
@@ -27,6 +30,7 @@ help:
 	@echo "  qa               Run lint, fmt-check, type, and test."
 	@echo "  ci               Full CI checks used in GitHub Actions."
 	@echo "  coverage         Run tests with coverage threshold check."
+	@echo "  release-check    Build sdist/wheel and run twine metadata checks."
 	@echo "  docs             Build docs (same as docs-build)."
 	@echo "  clean            Remove generated build artifacts and local caches."
 
@@ -93,6 +97,11 @@ coverage: check-python
 	mkdir -p artifacts/coverage
 	PYTHONPATH=src $(PYTEST) --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
 	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json
+
+release-check: check-python
+	rm -rf dist
+	$(BUILD)
+	$(TWINE) check dist/*
 
 examples-smoke: check-python
 	PYTHONPATH=src $(PYTEST) -m examples_smoke -q

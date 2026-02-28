@@ -1,18 +1,19 @@
 # PEP 517/518 build configuration for editable/package installations.
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 # Core package metadata used by pip/PyPI tooling.
 [project]
 name = "design-research-agents"
 version = "0.2.0"
-description = "A flexible, modular framework for researching AI agents that design"
+description = "A flexible, modular framework for researching engineering design AI agents"
 readme = "README.md"
 requires-python = ">=3.12"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "The Design Research Collective" }]
-maintainers = [{ name = "Christopher C. McComb", email = "ccm@cmu.edu"}]
+maintainers = [{ name = "Christopher C. McComb", email = "ccm@cmu.edu" }]
 
 keywords = ["agents", "llm", "mcp", "design", "research", "orchestration"]
 
@@ -22,7 +23,6 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Software Development :: Libraries :: Python Modules",
@@ -53,9 +53,11 @@ dev = [
   "pytest-asyncio>=0.23,<1",
   "pytest-cov>=7.0,<8",
   "ruff>=0.6.0,<1",
+  "build>=1.2,<2",
   "sphinx>=7.4,<9",
   "sphinxcontrib-mermaid>=1.0,<2",
   "sphinx-rtd-theme>=2.0,<4",
+  "twine>=5,<7",
 ]
 
 # Shared HF utilities (handy for multiple backends)

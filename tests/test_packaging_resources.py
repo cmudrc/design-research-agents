@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -96,6 +97,12 @@ def _ensure_pip_available() -> None:
     )
 
 
+def _read_wheel_metadata(wheel_path: Path) -> str:
+    with zipfile.ZipFile(wheel_path) as archive:
+        metadata_name = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
+        return archive.read(metadata_name).decode("utf-8")
+
+
 def test_wheel_includes_prompt_and_schema_resources(tmp_path: Path) -> None:
     wheel_path = _build_wheel(tmp_path)
     with zipfile.ZipFile(wheel_path) as archive:
@@ -161,3 +168,16 @@ print(json.dumps({"schema_type": schema.get("type"), "prompt_len": len(prompt)})
     assert payload["schema_type"] == "object"
     assert isinstance(payload["prompt_len"], int)
     assert payload["prompt_len"] > 0
+
+
+def test_wheel_metadata_uses_absolute_markdown_links(tmp_path: Path) -> None:
+    wheel_path = _build_wheel(tmp_path)
+    metadata = _read_wheel_metadata(wheel_path)
+
+    relative_targets = [
+        match.group(1)
+        for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", metadata)
+        if not match.group(1).startswith(("https://", "http://", "mailto:", "#"))
+    ]
+
+    assert not relative_targets, f"Wheel metadata contains repo-relative markdown links: {relative_targets}"

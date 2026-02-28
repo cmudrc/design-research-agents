@@ -27,7 +27,7 @@ pip install -e ".[dev]"
 ```
 
 `.[dev]` is batteries-included and installs linting, formatting, typing, test,
-docs, and pre-commit tooling.
+docs, release, and pre-commit tooling.
 
 ## Local Quality Checks
 

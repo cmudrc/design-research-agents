@@ -12,7 +12,7 @@ Project maturity is pre-alpha; breaking changes are acceptable only with explici
   - `source .venv/bin/activate`
 - Reproducible release interpreter is pinned in `.python-version` (`3.12.12`).
 - Install dependencies:
-  - `make dev` for normal development (`editable + [dev]`)
+  - `make dev` for normal development (`editable + [dev]`, including release tooling)
   - `make repro REPRO_EXTRAS="dev full"` for frozen reproducible installs from `uv.lock`
 - Regenerate lock data (maintainers, release flow):
   - `make lock`
@@ -33,6 +33,8 @@ Use the smallest useful check while iterating, then run full gates before merge.
   - `make docs-build`
 - Pre-merge baseline:
   - `make ci`
+- Pre-publish baseline:
+  - `make release-check`
 
 ## Public Vs Private Boundaries
 - Compatibility guarantees are for curated top-level exports in `src/design_research_agents/__init__.py` and public facade modules:

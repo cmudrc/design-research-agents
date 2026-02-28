@@ -35,7 +35,11 @@ Use this when preparing a tagged release:
 1. Use Python ``3.12.12`` (the pinned interpreter in ``.python-version``).
 2. Regenerate lock data: ``make lock``.
 3. Verify the frozen install and full checks: ``make repro REPRO_EXTRAS="dev full"`` and ``make ci``.
-4. Commit ``uv.lock`` (and any dependency spec changes), then tag and publish.
+4. Build release artifacts and validate metadata: ``make release-check``.
+5. Commit ``uv.lock`` (and any dependency spec changes), then tag and publish.
+
+``make release-check`` builds both the source distribution and wheel into ``dist/``
+and runs ``twine check`` against the generated artifacts.
 
 Extras matrix
 -------------
@@ -48,8 +52,8 @@ Extras matrix
      - Key packages
      - Platform constraints
    * - ``dev``
-     - Linting, typing, tests, and docs
-     - ``pytest``, ``ruff``, ``mypy``, ``sphinx``, ``sphinxcontrib-mermaid``
+     - Linting, typing, tests, docs, and release checks
+     - ``pytest``, ``ruff``, ``mypy``, ``sphinx``, ``build``, ``twine``
      - None
    * - ``hf``
      - Shared Hugging Face utilities
