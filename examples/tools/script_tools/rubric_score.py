@@ -1,4 +1,4 @@
-r"""# Script Tools / Rubric Score.
+"""# Script Tools / Rubric Score.
 
 ## Introduction
 This script focuses on the practical so-what for tool integration: a deterministic, inspectable JSON

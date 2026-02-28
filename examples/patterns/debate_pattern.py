@@ -1,4 +1,4 @@
-r"""# Patterns / Debate Pattern.
+"""# Patterns / Debate Pattern.
 
 ## Introduction
 Multiagent Debate shows how adversarial dialogue can improve answer quality, AutoGen provides practical

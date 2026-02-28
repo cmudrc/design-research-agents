@@ -1,4 +1,4 @@
-r"""# Clients / Ollama Local Client.
+"""# Clients / Ollama Local Client.
 
 ## Introduction
 Ollama operationalizes local model serving, the OpenAI Responses API provides a common contract surface, and

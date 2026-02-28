@@ -1,4 +1,4 @@
-r"""# Clients / Llama CPP Server Client.
+"""# Clients / Llama CPP Server Client.
 
 ## Introduction
 Local serving with llama.cpp is a practical path for controllable offline experimentation, OpenAI-style

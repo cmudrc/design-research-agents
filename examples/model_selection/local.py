@@ -1,4 +1,4 @@
-r"""# Model Selection / Local.
+"""# Model Selection / Local.
 
 ## Introduction
 FrugalGPT and RouteLLM both frame model selection as a policy problem balancing capability, latency, and

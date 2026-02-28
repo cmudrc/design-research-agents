@@ -1,4 +1,4 @@
-r"""# Clients / MLX Local Client.
+"""# Clients / MLX Local Client.
 
 ## Introduction
 MLX-LM provides an Apple-silicon-native local inference stack, HELM motivates reproducible evaluation

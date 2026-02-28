@@ -1,4 +1,4 @@
-r"""# Workflow / Workflow Model Step Design Tradeoff.
+"""# Workflow / Workflow Model Step Design Tradeoff.
 
 ## Introduction
 FrugalGPT frames cost-aware model choice, HELM frames robust comparative evaluation, and Toward Engineering

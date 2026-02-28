@@ -1,4 +1,4 @@
-r"""# Patterns / Plan Execute.
+"""# Patterns / Plan Execute.
 
 ## Introduction
 Plan-and-Solve and ReAct both separate planning from execution to reduce reasoning drift, while AutoGen

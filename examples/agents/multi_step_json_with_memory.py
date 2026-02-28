@@ -1,4 +1,4 @@
-r"""# Agents / Multi Step JSON With Memory.
+"""# Agents / Multi Step JSON With Memory.
 
 ## Introduction
 Reflexion, Generative Agents, and MemGPT each emphasize that iterative performance improves when prior state

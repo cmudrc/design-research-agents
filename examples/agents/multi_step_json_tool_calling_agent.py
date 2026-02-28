@@ -1,4 +1,4 @@
-r"""# Agents / Multi Step JSON Tool Calling Agent.
+"""# Agents / Multi Step JSON Tool Calling Agent.
 
 ## Introduction
 Toolformer motivates tool-use planning, JSON Schema defines stable machine-readable contracts, and OpenAI

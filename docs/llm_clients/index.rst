@@ -5,6 +5,10 @@ The framework exposes constructor-first client classes that implement the
 ``LLMClient`` contract. Choose a client based on deployment constraints first,
 then tune model selection.
 
+Every public client also exposes a shared introspection surface for debugging
+and diagnostics: ``default_model()``, ``capabilities()``,
+``config_snapshot()``, ``server_snapshot()``, and ``describe()``.
+
 For install profiles and platform constraints for backend extras, see
 :doc:`../dependencies_and_extras`.
 

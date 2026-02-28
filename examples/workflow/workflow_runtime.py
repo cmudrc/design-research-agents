@@ -1,4 +1,4 @@
-r"""# Workflow / Workflow Runtime.
+"""# Workflow / Workflow Runtime.
 
 ## Introduction
 Human-AI collaboration by design motivates transparent orchestration boundaries, AutoGen motivates

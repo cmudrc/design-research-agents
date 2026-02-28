@@ -1,4 +1,4 @@
-r"""# Clients / Anthropic Service Client.
+"""# Clients / Anthropic Service Client.
 
 ## Introduction
 Anthropic hosted inference is useful when teams want strong instruction-following and tool-use support from one

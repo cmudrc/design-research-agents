@@ -1,4 +1,4 @@
-r"""# Patterns / RAG.
+"""# Patterns / RAG.
 
 ## Introduction
 RAG establishes retrieval-grounded generation, and memory-centric agent systems such as Generative Agents

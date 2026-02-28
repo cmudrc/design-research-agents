@@ -339,6 +339,34 @@ class LLMClient(Protocol):
             Model identifier used when no model is supplied on a request.
         """
 
+    def capabilities(self) -> BackendCapabilities:
+        """Return declared backend capabilities for this client.
+
+        Returns:
+            Backend capability payload.
+        """
+
+    def config_snapshot(self) -> Mapping[str, object]:
+        """Return stable client/backend configuration metadata.
+
+        Returns:
+            Mapping safe for diagnostics and example output.
+        """
+
+    def server_snapshot(self) -> Mapping[str, object] | None:
+        """Return managed-server metadata when this client owns a server.
+
+        Returns:
+            Server metadata mapping, or ``None`` when not managed.
+        """
+
+    def describe(self) -> Mapping[str, object]:
+        """Return a composed client configuration and capability summary.
+
+        Returns:
+            JSON-serializable runtime description mapping.
+        """
+
 
 class LLMProviderAdapter(Protocol):
     """Backend adapter contract consumed by ``LLMClient`` implementations."""

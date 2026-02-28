@@ -389,6 +389,48 @@ class WorkflowStepResult:
         value = self.output.get("terminated_reason")
         return value if isinstance(value, str) else None
 
+    def output_value(self, key: str, default: object | None = None) -> object | None:
+        """Return one output value by key with optional default.
+
+        Args:
+            key: Output key to read.
+            default: Value returned when ``key`` is absent.
+
+        Returns:
+            Output value for ``key`` when present, else ``default``.
+        """
+        return self.output.get(key, default)
+
+    def output_dict(self, key: str) -> dict[str, object]:
+        """Return one output value normalized to a dictionary.
+
+        Args:
+            key: Output key to read.
+
+        Returns:
+            Dictionary value when the output value is mapping-like, else ``{}``.
+        """
+        value = self.output.get(key)
+        if isinstance(value, Mapping):
+            return dict(value)
+        return {}
+
+    def output_list(self, key: str) -> list[object]:
+        """Return one output value normalized to a list.
+
+        Args:
+            key: Output key to read.
+
+        Returns:
+            List value when the output value is a list/tuple, else ``[]``.
+        """
+        value = self.output.get(key)
+        if isinstance(value, list):
+            return list(value)
+        if isinstance(value, tuple):
+            return list(value)
+        return []
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable dictionary representation.
 

@@ -1,4 +1,4 @@
-r"""# Clients / OpenAI Service Client.
+"""# Clients / OpenAI Service Client.
 
 ## Introduction
 For hosted deployments, OpenAI platform docs and the Responses API capture production invocation behavior,

@@ -1,4 +1,4 @@
-r"""# Agents / Multi Step Code Tool Calling Agent.
+"""# Agents / Multi Step Code Tool Calling Agent.
 
 ## Introduction
 ReAct and Toolformer motivate external action for model reasoning, while AutoGen highlights how

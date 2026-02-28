@@ -1,4 +1,4 @@
-r"""# Patterns / Coordination Patterns.
+"""# Patterns / Coordination Patterns.
 
 ## Introduction
 Blackboard-system architecture motivates shared-state collaboration among specialized problem solvers,

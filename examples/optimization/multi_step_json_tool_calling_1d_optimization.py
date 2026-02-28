@@ -1,4 +1,4 @@
-r"""# Optimization / Multi Step JSON Tool Calling 1d Optimization.
+"""# Optimization / Multi Step JSON Tool Calling 1d Optimization.
 
 ## Introduction
 Practical Bayesian optimization motivates iterative search over expensive objective evaluations, while

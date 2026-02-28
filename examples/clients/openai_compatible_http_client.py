@@ -1,4 +1,4 @@
-r"""# Clients / OpenAI Compatible HTTP Client.
+"""# Clients / OpenAI Compatible HTTP Client.
 
 ## Introduction
 OpenAI-compatible HTTP surfaces are valuable because they let one orchestration stack target multiple

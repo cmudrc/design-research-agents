@@ -1,4 +1,4 @@
-r"""# Patterns / Beam Search.
+"""# Patterns / Beam Search.
 
 ## Introduction
 Tree of Thoughts motivates branching deliberation over single-chain prompting, while Plan-and-Solve and

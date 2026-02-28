@@ -1,4 +1,4 @@
-r"""# Workflow / Workflow Delegate And Memory Steps.
+"""# Workflow / Workflow Delegate And Memory Steps.
 
 ## Introduction
 Generative Agents and MemGPT both emphasize durable memory as a first-class runtime primitive, while AutoGen

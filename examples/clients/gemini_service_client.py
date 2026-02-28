@@ -1,4 +1,4 @@
-r"""# Clients / Gemini Service Client.
+"""# Clients / Gemini Service Client.
 
 ## Introduction
 Gemini hosted inference is useful when teams want multimodel experimentation through one provider SDK, while

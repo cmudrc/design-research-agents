@@ -1,4 +1,4 @@
-r"""# Tools / MCP Minimal.
+"""# Tools / MCP Minimal.
 
 ## Introduction
 MCP and JSON-RPC define interoperable tool transport contracts, and Toolformer motivates why model behavior

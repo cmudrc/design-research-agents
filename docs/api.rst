@@ -17,6 +17,7 @@ Top-level groups:
 - Metadata: ``__version__``
 - Entry points: agents, LLM clients, ``ModelSelector``
 - Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
+  with normalized read helpers for structured payload access
 - Orchestration: workflow step classes, ``Workflow``, and pattern classes
   (module homes: ``design_research_agents.workflow`` and
   ``design_research_agents.patterns``)
@@ -44,6 +45,10 @@ Agents
 
 LLM Clients and Selection
 ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All public LLM clients implement the same introspection helpers in addition to
+generation methods: ``default_model()``, ``capabilities()``,
+``config_snapshot()``, ``server_snapshot()``, and ``describe()``.
 
 .. autoclass:: design_research_agents.LlamaCppServerLLMClient
    :members:
@@ -100,6 +105,11 @@ LLM Clients and Selection
 Core Contracts
 ^^^^^^^^^^^^^^
 
+``ExecutionResult`` and per-step ``WorkflowStepResult`` objects expose matching
+output access helpers for safe reads from loosely structured payloads. The
+public ``ToolResult`` contract also includes normalized getters such as
+``result_dict()``, ``result_list()``, ``error_message``, and ``artifact_paths``.
+
 .. autoclass:: design_research_agents.ExecutionResult
    :members:
    :undoc-members:
@@ -137,6 +147,10 @@ workflow and applies delegate-specific finalization. Accessing
 ``compiled.workflow`` gives the raw workflow graph for inspection and testing.
 Calling ``compiled.workflow.run(...)`` directly bypasses that finalization
 layer and returns the raw workflow result.
+
+Workflow step executions surface ``WorkflowStepResult`` payloads through
+``ExecutionResult.step_results``. These step results mirror the top-level
+``ExecutionResult`` output accessor helpers for consistent reads.
 
 .. autoclass:: design_research_agents.LogicStep
    :members:

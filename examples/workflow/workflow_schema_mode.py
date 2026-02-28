@@ -1,4 +1,4 @@
-r"""# Workflow / Workflow Schema Mode.
+"""# Workflow / Workflow Schema Mode.
 
 ## Introduction
 JSON Schema and function-calling conventions are central for reliable machine-to-machine workflow steps,

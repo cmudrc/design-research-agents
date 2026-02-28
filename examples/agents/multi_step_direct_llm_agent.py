@@ -1,4 +1,4 @@
-r"""# Agents / Multi Step Direct LLM Agent.
+"""# Agents / Multi Step Direct LLM Agent.
 
 ## Introduction
 ReAct and Plan-and-Solve both motivate explicit multi-step reasoning loops instead of single-shot prompting,

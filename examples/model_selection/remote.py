@@ -1,4 +1,4 @@
-r"""# Model Selection / Remote.
+"""# Model Selection / Remote.
 
 ## Introduction
 Remote model selection has the same routing tradeoffs as local selection but adds external service

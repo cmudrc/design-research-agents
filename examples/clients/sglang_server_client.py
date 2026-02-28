@@ -1,4 +1,4 @@
-r"""# Clients / SGLang Server Client.
+"""# Clients / SGLang Server Client.
 
 ## Introduction
 SGLang focuses on high-throughput serving and exposes OpenAI-compatible APIs, making it useful for

@@ -1,4 +1,4 @@
-r"""# Clients / Transformers Local Client.
+"""# Clients / Transformers Local Client.
 
 ## Introduction
 Transformers pipelines are often the first local baseline for experimentation, HELM stresses the value of

@@ -217,6 +217,48 @@ class ToolResult:
         object.__setattr__(self, "error", resolved_error)
         object.__setattr__(self, "metadata", dict(metadata or {}))
 
+    def result_dict(self) -> dict[str, object]:
+        """Return the primary result payload normalized to a dictionary.
+
+        Returns:
+            Dictionary value when ``result`` is mapping-like, else ``{}``.
+        """
+        if isinstance(self.result, Mapping):
+            return dict(self.result)
+        return {}
+
+    def result_list(self) -> list[object]:
+        """Return the primary result payload normalized to a list.
+
+        Returns:
+            List value when ``result`` is a list/tuple, else ``[]``.
+        """
+        if isinstance(self.result, list):
+            return list(self.result)
+        if isinstance(self.result, tuple):
+            return list(self.result)
+        return []
+
+    @property
+    def error_message(self) -> str | None:
+        """Return the normalized tool error message when present.
+
+        Returns:
+            Error message string, or ``None``.
+        """
+        if self.error is None:
+            return None
+        return self.error.message
+
+    @property
+    def artifact_paths(self) -> tuple[str, ...]:
+        """Return artifact paths in emitted order.
+
+        Returns:
+            Tuple of artifact path strings.
+        """
+        return tuple(artifact.path for artifact in self.artifacts)
+
 
 class ToolRuntime(Protocol):
     """Protocol for registering and invoking named tools.

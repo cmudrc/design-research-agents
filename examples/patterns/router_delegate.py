@@ -1,4 +1,4 @@
-r"""# Patterns / Router Delegate.
+"""# Patterns / Router Delegate.
 
 ## Introduction
 RouteLLM motivates specialized route selection, AutoGen demonstrates multi-agent delegation patterns, and

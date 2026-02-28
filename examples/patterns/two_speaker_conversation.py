@@ -1,4 +1,4 @@
-r"""# Patterns / Two Speaker Conversation.
+"""# Patterns / Two Speaker Conversation.
 
 ## Introduction
 AutoGen-style multi-agent conversations can externalize reasoning roles, Human-AI collaboration by design

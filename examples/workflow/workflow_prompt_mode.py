@@ -1,4 +1,4 @@
-r"""# Workflow / Workflow Prompt Mode.
+"""# Workflow / Workflow Prompt Mode.
 
 ## Introduction
 ReAct and Plan-and-Solve motivate explicit control over reasoning phases, and JSON Schema formalizes

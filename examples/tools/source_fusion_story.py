@@ -1,4 +1,4 @@
-r"""# Tools / Source Fusion Story.
+"""# Tools / Source Fusion Story.
 
 ## Introduction
 MCP standardizes tool connectivity, data-fusion concepts motivate combining heterogeneous signals, and RAG

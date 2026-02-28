@@ -1,4 +1,4 @@
-r"""# Clients / Groq Service Client.
+"""# Clients / Groq Service Client.
 
 ## Introduction
 Groq hosted inference can provide low-latency responses for agent loops that still need standard chat-completion

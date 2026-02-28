@@ -1,4 +1,4 @@
-r"""# Agents / Direct LLM Call.
+"""# Agents / Direct LLM Call.
 
 ## Introduction
 Engineering-design studies show that transparent prompt-to-response traces are essential for credible

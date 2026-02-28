@@ -1,4 +1,4 @@
-r"""# Clients / vLLM Server Client.
+"""# Clients / vLLM Server Client.
 
 ## Introduction
 vLLM is a common high-performance inference server, OpenAI-compatible response contracts enable drop-in

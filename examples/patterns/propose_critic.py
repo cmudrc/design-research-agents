@@ -1,4 +1,4 @@
-r"""# Patterns / Propose Critic.
+"""# Patterns / Propose Critic.
 
 ## Introduction
 Self-Refine and related critique/revise work motivate iterative self-critique loops, and Human-AI collaboration by design
