@@ -78,10 +78,9 @@ _EXECUTOR_STEP_PROMPT_TEMPLATE = "\n".join(
         "Instruction: $instruction",
         "Success criteria: $success_criteria",
         "Within this executor run, use exactly two internal steps.",
-        "When Current step is 1, call repo.readme_metrics exactly once and assign a compact",
-        "summary dict to final_output. Do not call final_answer on step 1.",
-        "When Current step is 2, do not call any tool. Call final_answer with the same",
-        "summary dict.",
+        "When Current step is 1, choose repo.readme_metrics exactly once.",
+        "When Current step is 2, choose final_answer and return a compact summary dict using",
+        "the prior repo.readme_metrics result.",
         "Prior step outputs:",
         "$prior_step_outputs_json",
     ]
@@ -127,11 +126,11 @@ def main() -> None:
         LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
         executor_delegate = MultiStepAgent(
-            mode="code",
+            mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_steps=2,
-            default_tools_per_step=({"tool_name": "repo.readme_metrics"},),
+            allowed_tools=("repo.readme_metrics",),
             tracer=tracer,
         )
         workflow = PlanExecutePattern(

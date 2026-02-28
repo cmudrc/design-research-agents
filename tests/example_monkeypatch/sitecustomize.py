@@ -58,12 +58,8 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
             '{"steps":[{"step_id":"analyze_readme","instruction":"Call repo.readme_metrics and return '
             'a compact summary.","success_criteria":"Return README path and line count."}]}'
         ),
-        "\n".join(
-            [
-                'metrics = call_tool("repo.readme_metrics", {})',
-                'final_answer({"path": metrics["path"], "line_count": metrics["line_count"]})',
-            ]
-        ),
+        '{"tool_name":"repo.readme_metrics","tool_input":{},"reason":"Collect README metrics first."}',
+        ('{"tool_name":"final_answer","tool_input":{"path":"README.md","line_count":1},"reason":"done"}'),
     ),
     "examples/patterns/propose_critic.py": (
         "Draft v1: simple proposal.",
