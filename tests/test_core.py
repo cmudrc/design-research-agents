@@ -17,6 +17,7 @@ from design_research_agents._contracts._llm import (
 from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm.clients import (
     AnthropicServiceLLMClient,
+    AzureOpenAIServiceLLMClient,
     GeminiServiceLLMClient,
     GroqServiceLLMClient,
     LlamaCppServerLLMClient,
@@ -82,6 +83,7 @@ def test_provider_clients_empty_init_and_default_model() -> None:
     clients = (
         llama,
         AnthropicServiceLLMClient(),
+        AzureOpenAIServiceLLMClient(),
         GeminiServiceLLMClient(),
         GroqServiceLLMClient(),
         OpenAIServiceLLMClient(),
@@ -108,6 +110,7 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
         llama.close()
 
     assert AnthropicServiceLLMClient()._backend.name == "anthropic"
+    assert AzureOpenAIServiceLLMClient()._backend.name == "azure-openai"
     assert GeminiServiceLLMClient()._backend.name == "gemini"
     assert GroqServiceLLMClient()._backend.name == "groq"
     assert OpenAIServiceLLMClient()._backend.name == "openai"
@@ -215,6 +218,27 @@ def test_provider_client_config_snapshot_contains_provider_fields() -> None:
     assert snapshot["base_url"] == "http://127.0.0.1:8010/v1"
     assert snapshot["chat_url"] == "http://127.0.0.1:8010/v1/chat/completions"
     assert snapshot["has_api_key"] is True
+
+
+def test_azure_provider_client_config_snapshot_contains_provider_fields() -> None:
+    client = AzureOpenAIServiceLLMClient(
+        name="azure-openai-prod",
+        default_model="gpt-4o-mini",
+        api_key_env="AZURE_OPENAI_API_KEY",
+        api_key="test-key",
+        azure_endpoint_env="AZURE_OPENAI_ENDPOINT",
+        azure_endpoint="https://example-resource.openai.azure.com",
+        api_version_env="AZURE_OPENAI_API_VERSION",
+        api_version="2025-01-01-preview",
+        max_retries=5,
+    )
+    snapshot = client.config_snapshot()
+    assert snapshot["name"] == "azure-openai-prod"
+    assert snapshot["kind"] == "azure_openai_service"
+    assert snapshot["base_url"] == "https://example-resource.openai.azure.com"
+    assert snapshot["has_api_key"] is True
+    assert snapshot["has_azure_endpoint"] is True
+    assert snapshot["api_version"] == "2025-01-01-preview"
 
 
 def test_single_backend_client_emits_model_observation_events(monkeypatch: pytest.MonkeyPatch) -> None:

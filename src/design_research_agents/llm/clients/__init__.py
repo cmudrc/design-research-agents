@@ -1,6 +1,7 @@
 """Public LLM client entrypoints backed by internal provider wrappers."""
 
 from ._anthropic_service import AnthropicServiceLLMClient
+from ._azure_openai_service import AzureOpenAIServiceLLMClient
 from ._gemini_service import GeminiServiceLLMClient
 from ._groq_service import GroqServiceLLMClient
 from ._llama_cpp_server import LlamaCppServerLLMClient
@@ -14,6 +15,7 @@ from ._vllm_server import VLLMServerLLMClient
 
 __all__ = [
     "AnthropicServiceLLMClient",
+    "AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient",
     "GroqServiceLLMClient",
     "LlamaCppServerLLMClient",

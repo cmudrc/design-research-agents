@@ -37,6 +37,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "BeamSearchPattern": "design_research_agents.patterns:BeamSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
+    "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
     "GroqServiceLLMClient": "design_research_agents.llm:GroqServiceLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
@@ -110,6 +111,7 @@ if TYPE_CHECKING:
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
+    from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
     from .llm import GroqServiceLLMClient as GroqServiceLLMClient
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient

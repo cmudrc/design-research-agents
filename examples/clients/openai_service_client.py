@@ -85,11 +85,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LLMResponse, OpenAIServiceLLMClient, Tracer
+from design_research_agents import AzureOpenAIServiceLLMClient, LLMResponse, OpenAIServiceLLMClient, Tracer
 from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
+    assert AzureOpenAIServiceLLMClient.__name__ == "AzureOpenAIServiceLLMClient"
     client = OpenAIServiceLLMClient(
         name="openai-prod",
         default_model="gpt-4o-mini",

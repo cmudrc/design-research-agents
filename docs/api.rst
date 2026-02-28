@@ -65,6 +65,10 @@ LLM Clients and Selection
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.AzureOpenAIServiceLLMClient
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.OpenAICompatibleHTTPLLMClient
    :members:
    :undoc-members:

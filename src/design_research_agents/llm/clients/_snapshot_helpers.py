@@ -209,6 +209,26 @@ def openai_service_config_snapshot(*, api_key_env: str, api_key: str | None) -> 
     }
 
 
+def azure_openai_service_config_snapshot(
+    *,
+    api_key_env: str,
+    api_key: str | None,
+    azure_endpoint_env: str,
+    azure_endpoint: str | None,
+    api_version_env: str,
+    api_version: str | None,
+) -> dict[str, object]:
+    """Build Azure OpenAI service client config snapshot payload."""
+    return {
+        "api_key_env": api_key_env,
+        "has_api_key": bool(api_key),
+        "azure_endpoint_env": azure_endpoint_env,
+        "has_azure_endpoint": bool(azure_endpoint),
+        "api_version_env": api_version_env,
+        "api_version": api_version,
+    }
+
+
 def anthropic_service_config_snapshot(
     *,
     api_key_env: str,

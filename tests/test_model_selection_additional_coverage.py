@@ -208,6 +208,17 @@ def test_selector_error_paths_and_alias_branches() -> None:
     resolved_http = selector._resolve_client_config(decision_http)
     assert resolved_http["client_class"] == "OpenAICompatibleHTTPLLMClient"
 
+    decision_azure = ModelSelectionDecision(
+        model_id="azure-model",
+        provider="azure",
+        rationale="test",
+        safety_constraints=ModelSafetyConstraints(max_cost_usd=None, max_latency_ms=None),
+        policy_id="policy",
+        catalog_signature="sig",
+    )
+    resolved_azure = selector._resolve_client_config(decision_azure)
+    assert resolved_azure["client_class"] == "AzureOpenAIServiceLLMClient"
+
     decision_mlx = ModelSelectionDecision(
         model_id="mlx-model",
         provider="mlx_local",
@@ -290,6 +301,7 @@ def test_model_spec_is_local_includes_new_local_providers() -> None:
     assert _model(model_id="vllm", provider="vllm_local").is_local is True
     assert _model(model_id="ollama", provider="ollama_local").is_local is True
     assert _model(model_id="sglang", provider="sglang_local").is_local is True
+    assert _model(model_id="azure", provider="azure").is_local is False
     assert _model(model_id="openai", provider="openai").is_local is False
 
 

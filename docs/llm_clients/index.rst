@@ -54,6 +54,11 @@ Comparison matrix
      - Defaults to ``gpt-4o-mini``
      - Low (API key)
      - Lowest setup effort, network/data egress tradeoff, usage-based cost
+   * - ``AzureOpenAIServiceLLMClient``
+     - Remote Azure OpenAI API
+     - Defaults to ``gpt-4o-mini`` (deployment name)
+     - Low-medium (API key + endpoint + API version)
+     - Azure-native hosted option, network/data egress tradeoff, Azure-managed billing
    * - ``AnthropicServiceLLMClient``
      - Remote Anthropic API
      - Defaults to ``claude-3-5-haiku-latest``
@@ -82,7 +87,8 @@ When to choose what
    ``TransformersLocalLLMClient``, ``MLXLocalLLMClient``, ``VLLMServerLLMClient``,
    ``OllamaLLMClient``, or ``SGLangServerLLMClient``.
 2. Need fastest onboarding and hosted quality: use ``OpenAIServiceLLMClient``,
-   ``AnthropicServiceLLMClient``, ``GeminiServiceLLMClient``, or ``GroqServiceLLMClient``.
+   ``AzureOpenAIServiceLLMClient``, ``AnthropicServiceLLMClient``,
+   ``GeminiServiceLLMClient``, or ``GroqServiceLLMClient``.
 3. Need provider portability or self-hosted OpenAI-compatible infra: use
    ``OpenAICompatibleHTTPLLMClient``.
 4. Need policy-driven choice between local and remote options: use
@@ -99,6 +105,7 @@ Pages
 - :doc:`model_selection`
 - :doc:`llama_cpp_server`
 - :doc:`openai_service`
+- :doc:`azure_openai_service`
 - :doc:`anthropic_service`
 - :doc:`gemini_service`
 - :doc:`groq_service`
@@ -116,6 +123,7 @@ Pages
    model_selection
    llama_cpp_server
    openai_service
+   azure_openai_service
    anthropic_service
    gemini_service
    groq_service

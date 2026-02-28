@@ -13,6 +13,7 @@ from design_research_agents._model_selection._types import (
     ModelSpec,
 )
 from design_research_agents.llm import (
+    AzureOpenAIServiceLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
     TransformersLocalLLMClient,
@@ -174,6 +175,23 @@ def test_client_output_instantiates_remote_client() -> None:
     client = selector.select(task="summarize", output="client")
 
     assert isinstance(client, OpenAIServiceLLMClient)
+    assert client.default_model() == "gpt-4o-mini"
+
+
+def test_client_output_instantiates_azure_remote_client() -> None:
+    remote_model = _make_model(
+        model_id="gpt-4o-mini",
+        provider="azure",
+        size_b=None,
+        min_ram_gb=None,
+        quality_tier=4,
+        speed_tier=4,
+    )
+    selector = ModelSelector(catalog=ModelCatalog(models=(remote_model,)))
+
+    client = selector.select(task="summarize", output="client")
+
+    assert isinstance(client, AzureOpenAIServiceLLMClient)
     assert client.default_model() == "gpt-4o-mini"
 
 

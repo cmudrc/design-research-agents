@@ -48,6 +48,7 @@ EXPECTED_PUBLIC_API = [
     "BeamSearchPattern",
     "RAGPattern",
     "AnthropicServiceLLMClient",
+    "AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient",
     "GroqServiceLLMClient",
     "LlamaCppServerLLMClient",

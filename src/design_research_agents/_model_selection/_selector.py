@@ -7,6 +7,7 @@ from typing import Literal, cast
 
 from design_research_agents._contracts._llm import LLMClient
 from design_research_agents.llm import (
+    AzureOpenAIServiceLLMClient,
     LlamaCppServerLLMClient,
     MLXLocalLLMClient,
     OllamaLLMClient,
@@ -32,6 +33,7 @@ SelectionOutput = Literal["client", "decision", "client_config"]
 LocalClientResolver = Callable[[ModelSelectionDecision], dict[str, object]]
 
 _CLIENT_CLASSES: dict[str, type[object]] = {
+    "AzureOpenAIServiceLLMClient": AzureOpenAIServiceLLMClient,
     "LlamaCppServerLLMClient": LlamaCppServerLLMClient,
     "OpenAIServiceLLMClient": OpenAIServiceLLMClient,
     "OpenAICompatibleHTTPLLMClient": OpenAICompatibleHTTPLLMClient,
@@ -178,6 +180,11 @@ class ModelSelector:
         if provider == "openai":
             default_config = {
                 "client_class": "OpenAIServiceLLMClient",
+                "kwargs": {"default_model": decision.model_id},
+            }
+        elif provider in {"azure", "azure_openai", "azure-openai"}:
+            default_config = {
+                "client_class": "AzureOpenAIServiceLLMClient",
                 "kwargs": {"default_model": decision.model_id},
             }
         elif provider in {
