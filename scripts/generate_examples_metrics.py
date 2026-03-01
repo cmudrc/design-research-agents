@@ -13,15 +13,19 @@ EXAMPLES_ROOT = REPO_ROOT / "examples"
 PUBLIC_API_INIT = REPO_ROOT / "src" / "design_research_agents" / "__init__.py"
 JUNIT_XML = REPO_ROOT / "artifacts" / "examples" / "examples-deterministic.junit.xml"
 METRICS_JSON = REPO_ROOT / "artifacts" / "examples" / "examples_metrics.json"
+_NON_STREAMING_TEST_PREFIX = "test_non_streaming_example_runs["
+_SCRIPT_SHELL_TEST_NAME = "test_script_shell_example_runs"
 
 
-def _discover_runnable_examples() -> tuple[Path, ...]:
-    """Return all runnable example scripts under ``examples/``."""
+def _discover_example_paths(*extensions: str, exclude_streaming: bool = False) -> tuple[Path, ...]:
+    """Return example files under ``examples/`` matching ``extensions``."""
     discovered: list[Path] = []
-    for extension in ("*.py", "*.sh"):
+    for extension in extensions:
         for path in sorted(EXAMPLES_ROOT.rglob(extension)):
             parts = path.relative_to(REPO_ROOT).parts
             if "__pycache__" in parts:
+                continue
+            if exclude_streaming and "streaming" in parts:
                 continue
             if path.name.startswith("_"):
                 continue
@@ -31,23 +35,71 @@ def _discover_runnable_examples() -> tuple[Path, ...]:
 
 def _discover_python_examples() -> tuple[Path, ...]:
     """Return runnable Python example files."""
-    return tuple(path for path in _discover_runnable_examples() if path.suffix == ".py")
+    return _discover_example_paths("*.py")
 
 
-def _parse_junit_pass_fail_counts(path: Path) -> tuple[int, int, int]:
-    """Parse junit XML and return ``(total, passed, failed)`` testcase counts."""
+def _discover_deterministic_python_examples() -> tuple[Path, ...]:
+    """Return deterministic Python examples covered by ``tests/test_examples_non_streaming.py``."""
+    return _discover_example_paths("*.py", exclude_streaming=True)
+
+
+def _discover_shell_examples() -> tuple[Path, ...]:
+    """Return runnable shell examples."""
+    return _discover_example_paths("*.sh")
+
+
+def _extract_pytest_parameterized_value(name: str, prefix: str) -> str | None:
+    """Return the parameterized pytest value embedded in ``name`` when present."""
+    if not name.startswith(prefix) or not name.endswith("]"):
+        return None
+    return name[len(prefix) : -1]
+
+
+def _parse_junit_runnable_example_counts(
+    path: Path,
+    *,
+    python_examples: tuple[Path, ...],
+    shell_examples: tuple[Path, ...],
+) -> tuple[int, int, int]:
+    """Return pass/fail counts for example execution testcases in the junit report."""
     root = ET.fromstring(path.read_text(encoding="utf-8"))
-    testcases = list(root.iter("testcase"))
+    testcases = tuple(root.iter("testcase"))
     if not testcases:
         raise ValueError(f"No testcase elements found in {path}.")
 
+    expected_python = tuple(sorted(example.relative_to(REPO_ROOT).as_posix() for example in python_examples))
+    observed_python: list[str] = []
+    observed_shell = 0
     passed = 0
-    for testcase in testcases:
-        non_passing = any(child.tag in {"failure", "error", "skipped"} for child in testcase)
-        if not non_passing:
-            passed += 1
 
-    total = len(testcases)
+    for testcase in testcases:
+        name = testcase.get("name", "")
+        python_example = _extract_pytest_parameterized_value(name, _NON_STREAMING_TEST_PREFIX)
+        if python_example is not None:
+            observed_python.append(python_example)
+            if not any(child.tag in {"failure", "error", "skipped"} for child in testcase):
+                passed += 1
+            continue
+        if name == _SCRIPT_SHELL_TEST_NAME:
+            observed_shell += 1
+            if not any(child.tag in {"failure", "error", "skipped"} for child in testcase):
+                passed += 1
+
+    observed_python_sorted = tuple(sorted(observed_python))
+    if observed_python_sorted != expected_python:
+        raise ValueError(
+            "Deterministic Python example junit cases do not match discovered runnable examples: "
+            f"tests={observed_python_sorted}, discovered={expected_python}."
+        )
+
+    expected_shell = len(shell_examples)
+    if observed_shell != expected_shell:
+        raise ValueError(
+            "Deterministic shell example junit count does not match discovered runnable examples: "
+            f"tests={observed_shell}, discovered={expected_shell}."
+        )
+
+    total = len(expected_python) + expected_shell
     failed = total - passed
     return total, passed, failed
 
@@ -160,16 +212,15 @@ def _percent(part: int, whole: int) -> float:
 
 def main() -> None:
     """Compute and write example-test and public-API coverage metrics."""
-    runnable_examples = _discover_runnable_examples()
+    deterministic_python_examples = _discover_deterministic_python_examples()
+    shell_examples = _discover_shell_examples()
     python_examples = _discover_python_examples()
 
-    tests_total, tests_passed, tests_failed = _parse_junit_pass_fail_counts(JUNIT_XML)
-    expected_total = len(runnable_examples)
-    if tests_total != expected_total:
-        raise ValueError(
-            "Deterministic examples junit count does not match discovered runnable examples: "
-            f"tests={tests_total}, discovered={expected_total}."
-        )
+    tests_total, tests_passed, tests_failed = _parse_junit_runnable_example_counts(
+        JUNIT_XML,
+        python_examples=deterministic_python_examples,
+        shell_examples=shell_examples,
+    )
 
     export_symbols = _extract_exports_from_init(PUBLIC_API_INIT)
     symbol_usage = _collect_public_api_symbol_usage(
