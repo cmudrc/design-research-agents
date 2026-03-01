@@ -1,22 +1,51 @@
-"""Workflow orchestration implementation exports."""
+"""Stable public exports for building and running workflows."""
 
-from .implementations.agent_routing import RouterPattern
-from .implementations.debate_pattern import DebatePattern
-from .implementations.networked_blackboard import BlackboardPattern, NetworkedPattern
-from .implementations.planner_executor_pattern import PlannerExecutorPattern
-from .implementations.rag_reasoning import RagReasoningPattern
-from .implementations.reflexion_pattern import ReflexionPattern
-from .implementations.tree_search import TreeSearchPattern
-from .internal.workflow import Workflow
+from __future__ import annotations
+
+from design_research_agents._contracts import (
+    DelegateBatchCall,
+    DelegateBatchStep,
+    DelegateStep,
+    ExecutionResult,
+    LogicStep,
+    LoopStep,
+    MemoryReadStep,
+    MemoryWriteStep,
+    ModelStep,
+    ToolStep,
+    WorkflowArtifact,
+    WorkflowArtifactSource,
+)
+
+from ._compiled import CompiledExecution
+from ._schema_helpers import list_of, scalar, typed_dict
+from .workflow import Workflow
 
 __all__ = [
-    "BlackboardPattern",
-    "DebatePattern",
-    "NetworkedPattern",
-    "PlannerExecutorPattern",
-    "RagReasoningPattern",
-    "ReflexionPattern",
-    "RouterPattern",
-    "TreeSearchPattern",
+    "CompiledExecution",
+    "DelegateBatchCall",
+    "DelegateBatchStep",
+    "DelegateStep",
+    "ExecutionResult",
+    "LogicStep",
+    "LoopStep",
+    "MemoryReadStep",
+    "MemoryWriteStep",
+    "ModelStep",
+    "ToolStep",
     "Workflow",
+    "WorkflowArtifact",
+    "WorkflowArtifactSource",
+    "list_of",
+    "scalar",
+    "typed_dict",
 ]
+
+
+def __dir__() -> list[str]:
+    """Return workflow module attributes, including re-exported helpers.
+
+    Returns:
+        Sorted attribute names visible on this module.
+    """
+    return sorted(set(globals()) | set(__all__))

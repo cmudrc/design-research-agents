@@ -1,100 +1,86 @@
 Quickstart
 ==========
 
-Install for development:
+Requires Python 3.12+ and assumes you are working from the repository root.
+
+Create and activate a virtual environment:
 
 .. code-block:: bash
 
    python -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-   pip install -e ".[dev,local]"
 
-Run checks:
+Path A: Hosted (fastest)
+------------------------
 
-.. code-block:: bash
+Use this when you want the shortest path to a working run.
 
-   make lint
-   make typecheck
-   make test
-
-Run example:
+1. Install the default development toolchain:
 
 .. code-block:: bash
 
-   make run-example
+   make dev
 
-Run additional contract-focused examples:
-
-.. code-block:: bash
-
-   PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/single_step_tool_router_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/single_step_json_tool_calling_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/single_step_json_callable_tool_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/single_step_code_tool_calling_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/multi_step_direct_llm_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/multi_step_tool_router_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/multi_step_code_tool_calling_agent.py
-   PYTHONPATH=src python3 examples/agents/basic/multi_step_json_tool_calling_agent.py
-   PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
-   PYTHONPATH=src python3 examples/workflow/workflow_runtime_loop_step.py
-   PYTHONPATH=src python3 examples/workflow/plan_execute.py
-   PYTHONPATH=src python3 examples/workflow/propose_critic.py
-   PYTHONPATH=src python3 examples/workflow/agent_routing.py
-   PYTHONPATH=src python3 examples/workflow/debate_pattern.py
-   PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
-   PYTHONPATH=src python3 examples/workflow/workflow_prompt_mode.py
-   PYTHONPATH=src python3 examples/model_selection/local.py
-   PYTHONPATH=src python3 examples/model_selection/remote.py
-   PYTHONPATH=src python3 examples/tools/mcp_minimal.py
-   PYTHONPATH=src python3 examples/tools/source_fusion_story.py
-   PYTHONPATH=src python3 examples/tools/script_tools/python/single_step_json_script_rubric_score_agent.py
-   PYTHONPATH=src python3 examples/tools/script_tools/bash/single_step_json_script_repo_quickscan_agent.py
-
-Run client configuration examples:
+2. Set API key:
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/clients/llama_cpp_server_client.py
-   PYTHONPATH=src python3 examples/clients/openai_service_client.py
-   PYTHONPATH=src python3 examples/clients/openai_compatible_http_client.py
-   PYTHONPATH=src python3 examples/clients/transformers_local_client.py
-   PYTHONPATH=src python3 examples/clients/mlx_local_client.py
+   export OPENAI_API_KEY="<your-key>"
 
-Workflow run signatures in the reusable ``Workflow`` class:
-
-- ``Workflow(input_mode='prompt')``: initialize once, then call ``run(\"...\")``.
-- ``Workflow(input_mode='schema')``: initialize once, then call
-  ``run({...})`` with optional ``input_schema`` validation.
-- Supply ``steps`` at init and optionally ``agents`` when ``AgentStep`` entries
-  are present in the graph.
-- Step topology and any scenario-specific behavior are caller-owned.
-
-Agent/workflow examples default to a local llama-cpp server via
-``LlamaCppServerLLMClient()``.
-
-Use constructor-first provider clients:
+3. Run one agent call:
 
 .. code-block:: python
 
-   from design_research_agents import LlamaCppServerLLMClient
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents import DirectLLMCall, OpenAIServiceLLMClient
 
-   llm_client = LlamaCppServerLLMClient()
-   response = llm_client.chat(
-       messages=[LLMMessage(role="user", content="Hello")],
-       model=llm_client.default_model(),
-       params=LLMChatParams(),
-   )
-   text = response.text
+   with OpenAIServiceLLMClient() as llm_client:
+       agent = DirectLLMCall(llm_client=llm_client)
+       result = agent.run("List three interview themes about onboarding friction.")
+       print(result.output)
 
-Continue with focused guides:
+Path B: Local (privacy-first)
+-----------------------------
 
-- :doc:`llm_clients/index`
-- :doc:`agents/index`
-- :doc:`tools/index`
-- :doc:`workflows/index`
+Use this when you want local execution and are willing to manage local runtime/model setup.
 
-For contribution workflow and PR expectations, see
-`CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_.
+1. Install backend-specific extras for local inference:
+
+.. code-block:: bash
+
+   pip install -e ".[dev,llama_cpp]"      # managed llama.cpp server client
+   # or: pip install -e ".[dev,transformers]"  # in-process transformers backend
+   # or: pip install -e ".[dev,mlx]"           # Apple MLX backend
+   # or: pip install -e ".[dev,full]"          # all optional backend extras
+
+2. Run one agent call with the managed llama.cpp server client:
+
+.. code-block:: python
+
+   from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient
+
+   with LlamaCppServerLLMClient() as llm_client:
+       agent = DirectLLMCall(llm_client=llm_client)
+       result = agent.run("Summarize this study brief in five bullets.")
+       print(result.output)
+
+Checks and Docs
+---------------
+
+.. code-block:: bash
+
+   make test
+   make docs-check
+   make docs-build
+
+Next Steps
+----------
+
+- Optional dependency profiles and platform notes: :doc:`dependencies_and_extras`
+- Scenario-driven examples and expected outputs: :doc:`examples/index`
+- Explore runnable examples: ``examples/README.md``
+- LLM client setup details: :doc:`llm_clients/index`
+- Agent behavior tradeoffs: :doc:`agents/index`
+- Workflow builder primitives: :doc:`workflows/index`
+- Prebuilt workflow implementations: :doc:`patterns/index`
+- Tool runtime and integrations: :doc:`tools/index`

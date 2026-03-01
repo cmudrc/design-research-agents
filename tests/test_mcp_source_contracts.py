@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pytest
 
-import design_research_agents.tools.sources.mcp_source as mcp_source
-from design_research_agents.tools.config import McpConfig, McpServer
-from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
-from design_research_agents.tools.sources.mcp_source import McpProtocolError, McpToolSource
+import design_research_agents.tools._registry as tool_registry
+import design_research_agents.tools._sources._mcp_source as mcp_source
+from design_research_agents.tools._config import McpConfig, MCPServerConfig
+from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents.tools._registry import ToolRegistry
+from design_research_agents.tools._sources._mcp_source import McpProtocolError, McpToolSource
 
 pytestmark = pytest.mark.contract
 
@@ -36,7 +38,7 @@ class _StubClient:
         pass
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, kw_only=True)
 class _FakeProcess:
     stdout: object
     stderr: object
@@ -52,7 +54,7 @@ def _policy(tmp_path: Path) -> ToolPolicy:
 def _config() -> McpConfig:
     return McpConfig(
         enabled=True,
-        servers=(McpServer(id="alpha", command=("python3", "-c", "pass")),),
+        servers=(MCPServerConfig(id="alpha", command=("python3", "-c", "pass")),),
     )
 
 
@@ -145,18 +147,45 @@ def test_mcp_source_invoke_handles_client_exceptions(tmp_path: Path) -> None:
             del tool_name, arguments
             raise RuntimeError("call failed")
 
-    source._clients["alpha"] = _RaisingClient(
-        tools=[{"name": "sum", "inputSchema": {"type": "object"}}]
-    )
+    source._clients["alpha"] = _RaisingClient(tools=[{"name": "sum", "inputSchema": {"type": "object"}}])
     result = source.invoke("alpha::sum", {}, request_id="req", dependencies={})
     assert result.ok is False
     assert "call failed" in str(result.error)
 
 
+def test_mcp_source_registry_emits_observation_events(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = McpToolSource(mcp_config=_config(), policy=_policy(tmp_path))
+    source._clients["alpha"] = _StubClient(
+        tools=[{"name": "sum", "inputSchema": {"type": "object"}}],
+        call_payload={"structuredContent": {"ok": True, "result": {"value": 3}}},
+    )
+
+    registry = ToolRegistry()
+    registry.add_source(source)
+    captured: dict[str, list[dict[str, object]]] = {"invocations": [], "results": []}
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_invocation_observed",
+        lambda **kwargs: captured["invocations"].append(dict(kwargs)),
+    )
+    monkeypatch.setattr(
+        tool_registry,
+        "emit_tool_result_observed",
+        lambda **kwargs: captured["results"].append(dict(kwargs)),
+    )
+
+    result = registry.invoke("alpha::sum", {"a": 1}, request_id="req-observed", dependencies={"x": 1})
+    assert result.ok is True
+    assert captured["invocations"]
+    assert captured["results"]
+    assert captured["invocations"][-1]["source_id"] == "mcp"
+    assert captured["results"][-1]["ok"] is True
+
+
 def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyPatch) -> None:
     policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
     client = mcp_source._StdioMcpClient(
-        server=McpServer(id="alpha", command=("python3", "-c", "pass"), timeout_s=1),
+        server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=1),
         policy=policy,
     )
 
@@ -164,15 +193,16 @@ def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyP
         def readline(self) -> str:
             return ""
 
-    process = _FakeProcess(stdout=_FakeStdout(), stderr=StringIO("boom"))
+    process = _FakeProcess(stdout=_FakeStdout(), stderr=StringIO(""))
     client._process = process  # type: ignore[assignment]
+    client._record_stderr_line("boom")
 
     monkeypatch.setattr(
         mcp_source.select,
         "select",
         lambda *_args, **_kwargs: ([process.stdout], [], []),
     )
-    with pytest.raises(McpProtocolError, match="closed unexpectedly"):
+    with pytest.raises(McpProtocolError, match="stderr='boom'"):
         client._read_response(expected_id=1)
 
     ticks = iter([0.0, 0.0, 2.0])
@@ -185,7 +215,7 @@ def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyP
 def test_stdio_read_response_skips_noise_until_expected_id(monkeypatch: pytest.MonkeyPatch) -> None:
     policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
     client = mcp_source._StdioMcpClient(
-        server=McpServer(id="alpha", command=("python3", "-c", "pass"), timeout_s=5),
+        server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=5),
         policy=policy,
     )
 

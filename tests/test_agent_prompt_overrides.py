@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 import pytest
 
-from design_research_agents.agent import (
-    SingleStepCodeToolCallingAgent,
-    SingleStepJsonToolCallingAgent,
-    SingleStepToolRouterAgent,
-)
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
@@ -17,8 +12,10 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents.agent import MultiStepAgent
+from design_research_agents.patterns import PlanExecutePattern
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import PlannerExecutorPattern
 
 
 class _SequenceLLMClient:
@@ -67,71 +64,198 @@ class _SequenceLLMClient:
     def default_model(self) -> str:
         return "test-model"
 
+    def close(self) -> None:
+        return None
 
-def test_single_step_json_tool_agent_rejects_invalid_alternatives_prompt_target() -> None:
+    def __enter__(self) -> _SequenceLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
+class _ArglessToolRuntime(ToolRuntime):
+    def list_tools(self) -> list[ToolSpec]:
+        return [
+            ToolSpec(
+                name="noop",
+                description="No-op",
+                input_schema={"type": "object", "additionalProperties": False},
+                output_schema={"type": "object", "additionalProperties": True},
+            )
+        ]
+
+    def invoke(
+        self,
+        tool_name: str,
+        input: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del input, request_id, dependencies
+        return ToolResult(tool_name=tool_name, ok=True, result={})
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ArglessToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
+class _EmptyToolRuntime(ToolRuntime):
+    def list_tools(self) -> list[ToolSpec]:
+        return []
+
+    def invoke(
+        self,
+        tool_name: str,
+        input: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del tool_name, input, request_id, dependencies
+        raise AssertionError("invoke should not be called for empty runtime")
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _EmptyToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
+class _ReservedToolRuntime(ToolRuntime):
+    def list_tools(self) -> list[ToolSpec]:
+        return [
+            ToolSpec(
+                name="final_answer",
+                description="reserved",
+                input_schema={"type": "object", "additionalProperties": False},
+                output_schema={"type": "object", "additionalProperties": True},
+            )
+        ]
+
+    def invoke(
+        self,
+        tool_name: str,
+        input: Mapping[str, object],
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> ToolResult:
+        del tool_name, input, request_id, dependencies
+        return ToolResult(tool_name="final_answer", ok=True, result={})
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ReservedToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
+def test_multi_step_agent_rejects_missing_runtime_for_json_or_code_modes() -> None:
+    llm_client = _SequenceLLMClient(response_texts=['{"continue": false, "thought": "done"}'])
+
+    with pytest.raises(ValueError, match="tool_runtime is required"):
+        MultiStepAgent(mode="json", llm_client=llm_client)
+
+    with pytest.raises(ValueError, match="tool_runtime is required"):
+        MultiStepAgent(mode="code", llm_client=llm_client)
+
+
+def test_multi_step_agent_rejects_empty_runtime_for_json_or_code_modes() -> None:
+    llm_client = _SequenceLLMClient(response_texts=['{"continue": false, "thought": "done"}'])
+    empty_runtime = _EmptyToolRuntime()
+
+    with pytest.raises(ValueError, match="must expose at least one tool"):
+        MultiStepAgent(mode="json", llm_client=llm_client, tool_runtime=empty_runtime)
+
+    with pytest.raises(ValueError, match="must expose at least one tool"):
+        MultiStepAgent(mode="code", llm_client=llm_client, tool_runtime=empty_runtime)
+
+
+def test_multi_step_agent_rejects_reserved_final_answer_tool_name() -> None:
+    llm_client = _SequenceLLMClient(response_texts=['{"tool_name":"final_answer","tool_input":{}}'])
+    reserved_runtime = _ReservedToolRuntime()
+
+    with pytest.raises(ValueError, match="reserved tool name"):
+        MultiStepAgent(mode="json", llm_client=llm_client, tool_runtime=reserved_runtime)
+
+    with pytest.raises(ValueError, match="reserved tool name"):
+        MultiStepAgent(mode="code", llm_client=llm_client, tool_runtime=reserved_runtime)
+
+
+def test_multi_step_json_tool_agent_rejects_invalid_alternatives_prompt_target() -> None:
     with pytest.raises(ValueError, match="alternatives_prompt_target"):
-        SingleStepJsonToolCallingAgent(
-            llm_client=_SequenceLLMClient(
-                response_texts=['{"tool_name":"calculator","tool_input":{}}']
-            ),
+        MultiStepAgent(
+            mode="json",
+            llm_client=_SequenceLLMClient(response_texts=['{"tool_name":"calculator","tool_input":{}}']),
             tool_runtime=Toolbox(),
             alternatives_prompt_target="invalid",
         )
 
 
-def test_single_step_json_tool_agent_rejects_unmatched_allowed_tools() -> None:
+def test_multi_step_json_agent_rejects_unmatched_allowed_tools() -> None:
+    agent = MultiStepAgent(
+        mode="json",
+        llm_client=_SequenceLLMClient(response_texts=['{"tool_name":"calculator","tool_input":{},"reason":"x"}']),
+        tool_runtime=_ArglessToolRuntime(),
+        allowed_tools=["unknown_tool"],
+    )
     with pytest.raises(ValueError, match="allowed_tools"):
-        SingleStepJsonToolCallingAgent(
-            llm_client=_SequenceLLMClient(
-                response_texts=['{"tool_name":"calculator","tool_input":{}}']
-            ),
-            tool_runtime=Toolbox(),
-            allowed_tools=["does_not_exist"],
-        )
+        agent.run("route request")
 
 
-def test_single_step_router_agent_rejects_unmatched_allowed_routes() -> None:
-    with pytest.raises(ValueError, match="allowed_routes"):
-        SingleStepToolRouterAgent(
-            llm_client=_SequenceLLMClient(
-                response_texts=['{"tool_names":["calculator"],"reason":"x"}']
-            ),
-            tool_runtime=Toolbox(),
-            allowed_routes=["unknown_route"],
-        )
-
-
-def test_single_step_code_agent_rejects_empty_prompt_override() -> None:
-    with pytest.raises(ValueError, match="system_prompt"):
-        SingleStepCodeToolCallingAgent(
-            llm_client=_SequenceLLMClient(response_texts=["final_output = {}"]),
-            tool_runtime=Toolbox(),
-            system_prompt="   ",
-        )
+def test_multi_step_code_agent_ignores_unused_continuation_prompt_override() -> None:
+    agent = MultiStepAgent(
+        mode="code",
+        llm_client=_SequenceLLMClient(response_texts=['final_answer({"ok": True})']),
+        tool_runtime=Toolbox(),
+        continuation_system_prompt="   ",
+    )
+    assert agent is not None
 
 
 def test_plan_execute_workflow_template_override_supports_task_prompt_variable() -> None:
-    workflow = PlannerExecutorPattern(
+    workflow = PlanExecutePattern(
         llm_client=_SequenceLLMClient(
             response_texts=[
-                '{"steps":[{"step_id":"one","instruction":"Compute 6 * 7.",'
-                '"success_criteria":"Return result"}]}',
-                'calc = call_tool("calculator", {"expression": "6 * 7"})\n'
-                'final_output = {"result": calc["result"]}',
+                '{"steps":[{"step_id":"one","instruction":"Count words in a short phrase.",'
+                '"success_criteria":"Return word count"}]}',
+                'stats = call_tool("text.word_count", {"text": "design research"})\n'
+                'final_answer({"result": stats["word_count"]})',
             ]
         ),
         tool_runtime=Toolbox(),
-        plan_execute_planner_user_prompt_template="Task block:\n$task_prompt",
+        planner_user_prompt_template="Task block:\n$task_prompt",
     )
-    result = workflow.run("Compute 6 * 7.")
+    result = workflow.run("Count words in design research.")
     assert result.success
 
 
 def test_plan_execute_workflow_template_override_rejects_missing_variables() -> None:
-    workflow = PlannerExecutorPattern(
+    workflow = PlanExecutePattern(
         llm_client=_SequenceLLMClient(response_texts=['{"steps":[]}']),
         tool_runtime=Toolbox(),
-        plan_execute_planner_user_prompt_template="Task block:\n$unknown_key",
+        planner_user_prompt_template="Task block:\n$unknown_key",
     )
     with pytest.raises(ValueError, match="unknown_key"):
         workflow.run("Compute 6 * 7.")

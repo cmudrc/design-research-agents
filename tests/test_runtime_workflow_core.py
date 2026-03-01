@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
 import pytest
 
-from design_research_agents.contracts.memory import MemoryWriteRecord
-from design_research_agents.contracts.workflow import (
-    AgentStep,
+from design_research_agents._contracts._memory import MemoryWriteRecord
+from design_research_agents._contracts._workflow import (
+    DelegateStep,
     LogicStep,
     LoopStep,
     MemoryReadStep,
     MemoryWriteStep,
     ToolStep,
 )
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
-from design_research_agents.workflow.internal.workflow_runtime import WorkflowRuntime
+from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
+from design_research_agents._runtime._workflow._engine import WorkflowRuntime
+from design_research_agents._tracing import Tracer
 from tests.helpers.workflow_stubs import (
     StaticMarkerAgent,
     StaticWorkflowDelegateRunner,
@@ -56,9 +59,7 @@ def test_workflow_runtime_loop_step_stops_when_continue_predicate_returns_false(
                         handler=lambda context: {
                             "counter": int(
                                 (
-                                    context.get("loop_state")
-                                    if isinstance(context.get("loop_state"), Mapping)
-                                    else {}
+                                    context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}
                                 ).get("counter", 0)
                             )
                             + 1
@@ -99,9 +100,7 @@ def test_workflow_runtime_loop_step_terminates_at_max_iterations() -> None:
                         handler=lambda context: {
                             "counter": int(
                                 (
-                                    context.get("loop_state")
-                                    if isinstance(context.get("loop_state"), Mapping)
-                                    else {}
+                                    context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}
                                 ).get("counter", 0)
                             )
                             + 1
@@ -140,11 +139,9 @@ def test_workflow_runtime_loop_step_propagates_iteration_failures() -> None:
                         handler=lambda context: (
                             (_ for _ in ()).throw(RuntimeError("boom"))
                             if int(
-                                (
-                                    context.get("_loop")
-                                    if isinstance(context.get("_loop"), Mapping)
-                                    else {}
-                                ).get("iteration", 0)
+                                (context.get("_loop") if isinstance(context.get("_loop"), Mapping) else {}).get(
+                                    "iteration", 0
+                                )
                             )
                             == 2
                             else {"counter": 1}
@@ -184,9 +181,7 @@ def test_workflow_runtime_loop_step_carries_state_across_iterations() -> None:
                         handler=lambda context: {
                             "value": int(
                                 (
-                                    context.get("loop_state")
-                                    if isinstance(context.get("loop_state"), Mapping)
-                                    else {}
+                                    context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}
                                 ).get("value", 0)
                             )
                             * 2
@@ -325,11 +320,7 @@ def test_workflow_runtime_route_branching_skips_non_selected_branch() -> None:
 
 def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
     tool_runtime = StubToolRuntime(
-        handlers={
-            "adder_tool": lambda payload: {
-                "sum": float(payload.get("a", 0)) + float(payload.get("b", 0))
-            }
-        }
+        handlers={"adder_tool": lambda payload: {"sum": float(payload.get("a", 0)) + float(payload.get("b", 0))}}
     )
     workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
@@ -346,9 +337,13 @@ def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
 
 
 def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
-    workflow = WorkflowRuntime(agents={"math_agent": StaticMarkerAgent(marker="math")})
+    workflow = WorkflowRuntime()
     steps = [
-        AgentStep(step_id="delegate", agent_name="math_agent", prompt="Solve this."),
+        DelegateStep(
+            step_id="delegate",
+            delegate=StaticMarkerAgent(marker="math"),
+            prompt="Solve this.",
+        ),
     ]
 
     result = workflow.run(steps, execution_mode="sequential")
@@ -360,9 +355,13 @@ def test_workflow_runtime_agent_step_returns_serialized_agent_result() -> None:
 
 
 def test_workflow_runtime_agent_step_accepts_nested_workflow_delegate() -> None:
-    workflow = WorkflowRuntime(agents={"nested_flow": StaticWorkflowDelegateRunner()})
+    workflow = WorkflowRuntime()
     steps = [
-        AgentStep(step_id="delegate", agent_name="nested_flow", prompt="Route this prompt."),
+        DelegateStep(
+            step_id="delegate",
+            delegate=StaticWorkflowDelegateRunner(),
+            prompt="Route this prompt.",
+        ),
     ]
 
     result = workflow.run(steps, execution_mode="sequential")
@@ -370,9 +369,7 @@ def test_workflow_runtime_agent_step_accepts_nested_workflow_delegate() -> None:
     assert result.success
     step_output = result.step_results["delegate"].output
     assert step_output["success"] is True
-    assert (
-        step_output["step_results"]["nested_logic"]["output"]["prompt_echo"] == "Route this prompt."
-    )
+    assert step_output["step_results"]["nested_logic"]["output"]["prompt_echo"] == "Route this prompt."
     assert result.step_results["delegate"].metadata["delegate_type"] == "workflow"
 
 
@@ -384,19 +381,16 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
             }
         }
     )
-    workflow = WorkflowRuntime(
-        tool_runtime=tool_runtime,
-        agents={"writer_agent": StaticMarkerAgent(marker="proposal")},
-    )
+    workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
         LogicStep(
             step_id="router",
             handler=lambda ctx: {"route": "agent_path"},
             route_map={"agent_path": ("delegate",), "other_path": ("unused",)},
         ),
-        AgentStep(
+        DelegateStep(
             step_id="delegate",
-            agent_name="writer_agent",
+            delegate=StaticMarkerAgent(marker="proposal"),
             dependencies=("router",),
             prompt_builder=lambda ctx: "Write a proposal.",
         ),
@@ -416,9 +410,7 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
         LogicStep(
             step_id="finalize",
             dependencies=("measure",),
-            handler=lambda ctx: {
-                "length": ctx["dependency_results"]["measure"]["output"]["result"]["length"]
-            },
+            handler=lambda ctx: {"length": ctx["dependency_results"]["measure"]["output"]["result"]["length"]},
         ),
     ]
 
@@ -432,13 +424,10 @@ def test_workflow_runtime_mixed_pipeline_supports_logic_agent_and_tool_steps() -
 
 def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
     tool_runtime = StubToolRuntime(handlers={"known_tool": lambda payload: {"ok": True}})
-    workflow = WorkflowRuntime(
-        tool_runtime=tool_runtime,
-        agents={"known_agent": StaticMarkerAgent(marker="ok")},
-    )
+    workflow = WorkflowRuntime(tool_runtime=tool_runtime)
     steps = [
         ToolStep(step_id="missing_tool", tool_name="unknown_tool"),
-        AgentStep(step_id="missing_agent", agent_name="unknown_agent", prompt="Do work."),
+        DelegateStep(step_id="missing_agent", delegate=object(), prompt="Do work."),
     ]
 
     result = workflow.run(
@@ -451,7 +440,7 @@ def test_workflow_runtime_unknown_bindings_fail_with_stage_metadata() -> None:
     assert result.step_results["missing_tool"].status == "failed"
     assert result.step_results["missing_tool"].metadata["stage"] == "tool_binding"
     assert result.step_results["missing_agent"].status == "failed"
-    assert result.step_results["missing_agent"].metadata["stage"] == "agent_binding"
+    assert result.step_results["missing_agent"].metadata["stage"] == "execution"
 
 
 def test_workflow_runtime_memory_steps_fail_without_memory_store_binding() -> None:
@@ -489,9 +478,7 @@ def test_workflow_runtime_memory_steps_succeed_and_emit_standardized_outputs(
     steps = [
         MemoryWriteStep(
             step_id="write_memory",
-            records_builder=lambda context: [
-                {"content": "alpha design note", "metadata": {"kind": "note"}}
-            ],
+            records_builder=lambda context: [{"content": "alpha design note", "metadata": {"kind": "note"}}],
             namespace="research",
         ),
         MemoryReadStep(
@@ -541,9 +528,7 @@ def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(
         LogicStep(
             step_id="postprocess",
             dependencies=("read_memory",),
-            handler=lambda context: {
-                "count": context["dependency_results"]["read_memory"]["output"]["count"]
-            },
+            handler=lambda context: {"count": context["dependency_results"]["read_memory"]["output"]["count"]},
         ),
     ]
 
@@ -553,3 +538,25 @@ def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(
     assert result.success
     assert result.execution_order == ["read_memory", "postprocess"]
     assert result.step_results["postprocess"].output["count"] == 1
+
+
+def test_workflow_runtime_emits_step_context_and_result_events(tmp_path: Path) -> None:
+    tracer = Tracer(
+        trace_dir=tmp_path / "traces",
+        enable_jsonl=True,
+        enable_console=False,
+    )
+    workflow = WorkflowRuntime(tracer=tracer)
+    result = workflow.run(
+        [LogicStep(step_id="a", handler=lambda ctx: {"value": 1})],
+        execution_mode="sequential",
+        request_id="workflow-trace-test",
+    )
+    assert result.success
+
+    trace_files = sorted((tmp_path / "traces").glob("run_*_workflow-trace-test.jsonl"))
+    assert trace_files
+    events = [json.loads(line) for line in trace_files[-1].read_text(encoding="utf-8").splitlines() if line.strip()]
+    event_types = [str(event.get("event_type")) for event in events]
+    assert "WorkflowStepContextObserved" in event_types
+    assert "WorkflowStepResultObserved" in event_types

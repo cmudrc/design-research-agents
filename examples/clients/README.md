@@ -1,39 +1,39 @@
-## Client Configuration Examples
+## Client Call Examples
 
-These examples focus on configuring each `LLMClient` implementation with
-explicit constructor arguments.
+These scripts run one traced representative LLM call per public client class
+and emit configuration plus call metadata.
 
-## What Each Example Demonstrates
+## Scripts
 
 - `llama_cpp_server_client.py`
-  - Full local llama-cpp server client configuration (model aliasing, startup tuning).
+- `anthropic_service_client.py`
+- `gemini_service_client.py`
+- `groq_service_client.py`
 - `openai_service_client.py`
-  - Full OpenAI service client configuration (model defaults, auth, retries, patterns).
 - `openai_compatible_http_client.py`
-  - Full OpenAI-compatible HTTP client configuration (endpoint, auth, capability routing).
 - `transformers_local_client.py`
-  - Full in-process Transformers client configuration (device, dtype, quantization, revision).
 - `mlx_local_client.py`
-  - Full Apple MLX client configuration (model id, quantization, retries, model patterns).
+- `vllm_server_client.py`
+- `ollama_local_client.py`
+- `sglang_server_client.py`
 
 ## Quick Start
 
-Run from repository root:
-
 ```bash
 PYTHONPATH=src python3 examples/clients/llama_cpp_server_client.py
+PYTHONPATH=src python3 examples/clients/anthropic_service_client.py
+PYTHONPATH=src python3 examples/clients/gemini_service_client.py
+PYTHONPATH=src python3 examples/clients/groq_service_client.py
 PYTHONPATH=src python3 examples/clients/openai_service_client.py
 PYTHONPATH=src python3 examples/clients/openai_compatible_http_client.py
 PYTHONPATH=src python3 examples/clients/transformers_local_client.py
 PYTHONPATH=src python3 examples/clients/mlx_local_client.py
+PYTHONPATH=src python3 examples/clients/vllm_server_client.py
+PYTHONPATH=src python3 examples/clients/ollama_local_client.py
+PYTHONPATH=src python3 examples/clients/sglang_server_client.py
 ```
 
 ## Expected Outputs
 
-- Each script prints a JSON configuration snapshot.
-- No script executes model inference; these are constructor/config examples.
-
-## Troubleshooting
-
-- Missing optional local dependencies:
-  - Install local extras: `pip install -e '.[local]'`.
+- JSON payloads containing ``llm_call`` with response fields and execution mode.
+- Trace metadata included in each payload.

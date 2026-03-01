@@ -1,29 +1,30 @@
 Model Selection Modules
 =======================
 
-This page lists all modules in this package area, including internal modules.
+This page documents internal model-selection modules for contributor visibility.
+These underscored module paths are intentionally unstable.
 
-.. automodule:: design_research_agents.model_selection.catalog
+.. automodule:: design_research_agents._model_selection._catalog
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.model_selection.hardware
+.. automodule:: design_research_agents._model_selection._hardware
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.model_selection.policy
+.. automodule:: design_research_agents._model_selection._policy
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.model_selection.selector
+.. automodule:: design_research_agents._model_selection._selector
    :members:
    :undoc-members:
    :no-index:
 
-.. automodule:: design_research_agents.model_selection.types
+.. automodule:: design_research_agents._model_selection._types
    :members:
    :undoc-members:
    :no-index:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from design_research_agents.model_selection.catalog import (
+from design_research_agents._model_selection._catalog import (
     ModelCatalog,
     _estimate_gguf_memory_hint,
     _latency_tier,

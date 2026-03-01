@@ -1,24 +1,40 @@
 from __future__ import annotations
 
 import builtins
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
 
-from design_research_agents.tools.core import (
-    bash_tools,
-    fs_tools,
-    git_tools,
-    search_tools,
-    text_tools,
-)
-from design_research_agents.tools.policy import ToolPolicy, ToolPolicyConfig
+from design_research_agents._contracts._memory import MemoryWriteRecord
+from design_research_agents._memory import EmbeddingProvider, SQLiteMemoryStore
+from design_research_agents.tools._core import _bash_tools as bash_tools
+from design_research_agents.tools._core import _evaluation_tools as evaluation_tools
+from design_research_agents.tools._core import _fs_tools as fs_tools
+from design_research_agents.tools._core import _git_tools as git_tools
+from design_research_agents.tools._core import _memory_tools as memory_tools
+from design_research_agents.tools._core import _python_tools as python_tools
+from design_research_agents.tools._core import _search_tools as search_tools
+from design_research_agents.tools._core import _text_tools as text_tools
+from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
 
 
 def _policy(tmp_path: Path) -> ToolPolicy:
     return ToolPolicy(ToolPolicyConfig(workspace_root=str(tmp_path)))
+
+
+class _StaticEmbeddingProvider(EmbeddingProvider):
+    def __init__(self, *, vectors_by_text: dict[str, list[float]]) -> None:
+        self._vectors_by_text = vectors_by_text
+
+    @property
+    def model_name(self) -> str:
+        return "test-embeddings"
+
+    def embed(self, texts: list[str] | tuple[str, ...]) -> list[list[float]] | None:
+        return [list(self._vectors_by_text.get(text, [0.0, 0.0])) for text in texts]
 
 
 def test_search_rejects_empty_query(tmp_path: Path) -> None:
@@ -49,9 +65,7 @@ def test_search_prefers_rg_when_available(tmp_path: Path, monkeypatch: pytest.Mo
     assert called == ["rg"]
 
 
-def test_search_uses_python_fallback_when_rg_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_search_uses_python_fallback_when_rg_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "a.txt").write_text("alpha\n", encoding="utf-8")
     monkeypatch.setattr(search_tools, "which", lambda _name: None)
     result = search_tools._search(
@@ -62,13 +76,12 @@ def test_search_uses_python_fallback_when_rg_missing(
     assert result["count"] == 1
 
 
-def test_search_with_rg_parses_matches_and_keeps_context_flags(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_search_with_rg_parses_matches_and_keeps_context_flags(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def _fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
         captured["command"] = command
+        captured["timeout"] = kwargs.get("timeout")
         return SimpleNamespace(
             stdout="\n".join(
                 [
@@ -88,15 +101,34 @@ def test_search_with_rg_parses_matches_and_keeps_context_flags(
         globs=["*.py"],
         max_matches=1,
         context_lines=2,
+        timeout_s=9,
     )
 
     command = captured["command"]
     assert isinstance(command, list)
     assert "-C" in command and "2" in command
     assert "-g" in command and "*.py" in command
+    assert captured["timeout"] == 9
     assert result["count"] == 1
     assert result["matches"][0]["ref"] == "src/a.py:10:2"
     assert result["stderr"] == "warning"
+
+
+def test_search_with_rg_raises_clear_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        raise subprocess.TimeoutExpired(cmd=command, timeout=7)
+
+    monkeypatch.setattr(search_tools.subprocess, "run", _fake_run)
+    with pytest.raises(RuntimeError, match="ripgrep search timed out after 7s"):
+        search_tools._search_with_rg(
+            rg_binary="/usr/bin/rg",
+            root=tmp_path,
+            query="x",
+            globs=[],
+            max_matches=1,
+            context_lines=0,
+            timeout_s=7,
+        )
 
 
 def test_search_with_python_skips_unreadable_and_limits_results(tmp_path: Path) -> None:
@@ -210,53 +242,78 @@ def test_fs_helpers_cover_read_write_stat_hash_and_glob(tmp_path: Path) -> None:
         fs_tools._hash({"path": "dir/a.txt", "algo": "__invalid_algo__"}, policy=policy)
 
 
-def test_git_helpers_build_expected_arguments_and_errors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_fs_read_text_rejects_blank_paths_and_directories(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    (tmp_path / "dir").mkdir()
+
+    with pytest.raises(ValueError, match="'path' is required"):
+        fs_tools._read_text({}, policy=policy)
+
+    with pytest.raises(ValueError, match="Path is not a file"):
+        fs_tools._read_text({"path": "dir"}, policy=policy)
+
+
+def test_git_helpers_build_expected_arguments_and_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     policy = _policy(tmp_path)
     calls: list[list[str]] = []
+    timeouts: list[object] = []
 
-    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def _fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
         calls.append(command)
+        timeouts.append(kwargs.get("timeout"))
         return SimpleNamespace(stdout="ok", stderr="")
 
     monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
 
     assert git_tools._git_status({"repo": "repo"}, policy=policy)["status"] == "ok"
-    assert (
-        git_tools._git_diff({"repo": "repo", "staged": True, "pathspec": "a.py"}, policy=policy)[
-            "diff"
-        ]
-        == "ok"
-    )
+    assert git_tools._git_diff({"repo": "repo", "staged": True, "pathspec": "a.py"}, policy=policy)["diff"] == "ok"
     assert git_tools._git_log({"repo": "repo", "max_commits": 7}, policy=policy)["log"] == "ok"
     assert git_tools._git_show({"repo": "repo", "rev": "HEAD~1"}, policy=policy)["show"] == "ok"
 
     assert any("--staged" in cmd for cmd in calls)
     assert any(cmd[-2:] == ["--", "a.py"] for cmd in calls)
     assert any(cmd[-4:] == ["log", "--oneline", "-n", "7"] for cmd in calls)
+    assert all(timeout == policy.config.default_timeout_s for timeout in timeouts)
 
     with pytest.raises(ValueError, match="rev is required"):
         git_tools._git_show({"repo": "repo", "rev": "   "}, policy=policy)
+    with pytest.raises(ValueError, match="must not start with '-'"):
+        git_tools._git_show({"repo": "repo", "rev": "--paginate"}, policy=policy)
+    with pytest.raises(ValueError, match="must not contain whitespace"):
+        git_tools._git_show({"repo": "repo", "rev": "HEAD~1 other"}, policy=policy)
 
 
-def test_run_git_merges_stderr_and_appends_truncated_marker(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_git_merges_stderr_and_appends_truncated_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
     policy = ToolPolicy(
         ToolPolicyConfig(workspace_root=str(tmp_path), default_max_output_bytes=5),
     )
+    captured: dict[str, object] = {}
 
-    def _fake_run(_command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def _fake_run(_command: list[str], **kwargs: object) -> SimpleNamespace:
+        captured["timeout"] = kwargs.get("timeout")
         return SimpleNamespace(stdout="abcdef", stderr="err")
 
     monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
     output = git_tools._run_git(policy=policy, repo=str(repo), args=["status"])
+    assert captured["timeout"] == policy.config.default_timeout_s
     assert output.endswith("[truncated]")
+
+
+def test_run_git_raises_clear_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    policy = ToolPolicy(ToolPolicyConfig(workspace_root=str(tmp_path), default_timeout_s=11))
+
+    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        raise subprocess.TimeoutExpired(cmd=command, timeout=11)
+
+    monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
+    with pytest.raises(RuntimeError, match="git command timed out after 11s"):
+        git_tools._run_git(policy=policy, repo=str(repo), args=["status"])
 
 
 def test_bash_allowed_commands_validation_and_normalization() -> None:
@@ -353,3 +410,146 @@ def test_bash_exec_handler_success_with_fake_bashkit(monkeypatch: pytest.MonkeyP
     )
     assert output["stdout"] == "ok"
     assert output["success"] is True
+
+
+def test_python_sandbox_handler_success_and_stdout() -> None:
+    output = python_tools._python_sandbox_handler(
+        {
+            "code": "values = context['values']\nresult = {'sum': sum(values)}\nprint('ok')\n",
+            "context": {"values": [1, 2, 3]},
+            "timeout_s": 2,
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert output["result"] == {"sum": 6}
+    assert output["stdout"] == "ok\n"
+    assert output["truncated"] is False
+    assert isinstance(output["execution_ms"], int)
+
+
+def test_python_sandbox_handler_rejects_import() -> None:
+    with pytest.raises(ValueError, match="Unsupported syntax node: Import"):
+        python_tools._python_sandbox_handler(
+            {"code": "import os\nresult = 1"},
+            request_id="req",
+            dependencies={},
+        )
+
+
+@pytest.mark.skipif(not hasattr(python_tools.signal, "SIGALRM"), reason="POSIX-only timeout")
+def test_python_sandbox_handler_times_out() -> None:
+    with pytest.raises(TimeoutError, match="Execution exceeded timeout"):
+        python_tools._python_sandbox_handler(
+            {"code": "while True:\n    pass\n", "timeout_s": 1},
+            request_id="req",
+            dependencies={},
+        )
+
+
+def test_memory_tools_write_search_stats_round_trip(tmp_path: Path) -> None:
+    policy = _policy(tmp_path)
+    db_path = "artifacts/memory/core_tools.sqlite3"
+
+    write_result = memory_tools._memory_write(
+        {
+            "db_path": db_path,
+            "namespace": "unit",
+            "records": [{"content": "alpha design note", "metadata": {"kind": "note"}}],
+        },
+        dependencies={},
+        policy=policy,
+    )
+    assert write_result["written"] == 1
+    assert write_result["namespace"] == "unit"
+
+    search_result = memory_tools._memory_search(
+        {
+            "db_path": db_path,
+            "namespace": "unit",
+            "text": "alpha",
+            "top_k": 5,
+        },
+        dependencies={},
+        policy=policy,
+    )
+    assert search_result["count"] == 1
+    assert search_result["retrieval_mode"] == "lexical"
+
+    stats_result = memory_tools._memory_stats(
+        {"db_path": db_path, "namespace": "unit"},
+        dependencies={},
+        policy=policy,
+    )
+    assert stats_result["record_count"] == 1
+    assert stats_result["embedding_count"] == 0
+
+
+def test_memory_tools_search_reports_hybrid_vector_mode(tmp_path: Path) -> None:
+    db_path = tmp_path / "artifacts" / "memory" / "memory.sqlite3"
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    store = SQLiteMemoryStore(
+        db_path=db_path,
+        embedding_provider=_StaticEmbeddingProvider(
+            vectors_by_text={
+                "query": [1.0, 0.0],
+                "mostly lexical": [0.0, 1.0],
+                "mostly vector": [1.0, 0.0],
+            }
+        ),
+    )
+    store.write(
+        [
+            MemoryWriteRecord(content="mostly lexical"),
+            MemoryWriteRecord(content="mostly vector"),
+        ],
+        namespace="default",
+    )
+
+    result = memory_tools._memory_search(
+        {"text": "query", "namespace": "default", "top_k": 2},
+        dependencies={"memory_store": store},
+        policy=_policy(tmp_path),
+    )
+    store.close()
+
+    assert result["retrieval_mode"] == "hybrid_vector"
+    assert result["matches"][0]["content"] == "mostly vector"
+
+
+def test_eval_decision_matrix_ranks_alternatives() -> None:
+    result = evaluation_tools._decision_matrix_handler(
+        {
+            "alternatives": [
+                {"id": "A", "scores": {"cost": 5, "quality": 8}},
+                {"id": "B", "scores": {"cost": 9, "quality": 6}},
+            ],
+            "criteria": [
+                {"name": "cost", "goal": "min", "weight": 0.4},
+                {"name": "quality", "goal": "max", "weight": 0.6},
+            ],
+            "normalize": True,
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert result["ranked"][0]["alternative"] == "A"
+    assert result["ranked"][0]["rank"] == 1
+
+
+def test_eval_pairwise_rank_copeland() -> None:
+    result = evaluation_tools._pairwise_rank_handler(
+        {
+            "alternatives": ["A", "B", "C"],
+            "comparisons": [
+                {"a": "A", "b": "B", "outcome": "a"},
+                {"a": "A", "b": "C", "outcome": "a"},
+                {"a": "B", "b": "C", "outcome": "b"},
+            ],
+        },
+        request_id="req",
+        dependencies={},
+    )
+    assert result["method"] == "copeland"
+    assert result["ranking"][0]["alternative"] == "A"
+    assert result["ranking"][0]["copeland_score"] > result["ranking"][1]["copeland_score"]

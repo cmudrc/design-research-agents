@@ -7,19 +7,21 @@ from urllib.error import HTTPError
 
 import pytest
 
-from design_research_agents.contracts.memory import (
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._memory import (
     MemoryRecord,
     MemorySearchQuery,
     MemoryStore,
     MemoryWriteRecord,
 )
+from design_research_agents._contracts._workflow import WorkflowStepResult
+from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
 from design_research_agents.llm import LlamaCppServerLLMClient
-from design_research_agents.llm.backends.providers import llama_cpp_server
-from design_research_agents.memory.stores.sqlite_store import SQLiteMemoryStore
+from design_research_agents.llm._backends._providers import _llama_cpp_server
 
 
-def test_llama_cpp_server_command_contains_expected_args() -> None:
-    backend = llama_cpp_server.create_backend(
+def test__llama_cpp_server_command_contains_expected_args() -> None:
+    backend = _llama_cpp_server.create_backend(
         model="/tmp/model.gguf",
         hf_model_repo_id="repo/id",
         api_model="local-model",
@@ -43,7 +45,7 @@ def test_llama_cpp_server_command_contains_expected_args() -> None:
 def test_llama_cpp_wait_until_ready_retries_after_timeout(
     monkeypatch,
 ) -> None:
-    backend = llama_cpp_server.LlamaCppServerBackend(
+    backend = _llama_cpp_server.LlamaCppServerBackend(
         model="/tmp/model.gguf",
         startup_timeout_seconds=1.0,
         poll_interval_seconds=0.0,
@@ -87,7 +89,7 @@ def test_llama_cpp_wait_until_ready_retries_after_timeout(
             raise TimeoutError("timed out")
         return _ReadyResponse()
 
-    monkeypatch.setattr(llama_cpp_server, "urlopen", _flaky_probe)
+    monkeypatch.setattr(_llama_cpp_server, "urlopen", _flaky_probe)
     backend._wait_until_ready()
 
     assert attempts["count"] == 2
@@ -96,7 +98,7 @@ def test_llama_cpp_wait_until_ready_retries_after_timeout(
 def test_llama_cpp_wait_until_ready_timeout_error_becomes_runtime_error(
     monkeypatch,
 ) -> None:
-    backend = llama_cpp_server.LlamaCppServerBackend(
+    backend = _llama_cpp_server.LlamaCppServerBackend(
         model="/tmp/model.gguf",
         startup_timeout_seconds=0.01,
         poll_interval_seconds=0.0,
@@ -126,24 +128,24 @@ def test_llama_cpp_wait_until_ready_timeout_error_becomes_runtime_error(
         del url, timeout
         raise TimeoutError("timed out")
 
-    monkeypatch.setattr(llama_cpp_server, "urlopen", _timeout_probe)
-    monkeypatch.setattr(llama_cpp_server.time, "sleep", lambda _: None)
+    monkeypatch.setattr(_llama_cpp_server, "urlopen", _timeout_probe)
+    monkeypatch.setattr(_llama_cpp_server.time, "sleep", lambda _: None)
 
     with pytest.raises(RuntimeError, match="Timed out waiting for llama-cpp server readiness"):
         backend._wait_until_ready()
 
 
-def test_llama_cpp_server_requires_non_empty_model_and_api_model() -> None:
+def test__llama_cpp_server_requires_non_empty_model_and_api_model() -> None:
     with pytest.raises(ValueError, match="model must not be empty"):
-        llama_cpp_server.LlamaCppServerBackend(model="   ")
+        _llama_cpp_server.LlamaCppServerBackend(model="   ")
 
     with pytest.raises(ValueError, match="api_model must not be empty"):
-        llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf", api_model="   ")
+        _llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf", api_model="   ")
 
 
-def test_llama_cpp_server_dependency_validation_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    backend = llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf")
-    monkeypatch.setattr(llama_cpp_server, "find_spec", lambda _name: None)
+def test__llama_cpp_server_dependency_validation_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = _llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf")
+    monkeypatch.setattr(_llama_cpp_server, "find_spec", lambda _name: None)
     with pytest.raises(RuntimeError, match="llama-cpp server dependency is missing"):
         backend._ensure_server_dependency()
 
@@ -152,18 +154,16 @@ def test_llama_cpp_server_dependency_validation_errors(monkeypatch: pytest.Monke
             return object()
         return None
 
-    backend_hf = llama_cpp_server.LlamaCppServerBackend(
-        model="tiny.Q4_K_M.gguf", hf_model_repo_id="repo/id"
-    )
-    monkeypatch.setattr(llama_cpp_server, "find_spec", _find_spec)
+    backend_hf = _llama_cpp_server.LlamaCppServerBackend(model="tiny.Q4_K_M.gguf", hf_model_repo_id="repo/id")
+    monkeypatch.setattr(_llama_cpp_server, "find_spec", _find_spec)
     with pytest.raises(RuntimeError, match="huggingface-hub is required"):
         backend_hf._ensure_server_dependency()
 
 
-def test_llama_cpp_server_resolve_hf_model_name_prefers_unique_suffix(
+def test__llama_cpp_server_resolve_hf_model_name_prefers_unique_suffix(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    backend = llama_cpp_server.LlamaCppServerBackend(
+    backend = _llama_cpp_server.LlamaCppServerBackend(
         model="Q4_K_M.gguf",
         hf_model_repo_id="repo/id",
     )
@@ -174,14 +174,14 @@ def test_llama_cpp_server_resolve_hf_model_name_prefers_unique_suffix(
             "model-A.Q8_0.gguf",
         ]
     )
-    monkeypatch.setattr(llama_cpp_server.importlib, "import_module", lambda _name: fake_hf)
+    monkeypatch.setattr(_llama_cpp_server.importlib, "import_module", lambda _name: fake_hf)
 
     backend._resolve_hf_model_name()
     assert backend.model == "model-A.Q4_K_M.gguf"
 
 
 def test_llama_cpp_wait_until_ready_accepts_auth_challenge(monkeypatch: pytest.MonkeyPatch) -> None:
-    backend = llama_cpp_server.LlamaCppServerBackend(
+    backend = _llama_cpp_server.LlamaCppServerBackend(
         model="/tmp/model.gguf",
         startup_timeout_seconds=1.0,
         poll_interval_seconds=0.0,
@@ -207,12 +207,12 @@ def test_llama_cpp_wait_until_ready_accepts_auth_challenge(monkeypatch: pytest.M
         del timeout
         raise HTTPError(url="http://x", code=401, msg="Unauthorized", hdrs=None, fp=None)
 
-    monkeypatch.setattr(llama_cpp_server, "urlopen", _auth_probe)
+    monkeypatch.setattr(_llama_cpp_server, "urlopen", _auth_probe)
     backend._wait_until_ready()
 
 
 def test_llama_cpp_close_forces_kill_when_terminate_stalls() -> None:
-    backend = llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf")
+    backend = _llama_cpp_server.LlamaCppServerBackend(model="/tmp/model.gguf")
 
     class _StubbornProcess:
         def __init__(self) -> None:
@@ -243,7 +243,7 @@ def test_llama_cpp_close_forces_kill_when_terminate_stalls() -> None:
 
 
 def test_llama_cpp_client_constructor_propagates_settings() -> None:
-    client = LlamaCppServerLLMClient(
+    with LlamaCppServerLLMClient(
         name="custom-llama",
         model="/tmp/model.gguf",
         hf_model_repo_id="repo/id",
@@ -251,21 +251,20 @@ def test_llama_cpp_client_constructor_propagates_settings() -> None:
         host="0.0.0.0",
         port=9100,
         context_window=2048,
+        request_timeout_seconds=180.0,
         extra_server_args=("--n-gpu-layers", "35"),
         model_patterns=("custom-model",),
-    )
-    try:
+    ) as client:
         assert client.default_model() == "custom-model"
         assert client._backend.name == "custom-llama"
         assert client._backend.model_patterns == ("custom-model",)
+        assert client.config_snapshot()["request_timeout_seconds"] == 180.0
 
         command = client._llama_server._build_command()
         assert "--n_ctx" in command
         assert "2048" in command
         assert "--n-gpu-layers" in command
         assert "35" in command
-    finally:
-        client.close()
 
 
 def test_memory_contract_dataclasses_are_serializable() -> None:
@@ -287,9 +286,9 @@ def test_memory_contract_dataclasses_are_serializable() -> None:
         vector_score=0.95,
     )
 
-    assert write_record.asdict()["item_id"] == "abc"
-    assert search_query.asdict()["top_k"] == 3
-    assert read_record.asdict()["score"] == 0.9
+    assert write_record.to_dict()["item_id"] == "abc"
+    assert search_query.to_dict()["top_k"] == 3
+    assert read_record.to_dict()["score"] == 0.9
 
 
 def test_sqlite_memory_store_satisfies_memory_store_protocol(tmp_path) -> None:
@@ -304,3 +303,103 @@ def test_sqlite_memory_store_satisfies_memory_store_protocol(tmp_path) -> None:
 
     assert len(matches) == 1
     assert matches[0].content == "hello"
+
+
+def test_execution_result_convenience_accessors_and_to_json() -> None:
+    success_result = ExecutionResult(
+        success=True,
+        output={
+            "final_output": {"decision": "approve"},
+            "terminated_reason": "completed",
+        },
+    )
+    failure_result = ExecutionResult(
+        success=False,
+        output={
+            "error": {"message": "tool failed"},
+            "terminated_reason": "step_failure",
+        },
+    )
+
+    assert success_result.final_output == {"decision": "approve"}
+    assert success_result.terminated_reason == "completed"
+    assert success_result.error is None
+    assert success_result.output_value("missing", "fallback") == "fallback"
+    assert success_result.output_dict("final_output") == {"decision": "approve"}
+    assert success_result.output_dict("terminated_reason") == {}
+    assert success_result.output_list("events") == []
+
+    assert failure_result.final_output is None
+    assert failure_result.terminated_reason == "step_failure"
+    assert failure_result.error == {"message": "tool failed"}
+    assert failure_result.output_value("error") == {"message": "tool failed"}
+    assert failure_result.output_dict("error") == {"message": "tool failed"}
+    assert failure_result.output_list("error") == []
+
+    encoded = success_result.to_json()
+    assert '"final_output"' in encoded
+    assert '"terminated_reason"' in encoded
+    assert str(success_result) == encoded
+
+    bare_summary = success_result.summary()
+    assert bare_summary == {
+        "success": True,
+        "final_output": {"decision": "approve"},
+        "terminated_reason": "completed",
+        "error": None,
+        "trace": {},
+    }
+
+    failure_summary = failure_result.summary()
+    assert failure_summary == {
+        "success": False,
+        "final_output": None,
+        "terminated_reason": "step_failure",
+        "error": {"message": "tool failed"},
+        "trace": {},
+    }
+
+    metadata_summary = ExecutionResult(
+        success=True,
+        metadata={"request_id": "req-meta"},
+    )
+    assert metadata_summary.summary()["trace"] == {"request_id": "req-meta"}
+
+    trace_metadata_summary = ExecutionResult(
+        success=True,
+        metadata={
+            "request_id": "req-trace",
+            "trace_dir": "artifacts/examples/traces",
+            "trace_path": "artifacts/examples/traces/run_20260101T000000Z_req-trace.jsonl",
+        },
+    )
+    assert trace_metadata_summary.summary()["trace"] == {
+        "request_id": "req-trace",
+        "trace_dir": "artifacts/examples/traces",
+        "trace_path": "artifacts/examples/traces/run_20260101T000000Z_req-trace.jsonl",
+    }
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'details'"):
+        success_result.summary(details="invalid")  # type: ignore[arg-type]
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'details'"):
+        success_result.summary(details=[1])  # type: ignore[list-item]
+
+
+def test_workflow_step_result_convenience_accessors_and_to_dict() -> None:
+    result = WorkflowStepResult(
+        step_id="finalize",
+        status="completed",
+        success=True,
+        output={
+            "final_output": {"decision": "approve"},
+            "terminated_reason": "completed",
+            "detail": "ok",
+        },
+    )
+
+    assert result.final_output == {"decision": "approve"}
+    assert result.terminated_reason == "completed"
+    serialized = result.to_dict()
+    assert serialized["step_id"] == "finalize"
+    assert serialized["output"]["detail"] == "ok"

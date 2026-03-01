@@ -1,6 +1,8 @@
-"""Tool runtime public surface."""
+"""Stable public tool runtime exports."""
 
-from .config import CallableTool, McpServer, ScriptTool
-from .runtime import Toolbox
+from design_research_agents._contracts import ToolResult
 
-__all__ = ["CallableTool", "McpServer", "ScriptTool", "Toolbox"]
+from ._config import CallableToolConfig, MCPServerConfig, ScriptToolConfig
+from ._runtime import Toolbox
+
+__all__ = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]

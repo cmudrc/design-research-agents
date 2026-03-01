@@ -1,7 +1,7 @@
-MlxLocalLLMClient
+MLXLocalLLMClient
 =================
 
-``MlxLocalLLMClient`` runs local inference on Apple MLX.
+``MLXLocalLLMClient`` runs local inference on Apple MLX.
 
 Default behavior
 ----------------
@@ -15,20 +15,21 @@ Constructor-first usage
 
 .. code-block:: python
 
-   from design_research_agents import MlxLocalLLMClient
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents import MLXLocalLLMClient
+   from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = MlxLocalLLMClient()
-   response = client.chat(
-       messages=[LLMMessage(role="user", content="Produce three concise insights.")],
-       model=client.default_model(),
-       params=LLMChatParams(),
+   client = MLXLocalLLMClient()
+   response = client.generate(
+       LLMRequest(
+           messages=(LLMMessage(role="user", content="Produce three concise insights."),),
+           model=client.default_model(),
+       )
    )
 
 Dependencies and environment
 ----------------------------
 
-- Install local extras: ``pip install -e \".[local]\"``
+- Install MLX backend extras: ``pip install -e \".[mlx]\"``
 - Apple silicon environment with MLX stack available
 
 Model notes for local runs
@@ -46,7 +47,8 @@ Examples
 
 - ``examples/clients/mlx_local_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `MLX <https://ml-explore.github.io/mlx/build/html/index.html>`_
+- Docs: `MLX docs <https://ml-explore.github.io/mlx/build/html/index.html>`_
+- Homepage: `MLX GitHub <https://github.com/ml-explore/mlx>`_

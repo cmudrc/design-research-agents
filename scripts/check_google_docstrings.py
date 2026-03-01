@@ -12,9 +12,14 @@ from pathlib import Path
 SCAN_ROOTS = ("src", "examples", "scripts")
 SECTION_HEADER_PATTERN = re.compile(r"^([A-Za-z][A-Za-z ]+):\s*$")
 ARGS_ENTRY_PATTERN = re.compile(r"^\s*(\*{0,2}[A-Za-z_][A-Za-z0-9_]*)\s*(?:\([^)]*\))?:\s+.+$")
-BASELINE_ENTRY_PATTERN = re.compile(
-    r"^(?P<path>.+?):(?P<line>\d+):\s+(?P<code>DGS\d+)\s+(?P<message>.+)$"
-)
+BASELINE_ENTRY_PATTERN = re.compile(r"^(?P<path>.+?):(?P<line>\d+):\s+(?P<code>DGS\d+)\s+(?P<message>.+)$")
+SUMMARY_PLACEHOLDER_PATTERN = re.compile(r"^run\s+[a-z_][a-z0-9_]*\.$")
+PLACEHOLDER_DETAIL_TEXT = {
+    "parameter value.",
+    "the resulting value.",
+    "raised when execution fails.",
+}
+PLACEHOLDER_VIOLATION_CODES = {"DGS014", "DGS015"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -79,6 +84,29 @@ def _extract_summary(docstring: str | None) -> str:
             continue
         return stripped
     return ""
+
+
+def _is_placeholder_summary(summary: str) -> bool:
+    """Return whether one summary line appears to be placeholder text."""
+    normalized = summary.strip().lower()
+    if not normalized:
+        return False
+    return bool(SUMMARY_PLACEHOLDER_PATTERN.match(normalized))
+
+
+def _line_looks_like_placeholder_detail(line: str) -> bool:
+    """Return whether one section line appears to be placeholder detail text."""
+    stripped = line.strip()
+    if not stripped:
+        return False
+    normalized_text = stripped.lower()
+    if normalized_text in PLACEHOLDER_DETAIL_TEXT:
+        return True
+    args_match = ARGS_ENTRY_PATTERN.match(stripped)
+    if args_match is None:
+        return False
+    _, _, after_colon = stripped.partition(":")
+    return after_colon.strip().lower() in PLACEHOLDER_DETAIL_TEXT
 
 
 def _parse_docstring_sections(docstring: str) -> dict[str, list[str]]:
@@ -292,9 +320,7 @@ def _validate_class_docstring(node: ast.ClassDef, relative_path: str) -> list[Vi
     violations: list[Violation] = []
     class_docstring = ast.get_docstring(node, clean=True)
     if not class_docstring:
-        violations.append(
-            Violation(relative_path, node.lineno, "DGS003", "Missing class docstring.")
-        )
+        violations.append(Violation(relative_path, node.lineno, "DGS003", "Missing class docstring."))
         return violations
     if not _extract_summary(class_docstring):
         violations.append(
@@ -334,9 +360,7 @@ def _resolve_dataclass_aliases(tree: ast.Module) -> tuple[set[str], set[str]]:
     return decorator_names, module_aliases
 
 
-def _is_dataclass_decorator(
-    decorator: ast.expr, decorator_names: set[str], module_aliases: set[str]
-) -> bool:
+def _is_dataclass_decorator(decorator: ast.expr, decorator_names: set[str], module_aliases: set[str]) -> bool:
     """Check whether a decorator expression resolves to ``dataclass``.
 
     Args:
@@ -360,9 +384,7 @@ def _is_dataclass_decorator(
     return False
 
 
-def _is_dataclass_class(
-    node: ast.ClassDef, decorator_names: set[str], module_aliases: set[str]
-) -> bool:
+def _is_dataclass_class(node: ast.ClassDef, decorator_names: set[str], module_aliases: set[str]) -> bool:
     """Determine whether a class declaration is decorated as a dataclass.
 
     Args:
@@ -373,10 +395,7 @@ def _is_dataclass_class(
     Returns:
         True when class is a dataclass.
     """
-    return any(
-        _is_dataclass_decorator(decorator, decorator_names, module_aliases)
-        for decorator in node.decorator_list
-    )
+    return any(_is_dataclass_decorator(decorator, decorator_names, module_aliases) for decorator in node.decorator_list)
 
 
 def _annotation_excluded_from_dataclass_field_docs(annotation: ast.expr | None) -> bool:
@@ -465,9 +484,7 @@ def _validate_dataclass_field_docstrings(node: ast.ClassDef, relative_path: str)
     return violations
 
 
-def _validate_callable_docstring(
-    node: ast.FunctionDef | ast.AsyncFunctionDef, relative_path: str
-) -> list[Violation]:
+def _validate_callable_docstring(node: ast.FunctionDef | ast.AsyncFunctionDef, relative_path: str) -> list[Violation]:
     """Validate callable docstring completeness.
 
     Args:
@@ -480,12 +497,32 @@ def _validate_callable_docstring(
     violations: list[Violation] = []
     callable_docstring = ast.get_docstring(node, clean=True)
     if not callable_docstring:
-        violations.append(
-            Violation(relative_path, node.lineno, "DGS005", "Missing callable docstring.")
-        )
+        violations.append(Violation(relative_path, node.lineno, "DGS005", "Missing callable docstring."))
         return violations
 
     sections = _parse_docstring_sections(callable_docstring)
+    summary = _extract_summary(callable_docstring)
+    if _is_placeholder_summary(summary):
+        violations.append(
+            Violation(
+                relative_path,
+                node.lineno,
+                "DGS014",
+                "Callable docstring summary appears to be placeholder text.",
+            )
+        )
+
+    for section_name, section_lines in sections.items():
+        if any(_line_looks_like_placeholder_detail(line) for line in section_lines):
+            violations.append(
+                Violation(
+                    relative_path,
+                    node.lineno,
+                    "DGS015",
+                    (f"Callable docstring section '{section_name}' contains placeholder detail text."),
+                )
+            )
+
     expected_params = _expected_parameters(node)
     if expected_params:
         if "args" not in sections:
@@ -737,10 +774,7 @@ def _collect_changed_file_baseline_violations(
             path=path,
             line=1,
             code="DGS013",
-            message=(
-                "Changed file cannot rely on baseline suppressions; "
-                "remove matching baseline entries."
-            ),
+            message=("Changed file cannot rely on baseline suppressions; remove matching baseline entries."),
         )
         for path in blocked_paths
     ]
@@ -772,15 +806,23 @@ def main() -> int:
             "Changed files are not allowed to rely on baseline suppressions."
         ),
     )
+    parser.add_argument(
+        "--enforce-codes",
+        default=None,
+        help=("Optional comma-delimited violation-code allowlist. When provided, only matching codes are reported."),
+    )
     args = parser.parse_args()
     repo_root = Path(args.repo_root).resolve()
     baseline_path = Path(args.baseline).resolve() if args.baseline is not None else None
-    changed_files_path = (
-        Path(args.changed_files_file).resolve() if args.changed_files_file is not None else None
-    )
+    changed_files_path = Path(args.changed_files_file).resolve() if args.changed_files_file is not None else None
+    enforced_codes: set[str] | None = None
+    if args.enforce_codes is not None:
+        parsed_codes = [code.strip().upper() for code in str(args.enforce_codes).split(",") if code.strip()]
+        enforced_codes = set(parsed_codes)
     violations = _collect_violations(repo_root)
     baseline_entries = _load_baseline_entries(baseline_path)
     changed_files = _load_changed_files(changed_files_path, repo_root)
+    changed_files_scope_enabled = changed_files_path is not None
     baseline_guard_violations, blocked_paths = _collect_changed_file_baseline_violations(
         baseline_entries=baseline_entries,
         changed_files=changed_files,
@@ -800,11 +842,19 @@ def main() -> int:
             *[
                 violation
                 for violation in violations
+                if not (
+                    changed_files_scope_enabled
+                    and violation.code in PLACEHOLDER_VIOLATION_CODES
+                    and violation.path not in changed_files
+                )
                 if violation.format() not in effective_baseline_entries
             ],
         ],
         key=lambda item: (item.path, item.line, item.code, item.message),
     )
+    if enforced_codes is not None:
+        unexpected = [item for item in unexpected if item.code in enforced_codes]
+
     if not unexpected:
         print("Google-style docstring checks passed.")
         return 0

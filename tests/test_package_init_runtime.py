@@ -10,9 +10,7 @@ import pytest
 def test_package_init_falls_back_to_unknown_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    package_init = (
-        Path(__file__).resolve().parents[1] / "src" / "design_research_agents" / "__init__.py"
-    )
+    package_init = Path(__file__).resolve().parents[1] / "src" / "design_research_agents" / "__init__.py"
     spec = importlib.util.spec_from_file_location("dra_init_under_test", package_init)
     assert spec is not None
     assert spec.loader is not None
@@ -24,6 +22,6 @@ def test_package_init_falls_back_to_unknown_version(
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    assert module.__version__ == "unknown"
+    assert module.__version__ == "0+unknown"
     assert "__version__" in module.__dir__()
     assert "ModelSelector" in module.__dir__()

@@ -3,15 +3,17 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 
-from design_research_agents.agent.internal.multi_step_continuation import llm_should_continue
-from design_research_agents.agent.internal.response_schemas import (
-    build_continuation_response_schema,
-)
-from design_research_agents.contracts.llm import LLMChatParams, LLMMessage, LLMResponse
-from design_research_agents.contracts.termination import (
+from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
+from design_research_agents._contracts._termination import (
     SOURCE_GUARDRAIL,
     SOURCE_INVALID_PAYLOAD,
     SOURCE_MODEL,
+)
+from design_research_agents._implementations._shared._agent_internal._multi_step_continuation import (
+    llm_should_continue,
+)
+from design_research_agents._implementations._shared._agent_internal._response_schemas import (
+    build_continuation_response_schema,
 )
 
 
@@ -19,6 +21,20 @@ class _SequenceLLMClient:
     def __init__(self, responses: Sequence[str]) -> None:
         self._responses = list(responses)
         self.chat_calls = 0
+
+    def default_model(self) -> str:
+        return "test-model"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _SequenceLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def chat(
         self,
@@ -52,15 +68,12 @@ def _continuation_call(
         retrieved_context="",
         continuation_system_prompt="Decide whether to continue.",
         continuation_user_prompt_template=(
-            "Step {step_number}\n"
-            "Task: {task_prompt}\n"
-            "Memory: {memory_tail}\n"
-            "Context: {retrieved_context}"
+            "Step {step_number}\nTask: {task_prompt}\nMemory: {memory_tail}\nContext: {retrieved_context}"
         ),
         continuation_response_schema=build_continuation_response_schema(),
         continuation_memory_tail_items=4,
         alternatives_section_label="Alternatives",
-        agent_name="MultiStepJsonToolCallingAgent",
+        agent_name="MultiStepAgent",
     )
 
 

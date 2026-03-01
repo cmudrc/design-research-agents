@@ -1,26 +1,51 @@
+# GitHub Actions workflow for running the repository's deterministic examples.
+#
+# Goals:
+# - Provide a scheduled “canary” that catches regressions outside PR traffic
+#   (dependency drift, upstream outages, subtle nondeterminism, etc.).
+# - Allow maintainers to trigger the same suite on-demand for quick validation.
+#
+# Conventions:
+# - Delegate project-specific logic to `make` targets (see Makefile).
+# - Use pinned runtimes for repeatability; expand to a matrix only if you
+#   explicitly support multiple Python versions for examples.
+
 name: Examples
 
+# Triggers:
+# - push to main: build + deploy to GitHub Pages
+# - pull_request: build only (no deploy)
+# - workflow_dispatch: manual run (useful for debugging docs issues)
 on:
+  push:
+    branches: [ main ]
+  pull_request:
   workflow_dispatch:
-  schedule:
-    - cron: "0 8 * * *"
 
 jobs:
+  # Single job that runs the deterministic examples end-to-end.
   deterministic-examples:
     runs-on: ubuntu-latest
 
     steps:
+      # Pull down the repository contents so Makefile/scripts/examples are available.
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Install a fixed Python version to reduce variation across runs.
+      # Enable pip caching to speed up repeated scheduled executions.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
+      # Install dev dependencies needed to run examples (and any tooling they rely on).
+      # Keep the exact dependency list centralized in the Makefile.
       - name: Install dependencies
         run: make install-dev
 
+      # Run the full deterministic examples suite.
+      # This should fail if any example is flaky, nondeterministic, or broken.
       - name: Run full deterministic examples suite
         run: make examples-test

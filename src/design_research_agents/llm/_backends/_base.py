@@ -1,0 +1,462 @@
+"""Base backend interface and shared capability enforcement helpers."""
+
+from __future__ import annotations
+
+import json
+from abc import ABC, abstractmethod
+from collections.abc import Iterator, Sequence
+from dataclasses import asdict, dataclass
+
+from design_research_agents._contracts._llm import (
+    BackendCapabilities,
+    BackendStatus,
+    EmbeddingResult,
+    LLMCapabilityError,
+    LLMDelta,
+    LLMInvalidRequestError,
+    LLMRequest,
+    LLMResponse,
+    ToolCall,
+)
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents.llm._structured_output import (
+    build_tool_call_instruction,
+    generate_json,
+)
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ToolCallSchemaConfig:
+    """Schema configuration for best-effort tool call extraction."""
+
+    property_name: str = "tool_calls"
+    """Top-level property that stores extracted tool calls."""
+
+
+class BaseLLMBackend(ABC):
+    """Base backend with capability enforcement and prompt+validate helpers."""
+
+    name: str
+    kind: str
+    default_model: str | None
+    base_url: str | None
+    config_hash: str
+    max_retries: int
+    model_patterns: tuple[str, ...]
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        kind: str,
+        default_model: str | None = None,
+        base_url: str | None = None,
+        config_hash: str,
+        max_retries: int = 2,
+        model_patterns: Sequence[str] | None = None,
+    ) -> None:
+        """Initialize immutable backend identity and routing metadata.
+
+        Args:
+            name: Stable backend name used in traces and response provenance.
+            kind: Backend-family identifier used by client wrappers.
+            default_model: Default model id used when callers omit one.
+            base_url: Optional provider base URL for managed or remote endpoints.
+            config_hash: Deterministic hash of provider settings for cache invalidation.
+            max_retries: Maximum prompt-and-validate retry count for structured fallbacks.
+            model_patterns: Optional glob-like model patterns accepted by this backend.
+        """
+        self.name = name
+        self.kind = kind
+        self.default_model = default_model
+        self.base_url = base_url
+        self.config_hash = config_hash
+        self.max_retries = max_retries
+        self.model_patterns = tuple(model_patterns or ())
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        """Generate a response while enforcing backend capability constraints.
+
+        Args:
+            request: Provider-neutral request to validate and route.
+
+        Returns:
+            Normalized response produced by the underlying backend implementation.
+
+        Raises:
+            LLMCapabilityError: If the backend cannot satisfy requested features.
+            LLMInvalidRequestError: If the request is structurally incompatible.
+        """
+        resolved_request = self._resolve_model(request)
+        if resolved_request.tools and resolved_request.response_schema:
+            raise LLMInvalidRequestError("Requests cannot specify both tools and response_schema.")
+
+        capabilities = self.capabilities()
+        if resolved_request.tools:
+            if capabilities.tool_calling == "none":
+                raise LLMCapabilityError(f"Backend '{self.name}' does not support tool calling.")
+            if capabilities.tool_calling == "best_effort":
+                return self._generate_best_effort_tool_calls(resolved_request)
+
+        if resolved_request.response_schema or resolved_request.response_format:
+            if capabilities.json_mode == "none":
+                raise LLMCapabilityError(f"Backend '{self.name}' does not support JSON output.")
+            if capabilities.json_mode == "prompt+validate":
+                return self._generate_prompt_validated_json(resolved_request)
+
+        return self._generate(resolved_request)
+
+    def stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Stream response deltas for the given request.
+
+        Args:
+            request: Provider-neutral request to validate and stream.
+
+        Returns:
+            Iterator of normalized streaming deltas.
+
+        Raises:
+            LLMCapabilityError: If streaming is unsupported for this backend.
+        """
+        resolved_request = self._resolve_model(request)
+        if not self.capabilities().streaming:
+            raise LLMCapabilityError(f"Backend '{self.name}' does not support streaming.")
+        return self._stream(resolved_request)
+
+    def embed(self, texts: Sequence[str]) -> EmbeddingResult:
+        """Return embeddings for the supplied texts (optional).
+
+        Args:
+            texts: Input strings to embed.
+
+        Returns:
+            Embedding payload for the requested texts.
+
+        Raises:
+            LLMCapabilityError: Raised by backends that do not implement embeddings.
+        """
+        raise LLMCapabilityError(f"Backend '{self.name}' does not support embeddings.")
+
+    def supports_model(self, model: str) -> bool:
+        """Return whether the backend claims to support the given model id.
+
+        Args:
+            model: Model identifier to check against the configured allowlist.
+
+        Returns:
+            ``True`` when the model matches the backend's configured patterns.
+        """
+        if not self.model_patterns:
+            return True
+        return any(_matches_model_pattern(model, pattern) for pattern in self.model_patterns)
+
+    @abstractmethod
+    def capabilities(self) -> BackendCapabilities:
+        """Return declared backend capabilities.
+
+        Returns:
+            Capability flags used for request validation.
+        """
+
+    @abstractmethod
+    def healthcheck(self) -> BackendStatus:
+        """Return backend healthcheck status.
+
+        Returns:
+            Status payload suitable for diagnostics and readiness checks.
+        """
+
+    @abstractmethod
+    def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Provider-specific non-streaming generation implementation.
+
+        Args:
+            request: Validated request to send to the provider.
+
+        Returns:
+            Provider response normalized to the shared contract.
+        """
+
+    @abstractmethod
+    def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Provider-specific streaming generation implementation.
+
+        Args:
+            request: Validated request to send to the provider.
+
+        Returns:
+            Iterator of provider deltas normalized to the shared contract.
+        """
+
+    def _resolve_model(self, request: LLMRequest) -> LLMRequest:
+        """Resolve the effective model id for one request.
+
+        Args:
+            request: Request whose model id may need normalization.
+
+        Returns:
+            Request with an explicit concrete model id.
+
+        Raises:
+            LLMInvalidRequestError: If no supported explicit model can be resolved.
+        """
+        model = request.model.strip() if request.model else self.default_model or ""
+        if not model or "*" in model:
+            raise LLMInvalidRequestError(f"Backend '{self.name}' requires an explicit model id.")
+        if not self.supports_model(model):
+            raise LLMInvalidRequestError(f"Backend '{self.name}' does not support model '{model}'.")
+        if request.model == model:
+            return request
+        return _replace_request_model(request, model=model)
+
+    def _generate_prompt_validated_json(self, request: LLMRequest) -> LLMResponse:
+        """Run prompt-and-validate structured generation for JSON output.
+
+        Args:
+            request: Request that requires schema-constrained JSON output.
+
+        Returns:
+            Response augmented with normalized structured-output metadata.
+        """
+        result = generate_json(
+            generate_fn=self._generate,
+            request=request,
+            schema=request.response_schema,
+            max_retries=self.max_retries,
+            extra_instructions=None,
+        )
+        normalized_text = _normalize_json_text(result.parsed)
+        return _merge_response(
+            result.response,
+            text=normalized_text,
+            raw=_merge_raw(
+                result.response.raw,
+                {
+                    "structured_output": {
+                        "attempts": result.attempts + 1,
+                        "parsed": result.parsed,
+                    }
+                },
+            ),
+        )
+
+    def _generate_best_effort_tool_calls(self, request: LLMRequest) -> LLMResponse:
+        """Run prompt-and-validate extraction for tool-call-capable requests.
+
+        Args:
+            request: Request containing tools for best-effort extraction.
+
+        Returns:
+            Response augmented with normalized tool-call objects.
+        """
+        tools = request.tools
+        tool_schema = _build_tool_call_schema(tools)
+        instruction = build_tool_call_instruction(tools)
+        result = generate_json(
+            generate_fn=self._generate,
+            request=request,
+            schema=tool_schema,
+            max_retries=self.max_retries,
+            extra_instructions=instruction,
+        )
+        tool_calls = _parse_tool_calls(result.parsed, tools)
+        return _merge_response(
+            result.response,
+            tool_calls=tuple(tool_calls),
+            raw=_merge_raw(
+                result.response.raw,
+                {
+                    "structured_output": {
+                        "attempts": result.attempts + 1,
+                        "parsed": result.parsed,
+                        "tool_calls": [asdict(call) for call in tool_calls],
+                    }
+                },
+            ),
+        )
+
+
+def _replace_request_model(request: LLMRequest, *, model: str) -> LLMRequest:
+    """Copy a request while replacing only its resolved model id.
+
+    Args:
+        request: Source request to copy.
+        model: Explicit model id to place on the copied request.
+
+    Returns:
+        Request clone with the updated model id.
+    """
+    return LLMRequest(
+        messages=request.messages,
+        model=model,
+        temperature=request.temperature,
+        max_tokens=request.max_tokens,
+        tools=request.tools,
+        response_schema=request.response_schema,
+        response_format=request.response_format,
+        metadata=dict(request.metadata),
+        provider_options=dict(request.provider_options),
+        task_profile=request.task_profile,
+    )
+
+
+def _merge_response(
+    response: LLMResponse,
+    *,
+    text: str | None = None,
+    tool_calls: tuple[ToolCall, ...] | None = None,
+    raw: dict[str, object] | None = None,
+) -> LLMResponse:
+    """Copy a response while overriding selected top-level fields.
+
+    Args:
+        response: Source response to copy.
+        text: Optional replacement text payload.
+        tool_calls: Optional replacement tool-call tuple.
+        raw: Optional replacement raw provider payload.
+
+    Returns:
+        Response clone with the requested field overrides applied.
+    """
+    return LLMResponse(
+        text=response.text if text is None else text,
+        tool_calls=response.tool_calls if tool_calls is None else tool_calls,
+        usage=response.usage,
+        raw=raw if raw is not None else response.raw,
+        provenance=response.provenance,
+        model=response.model,
+        provider=response.provider,
+        finish_reason=response.finish_reason,
+        latency_ms=response.latency_ms,
+    )
+
+
+def _merge_raw(
+    current: dict[str, object] | None,
+    update: dict[str, object],
+) -> dict[str, object]:
+    """Merge raw provider metadata with last-write-wins semantics.
+
+    Args:
+        current: Existing raw payload, if any.
+        update: New fields to overlay onto the raw payload.
+
+    Returns:
+        Merged raw metadata mapping.
+    """
+    merged = dict(current or {})
+    merged.update(update)
+    return merged
+
+
+def _normalize_json_text(parsed: object) -> str:
+    """Serialize parsed structured output into stable JSON text.
+
+    Args:
+        parsed: Parsed structured output value.
+
+    Returns:
+        Canonical JSON string with deterministic key ordering.
+    """
+    return json.dumps(parsed, ensure_ascii=True, sort_keys=True)
+
+
+def _build_tool_call_schema(tools: Sequence[ToolSpec]) -> dict[str, object]:
+    """Build the schema used for prompt-and-validate tool-call extraction.
+
+    Args:
+        tools: Tool definitions that constrain allowed tool names.
+
+    Returns:
+        JSON-schema-like mapping accepted by the structured-output helper.
+    """
+    tool_names = [tool.name for tool in tools]
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["tool_calls"],
+        "properties": {
+            "tool_calls": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["name", "arguments"],
+                    "properties": {
+                        "name": {"type": "string", "enum": tool_names},
+                        "arguments": {"type": "object"},
+                    },
+                },
+            }
+        },
+    }
+
+
+def _parse_tool_calls(parsed: object, tools: Sequence[ToolSpec]) -> list[ToolCall]:
+    """Normalize parsed structured output into ``ToolCall`` objects.
+
+    Args:
+        parsed: Parsed structured-output payload to inspect.
+        tools: Allowed tool definitions used to validate tool names.
+
+    Returns:
+        Parsed tool calls in the shared contract format.
+
+    Raises:
+        ValueError: If the payload shape or tool names are invalid.
+    """
+    tool_names = {tool.name for tool in tools}
+    payload = parsed
+    if isinstance(payload, dict) and "tool_calls" in payload:
+        payload = payload.get("tool_calls")
+    if isinstance(payload, dict) and "tool_name" in payload:
+        payload = [
+            {
+                "name": payload.get("tool_name"),
+                "arguments": payload.get("tool_input"),
+            }
+        ]
+    if not isinstance(payload, list):
+        raise ValueError("Parsed tool calls payload is not a list.")
+    tool_calls: list[ToolCall] = []
+    for index, item in enumerate(payload):
+        if not isinstance(item, dict):
+            raise ValueError("Tool call entry must be an object.")
+        name = item.get("name")
+        arguments = item.get("arguments", {})
+        if not isinstance(name, str) or name not in tool_names:
+            raise ValueError(f"Unknown tool name '{name}'.")
+        if not isinstance(arguments, dict):
+            raise ValueError("Tool call arguments must be an object.")
+        call_id = item.get("id")
+        if not isinstance(call_id, str) or not call_id:
+            call_id = f"call_{index + 1}"
+        tool_calls.append(
+            ToolCall(
+                name=name,
+                arguments_json=_normalize_json_text(arguments),
+                call_id=call_id,
+            )
+        )
+    return tool_calls
+
+
+def _matches_model_pattern(model: str, pattern: str) -> bool:
+    """Return whether a model id matches one configured glob-like pattern.
+
+    Args:
+        model: Concrete model identifier to test.
+        pattern: Configured literal or ``*``-wildcard pattern.
+
+    Returns:
+        ``True`` when the model matches the configured pattern.
+    """
+    if pattern == model:
+        return True
+    if "*" not in pattern:
+        return False
+    parts = pattern.split("*")
+    if len(parts) == 2:
+        prefix, suffix = parts
+        return model.startswith(prefix) and model.endswith(suffix)
+    return False

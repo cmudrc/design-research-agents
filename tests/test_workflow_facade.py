@@ -8,25 +8,26 @@ from pathlib import Path
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMMessage,
     LLMResponse,
 )
-from design_research_agents.contracts.workflow import (
-    AgentStep,
+from design_research_agents._contracts._workflow import (
+    DelegateStep,
     LogicStep,
     LoopStep,
     ToolStep,
 )
-from design_research_agents.schemas import SchemaValidationError
+from design_research_agents._schemas import SchemaValidationError
+from design_research_agents.patterns import DebatePattern
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import DebatePattern, Workflow
+from design_research_agents.workflow import Workflow, list_of, scalar, typed_dict
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
 
 
-def _write_dataset(*, filename: str) -> str:
-    path = Path("artifacts/tests") / filename
+def _write_dataset(*, base_dir: str, filename: str) -> str:
+    path = Path(base_dir) / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
@@ -68,12 +69,8 @@ def _pure_dataset_steps() -> list[LogicStep | ToolStep]:
             step_id="quality_gate",
             dependencies=("describe_dataset", "load_sample"),
             handler=lambda context: {
-                "rows": context["dependency_results"]["describe_dataset"]["output"]["result"][
-                    "rows"
-                ],
-                "sample_count": context["dependency_results"]["load_sample"]["output"]["result"][
-                    "count"
-                ],
+                "rows": context["dependency_results"]["describe_dataset"]["output"]["result"]["rows"],
+                "sample_count": context["dependency_results"]["load_sample"]["output"]["result"]["count"],
                 "threshold": context["inputs"]["max_missing_ratio_per_column"],
                 "required_columns": context["inputs"]["required_columns"],
             },
@@ -98,9 +95,7 @@ def _pure_dataset_steps() -> list[LogicStep | ToolStep]:
             step_id="finalize",
             dependencies=("persist_report",),
             handler=lambda context: {
-                "report_path": context["dependency_results"]["persist_report"]["output"]["result"][
-                    "path"
-                ]
+                "report_path": context["dependency_results"]["persist_report"]["output"]["result"]["path"]
             },
         ),
     ]
@@ -127,25 +122,21 @@ def _pure_input_schema() -> dict[str, object]:
     }
 
 
-def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | ToolStep]:
+def _mixed_branching_steps(*, delegate: object) -> list[LogicStep | DelegateStep | ToolStep]:
     return [
         LogicStep(
             step_id="router",
             handler=lambda context: {
-                "route": (
-                    "template_path"
-                    if str(context["prompt"]).lower().startswith("template:")
-                    else "agent_path"
-                )
+                "route": ("template_path" if str(context["prompt"]).lower().startswith("template:") else "agent_path")
             },
             route_map={
                 "agent_path": ("draft_agent",),
                 "template_path": ("draft_template",),
             },
         ),
-        AgentStep(
+        DelegateStep(
             step_id="draft_agent",
-            agent_name=agent_name,
+            delegate=delegate,
             dependencies=("router",),
             prompt_builder=lambda context: str(context["prompt"]),
         ),
@@ -154,9 +145,7 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
             tool_name="text.extract_json",
             dependencies=("draft_agent",),
             input_builder=lambda context: {
-                "text": context["dependency_results"]["draft_agent"]["output"]["output"][
-                    "model_text"
-                ]
+                "text": context["dependency_results"]["draft_agent"]["output"]["output"]["model_text"]
             },
         ),
         LogicStep(
@@ -164,9 +153,7 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
             dependencies=("parse_agent_json",),
             handler=lambda context: {
                 "branch": "agent",
-                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"][
-                    "json"
-                ].get("title", ""),
+                "title": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get("title", ""),
             },
         ),
         LogicStep(
@@ -188,19 +175,19 @@ def _mixed_branching_steps(*, agent_name: str) -> list[LogicStep | AgentStep | T
     ]
 
 
-def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
-    dataset_path = _write_dataset(filename="pure_arbitrary_dataset.csv")
+def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs(tmp_path: Path) -> None:
+    dataset_path = _write_dataset(base_dir=str(tmp_path), filename="pure_arbitrary_dataset.csv")
+    report_path = tmp_path / "artifacts" / "pure_arbitrary_report.json"
     workflow = Workflow(
-        tool_runtime=Toolbox(),
+        tool_runtime=Toolbox(workspace_root=tmp_path),
         steps=_pure_dataset_steps(),
-        input_mode="schema",
         input_schema=_pure_input_schema(),
     )
 
     result = workflow.run(
         {
             "dataset_csv_path": dataset_path,
-            "quality_report_path": "artifacts/tests/pure_arbitrary_report.json",
+            "quality_report_path": str(report_path),
             "required_columns": ["participant_id", "study_arm"],
             "sample_nrows": 3,
             "max_missing_ratio_per_column": 0.3,
@@ -210,17 +197,14 @@ def test_workflow_schema_mode_accepts_user_defined_steps_with_inputs() -> None:
 
     assert result.success
     assert result.step_results["finalize"].status == "completed"
-    assert str(result.step_results["finalize"].output["report_path"]).endswith(
-        "artifacts/tests/pure_arbitrary_report.json"
-    )
+    assert str(result.step_results["finalize"].output["report_path"]) == str(report_path)
 
 
-def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
-    dataset_path = _write_dataset(filename="pure_schema_dataset.csv")
+def test_workflow_schema_mode_validates_inputs_with_schema_hook(tmp_path: Path) -> None:
+    dataset_path = _write_dataset(base_dir=str(tmp_path), filename="pure_schema_dataset.csv")
     workflow = Workflow(
-        tool_runtime=Toolbox(),
+        tool_runtime=Toolbox(workspace_root=tmp_path),
         steps=_pure_dataset_steps(),
-        input_mode="schema",
         input_schema=_pure_input_schema(),
     )
 
@@ -228,7 +212,7 @@ def test_workflow_schema_mode_validates_inputs_with_schema_hook() -> None:
         workflow.run(
             {
                 "dataset_csv_path": dataset_path,
-                "quality_report_path": "artifacts/tests/pure_schema_report.json",
+                "quality_report_path": str(tmp_path / "artifacts" / "pure_schema_report.json"),
                 "required_columns": ["participant_id"],
                 "sample_nrows": "3",
                 "max_missing_ratio_per_column": 0.2,
@@ -245,7 +229,7 @@ def test_workflow_schema_mode_without_schema_allows_arbitrary_inputs() -> None:
                 handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
             )
         ],
-        input_mode="schema",
+        input_schema={},
     )
 
     result = workflow.run({"free_form": {"a": 1, "b": 2}}, request_id="test-pure-free")
@@ -263,14 +247,10 @@ def test_workflow_requires_non_empty_steps() -> None:
 
 
 def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
-    writer_agent = StaticJsonDraftAgent(
-        payload={"title": "Agent title", "summary": "Agent summary"}
-    )
+    writer_agent = StaticJsonDraftAgent(payload={"title": "Agent title", "summary": "Agent summary"})
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"writer_agent": writer_agent},
-        steps=_mixed_branching_steps(agent_name="writer_agent"),
-        input_mode="prompt",
+        steps=_mixed_branching_steps(delegate=writer_agent),
         base_context={"audience": "research"},
     )
 
@@ -290,9 +270,9 @@ def test_workflow_prompt_mode_executes_user_defined_branching_steps() -> None:
 def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> None:
     writer_agent = StaticJsonDraftAgent(payload={"title": "ignored"})
     custom_steps = [
-        AgentStep(
+        DelegateStep(
             step_id="delegate",
-            agent_name="analyst_agent",
+            delegate=writer_agent,
             prompt_builder=lambda context: f"{context['base_tag']}::{context['prompt']}",
         ),
         LogicStep(
@@ -301,17 +281,13 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
             handler=lambda context: {
                 "base_tag": context["base_tag"],
                 "prompt_seen": context["prompt"],
-                "model_text": context["dependency_results"]["delegate"]["output"]["output"][
-                    "model_text"
-                ],
+                "model_text": context["dependency_results"]["delegate"]["output"]["output"]["model_text"],
             },
         ),
     ]
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"analyst_agent": writer_agent},
         steps=custom_steps,
-        input_mode="prompt",
         base_context={"base_tag": "custom"},
     )
 
@@ -322,24 +298,20 @@ def test_workflow_prompt_mode_injects_prompt_and_preserves_base_context() -> Non
 
     assert result.success
     assert result.step_results["finalize"].output["base_tag"] == "custom"
-    assert result.step_results["finalize"].output["prompt_seen"] == (
-        "Produce a short custom mixed-workflow brief."
-    )
+    assert result.step_results["finalize"].output["prompt_seen"] == ("Produce a short custom mixed-workflow brief.")
 
 
 def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
     writer_agent = StaticJsonDraftAgent(payload={"title": "loop title"})
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"writer_agent": writer_agent},
-        input_mode="prompt",
         steps=[
             LoopStep(
                 step_id="agent_loop",
                 steps=(
-                    AgentStep(
+                    DelegateStep(
                         step_id="delegate",
-                        agent_name="writer_agent",
+                        delegate=writer_agent,
                         prompt_builder=lambda context: str(context["prompt"]),
                     ),
                 ),
@@ -359,10 +331,8 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
     capture_agent = CaptureDependenciesAgent()
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        agents={"capture": capture_agent},
-        input_mode="prompt",
         steps=[
-            AgentStep(step_id="delegate", agent_name="capture", prompt="Run"),
+            DelegateStep(step_id="delegate", delegate=capture_agent, prompt="Run"),
             LogicStep(
                 step_id="finalize",
                 dependencies=("delegate",),
@@ -372,7 +342,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
             ),
         ],
         default_execution_mode="sequential",
-        default_failure_policy="fail_fast",
+        default_failure_policy="propagate_failed_state",
         default_request_id_prefix="mixed-default",
         default_dependencies={"from_default": "yes"},
     )
@@ -384,7 +354,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
     workflow_meta = result.step_results["finalize"].output["workflow"]
     assert str(workflow_meta["request_id"]).startswith("mixed-default:")
     assert workflow_meta["execution_mode"] == "sequential"
-    assert workflow_meta["failure_policy"] == "fail_fast"
+    assert workflow_meta["failure_policy"] == "propagate_failed_state"
     assert capture_agent.last_dependencies is not None
     assert capture_agent.last_dependencies["from_default"] == "yes"
     assert capture_agent.last_dependencies["from_run"] == "yes"
@@ -393,7 +363,7 @@ def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied(
 def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
     workflow = Workflow(
         tool_runtime=Toolbox(),
-        input_mode="schema",
+        input_schema={},
         steps=[
             LogicStep(
                 step_id="inspect",
@@ -401,7 +371,7 @@ def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
             )
         ],
         default_execution_mode="dag",
-        default_failure_policy="fail_fast",
+        default_failure_policy="propagate_failed_state",
         default_request_id_prefix="pure-default",
     )
 
@@ -409,7 +379,82 @@ def test_workflow_schema_mode_default_run_controls_are_applied() -> None:
     workflow_meta = result.step_results["inspect"].output["workflow"]
     assert str(workflow_meta["request_id"]).startswith("pure-default:")
     assert workflow_meta["execution_mode"] == "dag"
-    assert workflow_meta["failure_policy"] == "fail_fast"
+    assert workflow_meta["failure_policy"] == "propagate_failed_state"
+
+
+def test_workflow_infers_prompt_mode_when_input_schema_is_omitted() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[LogicStep(step_id="echo", handler=lambda context: {"prompt": context["prompt"]})],
+    )
+
+    result = workflow.run("hello")
+    assert result.success
+    assert result.step_results["echo"].output["prompt"] == "hello"
+
+    with pytest.raises(ValueError, match="without input_schema"):
+        workflow.run({"not": "prompt"})
+
+
+def test_workflow_infers_schema_mode_when_input_schema_is_provided() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        input_schema={},
+        steps=[
+            LogicStep(
+                step_id="echo_inputs",
+                handler=lambda context: {"inputs_snapshot": dict(context["inputs"])},
+            )
+        ],
+    )
+
+    result = workflow.run({"k": 1})
+    assert result.success
+    assert result.step_results["echo_inputs"].output["inputs_snapshot"]["k"] == 1
+
+    with pytest.raises(ValueError, match="with input_schema"):
+        workflow.run("prompt input")
+
+
+def test_workflow_output_schema_validation_supports_helpers() -> None:
+    output_schema = list_of(
+        typed_dict(
+            required={"id": scalar("integer")},
+            optional={"label": scalar("string")},
+        )
+    )
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(
+                step_id="emit",
+                handler=lambda _context: {
+                    "final_output": [{"id": 1, "label": "alpha"}, {"id": 2}],
+                },
+            )
+        ],
+        output_schema=output_schema,
+    )
+
+    result = workflow.run("emit rows")
+    assert result.success
+    assert result.output["final_output"] == [{"id": 1, "label": "alpha"}, {"id": 2}]
+
+
+def test_workflow_output_schema_validation_raises_on_invalid_payload() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(
+                step_id="emit",
+                handler=lambda _context: {"final_output": [{"id": "not-int"}]},
+            )
+        ],
+        output_schema=list_of(typed_dict(required={"id": scalar("integer")})),
+    )
+
+    with pytest.raises(SchemaValidationError, match="output\\.final_output\\[0\\]\\.id"):
+        workflow.run("emit invalid rows")
 
 
 def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
@@ -432,6 +477,17 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
         def default_model(self) -> str:
             return "noop-model"
 
+        def close(self) -> None:
+            return None
+
+        def __enter__(self) -> _SequenceLLMClient:
+            return self
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+            self.close()
+            return None
+
     workflow = DebatePattern(
         llm_client=_SequenceLLMClient(
             [
@@ -453,7 +509,8 @@ def test_debate_pattern_runs_rounds_and_returns_judged_verdict() -> None:
     result = workflow.run("Should the team launch this product now?")
 
     assert result.success
-    assert result.output["winner"] == "affirmative"
+    assert workflow.workflow is not None
+    assert result.output["final_output"]["winner"] == "affirmative"
     assert result.output["terminated_reason"] == "completed"
-    assert result.output["verdict"]["synthesis"].startswith("Adopt a phased rollout")
+    assert result.output["details"]["verdict"]["synthesis"].startswith("Adopt a phased rollout")
     assert str(result.metadata["request_id"]).startswith("debate:")
