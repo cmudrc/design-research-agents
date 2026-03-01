@@ -95,18 +95,14 @@ Extras matrix
      - SGLang server backend
      - ``sglang``
      - Linux only, Python < 3.14
-   * - ``providers``
-     - Convenience bundle for hosted provider SDKs
-     - ``openai`` + ``anthropic`` + ``gemini`` + ``groq`` stack
-     - None
    * - ``local``
-     - Convenience bundle for local backends that fit the current platform
-     - ``llama_cpp`` + ``transformers`` + ``mlx`` + ``vllm`` + ``sglang`` stack
-     - ``mlx`` portion only on macOS + Apple Silicon; ``vllm``/``sglang`` portions only on Linux, Python < 3.14
+     - Convenience bundle for local backends
+     - ``llama_cpp`` + ``mlx`` + ``transformers`` stack
+     - ``mlx`` portion only on macOS + Apple Silicon
    * - ``full``
-     - Convenience bundle for hosted providers + local backends
-     - ``providers`` + ``local`` stack
-     - ``mlx`` portion only on macOS + Apple Silicon; ``vllm``/``sglang`` portions only on Linux, Python < 3.14
+     - Convenience bundle for local + server backends
+     - ``local`` + ``vllm`` + ``sglang`` stack
+     - ``vllm``/``sglang`` portions only on Linux, Python < 3.14
 
 Recommended profiles
 --------------------
@@ -117,7 +113,6 @@ Recommended profiles
 - Anthropic hosted experimentation: ``pip install -e ".[dev,anthropic]"``
 - Gemini hosted experimentation: ``pip install -e ".[dev,gemini]"``
 - Groq hosted experimentation: ``pip install -e ".[dev,groq]"``
-- All hosted provider SDKs: ``pip install -e ".[dev,providers]"``
 - Local backend experimentation: ``pip install -e ".[dev,local]"``
 - Full backend coverage (where supported): ``pip install -e ".[dev,full]"``
 - Minimal base setup with ``OpenAICompatibleHTTPLLMClient``: ``pip install -e .``
@@ -134,8 +129,5 @@ Notes
   the backend you are enabling.
 - ``OpenAICompatibleHTTPLLMClient`` is part of the base install and does not
   require the ``openai`` package.
-- ``providers`` installs the hosted-provider SDK set only. ``full`` installs
-  that hosted-provider set plus the local backends that are supported on the
-  current platform.
 - For deterministic example tests, use the monkeypatch harness under
   ``tests/example_monkeypatch`` rather than adding deterministic logic to examples.

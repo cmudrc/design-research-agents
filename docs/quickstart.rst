@@ -85,8 +85,8 @@ Use this when you want the primary managed local path.
    pip install -e ".[dev,llama_cpp]"      # managed llama.cpp server client
    # or: pip install -e ".[dev,transformers]"  # in-process transformers backend
    # or: pip install -e ".[dev,mlx]"           # Apple MLX backend
-   # or: pip install -e ".[dev,local]"         # all local backends for this platform
-   # or: pip install -e ".[dev,full]"          # hosted providers + local backends
+   # or: pip install -e ".[dev,local]"         # core local backends
+   # or: pip install -e ".[dev,full]"          # local + Linux server backends
 
 2. Run one agent call with the managed llama.cpp server client:
 

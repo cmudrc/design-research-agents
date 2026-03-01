@@ -56,8 +56,8 @@ That example is the built-in base-install path and expects a running
 OpenAI-compatible endpoint. ``make dev`` installs contributor tooling only;
 backend runtimes remain explicit extras. Use ``.[openai]`` for OpenAI,
 ``.[azure]`` for Azure OpenAI (same SDK, explicit intent), ``.[llama_cpp]`` for
-the recommended local managed path, ``.[providers]`` for all hosted provider
-SDKs, or ``.[full]`` for hosted + local coverage. The full quickstart guide also
+the recommended local managed path, or ``.[full]`` for broader local backend
+coverage. The full quickstart guide also
 covers the OpenAI (cloud) and llama.cpp (local) paths.
 
 For frozen installs, optional extras, and release maintenance, see [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).

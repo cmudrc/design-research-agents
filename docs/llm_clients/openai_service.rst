@@ -29,7 +29,6 @@ Dependencies and environment
 ----------------------------
 
 - Install extra: ``pip install -e ".[openai]"`` (or ``pip install "design-research-agents[openai]"``)
-- For the hosted-provider bundle, use ``pip install -e ".[providers]"``. For the full hosted + local bundle, use ``pip install -e ".[full]"``.
 - ``OPENAI_API_KEY`` (or pass ``api_key`` directly)
 - Network access to OpenAI API
 
