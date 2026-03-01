@@ -3,20 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from importlib import import_module
 from typing import Literal, cast
 
 from design_research_agents._contracts._llm import LLMClient
-from design_research_agents.llm import (
-    AzureOpenAIServiceLLMClient,
-    LlamaCppServerLLMClient,
-    MLXLocalLLMClient,
-    OllamaLLMClient,
-    OpenAICompatibleHTTPLLMClient,
-    OpenAIServiceLLMClient,
-    SGLangServerLLMClient,
-    TransformersLocalLLMClient,
-    VLLMServerLLMClient,
-)
 
 from ._catalog import ModelCatalog
 from ._hardware import HardwareProfile
@@ -32,16 +22,16 @@ type Priority = Literal["quality", "balanced", "speed"]
 type SelectionOutput = Literal["client", "decision", "client_config"]
 type LocalClientResolver = Callable[[ModelSelectionDecision], dict[str, object]]
 
-_CLIENT_CLASSES: dict[str, type[object]] = {
-    "AzureOpenAIServiceLLMClient": AzureOpenAIServiceLLMClient,
-    "LlamaCppServerLLMClient": LlamaCppServerLLMClient,
-    "OpenAIServiceLLMClient": OpenAIServiceLLMClient,
-    "OpenAICompatibleHTTPLLMClient": OpenAICompatibleHTTPLLMClient,
-    "TransformersLocalLLMClient": TransformersLocalLLMClient,
-    "MLXLocalLLMClient": MLXLocalLLMClient,
-    "VLLMServerLLMClient": VLLMServerLLMClient,
-    "OllamaLLMClient": OllamaLLMClient,
-    "SGLangServerLLMClient": SGLangServerLLMClient,
+_CLIENT_CLASS_REFS: dict[str, str] = {
+    "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
+    "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
+    "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
+    "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
+    "TransformersLocalLLMClient": "design_research_agents.llm:TransformersLocalLLMClient",
+    "MLXLocalLLMClient": "design_research_agents.llm:MLXLocalLLMClient",
+    "VLLMServerLLMClient": "design_research_agents.llm:VLLMServerLLMClient",
+    "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
+    "SGLangServerLLMClient": "design_research_agents.llm:SGLangServerLLMClient",
 }
 
 
@@ -245,8 +235,8 @@ class ModelSelector:
 
         client_class = resolved_config.get("client_class")
         kwargs = resolved_config.get("kwargs")
-        if not isinstance(client_class, str) or client_class not in _CLIENT_CLASSES:
-            supported = ", ".join(sorted(_CLIENT_CLASSES))
+        if not isinstance(client_class, str) or client_class not in _CLIENT_CLASS_REFS:
+            supported = ", ".join(sorted(_CLIENT_CLASS_REFS))
             raise ValueError(f"ModelSelector resolver returned unsupported client_class. Expected one of: {supported}.")
         if not isinstance(kwargs, dict):
             raise ValueError("ModelSelector resolver returned invalid kwargs (must be a dict).")
@@ -305,13 +295,20 @@ def _build_client_from_config(config: dict[str, object]) -> LLMClient:
     """
     client_class = config.get("client_class")
     kwargs = config.get("kwargs")
-    if not isinstance(client_class, str) or client_class not in _CLIENT_CLASSES:
+    if not isinstance(client_class, str) or client_class not in _CLIENT_CLASS_REFS:
         raise ValueError("client_config has unsupported client_class.")
     if not isinstance(kwargs, dict):
         raise ValueError("client_config has invalid kwargs (must be dict).")
-    client_ctor = _CLIENT_CLASSES[client_class]
+    client_ctor = _resolve_client_class(client_class)
     client = client_ctor(**kwargs)
     return cast(LLMClient, client)
+
+
+def _resolve_client_class(client_class_name: str) -> type[object]:
+    """Resolve one client class name into the concrete constructor."""
+    export_ref = _CLIENT_CLASS_REFS[client_class_name]
+    module_name, attr_name = export_ref.split(":", maxsplit=1)
+    return cast(type[object], getattr(import_module(module_name), attr_name))
 
 
 def _coerce_hardware_profile(

@@ -31,6 +31,11 @@ Comparison matrix
      - Defaults to ``api_model="qwen2-1.5b-q4"`` mapped to a local GGUF
      - Medium (local runtime + model download)
      - Strong privacy, lowest marginal cost, variable latency by hardware
+   * - ``HTMLLLMClient``
+     - In-process deterministic HTML stand-in
+     - Defaults to ``html-standin-v1``
+     - Lowest (no setup)
+     - Zero network, no model runtime, ideal for offline onboarding and trace smoke checks
    * - ``TransformersLocalLLMClient``
      - Local in-process transformers runtime
      - Defaults to ``model_id=default_model="distilgpt2"``
@@ -90,15 +95,17 @@ Comparison matrix
 When to choose what
 -------------------
 
-1. Need strict data-local execution: start with ``LlamaCppServerLLMClient``,
+1. Need zero-dependency onboarding, offline demos, or tracing smoke checks: use
+   ``HTMLLLMClient``.
+2. Need strict data-local execution: start with ``LlamaCppServerLLMClient``,
    ``TransformersLocalLLMClient``, ``MLXLocalLLMClient``, ``VLLMServerLLMClient``,
    ``OllamaLLMClient``, or ``SGLangServerLLMClient``.
-2. Need fastest onboarding and hosted quality: use ``OpenAIServiceLLMClient``,
+3. Need fastest hosted setup and managed model quality: use ``OpenAIServiceLLMClient``,
    ``AzureOpenAIServiceLLMClient``, ``AnthropicServiceLLMClient``,
    ``GeminiServiceLLMClient``, or ``GroqServiceLLMClient``.
-3. Need provider portability or self-hosted OpenAI-compatible infra: use
+4. Need provider portability or self-hosted OpenAI-compatible infra: use
    ``OpenAICompatibleHTTPLLMClient``.
-4. Need policy-driven choice between local and remote options: use
+5. Need policy-driven choice between local and remote options: use
    :doc:`model_selection`.
 
 See examples
@@ -110,6 +117,7 @@ Pages
 -----
 
 - :doc:`model_selection`
+- :doc:`html_llm`
 - :doc:`llama_cpp_server`
 - :doc:`openai_service`
 - :doc:`azure_openai_service`
@@ -128,6 +136,7 @@ Pages
    :hidden:
 
    model_selection
+   html_llm
    llama_cpp_server
    openai_service
    azure_openai_service

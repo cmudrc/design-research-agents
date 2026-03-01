@@ -32,11 +32,20 @@ PROMPT_RESOURCES = (
 )
 
 
+def _subprocess_env() -> dict[str, str]:
+    env = dict(os.environ)
+    for key in tuple(env):
+        if key in {"COVERAGE_FILE", "COVERAGE_PROCESS_START", "PYTEST_CURRENT_TEST"} or key.startswith("COV_CORE_"):
+            env.pop(key, None)
+    return env
+
+
 def _build_wheel(tmp_path: Path) -> Path:
     _ensure_pip_available()
     backend_probe = subprocess.run(
         [sys.executable, "-c", "import setuptools.build_meta"],
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -58,6 +67,7 @@ def _build_wheel(tmp_path: Path) -> Path:
             str(wheel_dir),
         ],
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -77,6 +87,7 @@ def _ensure_pip_available() -> None:
     probe = subprocess.run(
         [sys.executable, "-m", "pip", "--version"],
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -86,6 +97,7 @@ def _ensure_pip_available() -> None:
     bootstrap = subprocess.run(
         [sys.executable, "-m", "ensurepip", "--upgrade"],
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -129,6 +141,7 @@ def test_installed_wheel_loads_prompt_and_schema_resources(tmp_path: Path) -> No
             str(wheel_path),
         ],
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         capture_output=True,
         text=True,
         check=False,
@@ -137,7 +150,7 @@ def test_installed_wheel_loads_prompt_and_schema_resources(tmp_path: Path) -> No
         f"Failed to install built wheel.\nstdout:\n{install.stdout}\nstderr:\n{install.stderr}"
     )
 
-    env = dict(os.environ)
+    env = _subprocess_env()
     existing_pythonpath = env.get("PYTHONPATH")
     install_pythonpath = str(install_dir)
     env["PYTHONPATH"] = (
@@ -181,3 +194,18 @@ def test_wheel_metadata_uses_absolute_markdown_links(tmp_path: Path) -> None:
     ]
 
     assert not relative_targets, f"Wheel metadata contains repo-relative markdown links: {relative_targets}"
+
+
+def test_wheel_metadata_advertises_optional_openai_extra_without_core_requirement(tmp_path: Path) -> None:
+    wheel_path = _build_wheel(tmp_path)
+    metadata = _read_wheel_metadata(wheel_path)
+
+    assert "Provides-Extra: openai" in metadata
+    openai_requirements = [line for line in metadata.splitlines() if line.startswith("Requires-Dist: openai")]
+    assert openai_requirements, "Expected wheel metadata to include the optional openai requirement."
+    assert any('extra == "openai"' in line for line in openai_requirements), (
+        "OpenAI requirement must advertise its dedicated optional extra.\n" + "\n".join(openai_requirements)
+    )
+    assert all("extra ==" in line for line in openai_requirements), (
+        "OpenAI requirement must stay optional in wheel metadata.\n" + "\n".join(openai_requirements)
+    )

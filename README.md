@@ -22,16 +22,18 @@ This library centers on a small set of composable pieces you can run, inspect, a
 ## A Super Basic Agent
 
 ```python
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent
+from design_research_agents import DirectLLMCall, HTMLLLMClient
 
-with LlamaCppServerLLMClient() as llm_client:
-    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=3)
-    result = agent.run(
-        prompt="Suggest two design goals for a field-repairable drone battery latch.",
-    )
+with HTMLLLMClient() as llm_client:
+    agent = DirectLLMCall(llm_client=llm_client)
+    result = agent.run("Suggest two design goals for a field-repairable drone battery latch.")
 
 print(result.final_output)
 ```
+
+`HTMLLLMClient` is the built-in minimal-install stand-in. For the main cloud and
+local paths most users will want, see the Quickstart guide for
+`OpenAIServiceLLMClient` and `LlamaCppServerLLMClient`.
 
 ## Quickstart
 
@@ -43,8 +45,15 @@ python -m venv .venv
 source .venv/bin/activate
 make dev
 make test
-PYTHONPATH=src python3 examples/patterns/plan_execute.py
+PYTHONPATH=src python3 examples/agents/direct_llm_call.py
 ```
+
+That example is the minimal base-install path. ``make dev`` installs contributor
+tooling only; backend runtimes remain explicit extras. Use ``.[openai]`` for
+OpenAI, ``.[azure]`` for Azure OpenAI (same SDK, explicit intent), ``.[llama_cpp]``
+for the recommended local path, ``.[providers]`` for all hosted provider SDKs,
+or ``.[full]`` for hosted + local coverage. The full quickstart guide also
+covers the main OpenAI (cloud) and llama.cpp (local) setups.
 
 For frozen installs, optional extras, and release maintenance, see [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
 

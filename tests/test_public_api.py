@@ -52,6 +52,7 @@ EXPECTED_PUBLIC_API = [
     "AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient",
     "GroqServiceLLMClient",
+    "HTMLLLMClient",
     "LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient",

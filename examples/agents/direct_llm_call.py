@@ -1,11 +1,9 @@
 """# Agents / Direct LLM Call.
 
 ## Introduction
-Engineering-design studies show that transparent prompt-to-response traces are essential for credible
-evaluation and human oversight; the benchmark framing in Toward Engineering AGI and the collaboration
-framing in Human-AI collaboration by design both depend on this visibility, while llama.cpp server docs
-ground practical local deployment. This example is the smallest reproducible path for observing one direct
-call end to end with runtime traces.
+Fast offline onboarding is easiest when the runtime path is fully inspectable, deterministic, and free of
+external service setup. This example uses the built-in HTML stand-in client so a first run still exercises
+the same tracing and execution contracts without requiring network access, model downloads, or API keys.
 
 
 ## Technical Implementation
@@ -45,9 +43,9 @@ Example output shape (values vary by run):
    }
 
 ## References
-- `Toward Engineering AGI: Benchmarking the Engineering Design Capabilities of LLMs <https://arxiv.org/abs/2509.16204>`_
-- `Human-AI collaboration by design <https://www.cambridge.org/core/journals/proceedings-of-the-design-society/article/humanai-collaboration-by-design/45BC30ADFF2FE3B204D4A29DD67F6353>`_
-- `llama.cpp llama-server docs <https://github.com/ggml-org/llama.cpp#llama-server>`_
+- `WHATWG HTML Living Standard <https://html.spec.whatwg.org/>`_
+- `Python html module <https://docs.python.org/3/library/html.html>`_
+- `Holistic Evaluation of Language Models (HELM) <https://arxiv.org/abs/2211.09110>`_
 """
 
 from __future__ import annotations
@@ -57,7 +55,7 @@ from pathlib import Path
 
 from design_research_agents import (
     DirectLLMCall,
-    LlamaCppServerLLMClient,
+    HTMLLLMClient,
     Tracer,
 )
 
@@ -73,9 +71,8 @@ def main() -> None:
         enable_console=True,
     )
 
-    # Run the direct LLM call using a convenience wrapper. Using this with statement will automatically shut down the
-    # client when we're done.
-    with LlamaCppServerLLMClient() as llm_client:
+    # Run the direct LLM call using the zero-dependency HTML stand-in client.
+    with HTMLLLMClient() as llm_client:
         llm = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
             "Write one sentence describing the one primary engineering specification for a "

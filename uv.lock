@@ -666,17 +666,19 @@ wheels = [
 
 [[package]]
 name = "design-research-agents"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "bashkit" },
     { name = "jsonschema" },
-    { name = "openai" },
 ]
 
 [package.optional-dependencies]
 anthropic = [
     { name = "anthropic" },
+]
+azure = [
+    { name = "openai" },
 ]
 dev = [
     { name = "build" },
@@ -692,9 +694,13 @@ dev = [
     { name = "twine" },
 ]
 full = [
+    { name = "anthropic" },
+    { name = "google-genai" },
+    { name = "groq" },
     { name = "huggingface-hub" },
     { name = "llama-cpp-python", extra = ["server"] },
     { name = "mlx-lm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "openai" },
     { name = "sglang", marker = "python_full_version < '3.14' and sys_platform == 'linux'" },
     { name = "torch" },
     { name = "transformers" },
@@ -706,9 +712,6 @@ gemini = [
 groq = [
     { name = "groq" },
 ]
-hf = [
-    { name = "huggingface-hub" },
-]
 llama-cpp = [
     { name = "huggingface-hub" },
     { name = "llama-cpp-python", extra = ["server"] },
@@ -717,11 +720,22 @@ local = [
     { name = "huggingface-hub" },
     { name = "llama-cpp-python", extra = ["server"] },
     { name = "mlx-lm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "sglang", marker = "python_full_version < '3.14' and sys_platform == 'linux'" },
     { name = "torch" },
     { name = "transformers" },
+    { name = "vllm", marker = "python_full_version < '3.14' and sys_platform == 'linux'" },
 ]
 mlx = [
     { name = "mlx-lm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+]
+openai = [
+    { name = "openai" },
+]
+providers = [
+    { name = "anthropic" },
+    { name = "google-genai" },
+    { name = "groq" },
+    { name = "openai" },
 ]
 sglang = [
     { name = "sglang", marker = "python_full_version < '3.14' and sys_platform == 'linux'" },
@@ -738,12 +752,17 @@ vllm = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.40,<1" },
+    { name = "anthropic", marker = "extra == 'full'", specifier = ">=0.40,<1" },
+    { name = "anthropic", marker = "extra == 'providers'", specifier = ">=0.40,<1" },
     { name = "bashkit", specifier = ">=0.1.4" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.2,<2" },
+    { name = "google-genai", marker = "extra == 'full'", specifier = ">=1.0,<2" },
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=1.0,<2" },
+    { name = "google-genai", marker = "extra == 'providers'", specifier = ">=1.0,<2" },
+    { name = "groq", marker = "extra == 'full'", specifier = ">=1.0,<2" },
     { name = "groq", marker = "extra == 'groq'", specifier = ">=1.0,<2" },
+    { name = "groq", marker = "extra == 'providers'", specifier = ">=1.0,<2" },
     { name = "huggingface-hub", marker = "extra == 'full'", specifier = ">=0.24" },
-    { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.24" },
     { name = "huggingface-hub", marker = "extra == 'llama-cpp'", specifier = ">=0.24" },
     { name = "huggingface-hub", marker = "extra == 'local'", specifier = ">=0.24" },
     { name = "huggingface-hub", marker = "extra == 'transformers'", specifier = ">=0.24" },
@@ -755,13 +774,17 @@ requires-dist = [
     { name = "mlx-lm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'local'", specifier = ">=0.14" },
     { name = "mlx-lm", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'mlx'", specifier = ">=0.14" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10,<2" },
-    { name = "openai", specifier = ">=1.40,<2" },
+    { name = "openai", marker = "extra == 'azure'", specifier = ">=1.40,<2" },
+    { name = "openai", marker = "extra == 'full'", specifier = ">=1.40,<2" },
+    { name = "openai", marker = "extra == 'openai'", specifier = ">=1.40,<2" },
+    { name = "openai", marker = "extra == 'providers'", specifier = ">=1.40,<2" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7,<5" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.2,<9" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23,<1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0,<8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0,<1" },
     { name = "sglang", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'full'", specifier = ">=0.4,<1" },
+    { name = "sglang", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'local'", specifier = ">=0.4,<1" },
     { name = "sglang", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'sglang'", specifier = ">=0.4,<1" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=7.4,<9" },
     { name = "sphinx-rtd-theme", marker = "extra == 'dev'", specifier = ">=2.0,<4" },
@@ -774,9 +797,10 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'transformers'", specifier = ">=4.44" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=5,<7" },
     { name = "vllm", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'full'", specifier = ">=0.6,<1" },
+    { name = "vllm", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'local'", specifier = ">=0.6,<1" },
     { name = "vllm", marker = "python_full_version < '3.14' and sys_platform == 'linux' and extra == 'vllm'", specifier = ">=0.6,<1" },
 ]
-provides-extras = ["dev", "hf", "anthropic", "gemini", "groq", "llama-cpp", "mlx", "transformers", "vllm", "sglang", "local", "full"]
+provides-extras = ["dev", "azure", "openai", "anthropic", "gemini", "groq", "llama-cpp", "transformers", "mlx", "vllm", "sglang", "local", "providers", "full"]
 
 [[package]]
 name = "dill"

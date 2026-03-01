@@ -55,13 +55,17 @@ Extras matrix
      - Linting, typing, tests, docs, and release checks
      - ``pytest``, ``ruff``, ``mypy``, ``sphinx``, ``build``, ``twine``
      - None
-   * - ``hf``
-     - Shared Hugging Face utilities
-     - ``huggingface-hub``
+   * - ``azure``
+     - Azure OpenAI convenience extra
+     - ``openai``
      - None
    * - ``anthropic``
      - Anthropic hosted backend
      - ``anthropic``
+     - None
+   * - ``openai``
+     - OpenAI hosted SDK backend
+     - ``openai``
      - None
    * - ``gemini``
      - Gemini hosted backend
@@ -91,30 +95,45 @@ Extras matrix
      - SGLang server backend
      - ``sglang``
      - Linux only, Python < 3.14
+   * - ``providers``
+     - Convenience bundle for hosted provider SDKs
+     - ``openai`` + ``anthropic`` + ``gemini`` + ``groq`` stack
+     - None
    * - ``local``
-     - Convenience bundle for local backends
-     - ``llama_cpp`` + ``mlx`` + ``transformers`` stack
-     - ``mlx`` portion only on macOS + Apple Silicon
+     - Convenience bundle for local backends that fit the current platform
+     - ``llama_cpp`` + ``transformers`` + ``mlx`` + ``vllm`` + ``sglang`` stack
+     - ``mlx`` portion only on macOS + Apple Silicon; ``vllm``/``sglang`` portions only on Linux, Python < 3.14
    * - ``full``
-     - Convenience bundle for local + server backends
-     - ``local`` + ``vllm`` + ``sglang`` stack
-     - ``vllm``/``sglang`` portions only on Linux, Python < 3.14
+     - Convenience bundle for hosted providers + local backends
+     - ``providers`` + ``local`` stack
+     - ``mlx`` portion only on macOS + Apple Silicon; ``vllm``/``sglang`` portions only on Linux, Python < 3.14
 
 Recommended profiles
 --------------------
 
 - Fast contributor loop: ``make dev``
+- OpenAI hosted experimentation: ``pip install -e ".[dev,openai]"``
+- Azure OpenAI hosted experimentation: ``pip install -e ".[dev,azure]"``
 - Anthropic hosted experimentation: ``pip install -e ".[dev,anthropic]"``
 - Gemini hosted experimentation: ``pip install -e ".[dev,gemini]"``
 - Groq hosted experimentation: ``pip install -e ".[dev,groq]"``
+- All hosted provider SDKs: ``pip install -e ".[dev,providers]"``
 - Local backend experimentation: ``pip install -e ".[dev,local]"``
 - Full backend coverage (where supported): ``pip install -e ".[dev,full]"``
-- Minimal hosted-only setup: ``pip install -e .``
+- Minimal base setup: ``pip install -e .``
 
 Notes
 -----
 
 - Extras are additive and can be combined.
+- ``make dev`` installs contributor tooling only; it does not install hosted-provider SDKs or local model runtimes.
 - Linux-only extras are safely skipped by pip on unsupported platforms.
+- ``openai`` and ``azure`` both install the same ``openai`` package. Use
+  ``openai`` for ``OpenAIServiceLLMClient`` and ``azure`` for
+  ``AzureOpenAIServiceLLMClient`` when you want the install command to match
+  the backend you are enabling.
+- ``providers`` installs the hosted-provider SDK set only. ``full`` installs
+  that hosted-provider set plus the local backends that are supported on the
+  current platform.
 - For deterministic example tests, use the monkeypatch harness under
   ``tests/example_monkeypatch`` rather than adding deterministic logic to examples.
