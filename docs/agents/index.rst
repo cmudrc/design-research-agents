@@ -1,25 +1,18 @@
 Agents
 ======
 
-The framework provides eight core concrete agent implementations. Choose by
+The framework provides two core concrete agent entry points. Choose by
 execution pattern first, then by control requirements.
 
-Multi-agent orchestration patterns (``PlannerExecutorPattern``,
-``ReflexionPattern``, ``RouterPattern``) live in the workflow module and are
-implemented with workflow step primitives via the internal
-``WorkflowRuntime`` engine.
+Multi-agent orchestration patterns (``PlanExecutePattern``,
+``ProposeCriticPattern``, ``RouterDelegatePattern``) live in the patterns module and are
+implemented with the same public workflow step primitives available to users.
 
 Overview
 --------
 
-- ``SingleStepDirectLLMAgent``
-- ``SingleStepToolRouterAgent``
-- ``SingleStepJsonToolCallingAgent``
-- ``SingleStepCodeToolCallingAgent``
-- ``MultiStepDirectLLMAgent``
-- ``MultiStepToolRouterAgent``
-- ``MultiStepJsonToolCallingAgent``
-- ``MultiStepCodeToolCallingAgent``
+- ``DirectLLMCall``
+- ``MultiStepAgent`` (``mode="direct" | "json" | "code"``)
 
 Decision table
 --------------
@@ -31,39 +24,37 @@ Decision table
      - Recommended pattern
      - Why
    * - Plain text generation without tools
-     - ``SingleStepDirectLLMAgent``
+     - ``DirectLLMCall``
      - Lowest orchestration overhead
-   * - One-shot model-driven tool route selection
-     - ``SingleStepToolRouterAgent``
-     - Strict route schema with one route execution
-   * - One-shot structured tool call
-     - ``SingleStepJsonToolCallingAgent``
-     - JSON-validated tool/args output path
-   * - One-shot multi-call tool choreography
-     - ``SingleStepCodeToolCallingAgent``
-     - Generated code can call multiple tools in one step
    * - Iterative direct (no external tools)
-     - ``MultiStepDirectLLMAgent``
+     - ``MultiStepAgent(mode="direct")``
      - Internal CONTINUE/STOP controller steps
-   * - Iterative tool routing loop
-     - ``MultiStepToolRouterAgent``
-     - ReAct-style TOOL_CALL/STOP controller loop
    * - Iterative structured tool loops
-     - ``MultiStepJsonToolCallingAgent``
-     - ReAct-style multi-step loop with JSON actions
+     - ``MultiStepAgent(mode="json")``
+     - ReAct-style multi-step loop with JSON ``tool_name``/``tool_input`` actions
    * - Iterative code-action loops
-     - ``MultiStepCodeToolCallingAgent``
+     - ``MultiStepAgent(mode="code")``
      - ReAct-style loop with code actions
+
+Background references
+---------------------
+
+- `ReAct <https://arxiv.org/abs/2210.03629>`_
+- `Toolformer <https://arxiv.org/abs/2302.04761>`_
+- `MRKL Systems <https://arxiv.org/abs/2205.00445>`_
+
+These references are for conceptual grounding; behavior is defined by the
+contracts and implementation in this repository.
 
 Examples
 --------
 
-- ``examples/agents/basic/README.md``
+- :doc:`/examples/agents/index`
+- ``examples/agents/README.md``
 
 Pages
 -----
 
-- :doc:`single_step_patterns`
 - :doc:`multi_step_patterns`
 - :doc:`background_reading`
 
@@ -71,6 +62,5 @@ Pages
    :maxdepth: 2
    :hidden:
 
-   single_step_patterns
    multi_step_patterns
    background_reading

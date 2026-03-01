@@ -15,10 +15,10 @@ def _pick_color(percent: int) -> str:
     """Run pick color.
 
     Args:
-        percent: Parameter value.
+        percent: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     if percent >= 90:
         return "#4c1"  # brightgreen
@@ -37,10 +37,10 @@ def _text_width(text: str) -> int:
     """Approximate text width in badge pixels.
 
     Args:
-        text: Parameter value.
+        text: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return 10 + (len(text) * 6)
 
@@ -49,12 +49,12 @@ def _render_badge(label: str, message: str, color: str) -> str:
     """Run render badge.
 
     Args:
-        label: Parameter value.
-        message: Parameter value.
-        color: Parameter value.
+        label: Input value for this parameter.
+        message: Input value for this parameter.
+        color: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     label_width = _text_width(label)
     message_width = _text_width(message)
@@ -93,10 +93,10 @@ def _read_metrics(path: Path) -> tuple[int, int, float, int, int]:
     """Run read metrics.
 
     Args:
-        path: Parameter value.
+        path: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     data = json.loads(path.read_text(encoding="utf-8"))
     examples = data.get("examples", {})
@@ -114,10 +114,10 @@ def _format_percent(percent: float) -> str:
     """Run format percent.
 
     Args:
-        percent: Parameter value.
+        percent: Input value for this parameter.
 
     Returns:
-        The resulting value.
+        Computed return value.
     """
     return str(int(percent))
 
@@ -125,9 +125,7 @@ def _format_percent(percent: float) -> str:
 def main() -> None:
     """Generate and write SVG badges for deterministic example metrics."""
     passed, total, pass_percent, covered_exports, total_exports = _read_metrics(METRICS_JSON)
-    api_coverage_percent = (
-        round((covered_exports / total_exports) * 100, 1) if total_exports else 100.0
-    )
+    api_coverage_percent = round((covered_exports / total_exports) * 100, 1) if total_exports else 100.0
 
     examples_badge = _render_badge(
         "Examples Passing",

@@ -1,19 +1,28 @@
 ## Agent Examples
 
-This folder demonstrates the core agent interfaces and execution styles used in
-the project.
+These examples cover traced agent entrypoints and multi-step execution modes for engineering-design tasks.
 
-## Subfolders
+## Scripts
 
-- `examples/agents/basic`
-  - Non-streaming runs for the major agent types.
-  - See `examples/agents/basic/README.md`.
+- `direct_llm_call.py`
+- `direct_llm_compiled_execution.py`
+- `multi_step_direct_llm_agent.py`
+- `multi_step_json_tool_calling_agent.py`
+- `multi_step_code_tool_calling_agent.py`
+- `multi_step_json_with_memory.py`
 
-## When To Use What
+## Quick Start
 
-- Use `basic` examples to validate agent behavior and result payload structure.
+```bash
+PYTHONPATH=src python3 examples/agents/direct_llm_call.py
+PYTHONPATH=src python3 examples/agents/direct_llm_compiled_execution.py
+PYTHONPATH=src python3 examples/agents/multi_step_direct_llm_agent.py
+PYTHONPATH=src python3 examples/agents/multi_step_json_tool_calling_agent.py
+PYTHONPATH=src python3 examples/agents/multi_step_code_tool_calling_agent.py
+PYTHONPATH=src python3 examples/agents/multi_step_json_with_memory.py
+```
 
-## Notes
+## Expected Outputs
 
-- Examples are intended to run from repository root with `PYTHONPATH=src`.
-- Most agent examples use `LlamaCppServerLLMClient()` by default.
+- JSON payload including `success`, `final_output`, and `terminated_reason`.
+- `trace.trace_path` for each run.

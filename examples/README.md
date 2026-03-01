@@ -1,47 +1,38 @@
-## Examples
+## Design-Focused Examples
 
-This directory contains runnable end-to-end examples for the major framework
-surfaces: agents, clients, orchestration workflows, model selection, and tool runtime.
+This directory contains runnable engineering-design examples that map directly to library terminology.
+
+All runnable examples:
+- use public APIs,
+- emit JSON output,
+- include trace metadata under `artifacts/examples/traces`.
 
 ## Directory Guide
 
 - `examples/agents`
-  - Core agent patterns (single-step and multi-step).
-  - See `examples/agents/README.md`.
-- `examples/clients`
-  - Purposeful client-configuration examples for each supported LLM client type.
-  - See `examples/clients/README.md`.
+  - Direct and multi-step agent entrypoints.
 - `examples/workflow`
-  - Reusable orchestration entrypoints and workflow runtime integrations.
-  - See `examples/workflow/README.md`.
+  - Workflow primitive composition (`Workflow` + step classes).
+- `examples/patterns`
+  - Reusable orchestration patterns (`PlanExecutePattern`, `ProposeCriticPattern`, etc.).
+- `examples/clients`
+  - LLM client configuration + representative `generate(LLMRequest(...))` calls.
 - `examples/model_selection`
-  - Local-vs-remote model selection policy behavior.
-  - See `examples/model_selection/README.md`.
-- `examples/optimization`
-  - One-dimensional optimization examples using ToolRouting and tool-calling agents.
-  - See `examples/optimization/README.md`.
+  - Local-vs-remote policy decisions.
 - `examples/tools`
-  - Unified tool runtime examples (core + script + MCP), including script-tool wrappers.
-  - See `examples/tools/README.md`.
+  - Tool runtime examples across core/script/MCP sources.
+- `examples/optimization`
+  - Optimization-oriented multi-step tool routing.
 
 ## Quick Start
 
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/agents/basic/single_step_direct_llm_agent.py
+PYTHONPATH=src python3 examples/agents/direct_llm_call.py
 ```
 
-## Expected Outputs
+## Deterministic Testing Model
 
-- Most examples print JSON-like result payloads (`ExecutionResult` or tool runtime report).
-- Tool and script-tool examples also write artifacts under `artifacts/`.
-
-## Troubleshooting
-
-- `ModuleNotFoundError`:
-  - Run with `PYTHONPATH=src` from the repo root.
-- Local LLM startup issues:
-  - Install local extras: `pip install -e '.[local]'`.
-- Slow first run:
-  - Local model server startup and model loading can take additional time.
+Examples are capability-first and do not include deterministic branching logic.
+Deterministic behavior is test-only and provided through `tests/example_monkeypatch/sitecustomize.py` when `DRA_EXAMPLE_LLM_MODE=deterministic` is set.

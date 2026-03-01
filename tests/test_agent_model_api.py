@@ -5,29 +5,38 @@ from collections.abc import Iterator
 
 import pytest
 
-from design_research_agents.agent import (
-    MultiStepCodeToolCallingAgent,
-    MultiStepDirectLLMAgent,
-    MultiStepJsonToolCallingAgent,
-    MultiStepToolRouterAgent,
-    SingleStepCodeToolCallingAgent,
-    SingleStepDirectLLMAgent,
-    SingleStepJsonToolCallingAgent,
-    SingleStepToolRouterAgent,
-)
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
     LLMRequest,
 )
+from design_research_agents.agent import (
+    DirectLLMCall,
+    MultiStepAgent,
+)
+from design_research_agents.patterns import (
+    PlanExecutePattern,
+    ProposeCriticPattern,
+    TwoSpeakerConversationPattern,
+)
 from design_research_agents.tools import Toolbox
-from design_research_agents.workflow import PlannerExecutorPattern, ReflexionPattern
 
 
 class _EmptyDefaultModelClient:
     def default_model(self) -> str:
         return "   "
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _EmptyDefaultModelClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def chat(
         self,
@@ -61,48 +70,49 @@ class _EmptyDefaultModelClient:
 
 def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
-        SingleStepDirectLLMAgent,
-        SingleStepToolRouterAgent,
-        SingleStepJsonToolCallingAgent,
-        SingleStepCodeToolCallingAgent,
-        MultiStepDirectLLMAgent,
-        MultiStepToolRouterAgent,
-        MultiStepJsonToolCallingAgent,
-        MultiStepCodeToolCallingAgent,
-        PlannerExecutorPattern,
-        ReflexionPattern,
+        DirectLLMCall,
+        MultiStepAgent,
+        TwoSpeakerConversationPattern,
+        PlanExecutePattern,
+        ProposeCriticPattern,
     )
     for cls in classes:
         assert "model" not in inspect.signature(cls.__init__).parameters
 
 
 def test_agent_constructor_signatures_expose_supported_kwargs() -> None:
-    multi_code_params = inspect.signature(MultiStepCodeToolCallingAgent.__init__).parameters
+    multi_code_params = inspect.signature(MultiStepAgent.__init__).parameters
     assert "execution_timeout_seconds" in multi_code_params
 
-    planner_params = inspect.signature(PlannerExecutorPattern.__init__).parameters
+    planner_params = inspect.signature(PlanExecutePattern.__init__).parameters
     assert "max_iterations" in planner_params
     assert "max_tool_calls_per_step" in planner_params
 
-    reflexion_params = inspect.signature(ReflexionPattern.__init__).parameters
+    reflexion_params = inspect.signature(ProposeCriticPattern.__init__).parameters
     assert "max_iterations" in reflexion_params
 
 
 def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        SingleStepDirectLLMAgent(llm_client=_EmptyDefaultModelClient()).run("Hello")
+        DirectLLMCall(llm_client=_EmptyDefaultModelClient()).run("Hello")
 
 
 def test_workflow_patterns_fail_when_llm_default_model_is_empty() -> None:
     empty_client = _EmptyDefaultModelClient()
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        PlannerExecutorPattern(
+        PlanExecutePattern(
             llm_client=empty_client,
             tool_runtime=Toolbox(),
         ).run("Compute 1 + 1")
 
     with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
-        ReflexionPattern(
+        ProposeCriticPattern(
             llm_client=empty_client,
             tool_runtime=Toolbox(),
         ).run("Draft")
+
+    with pytest.raises(ValueError, match=r"default_model\(\) returned an empty model id"):
+        TwoSpeakerConversationPattern(
+            llm_client_a=empty_client,
+            max_turns=1,
+        ).run("Discuss this briefly.")

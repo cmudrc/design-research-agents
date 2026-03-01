@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 
-from design_research_agents.contracts.agent import Agent
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._delegate import Delegate
+from design_research_agents._contracts._llm import (
     LLMChatParams,
     LLMDelta,
     LLMMessage,
@@ -14,8 +14,8 @@ from design_research_agents.contracts.llm import (
     LLMResponse,
     LLMStreamEvent,
 )
-from design_research_agents.contracts.tools import ToolResult, ToolRuntime, ToolSpec
-from design_research_agents.contracts.workflow import (
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._workflow import (
     ExecutionResult,
     WorkflowStepResult,
 )
@@ -69,6 +69,17 @@ class SequenceLLMClient:
     def default_model(self) -> str:
         return "test-model"
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> SequenceLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
 
 class NoopLLMClient:
     """LLM stub used when tests inject concrete agents directly."""
@@ -108,8 +119,19 @@ class NoopLLMClient:
     def default_model(self) -> str:
         return "noop-model"
 
+    def close(self) -> None:
+        return None
 
-class StaticMarkerAgent(Agent):
+    def __enter__(self) -> NoopLLMClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
+
+class StaticMarkerAgent(Delegate):
     """Deterministic agent that always emits one marker value."""
 
     def __init__(self, *, marker: str) -> None:
@@ -132,7 +154,7 @@ class StaticMarkerAgent(Agent):
         )
 
 
-class StaticJsonDraftAgent(Agent):
+class StaticJsonDraftAgent(Delegate):
     """Agent stub that always returns one JSON object in ``output.model_text``."""
 
     def __init__(self, *, payload: Mapping[str, object]) -> None:
@@ -157,7 +179,7 @@ class StaticJsonDraftAgent(Agent):
         )
 
 
-class CaptureDependenciesAgent(Agent):
+class CaptureDependenciesAgent(Delegate):
     """Agent stub that captures invocation dependencies for assertions."""
 
     def __init__(self) -> None:
@@ -206,7 +228,7 @@ class StubToolRuntime(ToolRuntime):
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
@@ -222,7 +244,7 @@ class StubToolRuntime(ToolRuntime):
             )
 
         try:
-            output = dict(handler(input_dict))
+            output = dict(handler(input))
         except Exception as exc:
             return ToolResult(
                 tool_name=tool_name,
@@ -232,6 +254,17 @@ class StubToolRuntime(ToolRuntime):
             )
 
         return ToolResult(tool_name=tool_name, ok=True, result=output)
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> StubToolRuntime:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
 
 class StaticWorkflowDelegateRunner:

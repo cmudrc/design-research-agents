@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.tools import config as cfg
+from design_research_agents.tools import _config as cfg
 
 
 def test_parse_primitives_and_env() -> None:
@@ -125,26 +125,23 @@ def test_parse_mcp_config_validation_and_defaults() -> None:
     assert server.env == {"TOKEN": "123"}
 
 
-def test_load_tool_runtime_config_from_yaml(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    config_file = tmp_path / "tools.yaml"
+def test_load_tool_runtime_config_from_json(tmp_path) -> None:
+    config_file = tmp_path / "tools.json"
     config_file.write_text(
-        "\n".join(
-            [
-                "core_tools:",
-                "  enabled: false",
-                "  allow_network: true",
-                "mcp:",
-                "  enabled: true",
-                "  servers:",
-                "    - id: alpha",
-                '      command: ["echo", "hello"]',
-                "script_tools:",
-                "  enabled: true",
-                "  tools:",
-                "    - name: quick",
-                "      path: /tmp/quick.py",
-                "      description: quick",
-            ]
+        (
+            "{\n"
+            '  "core_tools": {"enabled": false, "allow_network": true},\n'
+            '  "mcp": {\n'
+            '    "enabled": true,\n'
+            '    "servers": [{"id": "alpha", "command": ["echo", "hello"]}]\n'
+            "  },\n"
+            '  "script_tools": {\n'
+            '    "enabled": true,\n'
+            '    "tools": [\n'
+            '      {"name": "quick", "path": "/tmp/quick.py", "description": "quick"}\n'
+            "    ]\n"
+            "  }\n"
+            "}\n"
         ),
         encoding="utf-8",
     )
@@ -157,16 +154,17 @@ def test_load_tool_runtime_config_from_yaml(tmp_path, monkeypatch: pytest.Monkey
     assert loaded.script_tools.enabled is True
     assert loaded.script_tools.tools[0].name == "quick"
 
-    legacy_file = tmp_path / "legacy.yaml"
-    legacy_file.write_text("lazy_tools:\n  enabled: true\n", encoding="utf-8")
+    legacy_file = tmp_path / "legacy.json"
+    legacy_file.write_text('{"lazy_tools": {"enabled": true}}\n', encoding="utf-8")
     with pytest.raises(ValueError, match="script_tools"):
         cfg.load_tool_runtime_config(str(legacy_file))
 
-    invalid_file = tmp_path / "invalid.yaml"
-    invalid_file.write_text("- not-a-mapping\n", encoding="utf-8")
+    invalid_file = tmp_path / "invalid.json"
+    invalid_file.write_text('["not-a-mapping"]\n', encoding="utf-8")
     with pytest.raises(ValueError, match="root must be a mapping"):
         cfg.load_tool_runtime_config(str(invalid_file))
 
-    monkeypatch.setattr(cfg, "yaml", None)
-    with pytest.raises(RuntimeError, match="PyYAML"):
-        cfg.load_tool_runtime_config(str(config_file))
+    malformed_file = tmp_path / "malformed.json"
+    malformed_file.write_text("{bad-json", encoding="utf-8")
+    with pytest.raises(ValueError, match="valid JSON"):
+        cfg.load_tool_runtime_config(str(malformed_file))

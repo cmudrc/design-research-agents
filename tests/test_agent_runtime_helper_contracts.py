@@ -5,7 +5,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from design_research_agents.agent.internal.direct_llm_agent_helpers import (
+from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMResponse, ToolCall
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents._implementations._shared._agent_internal._direct_llm_agent_helpers import (
     build_success_result,
     extract_max_tokens,
     extract_messages,
@@ -14,7 +16,7 @@ from design_research_agents.agent.internal.direct_llm_agent_helpers import (
     generate_response,
     merge_provider_options,
 )
-from design_research_agents.agent.internal.json_tool_agent_helpers import (
+from design_research_agents._implementations._shared._agent_internal._json_tool_agent_helpers import (
     ToolChoice,
     build_tool_call_prompt,
     build_tool_choices_text,
@@ -29,7 +31,7 @@ from design_research_agents.agent.internal.json_tool_agent_helpers import (
     select_tool_choice,
     tool_call_response_schema,
 )
-from design_research_agents.agent.internal.prompt_alternatives import (
+from design_research_agents._implementations._shared._agent_internal._prompt_alternatives import (
     append_alternatives_block,
     build_alternatives_block,
     build_user_prompt_alternatives_block,
@@ -38,12 +40,11 @@ from design_research_agents.agent.internal.prompt_alternatives import (
     normalize_alternatives_prompt_target,
     resolve_alternatives_prompt_target,
 )
-from design_research_agents.agent.internal.tool_input import (
+from design_research_agents._implementations._shared._agent_internal._tool_input import (
     infer_expression,
+    infer_file_path,
     resolve_known_tool_input,
 )
-from design_research_agents.contracts.llm import LLMMessage, LLMRequest, LLMResponse, ToolCall
-from design_research_agents.contracts.tools import ToolSpec
 
 pytestmark = pytest.mark.contract
 
@@ -52,6 +53,17 @@ class _GenerateClient:
     def default_model(self) -> str:
         return "fallback"
 
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _GenerateClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
+
     def generate(self, request: LLMRequest) -> LLMResponse:
         return LLMResponse(text="generated", model=request.model, provider="test")
 
@@ -59,6 +71,17 @@ class _GenerateClient:
 class _ChatClient:
     def default_model(self) -> str:
         return "chat-default"
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self) -> _ChatClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        del exc_type, exc, tb
+        self.close()
+        return None
 
     def chat(
         self,
@@ -99,10 +122,7 @@ def test_direct_llm_message_and_parameter_extractors_cover_fallbacks() -> None:
         default_system_prompt="default",
     )
     assert source == "messages"
-    assert any(
-        message.role == "system" and "Available alternatives" in message.content
-        for message in messages
-    )
+    assert any(message.role == "system" and "Available alternatives" in message.content for message in messages)
 
     prompt_messages, prompt_source = extract_messages(
         input_payload={"prompt": "task", "alternatives": ["a", 1]},
@@ -112,9 +132,7 @@ def test_direct_llm_message_and_parameter_extractors_cover_fallbacks() -> None:
     assert prompt_messages[0].role == "system"
     assert prompt_messages[-1].role == "user"
 
-    assert extract_response_schema({"response_schema": {"type": "object", 1: "x"}}) == {
-        "type": "object"
-    }
+    assert extract_response_schema({"response_schema": {"type": "object", 1: "x"}}) == {"type": "object"}
     assert extract_response_schema({"response_schema": "bad"}) is None
 
     assert extract_temperature(input_payload={"temperature": "0.2"}, default_value=0.7) == 0.2
@@ -159,14 +177,8 @@ def test_prompt_alternatives_helpers_cover_targets_and_rendering() -> None:
     with pytest.raises(ValueError, match="alternatives_prompt_target"):
         normalize_alternatives_prompt_target("bad")
 
-    assert (
-        resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "bad"})
-        == "user"
-    )
-    assert (
-        resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "system"})
-        == "system"
-    )
+    assert resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "bad"}) == "user"
+    assert resolve_alternatives_prompt_target(input_payload={"alternatives_prompt_target": "system"}) == "system"
 
     assert (
         append_alternatives_block(
@@ -209,6 +221,9 @@ def test_tool_input_helpers_cover_known_tool_resolution() -> None:
     assert infer_expression(input_payload={"text": "2*3"}, prompt="ignored") == "2*3"
     assert infer_expression(input_payload={}, prompt="Compute 4 + 5") == "4 + 5"
     assert infer_expression(input_payload={}, prompt="no math") == "no math"
+    assert infer_file_path(input_payload={}, prompt="Read README.md next.") == "README.md"
+    assert infer_file_path(input_payload={"path": "docs/api.rst"}, prompt="ignored") == "docs/api.rst"
+    assert infer_file_path(input_payload={}, prompt="No file mentioned here.") is None
 
     calc_input = resolve_known_tool_input(tool_name="calculator", input_payload={"prompt": "7*8"})
     assert calc_input == {"expression": "7*8"}
@@ -218,6 +233,9 @@ def test_tool_input_helpers_cover_known_tool_resolution() -> None:
         input_payload={"analysis_text": "hello world"},
     )
     assert word_count == {"text": "hello world"}
+    assert resolve_known_tool_input(tool_name="fs.read_text", input_payload={"prompt": "Read README.md"}) == {
+        "path": "README.md"
+    }
     assert resolve_known_tool_input(tool_name="unknown", input_payload={"prompt": "x"}) is None
 
 
@@ -293,7 +311,30 @@ def test_json_tool_helpers_cover_choice_resolution_and_tool_input_precedence() -
     selected = select_tool_choice(parsed_tool_call=parsed_text, choices=choices)
     assert selected is not None
     assert selected[0].tool_name == "calculator"
+    assert selected[1] == "model"
     assert select_tool_choice(parsed_tool_call={"tool_name": "missing"}, choices=choices) is None
+    assert (
+        select_tool_choice(
+            parsed_tool_call={"action": "STOP", "tool_name": "calculator"},
+            choices=choices,
+        )
+        is None
+    )
+
+    assert (
+        select_tool_choice(
+            parsed_tool_call={"action": "TOOL_CALL", "name": "calculator"},
+            choices=choices,
+        )
+        is None
+    )
+    assert (
+        select_tool_choice(
+            parsed_tool_call={"action": "TOOL_CALL", "tool_names": [1, " text.word_count "]},
+            choices=choices,
+        )
+        is None
+    )
 
     resolved_from_model = resolve_tool_input(
         selected_choice=choices[0],
@@ -316,12 +357,42 @@ def test_json_tool_helpers_cover_choice_resolution_and_tool_input_precedence() -
     )
     assert resolved_known == {"expression": "1+2"}
 
+    resolved_from_schema_mismatch = resolve_tool_input(
+        selected_choice=ToolChoice(
+            tool_name="fs.read_text",
+            description="",
+            input_schema={
+                "type": "object",
+                "required": ["path"],
+                "properties": {"path": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        parsed_tool_call={"tool_input": {"text": "wrong field"}},
+        input_payload={"prompt": "Read README.md and summarize it."},
+    )
+    assert resolved_from_schema_mismatch == {"path": "README.md"}
+
     assert coerce_tool_input("bad") is None
 
     schema = tool_call_response_schema(["calculator", "text.word_count"])
     assert "enum" in str(schema)
 
     class _LLMClient:
+        def default_model(self) -> str:
+            return "m"
+
+        def close(self) -> None:
+            return None
+
+        def __enter__(self) -> _LLMClient:
+            return self
+
+        def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+            del exc_type, exc, tb
+            self.close()
+            return None
+
         def generate(self, request: LLMRequest) -> LLMResponse:
             return LLMResponse(text=f"ok:{request.model}")
 

@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     LLMBadResponseError,
     LLMInvalidRequestError,
     LLMProviderError,
     LLMRateLimitError,
     LLMResponse,
 )
-from design_research_agents.llm.backends.providers import openai_service as oai_service
-from design_research_agents.llm.structured_output import StructuredOutputResult
+from design_research_agents.llm._backends._providers import _openai_service as oai_service
+from design_research_agents.llm._structured_output import StructuredOutputResult
 from tests._llm_openai_backends_test_helpers import (
     CompletionsStub,
     DumpObj,
@@ -20,7 +20,7 @@ from tests._llm_openai_backends_test_helpers import (
 )
 
 
-def test_openai_service_backend_retry_and_fallback(monkeypatch) -> None:
+def test__openai_service_backend_retry_and_fallback(monkeypatch) -> None:
     backend = oai_service.OpenAIServiceBackend(
         name="openai",
         default_model="gpt-test",
@@ -49,9 +49,7 @@ def test_openai_service_backend_retry_and_fallback(monkeypatch) -> None:
     monkeypatch.setattr(
         backend,
         "_call_with_retry",
-        lambda _payload: (_ for _ in ()).throw(
-            LLMInvalidRequestError("response_format unsupported")
-        ),
+        lambda _payload: (_ for _ in ()).throw(LLMInvalidRequestError("response_format unsupported")),
     )
     monkeypatch.setattr(backend, "_fallback_prompt_validate", lambda _request: expected)
 
@@ -59,7 +57,7 @@ def test_openai_service_backend_retry_and_fallback(monkeypatch) -> None:
     assert fallback_response.text == "fallback"
 
 
-def test_openai_service_backend_stream_and_helpers(monkeypatch) -> None:
+def test__openai_service_backend_stream_and_helpers(monkeypatch) -> None:
     backend = oai_service.OpenAIServiceBackend(
         name="openai",
         default_model="gpt-test",
@@ -152,7 +150,7 @@ def test_openai_service_backend_stream_and_helpers(monkeypatch) -> None:
     assert oai_service._should_retry(LLMInvalidRequestError("x")) is False
 
 
-def test_openai_service_merge_structured_response_and_generate_json_fallback(
+def test__openai_service_merge_structured_response_and_generate_json_fallback(
     monkeypatch,
 ) -> None:
     base = LLMResponse(text="", model="m", provider="openai", raw={})
@@ -190,7 +188,7 @@ def test_openai_service_merge_structured_response_and_generate_json_fallback(
     assert fallback.text == '{"ok": true}'
 
 
-def test_openai_service_create_client_import_error(monkeypatch) -> None:
+def test__openai_service_create_client_import_error(monkeypatch) -> None:
     backend = oai_service.OpenAIServiceBackend(
         name="openai",
         default_model="m",
@@ -220,7 +218,7 @@ def test_openai_service_create_client_import_error(monkeypatch) -> None:
         backend._create_client()
 
 
-def test_openai_service_response_to_dict_handles_fallback() -> None:
+def test__openai_service_response_to_dict_handles_fallback() -> None:
     class _NoDump:
         def __str__(self) -> str:
             return "raw-string"

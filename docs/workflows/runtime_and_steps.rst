@@ -3,22 +3,29 @@ Workflow Runtime and Steps
 
 ``Workflow`` is the public orchestration facade for typed step execution.
 ``WorkflowRuntime`` remains the internal engine that powers ``Workflow`` and
-pattern implementations.
+prebuilt pattern implementations.
 
-Top-level step exports
-----------------------
+``design_research_agents.workflow`` is the public module for constructing new
+workflow implementations. Prebuilt implementations live in
+``design_research_agents.patterns``.
 
-All workflow step primitives are exported from the top-level package:
+Workflow-module step exports
+----------------------------
+
+All workflow step primitives are available from the workflow module:
 
 .. code-block:: python
 
-   from design_research_agents import (
-       AgentStep,
+   from design_research_agents.workflow import (
+       DelegateStep,
+       DelegateBatchStep,
        LogicStep,
        LoopStep,
        MemoryReadStep,
        MemoryWriteStep,
+       ModelStep,
        ToolStep,
+       Workflow,
    )
 
 Step types
@@ -30,8 +37,8 @@ Step types
 - ``ToolStep``: tool runtime invocations.
   Key fields: ``step_id``, ``tool_name``, ``input_builder``, ``dependencies``.
   Use it for explicit tool boundary calls through ``Toolbox``.
-- ``AgentStep``: delegated agent/workflow execution.
-  Key fields: ``step_id``, ``agent_name``, ``prompt_builder``, ``dependencies``.
+- ``DelegateStep``: delegated agent/workflow execution.
+  Key fields: ``step_id``, ``delegate``, ``prompt_builder``, ``dependencies``.
   Use it when nested agents/patterns should own their own prompting or tool usage.
 - ``LoopStep``: iterative nested workflow body with loop state callbacks.
   Key fields: ``step_id``, ``steps``, ``max_iterations``, ``initial_state``,
@@ -67,21 +74,27 @@ Reusable facade
 
 ``Workflow`` is the high-level constructor-first facade for user-defined graphs:
 
-- ``Workflow(input_mode='prompt')`` for string prompt input.
-- ``Workflow(input_mode='schema')`` for mapping input with optional schema validation.
-- Supports optional ``agents`` registration for ``AgentStep`` delegates.
+- ``Workflow(input_schema=None)`` (default) for string prompt input.
+- ``Workflow(input_schema={...})`` for mapping input with schema validation.
+- ``Workflow(output_schema={...})`` to validate canonical ``output.final_output``.
+- ``DelegateStep`` delegates are provided directly on each step object.
 
 Input mode contracts
 --------------------
 
-- ``input_mode='prompt'`` accepts non-empty string input only.
+- ``input_schema=None`` accepts non-empty string input only.
   It rejects non-string values and blank/whitespace-only prompts.
   Prompt input is provided to step context under ``prompt``.
-- ``input_mode='schema'`` accepts mapping input only.
-  It optionally validates payloads against ``input_schema``.
+- ``input_schema={...}`` accepts mapping input only.
+  It validates payloads against ``input_schema``.
   Schema input is provided to step context under ``inputs``.
+- ``output_schema={...}`` validates ``output.final_output`` when workflow execution succeeds.
+  Use ``scalar(...)``, ``typed_dict(...)``, and ``list_of(...)`` from
+  ``design_research_agents.workflow`` for concise schema composition.
 - Both modes support constructor-level run defaults and per-run overrides.
   They return ``ExecutionResult`` with consistent workflow metadata.
+- Prebuilt implementations in ``design_research_agents.patterns`` are authored
+  with these same primitives.
 
 Examples
 --------

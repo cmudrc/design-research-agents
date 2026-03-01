@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from design_research_agents.contracts.llm import (
+from design_research_agents._contracts._llm import (
     BackendCapabilities,
     LLMMessage,
     LLMRequest,
 )
-from design_research_agents.contracts.tools import ToolSpec
+from design_research_agents._contracts._tools import ToolSpec
 
 
 class DumpObj:
@@ -31,9 +31,7 @@ class CompletionsStub:
         return outcome
 
 
-def caps(
-    *, streaming: bool = True, tool_calling: str = "native", json_mode: str = "native"
-) -> BackendCapabilities:
+def caps(*, streaming: bool = True, tool_calling: str = "native", json_mode: str = "native") -> BackendCapabilities:
     return BackendCapabilities(
         streaming=streaming,
         tool_calling=tool_calling,  # type: ignore[arg-type]

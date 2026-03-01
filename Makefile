@@ -1,177 +1,142 @@
-# Python interpreter and tool commands used by all targets.
 PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PIP ?= $(PYTHON) -m pip
 PYTEST ?= $(PYTHON) -m pytest
 RUFF ?= $(PYTHON) -m ruff
 MYPY ?= $(PYTHON) -m mypy
 SPHINX ?= $(PYTHON) -m sphinx
+BUILD ?= $(PYTHON) -m build
+TWINE ?= $(PYTHON) -m twine
+UV ?= uv
+REPRO_PYTHON ?= $(shell cat .python-version 2>/dev/null || echo 3.12.12)
+REPRO_EXTRAS ?= dev full
 
-.PHONY: help \
-	install install-dev install-all check-python \
-	lint lint-fix fmt fmt-check type unit test qa qa-full coverage structure-check docstrings-check legacy-check baseline-integrity-check \
-	examples-smoke examples-test examples-deterministic examples-metrics run-example \
-	docs docs-build docs-open docs-linkcheck docs-check \
-	ci pre-commit \
-	clean distclean purge-ignored-junk \
-	format format-check typecheck
+DOCSTRING_CHANGED_FILES_FILE ?=
+DOCSTRING_CHANGED_FILES_DEFAULT := artifacts/docstrings_changed_files.txt
+
+.PHONY: help check-python check-uv dev install-dev repro lock \
+	lint fmt fmt-check type test qa ci coverage \
+	release-check \
+	structure-check docstrings-check legacy-check baseline-integrity-check junk-check \
+	examples-smoke examples-test examples-metrics run-example \
+	docs docs-build docs-check docs-linkcheck clean
 
 help:
 	@echo "Common targets:"
-	@echo "  install           Install runtime dependencies (editable)."
-	@echo "  install-dev       Install contributor tooling (editable)."
-	@echo "  install-all       Install contributor + local backend extras."
-	@echo "  qa                Fast local checks: lint, fmt-check, type, unit."
-	@echo "  qa-full           Full gate: qa + structure/docstrings + coverage."
-	@echo "  examples-smoke    Deterministic smoke checks for key examples."
-	@echo "  legacy-check      Fail on removed legacy/fallback/C901 patterns in src."
-	@echo "  baseline-integrity-check  Validate baseline entries reference existing files."
-	@echo "  docs-build        Build strict Sphinx HTML docs."
-	@echo "  docs-open         Open docs index in your browser."
-	@echo "  docs              Build docs and open index locally."
-	@echo "  ci                CI parity checks."
-	@echo "  clean             Remove generated artifacts only."
+	@echo "  dev              Install project in editable mode with dev dependencies."
+	@echo "  repro            Frozen reproducible install using uv.lock (default extras: dev full)."
+	@echo "  lock             Regenerate uv.lock for release reproducibility."
+	@echo "  install-dev      Alias for dev."
+	@echo "  test             Run pytest suite."
+	@echo "  qa               Run lint, fmt-check, type, and test."
+	@echo "  ci               Full CI checks used in GitHub Actions."
+	@echo "  coverage         Run tests with coverage threshold check."
+	@echo "  release-check    Build sdist/wheel and run twine metadata checks."
+	@echo "  docs             Build docs (same as docs-build)."
+	@echo "  clean            Remove generated build artifacts and local caches."
 
-# Validate Python runtime matches project requirement.
 check-python:
-	@$(PYTHON) -c "import sys; import pathlib; print(f'Using Python {sys.version.split()[0]} at {pathlib.Path(sys.executable)}'); raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" || (echo "Python >= 3.11 is required by pyproject.toml"; exit 1)
+	@$(PYTHON) -c "import sys, pathlib; print(f'Using Python {sys.version.split()[0]} at {pathlib.Path(sys.executable)}'); raise SystemExit(0 if sys.version_info >= (3, 12) else 1)" || (echo "Python >= 3.12 is required by pyproject.toml"; exit 1)
 
-# Install editable package with runtime dependencies only.
-install:
-	$(PIP) install --upgrade pip
-	$(PIP) install -e "."
+check-uv:
+	@command -v $(UV) >/dev/null 2>&1 || (echo "uv is required for lock/repro targets. Install it from https://docs.astral.sh/uv/getting-started/installation/"; exit 1)
 
-# Install editable package with contributor tooling.
-install-dev:
+dev:
 	$(PIP) install --upgrade pip
 	$(PIP) install -e ".[dev]"
 
-# Install editable package with contributor tooling and optional local extras.
-install-all:
-	$(PIP) install --upgrade pip
-	$(PIP) install -e ".[dev,local]"
+install-dev: dev
 
-# Run lint checks without modifying files.
+repro: check-uv
+	$(UV) sync --frozen --python $(REPRO_PYTHON) $(foreach extra,$(REPRO_EXTRAS),--extra $(extra))
+
+lock: check-uv
+	$(UV) lock --python $(REPRO_PYTHON)
+
 lint: check-python
 	$(RUFF) check .
 
-# Apply auto-fixable lint changes.
-lint-fix: check-python
-	$(RUFF) check . --fix
-
-# Format source code in place.
 fmt: check-python
 	$(RUFF) format .
 
-# Verify formatting without changing files.
 fmt-check: check-python
 	$(RUFF) format --check .
 
-# Run static type checks.
 type: check-python
 	$(MYPY) src
 
-# Run the unit test suite.
-unit: check-python
-	PYTHONPATH=src $(PYTEST) -m "not examples_full"
+test: check-python
+	PYTHONPATH=src $(PYTEST) -q
 
-# Fast local quality checks.
-qa: lint fmt-check type unit
+qa: lint fmt-check type test
 
-# Enforce structural module size thresholds.
 structure-check: check-python
-	$(PYTHON) scripts/check_structural_thresholds.py
+	$(PYTHON) scripts/check_structural_thresholds.py --repo-root .
 
-# Enforce complete Google-style docstrings for src/examples/scripts.
 docstrings-check: check-python
 	@mkdir -p artifacts
-	@if [ -n "$(DOCSTRING_CHANGED_FILES_FILE)" ]; then \
-		CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_FILE)"; \
-	else \
-		CHANGED_FILES_FILE="artifacts/docstrings_changed_files.txt"; \
-		git diff --name-only --cached --diff-filter=ACMR > "$${CHANGED_FILES_FILE}"; \
+	@CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_FILE)"; \
+	if [ -z "$${CHANGED_FILES_FILE}" ]; then \
+		CHANGED_FILES_FILE="$(DOCSTRING_CHANGED_FILES_DEFAULT)"; \
+		git diff --name-only --diff-filter=ACMR HEAD > "$${CHANGED_FILES_FILE}"; \
 	fi; \
 	$(PYTHON) scripts/check_google_docstrings.py \
 		--baseline scripts/google_docstrings_baseline.txt \
-		--changed-files-file "$${CHANGED_FILES_FILE}"
+		--changed-files-file "$${CHANGED_FILES_FILE}" \
+		--enforce-codes DGS013,DGS014,DGS015
 
-# Fail when removed legacy/fallback paths or C901 suppressions reappear in src.
 legacy-check: check-python
 	$(PYTHON) scripts/check_no_legacy_paths.py
 
-# Ensure baseline entries do not reference files that no longer exist.
 baseline-integrity-check: check-python
 	$(PYTHON) scripts/check_baseline_integrity.py
 
-# Estimate line coverage for the stable unit-suite baseline.
+junk-check: check-python
+	$(PYTHON) scripts/check_no_tracked_junk.py
+
 coverage: check-python
 	mkdir -p artifacts/coverage
-	PYTHONPATH=src $(PYTEST) -m "not examples_full" --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	PYTHONPATH=src $(PYTEST) --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
 	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json
 
-# Full quality gate used by CI and release checks.
-qa-full: qa structure-check docstrings-check coverage
+release-check: check-python
+	rm -rf dist
+	$(BUILD)
+	$(TWINE) check dist/*
 
-# Run deterministic smoke checks for representative examples in main CI.
 examples-smoke: check-python
 	PYTHONPATH=src $(PYTEST) -m examples_smoke -q
 
-# Run deterministic example tests and emit junit XML for metrics/badge generation.
 examples-test: check-python
 	mkdir -p artifacts/examples
 	PYTHONPATH=src $(PYTEST) -m examples_full --junitxml=artifacts/examples/examples-deterministic.junit.xml -q
 
-# Generate deterministic examples metrics and corresponding badges.
 examples-metrics: check-python examples-test
 	$(PYTHON) scripts/generate_examples_metrics.py
 	$(PYTHON) scripts/generate_examples_badges.py
 
-# Run a deterministic workflow example.
 run-example: check-python
 	PYTHONPATH=src $(PYTHON) examples/workflow/workflow_runtime.py
 
-# Build strict Sphinx HTML documentation.
 docs-build: check-python
+	$(PYTHON) scripts/generate_example_docs.py
 	PYTHONPATH=src $(SPHINX) -b html docs docs/_build/html -n -W --keep-going -E
 
-# Open built docs index in a local browser.
-docs-open:
-	@$(PYTHON) -c "import os,webbrowser; webbrowser.open('file://' + os.path.abspath('docs/_build/html/index.html'))"
+docs-check: check-python
+	$(PYTHON) scripts/generate_example_docs.py --check
+	$(PYTHON) scripts/check_docs_consistency.py
 
-# Build docs and open index locally.
-docs: docs-build docs-open
-
-# Run strict Sphinx link validation.
 docs-linkcheck: check-python
 	PYTHONPATH=src $(SPHINX) -b linkcheck docs docs/_build/linkcheck -W --keep-going -E
 
-# Validate docs terminology and local path consistency.
-docs-check: check-python
-	$(PYTHON) scripts/check_docs_consistency.py
+docs: docs-build
 
-# Remove traces dirs, Sphinx build output, egg-info, and generated artifacts.
-purge-ignored-junk:
-	@echo "Removing traces/ directories, Sphinx _build, and egg-info..."
-	@find . -type d -name traces -prune -exec rm -rf {} + 2>/dev/null || true
-	@rm -rf docs/_build
-	@rm -rf src/design_research_agents.egg-info
-	@rm -rf artifacts
-	@find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
+ci: qa coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check docs-check examples-smoke
 
-# Remove generated artifacts only (no source mutation).
-clean: purge-ignored-junk
-
-# Deeper cleanup alias for callers that expect distclean semantics.
-distclean: clean
-
-# Aggregate checks used by CI.
-ci: qa-full examples-smoke legacy-check baseline-integrity-check docs-check
-
-# Check set used by local pre-commit hook.
-pre-commit: lint fmt-check type structure-check docstrings-check unit docs-build
-
-# Compatibility aliases.
-format: fmt
-format-check: fmt-check
-typecheck: type
-test: unit
-examples-deterministic: examples-test
+clean:
+	rm -rf docs/_build artifacts build htmlcov src/design_research_agents.egg-info .coverage coverage.xml
+	find . -maxdepth 2 -type d -name "*.egg-info" -prune -exec rm -rf {} + 2>/dev/null || true
+	find examples -type d -name artifacts -prune -exec rm -rf {} + 2>/dev/null || true
+	find . -type d \( -name "__pycache__" -o -name ".mypy_cache" -o -name ".pytest_cache" -o -name ".ruff_cache" \) -prune -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name ".DS_Store" -exec rm -f {} + 2>/dev/null || true
+	find . -type f \( -name "*.pyc" -o -name "*.pyo" -o -name ".coverage.*" \) -exec rm -f {} + 2>/dev/null || true
+	find . -type d -name traces -prune -exec rm -rf {} + 2>/dev/null || true

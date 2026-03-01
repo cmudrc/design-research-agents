@@ -1,30 +1,43 @@
-"""Concrete agent runtime implementations exported by the package.
+"""Stable public agent facade exports with lazy loading."""
 
-The classes re-exported here cover the core execution styles supported by the
-project:
-- direct model invocation without tools,
-- single-step structured tool invocation,
-- tool-calling with JSON plan selection,
-- explicit request routing, and
-- multi-step iterative planning/execution loops.
-"""
+from __future__ import annotations
 
-from .implementations.multi_step_code_tool_calling_agent import MultiStepCodeToolCallingAgent
-from .implementations.multi_step_direct_llm_agent import MultiStepDirectLLMAgent
-from .implementations.multi_step_json_tool_calling_agent import MultiStepJsonToolCallingAgent
-from .implementations.multi_step_tool_router_agent import MultiStepToolRouterAgent
-from .implementations.single_step_code_tool_calling_agent import SingleStepCodeToolCallingAgent
-from .implementations.single_step_direct_llm_agent import SingleStepDirectLLMAgent
-from .implementations.single_step_json_tool_calling_agent import SingleStepJsonToolCallingAgent
-from .implementations.single_step_router_agent import SingleStepToolRouterAgent
+from typing import Final
 
-__all__ = [
-    "MultiStepCodeToolCallingAgent",
-    "MultiStepDirectLLMAgent",
-    "MultiStepJsonToolCallingAgent",
-    "MultiStepToolRouterAgent",
-    "SingleStepCodeToolCallingAgent",
-    "SingleStepDirectLLMAgent",
-    "SingleStepJsonToolCallingAgent",
-    "SingleStepToolRouterAgent",
-]
+from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
+
+_EXPORTS: Final[dict[str, str]] = {
+    "DirectLLMCall": "design_research_agents._implementations._agents:DirectLLMCall",
+    "MultiStepAgent": "design_research_agents._implementations._agents:MultiStepAgent",
+}
+
+__all__ = list(_EXPORTS.keys())
+
+
+def __getattr__(name: str) -> object:
+    """Resolve exported agent symbols on first access.
+
+    Args:
+        name: Exported symbol name requested by the caller.
+
+    Returns:
+        Resolved exported symbol object.
+
+    Raises:
+        AttributeError: Raised when ``name`` is not part of the public exports.
+    """
+    return resolve_lazy_export(
+        module_name=__name__,
+        exports=_EXPORTS,
+        export_name=name,
+        namespace=globals(),
+    )
+
+
+def __dir__() -> list[str]:
+    """Return module attributes, including lazy exports.
+
+    Returns:
+        Sorted attribute names visible on this module.
+    """
+    return module_dir(globals(), __all__)

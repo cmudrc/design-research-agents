@@ -1,71 +1,78 @@
 API
 ===
 
-The supported top-level API is the curated export list from
-``design_research_agents.__all__``:
+This page documents the supported top-level public API from
+``design_research_agents.__all__``.
 
-- Metadata
-    - ``__version__``
-- Clients and Models
-    - ``LlamaCppServerLLMClient``
-    - ``OpenAIServiceLLMClient``
-    - ``OpenAICompatibleHTTPLLMClient``
-    - ``TransformersLocalLLMClient``
-    - ``MlxLocalLLMClient``
-    - ``ModelSelector``
-- Tools
-    - ``Toolbox``
-    - ``CallableTool``
-    - ``ScriptTool``
-    - ``McpServer``
-- Agents (core implementations)
-    - ``SingleStepDirectLLMAgent``
-    - ``SingleStepToolRouterAgent``
-    - ``SingleStepJsonToolCallingAgent``
-    - ``SingleStepCodeToolCallingAgent``
-    - ``MultiStepDirectLLMAgent``
-    - ``MultiStepToolRouterAgent``
-    - ``MultiStepJsonToolCallingAgent``
-    - ``MultiStepCodeToolCallingAgent``
-- Patterns
-    - ``DebatePattern``
-    - ``PlannerExecutorPattern``
-    - ``ReflexionPattern``
-    - ``RouterPattern``
-    - ``NetworkedPattern``
-    - ``BlackboardPattern``
-    - ``TreeSearchPattern``
-    - ``RagReasoningPattern``
-- Workflows
-    - ``LogicStep``
-    - ``ToolStep``
-    - ``AgentStep``
-    - ``LoopStep``
-    - ``MemoryReadStep``
-    - ``MemoryWriteStep``
-    - ``Workflow``
+Guaranteed compatibility applies to this top-level API surface and to the
+public facade modules documented in ``docs/reference`` under "Guaranteed
+Public Modules".
 
-The API is constructor-first: agents and workflows expose customization through
-``__init__`` kwargs (prompt overrides, routing/tool allowlists, and workflow
-run defaults). Workflow helper factory functions are intentionally not part of
-the exported contract.
+Underscored module paths (for example ``design_research_agents._contracts``)
+are internal and unstable. They are documented in the module reference for
+contributors, but they are not compatibility-guaranteed.
 
-For module-level implementation details (including internal, non-stable modules),
-see :doc:`reference/index`.
+Top-level groups:
+
+- Metadata: ``__version__``
+- Entry points: agents, LLM clients, ``ModelSelector``
+- Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
+  with normalized read helpers for structured payload access
+- Orchestration: workflow step classes, ``Workflow``, and pattern classes
+  (module homes: ``design_research_agents.workflow`` and
+  ``design_research_agents.patterns``)
+- Tools: ``Toolbox``, ``CallableToolConfig``, ``ScriptToolConfig``, ``MCPServerConfig``
+- Tracing: ``Tracer``
 
 ``__version__``
 ---------------
 
 .. autodata:: design_research_agents.__version__
 
-Clients and Models
-------------------
+Entry Points
+------------
+
+Agents
+^^^^^^
+
+.. autoclass:: design_research_agents.DirectLLMCall
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MultiStepAgent
+   :members:
+   :undoc-members:
+
+LLM Clients and Selection
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All public LLM clients implement the same introspection helpers in addition to
+generation methods: ``default_model()``, ``capabilities()``,
+``config_snapshot()``, ``server_snapshot()``, and ``describe()``. They also
+implement ``close()`` plus ``with``-statement lifecycle support; the
+context-manager form is the preferred public usage pattern.
 
 .. autoclass:: design_research_agents.LlamaCppServerLLMClient
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.AnthropicServiceLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.GeminiServiceLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.GroqServiceLLMClient
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.OpenAIServiceLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.AzureOpenAIServiceLLMClient
    :members:
    :undoc-members:
 
@@ -77,7 +84,19 @@ Clients and Models
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.MlxLocalLLMClient
+.. autoclass:: design_research_agents.MLXLocalLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.VLLMServerLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.OllamaLLMClient
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.SGLangServerLLMClient
    :members:
    :undoc-members:
 
@@ -85,97 +104,55 @@ Clients and Models
    :members:
    :undoc-members:
 
-Tools
------
+Core Contracts
+^^^^^^^^^^^^^^
 
-.. autoclass:: design_research_agents.Toolbox
+``ExecutionResult`` and per-step ``WorkflowStepResult`` objects expose matching
+output access helpers for safe reads from loosely structured payloads. The
+public ``ToolResult`` contract also includes normalized getters such as
+``result_dict()``, ``result_list()``, ``error_message``, and ``artifact_paths``.
+
+.. autoclass:: design_research_agents.ExecutionResult
    :members:
    :undoc-members:
+   :no-index:
 
-.. autoclass:: design_research_agents.CallableTool
+.. autoclass:: design_research_agents.LLMRequest
    :members:
    :undoc-members:
+   :no-index:
 
-.. autoclass:: design_research_agents.ScriptTool
+.. autoclass:: design_research_agents.LLMMessage
    :members:
    :undoc-members:
+   :no-index:
 
-.. autoclass:: design_research_agents.McpServer
+.. autoclass:: design_research_agents.LLMResponse
    :members:
    :undoc-members:
+   :no-index:
 
-Agents
-------
-
-.. autoclass:: design_research_agents.SingleStepDirectLLMAgent
+.. autoclass:: design_research_agents.ToolResult
    :members:
    :undoc-members:
+   :no-index:
 
-.. autoclass:: design_research_agents.SingleStepToolRouterAgent
-   :members:
-   :undoc-members:
+Orchestration
+-------------
 
-.. autoclass:: design_research_agents.SingleStepJsonToolCallingAgent
-   :members:
-   :undoc-members:
+Workflow Steps and Facade
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: design_research_agents.SingleStepCodeToolCallingAgent
-   :members:
-   :undoc-members:
+``CompiledExecution`` is the workflow-backed object returned by delegate
+``compile(...)`` methods. Calling ``compiled.run()`` executes the bound
+workflow and applies delegate-specific finalization. Accessing
+``compiled.workflow`` gives the raw workflow graph for inspection and testing.
+Calling ``compiled.workflow.run(...)`` directly bypasses that finalization
+layer and returns the raw workflow result.
 
-.. autoclass:: design_research_agents.MultiStepDirectLLMAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.MultiStepToolRouterAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.MultiStepJsonToolCallingAgent
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.MultiStepCodeToolCallingAgent
-   :members:
-   :undoc-members:
-
-Patterns
---------
-
-.. autoclass:: design_research_agents.DebatePattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.PlannerExecutorPattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.ReflexionPattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.RouterPattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.NetworkedPattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.BlackboardPattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.TreeSearchPattern
-   :members:
-   :undoc-members:
-
-.. autoclass:: design_research_agents.RagReasoningPattern
-   :members:
-   :undoc-members:
-
-Workflows
----------
+Workflow step executions surface ``WorkflowStepResult`` payloads through
+``ExecutionResult.step_results``. These step results mirror the top-level
+``ExecutionResult`` output accessor helpers for consistent reads.
 
 .. autoclass:: design_research_agents.LogicStep
    :members:
@@ -185,7 +162,15 @@ Workflows
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.AgentStep
+.. autoclass:: design_research_agents.DelegateStep
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ModelStep
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.DelegateBatchStep
    :members:
    :undoc-members:
 
@@ -202,5 +187,78 @@ Workflows
    :undoc-members:
 
 .. autoclass:: design_research_agents.Workflow
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.CompiledExecution
+   :members:
+   :undoc-members:
+
+Patterns
+^^^^^^^^
+
+Pattern ``compile(...)`` methods are the lower-level construction hook for
+advanced callers. They return a bound ``CompiledExecution`` and omit the
+top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
+
+.. autoclass:: design_research_agents.TwoSpeakerConversationPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.DebatePattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.PlanExecutePattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ProposeCriticPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.RouterDelegatePattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.RoundBasedCoordinationPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.BlackboardPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.BeamSearchPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.RAGPattern
+   :members:
+   :undoc-members:
+
+Tools
+-----
+
+.. autoclass:: design_research_agents.Toolbox
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.CallableToolConfig
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ScriptToolConfig
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.MCPServerConfig
+   :members:
+   :undoc-members:
+
+Tracing
+-------
+
+.. autoclass:: design_research_agents.Tracer
    :members:
    :undoc-members:

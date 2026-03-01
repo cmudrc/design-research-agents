@@ -16,11 +16,7 @@ METRICS_JSON = REPO_ROOT / "artifacts" / "examples" / "examples_metrics.json"
 
 
 def _discover_runnable_examples() -> tuple[Path, ...]:
-    """Run discover runnable examples.
-
-    Returns:
-        The resulting value.
-    """
+    """Return all runnable example scripts under ``examples/``."""
     discovered: list[Path] = []
     for extension in ("*.py", "*.sh"):
         for path in sorted(EXAMPLES_ROOT.rglob(extension)):
@@ -34,26 +30,12 @@ def _discover_runnable_examples() -> tuple[Path, ...]:
 
 
 def _discover_python_examples() -> tuple[Path, ...]:
-    """Run discover python examples.
-
-    Returns:
-        The resulting value.
-    """
+    """Return runnable Python example files."""
     return tuple(path for path in _discover_runnable_examples() if path.suffix == ".py")
 
 
 def _parse_junit_pass_fail_counts(path: Path) -> tuple[int, int, int]:
-    """Run parse junit pass fail counts.
-
-    Args:
-        path: Parameter value.
-
-    Returns:
-        The resulting value.
-
-    Raises:
-        Exception: Raised when execution fails.
-    """
+    """Parse junit XML and return ``(total, passed, failed)`` testcase counts."""
     root = ET.fromstring(path.read_text(encoding="utf-8"))
     testcases = list(root.iter("testcase"))
     if not testcases:
@@ -71,26 +53,12 @@ def _parse_junit_pass_fail_counts(path: Path) -> tuple[int, int, int]:
 
 
 def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
-    """Run extract exports from init.
-
-    Args:
-        path: Parameter value.
-
-    Returns:
-        The resulting value.
-
-    Raises:
-        Exception: Raised when execution fails.
-    """
+    """Extract intended public symbols from ``design_research_agents.__init__``."""
     module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     export_dict: ast.Dict | None = None
 
     for node in module.body:
-        if (
-            isinstance(node, ast.AnnAssign)
-            and isinstance(node.target, ast.Name)
-            and node.target.id == "_EXPORTS"
-        ):
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "_EXPORTS":
             if isinstance(node.value, ast.Dict):
                 export_dict = node.value
             break
@@ -106,7 +74,7 @@ def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
     if export_dict is None:
         raise ValueError(f"Unable to locate _EXPORTS dictionary in {path}.")
 
-    exports: list[str] = []
+    exports: list[str] = ["__version__"]
     for key in export_dict.keys:
         if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
             raise ValueError("_EXPORTS contains a non-string key, which is unsupported.")
@@ -114,40 +82,29 @@ def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
     return tuple(exports)
 
 
-def _collect_public_api_symbols_used_in_examples(
+def _collect_public_api_symbol_usage(
     example_files: tuple[Path, ...],
     export_symbols: tuple[str, ...],
-) -> tuple[str, ...]:
-    """Run collect public api symbols used in examples.
-
-    Args:
-        example_files: Parameter value.
-        export_symbols: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
+) -> dict[str, tuple[str, ...]]:
+    """Map each public symbol to sorted example files that reference it."""
     export_set = set(export_symbols)
-    covered: set[str] = set()
+    usage_map: dict[str, set[str]] = {symbol: set() for symbol in export_symbols}
 
     for path in example_files:
         module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         package_aliases = _collect_package_aliases(module)
-        covered.update(_collect_explicit_imported_exports(module, export_set))
-        covered.update(_collect_attribute_access_exports(module, export_set, package_aliases))
+        used_symbols = set()
+        used_symbols.update(_collect_explicit_imported_exports(module, export_set))
+        used_symbols.update(_collect_attribute_access_exports(module, export_set, package_aliases))
+        relative_path = path.relative_to(REPO_ROOT).as_posix()
+        for symbol in used_symbols:
+            usage_map[symbol].add(relative_path)
 
-    return tuple(sorted(covered))
+    return {symbol: tuple(sorted(paths)) for symbol, paths in sorted(usage_map.items())}
 
 
 def _collect_package_aliases(module: ast.Module) -> set[str]:
-    """Run collect package aliases.
-
-    Args:
-        module: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
+    """Collect local aliases for direct ``import design_research_agents`` statements."""
     aliases: set[str] = set()
     for node in ast.walk(module):
         if not isinstance(node, ast.Import):
@@ -159,23 +116,13 @@ def _collect_package_aliases(module: ast.Module) -> set[str]:
 
 
 def _collect_explicit_imported_exports(module: ast.Module, export_set: set[str]) -> set[str]:
-    """Run collect explicit imported exports.
-
-    Args:
-        module: Parameter value.
-        export_set: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
+    """Collect exported symbols imported via ``from design_research_agents...``."""
     covered: set[str] = set()
     for node in ast.walk(module):
         if not isinstance(node, ast.ImportFrom):
             continue
         module_name = node.module or ""
-        if module_name != "design_research_agents" and not module_name.startswith(
-            "design_research_agents."
-        ):
+        if module_name != "design_research_agents" and not module_name.startswith("design_research_agents."):
             continue
         for alias in node.names:
             imported_name = alias.name
@@ -192,16 +139,7 @@ def _collect_attribute_access_exports(
     export_set: set[str],
     package_aliases: set[str],
 ) -> set[str]:
-    """Run collect attribute access exports.
-
-    Args:
-        module: Parameter value.
-        export_set: Parameter value.
-        package_aliases: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
+    """Collect exported symbols accessed as attributes from package aliases."""
     covered: set[str] = set()
     for node in ast.walk(module):
         if not isinstance(node, ast.Attribute):
@@ -214,26 +152,14 @@ def _collect_attribute_access_exports(
 
 
 def _percent(part: int, whole: int) -> float:
-    """Run percent.
-
-    Args:
-        part: Parameter value.
-        whole: Parameter value.
-
-    Returns:
-        The resulting value.
-    """
+    """Return percentage ``part/whole`` rounded to one decimal place."""
     if whole == 0:
         return 100.0
     return round((part / whole) * 100, 1)
 
 
 def main() -> None:
-    """Compute and persist examples pass/fail and API-in-examples coverage metrics.
-
-    Raises:
-        Exception: Raised when execution fails.
-    """
+    """Compute and write example-test and public-API coverage metrics."""
     runnable_examples = _discover_runnable_examples()
     python_examples = _discover_python_examples()
 
@@ -246,10 +172,11 @@ def main() -> None:
         )
 
     export_symbols = _extract_exports_from_init(PUBLIC_API_INIT)
-    covered_symbols = _collect_public_api_symbols_used_in_examples(
+    symbol_usage = _collect_public_api_symbol_usage(
         example_files=python_examples,
         export_symbols=export_symbols,
     )
+    covered_symbols = tuple(sorted(symbol for symbol, paths in symbol_usage.items() if paths))
     missing_symbols = tuple(sorted(set(export_symbols) - set(covered_symbols)))
 
     metrics = {
@@ -265,6 +192,7 @@ def main() -> None:
             "coverage_percent": _percent(len(covered_symbols), len(export_symbols)),
             "covered_symbols": list(covered_symbols),
             "missing_symbols": list(missing_symbols),
+            "symbol_to_examples": {symbol: list(paths) for symbol, paths in symbol_usage.items()},
         },
     }
 

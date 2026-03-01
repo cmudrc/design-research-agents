@@ -1,72 +1,109 @@
+# GitHub Actions workflow for building and deploying project documentation.
+#
+# Goals:
+# - Catch docs regressions on every PR (build, consistency checks, linkcheck).
+# - Deploy to GitHub Pages only on trusted pushes to `main`.
+# - Keep permissions least-privilege while still supporting Pages deployment.
+#
+# Conventions:
+# - Delegate project-specific steps to `make` targets (see Makefile).
+# - Use a fixed Python version to keep Sphinx output deterministic.
+# - Avoid publishing from PRs to reduce supply-chain / untrusted-code risk.
+
 name: Docs
 
-# Build docs for PR validation; deploy only from pushes to main.
+# Triggers:
+# - push to main: build + deploy to GitHub Pages
+# - pull_request: build only (no deploy)
+# - workflow_dispatch: manual run (useful for debugging docs issues)
 on:
   push:
     branches: [ main ]
   pull_request:
   workflow_dispatch:
 
-# Required permissions for Pages artifact upload and deployment.
+# Permissions:
+# - contents: read  -> checkout repository
+# - pages: write    -> upload artifact and deploy to Pages
+# - id-token: write -> OIDC token required by deploy-pages for secure auth
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Prevent overlapping Pages deployments from racing each other.
+# Prevent overlapping deployments from stepping on each other.
+# If two commits land close together, only the latest deploy should proceed.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
   build-docs:
-    # Always build docs so PRs catch documentation regressions.
+    # Build docs on every run so PRs fail fast if docs break.
     runs-on: ubuntu-latest
     steps:
+      # Pull repository content into the runner.
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Provision Python and enable pip caching to speed up installs.
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          # Reuse pip cache between workflow runs.
-          cache: pip
+          cache: pip  # Speeds repeated workflow runs by caching wheels/downloads.
 
+      # Install dev dependencies required for documentation tooling.
+      # If you want to slim this further, consider a `make install-docs` target.
       - name: Install dependencies
-        # Docs pipeline only needs docs-related tooling.
         run: make install-dev
 
+      # Run doc hygiene checks (examples: format, generated API stubs, doctree consistency).
+      # Keep these separate from the build so failures are easier to diagnose.
       - name: Run docs consistency checks
         run: make docs-check
 
+      # Build Sphinx docs with strict settings (e.g., warnings as errors).
+      # This ensures broken references / missing imports fail CI.
       - name: Build strict Sphinx docs
-        run: make docs
+        run: make docs-build
 
+      # Check outbound links (can be flaky if external sites rate-limit).
+      # If this gets noisy, consider running it on a schedule or allowing retries.
       - name: Validate links
         run: make docs-linkcheck
 
+      # Pages setup is only required for deployment runs (pushes to main).
+      # On PRs we skip it to reduce permissions usage and keep the pipeline simple.
       - name: Setup Pages
-        # Only prepare Pages on main branch pushes.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
 
+      # Upload the built HTML as the Pages artifact that `deploy-pages` will publish.
+      # Only do this on main pushes so untrusted PRs never publish artifacts.
       - name: Upload Pages artifact
-        # PRs build docs but do not publish artifacts.
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
+          # Path must match your Sphinx output directory.
           path: docs/_build/html
 
   deploy:
-    # Publish the uploaded artifact to GitHub Pages from main only.
+    # Deploy only from main branch pushes.
+    # This job consumes the artifact uploaded by `build-docs`.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-docs
     runs-on: ubuntu-latest
+
+    # Attaches the deployment to the GitHub Pages environment,
+    # which enables environment protections and exposes the final URL.
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
+      # Publish the uploaded artifact to GitHub Pages.
+      # Uses OIDC via `id-token: write` permission for secure deployment.
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -16,19 +16,23 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import LlamaCppServerLLMClient
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents.llm import LLMMessage, LLMRequest
 
-   client = LlamaCppServerLLMClient()
-   response = client.chat(
-       messages=[LLMMessage(role="user", content="Summarize this paragraph.")],
-       model=client.default_model(),
-       params=LLMChatParams(),
-   )
+   with LlamaCppServerLLMClient() as client:
+       response = client.generate(
+           LLMRequest(
+               messages=(LLMMessage(role="user", content="Summarize this paragraph."),),
+               model=client.default_model(),
+           )
+       )
+
+Prefer the context-manager form so the managed local server always shuts down
+deterministically. ``close()`` remains available for explicit lifecycle control.
 
 Dependencies and environment
 ----------------------------
 
-- Install local extras: ``pip install -e \".[local]\"``
+- Install llama.cpp backend extras: ``pip install -e \".[llama_cpp]\"``
 - Ensure local model download/runtime prerequisites are available.
 
 Model notes for local runs
@@ -46,7 +50,8 @@ Examples
 
 - ``examples/clients/llama_cpp_server_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `llama.cpp <https://github.com/ggml-org/llama.cpp>`_
+- Docs: `llama.cpp server usage <https://github.com/ggml-org/llama.cpp/tree/master/tools/server>`_
+- Homepage: `llama.cpp GitHub <https://github.com/ggml-org/llama.cpp>`_

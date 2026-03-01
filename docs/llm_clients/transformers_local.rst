@@ -17,19 +17,20 @@ Constructor-first usage
 .. code-block:: python
 
    from design_research_agents import TransformersLocalLLMClient
-   from design_research_agents.contracts.llm import LLMChatParams, LLMMessage
+   from design_research_agents.llm import LLMMessage, LLMRequest
 
    client = TransformersLocalLLMClient(model_id="distilgpt2")
-   response = client.chat(
-       messages=[LLMMessage(role="user", content="Summarize this transcript section.")],
-       model=client.default_model(),
-       params=LLMChatParams(),
+   response = client.generate(
+       LLMRequest(
+           messages=(LLMMessage(role="user", content="Summarize this transcript section."),),
+           model=client.default_model(),
+       )
    )
 
 Dependencies and environment
 ----------------------------
 
-- Install local extras: ``pip install -e \".[local]\"``
+- Install transformers backend extras: ``pip install -e \".[transformers]\"``
 - Sufficient local CPU/GPU memory for selected model
 
 Model notes for local runs
@@ -46,7 +47,8 @@ Examples
 
 - ``examples/clients/transformers_local_client.py``
 
-Official docs
--------------
+Attribution
+-----------
 
-- `Hugging Face Transformers <https://huggingface.co/docs/transformers/index>`_
+- Docs: `Hugging Face Transformers docs <https://huggingface.co/docs/transformers/index>`_
+- Homepage: `Hugging Face <https://huggingface.co/>`_

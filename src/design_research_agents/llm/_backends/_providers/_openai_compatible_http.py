@@ -1,0 +1,517 @@
+"""OpenAI-compatible HTTP backend for OpenAI-shaped servers."""
+
+from __future__ import annotations
+
+import json
+import os
+from collections.abc import Iterable, Iterator, Sequence
+from http.client import HTTPResponse
+from typing import Any, Literal, cast, override
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from design_research_agents._contracts._llm import (
+    BackendCapabilities,
+    BackendStatus,
+    LLMDelta,
+    LLMInvalidRequestError,
+    LLMRequest,
+    LLMResponse,
+    ToolCallDelta,
+)
+from design_research_agents._contracts._tools import ToolSpec
+from design_research_agents.llm._backends._base import BaseLLMBackend
+from design_research_agents.llm._backends._errors import map_backend_exception
+from design_research_agents.llm._backends._utils import (
+    parse_tool_calls,
+    parse_usage,
+)
+
+
+class OpenAICompatibleHTTPBackend(BaseLLMBackend):
+    """Backend that calls any OpenAI-compatible HTTP endpoint."""
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        base_url: str,
+        default_model: str,
+        api_key_env: str,
+        api_key: str | None,
+        capabilities: BackendCapabilities,
+        config_hash: str,
+        request_timeout_seconds: float = 60.0,
+        response_format_style: Literal["openai", "llama_cpp"] = "openai",
+        max_retries: int = 2,
+        model_patterns: tuple[str, ...] = (),
+    ) -> None:
+        """Initialize HTTP endpoint routing and authentication settings.
+
+        Args:
+            name: Unique name for this backend configuration.
+            base_url: Base URL for the OpenAI-compatible API (e.g. "https://api.example.com/v1").
+            default_model: Default model name for prompts that don't specify one.
+            api_key_env: Name of the environment variable to read the API key from.
+            api_key: Optional API key value to use directly (takes precedence over environment
+                variable).
+            capabilities: Declared capabilities for this backend (e.g. tool calling and JSON mode
+                support levels).
+            config_hash: Unique hash of the configuration for caching and invalidation purposes.
+            request_timeout_seconds: HTTP timeout for generate and stream requests.
+            response_format_style: Native response-format dialect expected by the endpoint.
+            max_retries: Maximum number of retries for generation attempts.
+            model_patterns: Optional tuple of glob patterns to match against
+                model names for routing purposes.
+        """
+        super().__init__(
+            name=name,
+            kind="openai_compatible_http",
+            default_model=default_model,
+            base_url=base_url,
+            config_hash=config_hash,
+            max_retries=max_retries,
+            model_patterns=model_patterns,
+        )
+        if request_timeout_seconds <= 0:
+            raise ValueError("request_timeout_seconds must be > 0.")
+        if response_format_style not in {"openai", "llama_cpp"}:
+            raise ValueError("response_format_style must be 'openai' or 'llama_cpp'.")
+        self._api_key_env = api_key_env
+        self._api_key = api_key
+        self._capabilities = capabilities
+        self._request_timeout_seconds = request_timeout_seconds
+        self._response_format_style = response_format_style
+
+    @override
+    def capabilities(self) -> BackendCapabilities:
+        """Return declared capabilities for this endpoint.
+
+        Returns:
+            Capability flags used for request validation.
+        """
+        return self._capabilities
+
+    @override
+    def healthcheck(self) -> BackendStatus:
+        """Return static status for configured HTTP backend.
+
+        Returns:
+            Ready status for a configured HTTP backend wrapper.
+        """
+        return BackendStatus(ok=True, message="OpenAI-compatible backend configured.")
+
+    @override
+    def _generate(self, request: LLMRequest) -> LLMResponse:
+        """Generate one completion using the OpenAI-compatible HTTP endpoint.
+
+        Args:
+            request: Validated request to send to the remote endpoint.
+
+        Returns:
+            Normalized completion response.
+        """
+        payload = self._build_payload(request, include_response_format=True)
+        response = _post_json(
+            self._chat_url,
+            payload,
+            headers=self._headers(),
+            timeout_seconds=self._request_timeout_seconds,
+        )
+        return _parse_completion_response(response, request, provider=self.name)
+
+    @override
+    def _stream(self, request: LLMRequest) -> Iterator[LLMDelta]:
+        """Stream completion deltas from the OpenAI-compatible endpoint.
+
+        Args:
+            request: Validated request to stream from the remote endpoint.
+
+        Yields:
+            Normalized text, tool-call, and usage deltas.
+        """
+        payload = self._build_payload(request, include_response_format=True)
+        payload["stream"] = True
+        response = _post_stream(
+            self._chat_url,
+            payload,
+            headers=self._headers(),
+            timeout_seconds=self._request_timeout_seconds,
+        )
+        for data in _iter_sse_events(response):
+            if data == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            choices = chunk.get("choices") or []
+            if not choices:
+                continue
+            delta = choices[0].get("delta") or {}
+            content = delta.get("content")
+            if content:
+                yield LLMDelta(text_delta=str(content))
+            for tool_delta in _extract_tool_call_deltas(delta.get("tool_calls")):
+                yield LLMDelta(tool_call_delta=tool_delta)
+            usage = parse_usage(chunk.get("usage"))
+            if usage:
+                yield LLMDelta(usage_delta=usage)
+
+    @property
+    def _chat_url(self) -> str:
+        """Return the normalized chat-completions URL for the configured base path.
+
+        Returns:
+            Endpoint URL for ``/v1/chat/completions``.
+        """
+        base = self.base_url or ""
+        if base.endswith("/v1"):
+            return f"{base}/chat/completions"
+        if base.endswith("/v1/"):
+            return f"{base}chat/completions"
+        if base.endswith("/"):
+            return f"{base}v1/chat/completions"
+        return f"{base}/v1/chat/completions"
+
+    def _headers(self) -> dict[str, str]:
+        """Build HTTP headers for OpenAI-compatible requests.
+
+        Returns:
+            HTTP headers including JSON content type and optional bearer auth.
+        """
+        headers = {"Content-Type": "application/json"}
+        api_key = self._resolve_api_key()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        return headers
+
+    def _resolve_api_key(self) -> str | None:
+        """Resolve an API key from direct config or environment.
+
+        Returns:
+            API key string, or ``None`` when the endpoint does not require one.
+        """
+        if self._api_key:
+            return self._api_key
+        env_value = os.getenv(self._api_key_env)
+        return env_value or None
+
+    def _build_payload(
+        self,
+        request: LLMRequest,
+        *,
+        include_response_format: bool,
+    ) -> dict[str, Any]:
+        """Build the JSON request payload for one chat-completions call.
+
+        Args:
+            request: Request to translate into provider payload fields.
+            include_response_format: Whether native JSON response hints should be included.
+
+        Returns:
+            JSON-serializable payload for the remote endpoint.
+        """
+        payload: dict[str, Any] = {
+            "model": request.model,
+            "messages": _format_messages(request.messages),
+        }
+        if request.temperature is not None:
+            payload["temperature"] = request.temperature
+        if request.max_tokens is not None:
+            payload["max_tokens"] = request.max_tokens
+        if request.tools and self._capabilities.tool_calling == "native":
+            payload["tools"] = [_format_tool(tool) for tool in request.tools]
+        if include_response_format and self._capabilities.json_mode == "native":
+            response_format = _format_response_format(request, style=self._response_format_style)
+            if response_format:
+                payload["response_format"] = response_format
+        payload.update(request.provider_options)
+        return payload
+
+
+def _post_json(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    timeout_seconds: float = 60.0,
+) -> dict[str, Any]:
+    """POST one JSON request and parse a JSON-object response.
+
+    Args:
+        url: Endpoint URL to call.
+        payload: JSON-serializable request payload.
+        headers: Request headers, including auth when needed.
+        timeout_seconds: HTTP timeout for the request.
+
+    Returns:
+        Parsed JSON response object.
+
+    Raises:
+        LLMInvalidRequestError: If the server returns a non-object JSON payload.
+    """
+    request = Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=timeout_seconds) as response:
+            body = response.read().decode("utf-8")
+            parsed = json.loads(body)
+            if not isinstance(parsed, dict):
+                raise LLMInvalidRequestError("OpenAI-compatible response must be a JSON object.")
+            return parsed
+    except HTTPError as exc:
+        raise map_backend_exception(_http_error(exc)) from exc
+    except URLError as exc:
+        raise map_backend_exception(exc) from exc
+
+
+def _post_stream(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    timeout_seconds: float = 60.0,
+) -> HTTPResponse:
+    """POST one streaming request and return the raw HTTP response handle.
+
+    Args:
+        url: Endpoint URL to call.
+        payload: JSON-serializable request payload.
+        headers: Request headers, including auth when needed.
+        timeout_seconds: HTTP timeout for the request.
+
+    Returns:
+        Open HTTP response object suitable for SSE iteration.
+
+    Raises:
+        Exception: Propagated after transport failures are normalized.
+    """
+    request = Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        return cast(HTTPResponse, urlopen(request, timeout=timeout_seconds))
+    except HTTPError as exc:
+        raise map_backend_exception(_http_error(exc)) from exc
+    except URLError as exc:
+        raise map_backend_exception(exc) from exc
+
+
+def _iter_sse_events(response: Iterable[bytes]) -> Iterator[str]:
+    """Iterate complete SSE ``data:`` payloads from a byte stream.
+
+    Args:
+        response: Raw byte-stream iterable returned by ``urlopen``.
+
+    Yields:
+        Concatenated event payload strings.
+    """
+    buffer: list[str] = []
+    for raw_line in response:
+        line = raw_line.decode("utf-8").strip()
+        if not line:
+            if buffer:
+                yield "".join(buffer)
+                buffer = []
+            continue
+        if line.startswith("data:"):
+            buffer.append(line[len("data:") :].strip())
+    if buffer:
+        yield "".join(buffer)
+
+
+def _parse_completion_response(
+    response: dict[str, Any],
+    request: LLMRequest,
+    *,
+    provider: str,
+) -> LLMResponse:
+    """Normalize one OpenAI-compatible completion response payload.
+
+    Args:
+        response: Parsed JSON response from the remote endpoint.
+        request: Original request used to produce the response.
+        provider: Provider name to stamp into the normalized response.
+
+    Returns:
+        Response converted into the shared ``LLMResponse`` contract.
+
+    Raises:
+        LLMInvalidRequestError: If the payload is missing completion choices.
+    """
+    choices = response.get("choices") or []
+    if not choices:
+        raise LLMInvalidRequestError("OpenAI-compatible response has no choices.")
+    message = choices[0].get("message") or {}
+    content = message.get("content") or ""
+    tool_calls = parse_tool_calls(message.get("tool_calls"))
+    usage = parse_usage(response.get("usage"))
+    return LLMResponse(
+        text=str(content).strip(),
+        tool_calls=tool_calls,
+        usage=usage,
+        raw=response,
+        model=request.model,
+        provider=provider,
+        finish_reason=choices[0].get("finish_reason"),
+    )
+
+
+def _format_messages(messages: Sequence[object]) -> list[dict[str, Any]]:
+    """Translate normalized messages into OpenAI-compatible payload entries.
+
+    Args:
+        messages: Provider-neutral message objects.
+
+    Returns:
+        OpenAI-compatible message payload list.
+    """
+    payloads: list[dict[str, Any]] = []
+    for message in messages:
+        role = getattr(message, "role", None)
+        content = getattr(message, "content", None)
+        if role is None or content is None:
+            continue
+        payload: dict[str, Any] = {"role": role, "content": content}
+        name = getattr(message, "name", None)
+        if name:
+            payload["name"] = name
+        tool_call_id = getattr(message, "tool_call_id", None)
+        if tool_call_id:
+            payload["tool_call_id"] = tool_call_id
+        payloads.append(payload)
+    return payloads
+
+
+def _format_tool(tool: ToolSpec) -> dict[str, Any]:
+    """Translate one tool spec into OpenAI-compatible function-tool format.
+
+    Args:
+        tool: Tool specification exposed by the runtime.
+
+    Returns:
+        OpenAI-compatible tool descriptor.
+    """
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": tool.input_schema,
+        },
+    }
+
+
+def _format_response_format(
+    request: LLMRequest,
+    *,
+    style: Literal["openai", "llama_cpp"] = "openai",
+) -> dict[str, Any] | None:
+    """Translate structured-output hints into ``response_format`` payloads.
+
+    Args:
+        request: Request containing response-format or schema hints.
+        style: Native response-format dialect to emit.
+
+    Returns:
+        OpenAI-compatible ``response_format`` mapping, or ``None`` when absent.
+    """
+    if request.response_format and isinstance(request.response_format, dict):
+        if style == "llama_cpp":
+            return _translate_llama_cpp_response_format(request.response_format)
+        return request.response_format
+    if request.response_schema:
+        if style == "llama_cpp":
+            return {
+                "type": "json_object",
+                "schema": request.response_schema,
+            }
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "response",
+                "schema": request.response_schema,
+            },
+        }
+    return None
+
+
+def _translate_llama_cpp_response_format(response_format: dict[str, Any]) -> dict[str, Any]:
+    """Translate generic response-format payloads into llama.cpp's JSON dialect.
+
+    Args:
+        response_format: Generic response-format mapping requested by the caller.
+
+    Returns:
+        Response-format mapping accepted by ``llama_cpp.server``.
+    """
+    if response_format.get("type") != "json_schema":
+        return response_format
+
+    if isinstance(response_format.get("schema"), dict):
+        return {
+            "type": "json_object",
+            "schema": response_format["schema"],
+        }
+
+    json_schema = response_format.get("json_schema")
+    if isinstance(json_schema, dict) and isinstance(json_schema.get("schema"), dict):
+        return {
+            "type": "json_object",
+            "schema": json_schema["schema"],
+        }
+
+    return {"type": "json_object"}
+
+
+def _http_error(exc: HTTPError) -> Exception:
+    """Convert an HTTP error response into a more specific backend error.
+
+    Args:
+        exc: ``urllib`` HTTP error raised by the request.
+
+    Returns:
+        Normalized exception when the error payload can be parsed.
+    """
+    try:
+        body = exc.read().decode("utf-8")
+        payload = json.loads(body)
+        message = payload.get("error", {}).get("message") or body
+        return LLMInvalidRequestError(message)
+    except Exception:
+        return exc
+
+
+def _extract_tool_call_deltas(raw: Any) -> list[ToolCallDelta]:
+    """Extract streaming tool-call deltas from one chunk payload.
+
+    Args:
+        raw: Raw ``tool_calls`` field from a streaming delta payload.
+
+    Returns:
+        Parsed tool-call delta objects ready for streaming emission.
+    """
+    if not isinstance(raw, list):
+        return []
+    deltas: list[ToolCallDelta] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        call_id = item.get("id")
+        function = item.get("function") or {}
+        deltas.append(
+            ToolCallDelta(
+                call_id=str(call_id) if call_id else None,
+                name=function.get("name"),
+                arguments_json_delta=function.get("arguments"),
+            )
+        )
+    return deltas

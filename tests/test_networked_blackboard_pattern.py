@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from design_research_agents.contracts.agent import Agent, ExecutionResult
-from design_research_agents.workflow import BlackboardPattern, NetworkedPattern
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
+from design_research_agents.patterns import BlackboardPattern, RoundBasedCoordinationPattern
 
 
-class _RecordingPeerAgent(Agent):
+class _RecordingPeerAgent(Delegate):
     """Peer agent that records invocation order and emits fixed payload."""
 
     def __init__(self, *, peer_id: str, recorder: list[str], payload: Mapping[str, object]) -> None:
@@ -24,6 +24,7 @@ class _RecordingPeerAgent(Agent):
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         del prompt, request_id, dependencies
+        # Record invocation order so tests can assert deterministic peer scheduling.
         self._recorder.append(self._peer_id)
         return ExecutionResult(
             output=dict(self._payload),
@@ -34,7 +35,7 @@ class _RecordingPeerAgent(Agent):
         )
 
 
-class _FailingPeerAgent(Agent):
+class _FailingPeerAgent(Delegate):
     """Peer agent that deterministically fails."""
 
     def run(
@@ -56,7 +57,7 @@ class _FailingPeerAgent(Agent):
 
 def test_networked_pattern_uses_deterministic_sorted_peer_order_each_round() -> None:
     call_order: list[str] = []
-    pattern = NetworkedPattern(
+    pattern = RoundBasedCoordinationPattern(
         peers={
             "peer_b": _RecordingPeerAgent(
                 peer_id="peer_b",
@@ -75,8 +76,9 @@ def test_networked_pattern_uses_deterministic_sorted_peer_order_each_round() -> 
     result = pattern.run("Coordinate this task.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["terminated_reason"] == "max_rounds_reached"
-    assert result.output["rounds_executed"] == 2
+    assert result.output["details"]["rounds_executed"] == 2
     assert call_order == ["peer_a", "peer_b", "peer_a", "peer_b"]
 
 
@@ -101,9 +103,11 @@ def test_blackboard_pattern_converges_after_stable_state_hash_rounds() -> None:
     result = pattern.run("Need stable convergence.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["terminated_reason"] == "converged"
-    assert result.output["rounds_executed"] == 2
-    round_summaries = result.output["round_summaries"]
+    assert result.output["details"]["rounds_executed"] == 2
+    round_summaries = result.output["details"]["round_summaries"]
+    # Equal hashes across consecutive rounds indicate stable blackboard state.
     assert round_summaries[0]["state_hash"] == round_summaries[1]["state_hash"]
 
 
@@ -122,12 +126,13 @@ def test_blackboard_pattern_honors_explicit_stop_signal() -> None:
     result = pattern.run("Stop after one round.")
 
     assert result.success
+    assert pattern.workflow is not None
     assert result.output["terminated_reason"] == "explicit_stop"
-    assert result.output["rounds_executed"] == 1
+    assert result.output["details"]["rounds_executed"] == 1
 
 
 def test_networked_pattern_returns_peer_failure_termination() -> None:
-    pattern = NetworkedPattern(
+    pattern = RoundBasedCoordinationPattern(
         peers={
             "peer_a": _RecordingPeerAgent(
                 peer_id="peer_a",
@@ -143,4 +148,4 @@ def test_networked_pattern_returns_peer_failure_termination() -> None:
 
     assert not result.success
     assert result.output["terminated_reason"] == "peer_failure"
-    assert result.output["failed_peer"] == "peer_b"
+    assert result.output["details"]["failed_peer"] == "peer_b"

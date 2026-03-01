@@ -7,10 +7,10 @@ from collections.abc import Mapping
 
 import pytest
 
-from design_research_agents.contracts.tools import ToolResult, ToolSpec
-from design_research_agents.mcp_server import adapters
-from design_research_agents.mcp_server import cli as mcp_cli
-from design_research_agents.mcp_server import server as mcp_server
+from design_research_agents._contracts._tools import ToolResult, ToolSpec
+from design_research_agents._mcp_server import _adapters as adapters
+from design_research_agents._mcp_server import _cli as mcp_cli
+from design_research_agents._mcp_server import _server as mcp_server
 
 
 class _RuntimeStub:
@@ -20,8 +20,8 @@ class _RuntimeStub:
     def list_tools(self) -> tuple[ToolSpec, ...]:
         return (
             ToolSpec(
-                name="calculator",
-                description="Evaluate arithmetic expressions.",
+                name="text.word_count",
+                description="Count words in text.",
                 input_schema={"type": "object"},
                 output_schema={"type": "object"},
             ),
@@ -30,13 +30,13 @@ class _RuntimeStub:
     def invoke(
         self,
         tool_name: str,
-        input_dict: Mapping[str, object],
+        input: Mapping[str, object],
         *,
         request_id: str,
         dependencies: Mapping[str, object],
     ) -> ToolResult:
         del dependencies
-        payload = dict(input_dict)
+        payload = dict(input)
         self.invocations.append((tool_name, payload, request_id))
         return ToolResult(tool_name=tool_name, ok=True, result={"echo": payload})
 
@@ -54,7 +54,7 @@ def test_stdio_server_serve_round_trip_and_errors() -> None:
                 "jsonrpc": "2.0",
                 "id": 4,
                 "method": "tools/call",
-                "params": {"name": "calculator", "arguments": {"value": 3}},
+                "params": {"name": "text.word_count", "arguments": {"text": "one two"}},
             }
         ),
         json.dumps(
@@ -62,7 +62,7 @@ def test_stdio_server_serve_round_trip_and_errors() -> None:
                 "jsonrpc": "2.0",
                 "id": 5,
                 "method": "tools/call",
-                "params": {"name": "calculator", "arguments": []},
+                "params": {"name": "text.word_count", "arguments": []},
             }
         ),
         json.dumps({"jsonrpc": "2.0", "id": 6, "method": "unknown/method"}),
@@ -82,13 +82,13 @@ def test_stdio_server_serve_round_trip_and_errors() -> None:
 
     assert by_id[1]["result"]["protocolVersion"] == "2024-11-05"
     assert by_id[2]["result"] is None
-    assert by_id[3]["result"]["tools"][0]["name"] == "calculator"
+    assert by_id[3]["result"]["tools"][0]["name"] == "text.word_count"
     assert by_id[4]["result"]["isError"] is False
-    assert by_id[4]["result"]["structuredContent"]["result"] == {"echo": {"value": 3}}
+    assert by_id[4]["result"]["structuredContent"]["result"] == {"echo": {"text": "one two"}}
     assert by_id[5]["error"]["code"] == -32602
     assert by_id[6]["error"]["code"] == -32601
     assert by_id[7]["result"] is None
-    assert runtime.invocations == [("calculator", {"value": 3}, "mcp")]
+    assert runtime.invocations == [("text.word_count", {"text": "one two"}, "mcp")]
 
 
 def test_mcp_adapters_preserve_structured_result() -> None:
@@ -157,6 +157,6 @@ def test_mcp_server_dunder_main_invokes_stdio(monkeypatch: pytest.MonkeyPatch) -
     called: list[bool] = []
     monkeypatch.setattr(mcp_server, "_serve_stdio", lambda: called.append(True))
 
-    runpy.run_module("design_research_agents.mcp_server.__main__", run_name="__main__")
+    runpy.run_module("design_research_agents._mcp_server.__main__", run_name="__main__")
 
     assert called == [True]

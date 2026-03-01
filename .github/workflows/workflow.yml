@@ -1,0 +1,78 @@
+# GitHub Actions workflow to publish `design-research-agents` to PyPI.
+#
+# Goals:
+# - Build sdist + wheel deterministically on a clean runner.
+# - Validate artifacts (metadata + README rendering hints) before upload.
+# - Publish via **trusted publishing** (OIDC), avoiding long-lived PyPI tokens.
+# - Allow both automatic publishes (GitHub Releases) and manual runs (workflow_dispatch).
+#
+# Assumptions:
+# - You have configured PyPI trusted publishing for this repo + the `pypi` environment.
+# - The `pypi` environment can optionally enforce approvals / protection rules.
+
+name: Publish
+
+# Triggers:
+# - On GitHub Release publish events (recommended: release-driven versioning).
+# - Manual trigger for re-runs / hotfixes (useful if PyPI upload failed transiently).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# Default permissions are read-only; we elevate only what we need inside the job.
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish distribution
+
+    # Use GitHub-hosted Ubuntu runner for a clean, reproducible build environment.
+    runs-on: ubuntu-latest
+
+    # Attach this job to the `pypi` environment so you can:
+    # - require approvals
+    # - restrict who can deploy
+    # - view a friendly link to the deployed package
+    environment:
+      name: pypi
+      url: https://pypi.org/p/design-research-agents
+
+    # Job-scoped permissions:
+    # - contents: read is enough to check out the repo.
+    # - id-token: write is REQUIRED for OIDC trusted publishing (no password/token).
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      # Fetch the repository contents for building.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install a pinned Python runtime for consistent builds.
+      # `cache: pip` speeds up repeated runs by caching downloaded wheels.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # Build source and wheel distributions, then sanity-check them.
+      #
+      # - build: produces dist/*.tar.gz (sdist) and dist/*.whl (wheel)
+      # - twine check: validates metadata and long_description rendering markers
+      #   (catches common README/metadata packaging issues early).
+      - name: Build distribution artifacts
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+
+      # Publish to PyPI using OIDC (trusted publishing).
+      #
+      # This action exchanges the GitHub OIDC token for a short-lived PyPI token
+      # behind the scenes. No secrets required in the repo.
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

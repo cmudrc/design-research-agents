@@ -1,4 +1,4 @@
-"""Validate documentation naming and path consistency invariants."""
+"""Validate public documentation consistency invariants."""
 
 from __future__ import annotations
 
@@ -22,7 +22,35 @@ LEGACY_EXAMPLE_PATHS = (
 
 SCAN_FILE_SUFFIXES = (".rst", ".md")
 EXAMPLE_PATH_PATTERN = re.compile(r"(examples/[A-Za-z0-9_./-]+\.(?:py|md))")
-CODE_SYMBOL_PATTERN = re.compile(r"``([A-Za-z_][A-Za-z0-9_]*)``")
+API_AUTODOC_DIRECTIVE_PATTERN = re.compile(
+    r"^\.\.\s+auto(?:class|data|function|attribute|exception)::\s+"
+    r"design_research_agents\.([A-Za-z_][A-Za-z0-9_]*)\s*$",
+    re.MULTILINE,
+)
+API_AUTOSUMMARY_ENTRY_PATTERN = re.compile(r"^design_research_agents\.([A-Za-z_][A-Za-z0-9_]*)$")
+INTERNAL_MODULE_PATTERN = re.compile(
+    r"\bdesign_research_agents\.(?:"
+    r"implementations|_implementations|_runtime"
+    r"|_[A-Za-z0-9][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*"
+    r"|llm\._[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*"
+    r"|llm\.clients\._[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*"
+    r"|tools\._[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*"
+    r")\b"
+)
+STALE_SOURCE_PATH_PATTERN = re.compile(r"\bsrc/design_research_agents/[A-Za-z0-9_./-]*")
+INTERNAL_REFERENCE_DOC_PATHS = {
+    "docs/reference/contracts.rst",
+    "docs/reference/memory.rst",
+    "docs/reference/model_selection.rst",
+    "docs/reference/tracing.rst",
+    "docs/reference/prompts.rst",
+    "docs/reference/schemas.rst",
+    "docs/reference/mcp_server.rst",
+    "docs/reference/shared.rst",
+}
+ALLOWED_USER_DOC_INTERNAL_REFERENCES = {
+    "docs/api.rst": ("design_research_agents._contracts",),
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -59,9 +87,7 @@ def _scan_files(repo_root: Path) -> list[Path]:
         files.extend(
             path
             for path in sorted(docs_root.rglob("*"))
-            if path.is_file()
-            and path.suffix in SCAN_FILE_SUFFIXES
-            and "/_build/" not in path.as_posix()
+            if path.is_file() and path.suffix in SCAN_FILE_SUFFIXES and "/_build/" not in path.as_posix()
         )
     examples_root = repo_root / "examples"
     if examples_root.exists():
@@ -158,51 +184,138 @@ def _parse_exports(repo_root: Path) -> set[str]:
     return exports
 
 
-def _parse_api_doc_symbols(repo_root: Path) -> set[str]:
-    """Parse documented inline-code symbols from ``docs/api.rst``.
+def _parse_api_rendered_symbols(repo_root: Path) -> set[str]:
+    """Parse exported symbols rendered by autodoc in ``docs/api.rst``.
 
     Args:
         repo_root: Repository root directory.
 
     Returns:
-        Symbol names referenced in inline code spans.
+        Symbols rendered by ``autodata``/``autoclass``/``autosummary``.
     """
     api_path = repo_root / "docs" / "api.rst"
     text = api_path.read_text(encoding="utf-8")
-    return {match.group(1) for match in CODE_SYMBOL_PATTERN.finditer(text)}
+    symbols = {match.group(1) for match in API_AUTODOC_DIRECTIVE_PATTERN.finditer(text)}
+
+    in_autosummary = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == ".. autosummary::":
+            in_autosummary = True
+            continue
+        if not in_autosummary:
+            continue
+        if not stripped:
+            continue
+        if stripped.startswith(":"):
+            continue
+        if not line.startswith("   "):
+            in_autosummary = False
+            continue
+        entry_match = API_AUTOSUMMARY_ENTRY_PATTERN.fullmatch(stripped)
+        if entry_match is not None:
+            symbols.add(entry_match.group(1))
+    return symbols
 
 
 def _find_export_mismatch_violations(repo_root: Path) -> list[Violation]:
-    """Find mismatches between package exports and API docs.
+    """Find mismatches between package exports and rendered API docs.
 
     Args:
         repo_root: Repository root directory.
 
     Returns:
-        Violations for missing or extra export documentation.
+        Violations for missing or extra export coverage.
     """
     violations: list[Violation] = []
     exports = _parse_exports(repo_root)
-    api_symbols = _parse_api_doc_symbols(repo_root)
-    api_export_symbols = {symbol for symbol in api_symbols if symbol in exports}
+    rendered_symbols = _parse_api_rendered_symbols(repo_root)
 
-    missing = sorted(exports - api_export_symbols)
+    missing = sorted(exports - rendered_symbols)
     if missing:
         violations.append(
             Violation(
                 category="api-doc-missing-export",
-                detail="docs/api.rst is missing canonical exports: " + ", ".join(missing),
+                detail="docs/api.rst is missing rendered export coverage for: " + ", ".join(missing),
             )
         )
 
-    extra = sorted(api_export_symbols - exports)
+    extra = sorted(rendered_symbols - exports)
     if extra:
         violations.append(
             Violation(
                 category="api-doc-extra-export",
-                detail="docs/api.rst documents non-canonical exports: " + ", ".join(extra),
+                detail="docs/api.rst renders non-canonical exports: " + ", ".join(extra),
             )
         )
+    return violations
+
+
+def _find_internal_module_boundary_violations(
+    repo_root: Path,
+    files: list[Path],
+) -> list[Violation]:
+    """Find user-facing docs that reference internal implementation modules.
+
+    Args:
+        repo_root: Repository root directory.
+        files: Candidate files to scan.
+
+    Returns:
+        Violations for internal module leakage in public docs.
+    """
+    violations: list[Violation] = []
+    seen: set[tuple[str, str]] = set()
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(repo_root).as_posix()
+        if rel in INTERNAL_REFERENCE_DOC_PATHS:
+            continue
+        for match in INTERNAL_MODULE_PATTERN.finditer(text):
+            matched_path = match.group(0)
+            allowed_prefixes = ALLOWED_USER_DOC_INTERNAL_REFERENCES.get(rel, ())
+            if any(matched_path.startswith(prefix) for prefix in allowed_prefixes):
+                continue
+            key = (rel, matched_path)
+            if key in seen:
+                continue
+            seen.add(key)
+            violations.append(
+                Violation(
+                    category="public-doc-internal-module",
+                    detail=f"{rel}: references internal module path '{matched_path}'.",
+                )
+            )
+    return violations
+
+
+def _find_stale_source_path_violations(repo_root: Path, files: list[Path]) -> list[Violation]:
+    """Find stale source-tree path references in user-facing docs.
+
+    Args:
+        repo_root: Repository root directory.
+        files: Candidate files to scan.
+
+    Returns:
+        Violations for stale ``src/design_research_agents/...`` references.
+    """
+    violations: list[Violation] = []
+    seen: set[tuple[str, str]] = set()
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        rel = path.relative_to(repo_root).as_posix()
+        for match in STALE_SOURCE_PATH_PATTERN.finditer(text):
+            matched_path = match.group(0)
+            key = (rel, matched_path)
+            if key in seen:
+                continue
+            seen.add(key)
+            violations.append(
+                Violation(
+                    category="stale-source-path",
+                    detail=f"{rel}: found stale source-tree path '{matched_path}'.",
+                )
+            )
     return violations
 
 
@@ -218,6 +331,8 @@ def main() -> int:
     violations.extend(_find_legacy_name_violations(repo_root, files))
     violations.extend(_find_missing_example_path_violations(repo_root, files))
     violations.extend(_find_export_mismatch_violations(repo_root))
+    violations.extend(_find_internal_module_boundary_violations(repo_root, files))
+    violations.extend(_find_stale_source_path_violations(repo_root, files))
 
     if not violations:
         print("Documentation consistency checks passed.")
