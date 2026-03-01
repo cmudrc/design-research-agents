@@ -24,15 +24,7 @@ type TaskPriority = Literal["latency", "quality", "cost", "balanced"]
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class LLMMessage:
-    """One chat message in the provider-neutral completion format.
-
-    Attributes:
-        role: Semantic message role (system, user, assistant, or tool).
-        content: Plain text content sent to the model.
-        name: Optional participant name used by providers that support it.
-        tool_call_id: Optional tool call id for tool-result messages.
-        tool_name: Optional tool name for tool-result messages.
-    """
+    """One chat message in the provider-neutral completion format."""
 
     role: LLMRole
     """Message role used by chat-compatible backends."""

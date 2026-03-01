@@ -30,12 +30,7 @@ class ModelMemoryHint:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class ModelLatencyHint:
-    """Latency hints for model selection.
-
-    Attributes:
-        tier: Qualitative latency tier.
-        note: Optional annotation for the hint.
-    """
+    """Latency hints for model selection."""
 
     tier: LatencyTier
     """Relative latency tier for this model option."""
@@ -45,12 +40,7 @@ class ModelLatencyHint:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class ModelCostHint:
-    """Cost hints for model selection.
-
-    Attributes:
-        tier: Qualitative cost tier.
-        usd_per_1k_tokens: Estimated cost per 1K tokens, when known.
-    """
+    """Cost hints for model selection."""
 
     tier: CostTier
     """Relative cost tier for this model option."""
@@ -120,12 +110,7 @@ class ModelSpec:
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class ModelSelectionIntent:
-    """Intent descriptor used by the model selection policy.
-
-    Attributes:
-        task: Description of the task or intent.
-        priority: Preference for quality vs. speed.
-    """
+    """Intent descriptor used by the model selection policy."""
 
     task: str
     """Task description used to classify selection intent."""
