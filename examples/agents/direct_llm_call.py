@@ -72,17 +72,21 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+
+    # Run the direct LLM call using a convenience wrapper. Using this with statement will automatically shut down the
+    # client when we're done.
     with LlamaCppServerLLMClient() as llm_client:
-        agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        llm = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
-            "Write one sentence describing the primary engineering objective for a "
+            "Write one sentence describing the one primary engineering specification for a "
             "field-repairable wearable sensor enclosure."
         )
-        result = agent.run(
+        result = llm.run(
             prompt=prompt,
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
