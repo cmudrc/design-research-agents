@@ -86,6 +86,8 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
+    # Run the OpenAI-compatible client using public runtime APIs. Using this with statement will automatically
+    # close the configured HTTP client when the example is done.
     with OpenAICompatibleHTTPLLMClient(
         name="local-openai-compat",
         base_url="http://127.0.0.1:8011/v1",
@@ -144,6 +146,7 @@ def main() -> None:
     assert isinstance(payload, dict)
     payload["example"] = "clients/openai_compatible_http_client.py"
     payload["trace"] = tracer.trace_info(request_id)
+    # Print the results
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 

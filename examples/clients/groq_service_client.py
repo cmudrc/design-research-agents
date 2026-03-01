@@ -85,6 +85,7 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
+    # Build the hosted Groq client using public runtime APIs, then execute one representative request.
     client = GroqServiceLLMClient(
         name="groq-prod",
         default_model="llama-3.1-8b-instant",
@@ -143,6 +144,7 @@ def main() -> None:
     assert isinstance(payload, dict)
     payload["example"] = "clients/groq_service_client.py"
     payload["trace"] = tracer.trace_info(request_id)
+    # Print the results
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 
