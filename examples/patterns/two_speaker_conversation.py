@@ -69,6 +69,8 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the two-speaker conversation using the managed local client. Using this with statement will
+    # automatically shut down the client when the example is done.
     with LlamaCppServerLLMClient() as llm_client:
         pattern = TwoSpeakerConversationPattern(
             llm_client_a=llm_client,
@@ -91,6 +93,7 @@ def main() -> None:
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

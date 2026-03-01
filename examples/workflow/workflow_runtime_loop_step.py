@@ -108,6 +108,7 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Build and run the loop workflow using public runtime APIs.
     workflow = Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
@@ -134,6 +135,7 @@ def main() -> None:
     )
 
     result = workflow.run({}, execution_mode="sequential", request_id=request_id)
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

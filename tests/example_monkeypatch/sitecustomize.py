@@ -49,10 +49,10 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         '{"decision":"STOP","content":"Final answer ready.","final_output":"42","reason":"done"}',
     ),
     "examples/optimization/multi_step_json_tool_calling_1d_optimization.py": (
-        '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Decrease x toward zero."}',
-        '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Keep moving toward zero."}',
-        '{"tool_name":"optimizer.decrease_x","tool_input":{"step":1},"reason":"Reach x=0."}',
-        '{"tool_name":"final_answer","tool_input":{"x":0,"objective":0},"reason":"done"}',
+        '{"tool_name":"optimizer.evaluate","tool_input":{"x":3},"reason":"Start from the given point."}',
+        '{"tool_name":"optimizer.evaluate","tool_input":{"x":1},"reason":"Check a better point closer to zero."}',
+        '{"tool_name":"optimizer.evaluate","tool_input":{"x":0},"reason":"Test the obvious minimum."}',
+        '{"tool_name":"final_answer","tool_input":{"best_x":0,"best_objective":0,"evaluations":3},"reason":"done"}',
     ),
     "examples/patterns/plan_execute.py": (
         (

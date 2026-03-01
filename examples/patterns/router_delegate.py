@@ -82,6 +82,8 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the router/delegate pattern using public runtime surfaces. Using this with statement will automatically
+    # shut down the managed client and tool runtime when the example is done.
     with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
         direct_llm_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         json_tool_agent = MultiStepAgent(
@@ -115,6 +117,7 @@ def main() -> None:
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

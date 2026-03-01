@@ -75,8 +75,10 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the code-tool example using public runtime surfaces. Using this with statement will automatically shut
+    # down the managed client and tool runtime when the example is done.
     with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
-        agent = MultiStepAgent(
+        code_tool_agent = MultiStepAgent(
             mode="code",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -85,7 +87,7 @@ def main() -> None:
             default_tools_per_step=({"tool_name": "text.word_count"},),
             tracer=tracer,
         )
-        result = agent.run(
+        result = code_tool_agent.run(
             prompt=(
                 "Use executable Python only. In one step, call "
                 'stats = call_tool("text.word_count", {"text": "design review metrics"}) '
@@ -94,6 +96,7 @@ def main() -> None:
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

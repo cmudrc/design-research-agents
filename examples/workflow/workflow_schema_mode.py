@@ -117,6 +117,8 @@ def main() -> None:
         encoding="utf-8",
     )
 
+    # Run the schema-mode workflow using public runtime surfaces. Using this with statement will automatically
+    # close the tool runtime when the example is done.
     with Toolbox() as tool_runtime:
         workflow = Workflow(
             tool_runtime=tool_runtime,
@@ -198,6 +200,7 @@ def main() -> None:
             request_id=relaxed_request_id,
         )
 
+    # Print the results
     print(
         json.dumps(
             {

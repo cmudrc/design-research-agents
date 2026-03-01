@@ -1,5 +1,8 @@
 # design-research-agents
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Coverage](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Examples Passing](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
 `design-research-agents` is a modular framework for prototyping and researching engineering design AI agents.
@@ -7,14 +10,14 @@ It features shared runtime contracts, workflow orchestration, and pluggable LLM 
 
 ## Overview
 
-The current library centers on a small set of composable pieces you can run, inspect, and test:
+This library centers on a small set of composable pieces you can run, inspect, and test:
 
-- Two agent entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
-- A workflow runtime with explicit step primitives for model calls, tool calls, delegation, loops, and memory
+- Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
 - Prebuilt orchestration patterns for plan/execute, debate, propose/critic, routing, beam search, RAG, blackboard, and conversations
 - Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
 - Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
+- A workflow runtime with explicit step primitives for model calls, tool calls, delegation, loops, and memory
 
 ## A Super Basic Agent
 

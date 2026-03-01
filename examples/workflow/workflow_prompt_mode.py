@@ -91,6 +91,8 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the prompt-mode workflow using public runtime surfaces. Using this with statement will automatically
+    # shut down the managed client and tool runtime when the example is done.
     with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
         writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
@@ -174,6 +176,7 @@ def main() -> None:
             request_id=template_request_id,
         )
 
+    # Print the results
     print(
         json.dumps(
             {

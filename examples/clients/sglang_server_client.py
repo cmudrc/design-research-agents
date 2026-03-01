@@ -93,6 +93,8 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
+    # Run the managed SGLang client using public runtime APIs. Using this with statement will automatically
+    # shut down the managed local server when the example is done.
     with SGLangServerLLMClient(
         name="sglang-local-dev",
         model="Qwen/Qwen2.5-1.5B-Instruct",
@@ -156,6 +158,7 @@ def main() -> None:
     assert isinstance(payload, dict)
     payload["example"] = "clients/sglang_server_client.py"
     payload["trace"] = tracer.trace_info(request_id)
+    # Print the results
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 

@@ -87,6 +87,8 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
+    # Run the local MLX client using public runtime APIs. Using this with statement will automatically
+    # release any loaded model resources when the example is done.
     with MLXLocalLLMClient(
         name="mlx-local-dev",
         model_id="mlx-community/Qwen2.5-1.5B-Instruct-4bit",
@@ -144,6 +146,7 @@ def main() -> None:
     assert isinstance(payload, dict)
     payload["example"] = "clients/mlx_local_client.py"
     payload["trace"] = tracer.trace_info(request_id)
+    # Print the results
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 

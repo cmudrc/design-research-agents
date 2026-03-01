@@ -73,20 +73,21 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the compiled direct LLM example using public runtime APIs. Using this with statement will automatically
+    # shut down the managed client when the example is done.
     with LlamaCppServerLLMClient() as llm_client:
-        agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        llm = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
-            "Write one sentence describing the primary engineering objective for a "
+            "Write one sentence describing the one primary engineering specification for a "
             "field-repairable wearable sensor enclosure."
         )
-        compiled = agent.compile(
+        compiled: CompiledExecution = llm.compile(
             prompt=prompt,
             request_id=request_id,
         )
-        if not isinstance(compiled, CompiledExecution):
-            raise TypeError("DirectLLMCall.compile() must return CompiledExecution.")
         result = compiled.run()
 
+    # Print the results
     payload = {
         "compiled_delegate_name": compiled.delegate_name,
         "compiled_request_id": compiled.request_id,

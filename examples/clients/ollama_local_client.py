@@ -92,6 +92,8 @@ from design_research_agents.llm import LLMMessage, LLMRequest
 
 
 def _build_payload() -> dict[str, object]:
+    # Run the managed Ollama client using public runtime APIs. Using this with statement will automatically
+    # shut down the managed local server when the example is done.
     with OllamaLLMClient(
         name="ollama-local-dev",
         default_model="qwen2.5:1.5b-instruct",
@@ -155,6 +157,7 @@ def main() -> None:
     assert isinstance(payload, dict)
     payload["example"] = "clients/ollama_local_client.py"
     payload["trace"] = tracer.trace_info(request_id)
+    # Print the results
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 

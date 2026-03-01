@@ -83,6 +83,8 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
+    # Run the memory-backed JSON example using public runtime surfaces. Using this with statement will
+    # automatically close the tool runtime, memory store, and managed client when the example is done.
     with (
         Toolbox() as tool_runtime,
         SQLiteMemoryStore(db_path=db_path) as store,
@@ -106,7 +108,7 @@ def main() -> None:
             request_id=f"{request_id}:seed_memory",
             dependencies={},
         )
-        agent = MultiStepAgent(
+        memory_agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -118,13 +120,14 @@ def main() -> None:
             allowed_tools=("text.word_count",),
             tracer=tracer,
         )
-        result = agent.run(
+        result = memory_agent.run(
             (
                 "Use the retrieved design note as your input, count its words with text.word_count, "
                 "then return only the resulting word_count."
             ),
             request_id=request_id,
         )
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

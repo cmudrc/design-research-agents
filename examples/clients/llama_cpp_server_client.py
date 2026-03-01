@@ -95,6 +95,8 @@ from design_research_agents.llm.clients import LlamaCppServerLLMClient
 
 
 def _build_payload() -> dict[str, object]:
+    # Run the managed llama.cpp client using public runtime APIs. Using this with statement will automatically
+    # shut down the managed local server when the example is done.
     with LlamaCppServerLLMClient(
         name="llama-local-dev",
         model="Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
@@ -106,7 +108,7 @@ def _build_payload() -> dict[str, object]:
         startup_timeout_seconds=90.0,
         poll_interval_seconds=0.5,
         python_executable=sys.executable,
-        extra_server_args=("--threads", "4", "--flash_attn", "1"),
+        extra_server_args=("--n_threads", "4", "--flash_attn", "1"),
         max_retries=3,
         model_patterns=("qwen2.5-*", "qwen2-*"),
     ) as client:
@@ -159,6 +161,7 @@ def main() -> None:
     assert isinstance(payload, dict)
     payload["example"] = "clients/llama_cpp_server_client.py"
     payload["trace"] = tracer.trace_info(request_id)
+    # Print the results
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
 
 

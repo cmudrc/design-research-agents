@@ -67,6 +67,8 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the model-step workflow using public runtime surfaces. Using this with statement will automatically
+    # shut down the managed client when the example is done.
     with LlamaCppServerLLMClient() as llm_client:
         workflow = Workflow(
             tool_runtime=None,
@@ -109,6 +111,7 @@ def main() -> None:
             {"design_goal": "reduce repair time for edge-device battery modules"},
             request_id=request_id,
         )
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

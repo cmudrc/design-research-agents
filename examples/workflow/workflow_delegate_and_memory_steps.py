@@ -83,6 +83,8 @@ def main() -> None:
     if db_path.exists():
         db_path.unlink()
 
+    # Run the workflow using public runtime surfaces. Using this with statement will automatically close the
+    # memory store and managed client when the example is done.
     with (
         SQLiteMemoryStore(db_path=db_path) as store,
         LlamaCppServerLLMClient() as llm_client,
@@ -158,6 +160,7 @@ def main() -> None:
         )
         result = workflow.run({}, request_id=request_id)
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

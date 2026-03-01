@@ -88,107 +88,74 @@ def main() -> None:
         enable_console=True,
     )
     initial_x = 3.0
-    x_value = initial_x
-    history: list[float] = [initial_x]
-    objective_history: list[float] = [_objective(initial_x)]
+    evaluation_history: list[dict[str, float]] = []
 
-    def _step(delta: float, payload: Mapping[str, object]) -> dict[str, object]:
-        nonlocal x_value
-        previous_x = x_value
-        previous_f_x = _objective(previous_x)
-        raw_step = payload.get("step", 1.0)
-        step = float(raw_step) if isinstance(raw_step, (int, float)) else 1.0
-        requested_delta = delta * abs(step)
-        next_x = previous_x + requested_delta
-        applied_delta = requested_delta
-        auto_corrected = False
-        if previous_x == 0.0 and next_x != 0.0:
-            next_x = 0.0
-            applied_delta = 0.0
-        elif _objective(next_x) > previous_f_x:
-            alternate_delta = -requested_delta
-            alternate_x = previous_x + alternate_delta
-            if _objective(alternate_x) < previous_f_x:
-                next_x = alternate_x
-                applied_delta = alternate_delta
-                auto_corrected = True
-        x_value = next_x
+    def _evaluate(payload: Mapping[str, object]) -> dict[str, object]:
+        raw_x = payload.get("x", initial_x)
+        x_value = float(raw_x) if isinstance(raw_x, (int, float)) else initial_x
         f_x = _objective(x_value)
-        history.append(x_value)
-        objective_history.append(f_x)
-        best_index = min(
-            range(len(objective_history)),
-            key=lambda index: objective_history[index],
-        )
+        evaluation_record = {"x": x_value, "f_x": f_x}
+        evaluation_history.append(evaluation_record)
+        best_record = min(evaluation_history, key=lambda record: record["f_x"])
+        previous_record = evaluation_history[-2] if len(evaluation_history) > 1 else None
         return {
             "x": x_value,
             "f_x": f_x,
-            "previous_x": previous_x,
-            "previous_f_x": previous_f_x,
-            "improved": f_x < previous_f_x,
-            "requested_delta": requested_delta,
-            "applied_delta": applied_delta,
-            "auto_corrected": auto_corrected,
-            "best_x": history[best_index],
-            "best_objective": objective_history[best_index],
-            "history": list(history),
-            "at_optimum": x_value == 0.0,
+            "evaluations": len(evaluation_history),
+            "previous_x": None if previous_record is None else previous_record["x"],
+            "previous_f_x": None if previous_record is None else previous_record["f_x"],
+            "best_x": best_record["x"],
+            "best_objective": best_record["f_x"],
+            "improved_best": best_record is evaluation_record,
+            "history": list(evaluation_history),
         }
 
-    def _increase(payload: Mapping[str, object]) -> dict[str, object]:
-        return _step(1.0, payload)
-
-    def _decrease(payload: Mapping[str, object]) -> dict[str, object]:
-        return _step(-1.0, payload)
-
+    # Run the optimization example using public runtime surfaces. Using this with statement will automatically
+    # shut down the managed client and tool runtime when the example is done.
     with (
         Toolbox(
             enable_core_tools=False,
             callable_tools=(
                 CallableToolConfig(
-                    name="optimizer.decrease_x",
-                    description="Decrease x by step (default 1).",
-                    handler=_decrease,
+                    name="optimizer.evaluate",
+                    description="Evaluate f(x) = x^2 at a proposed x and return the best observation so far.",
+                    handler=_evaluate,
                     input_schema={
                         "type": "object",
                         "additionalProperties": False,
-                        "properties": {"step": {"type": "number"}},
-                        "required": [],
-                    },
-                ),
-                CallableToolConfig(
-                    name="optimizer.increase_x",
-                    description="Increase x by step (default 1).",
-                    handler=_increase,
-                    input_schema={
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {"step": {"type": "number"}},
-                        "required": [],
+                        "properties": {"x": {"type": "number"}},
+                        "required": ["x"],
                     },
                 ),
             ),
         ) as tools,
         LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
-        agent = MultiStepAgent(
+        optimization_agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tools,
             max_steps=6,
+            # This example uses prompt guidance rather than tool-enforced step directions.
+            tool_calling_system_prompt=(
+                "You are solving a simple one-dimensional black-box minimization problem. "
+                "Use optimizer.evaluate to test concrete x values, and rely on observed tool results instead "
+                "of guessing numeric outcomes. Prefer a short, informative search that moves toward lower "
+                "observed objective values, then emit final_answer once the best observed x is well-supported."
+            ),
             tracer=tracer,
         )
-        result = agent.run(
+        result = optimization_agent.run(
             prompt=(
-                "Your job is to find a value of x to minimize the blackbox function f(x). "
-                "Start at x=3 and use optimizer.increase_x or optimizer.decrease_x to search. "
-                "Keep iterating until no one-step move improves the value. Once x reaches 0, "
-                "emit final_answer with the best x and its objective value, because any one-step "
-                "move worsens the objective."
+                "Minimize the black-box function f(x). Begin by evaluating x=3. "
+                "Use the observed results to choose a few better candidate x values, keeping the search efficient. "
+                "When you have enough evidence, emit final_answer with exactly the keys best_x, "
+                "best_objective, and evaluations, and use only values that came from tool observations."
             ),
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

@@ -67,20 +67,24 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the direct multi-step example using the managed local client. Using this with statement will automatically
+    # shut down the client when the example is done.
     with LlamaCppServerLLMClient() as llm_client:
-        agent = MultiStepAgent(
+        direct_agent = MultiStepAgent(
             mode="direct",
             llm_client=llm_client,
             max_steps=3,
             tracer=tracer,
         )
-        result = agent.run(
+        result = direct_agent.run(
             prompt=(
-                "Draft then finalize a short design memo title for reducing maintenance time in a modular lab rig."
+                "Draft then finalize the title of a memo about reducing maintenance time in a modular lab rig. "
+                "Return only the memo title."
             ),
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 

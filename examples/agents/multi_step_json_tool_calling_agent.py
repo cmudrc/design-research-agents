@@ -55,7 +55,6 @@ from pathlib import Path
 
 from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
 
-_JSON_ALLOWED_TOOLS: tuple[str, ...] = ("text.word_count",)
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
@@ -76,17 +75,19 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
+    # Run the JSON tool-calling example using public runtime surfaces. Using this with statement will automatically
+    # shut down the managed client and tool runtime when the example is done.
     with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
-        agent = MultiStepAgent(
+        json_tool_agent = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_steps=3,
             # Constrain selection so the example exercises an explicit tool surface.
-            allowed_tools=_JSON_ALLOWED_TOOLS,
+            allowed_tools=("text.word_count",),
             tracer=tracer,
         )
-        result = agent.run(
+        result = json_tool_agent.run(
             prompt=(
                 "Use text.word_count once to count the words in the phrase "
                 "'design research agents', then finish by returning only the word_count."
@@ -94,6 +95,7 @@ def main() -> None:
             request_id=request_id,
         )
 
+    # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
