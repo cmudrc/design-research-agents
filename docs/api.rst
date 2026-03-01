@@ -68,10 +68,6 @@ context-manager form is the preferred public usage pattern.
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.HTMLLLMClient
-   :members:
-   :undoc-members:
-
 .. autoclass:: design_research_agents.OpenAIServiceLLMClient
    :members:
    :undoc-members:

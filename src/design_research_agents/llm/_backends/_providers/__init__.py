@@ -5,7 +5,6 @@ from ._azure_openai_service import AzureOpenAIServiceBackend
 from ._echo_test import EchoTestBackend
 from ._gemini_service import GeminiServiceBackend
 from ._groq_service import GroqServiceBackend
-from ._html import HTMLBackend
 from ._llama_cpp import LlamaCppBackend
 from ._llama_cpp_server import LlamaCppServerBackend, create_backend
 from ._mlx_local import MlxLocalBackend
@@ -28,7 +27,6 @@ __all__ = [
     "EchoTestBackend",
     "GeminiServiceBackend",
     "GroqServiceBackend",
-    "HTMLBackend",
     "LlamaCppBackend",
     "LlamaCppServerBackend",
     "MlxLocalBackend",

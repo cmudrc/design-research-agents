@@ -42,7 +42,6 @@ _EXPORTS: Final[dict[str, str]] = {
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
     "GroqServiceLLMClient": "design_research_agents.llm:GroqServiceLLMClient",
-    "HTMLLLMClient": "design_research_agents.llm:HTMLLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
     "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
     "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
@@ -113,7 +112,6 @@ if TYPE_CHECKING:
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
     from .llm import GroqServiceLLMClient as GroqServiceLLMClient
-    from .llm import HTMLLLMClient as HTMLLLMClient
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from .llm import MLXLocalLLMClient as MLXLocalLLMClient
     from .llm import OllamaLLMClient as OllamaLLMClient

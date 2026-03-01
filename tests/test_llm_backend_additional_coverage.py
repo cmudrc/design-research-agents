@@ -24,7 +24,6 @@ from design_research_agents.llm._backends._base import (
     _parse_tool_calls,
 )
 from design_research_agents.llm._backends._providers._echo_test import EchoTestBackend
-from design_research_agents.llm._backends._providers._html import HTMLBackend
 from design_research_agents.llm._backends._providers._llama_cpp import LlamaCppBackend
 from design_research_agents.llm._backends._providers._mlx_local import MlxLocalBackend
 
@@ -110,33 +109,6 @@ def test_echo_backend_supports_health_generate_and_stream() -> None:
     streamed = list(backend.stream(_request(model="echo-model", messages=[])))
     assert len(streamed) == 1
     assert streamed[0].text_delta == response.text
-
-
-def test_html_backend_supports_health_generate_and_stream() -> None:
-    backend = HTMLBackend(name="html", model="html-standin-v1", config_hash="cfg")
-    assert backend.capabilities().streaming is True
-    assert backend.healthcheck().ok is True
-
-    response = backend.generate(
-        _request(
-            model="html-standin-v1",
-            messages=[LLMMessage(role="assistant", content=""), LLMMessage(role="system", content="fallback")],
-        )
-    )
-    assert response.text == (
-        "<html>\n  <body>\n    <h1>Mock Model Response</h1>\n    <p>fallback</p>\n  </body>\n</html>"
-    )
-
-    streamed = list(
-        backend.stream(
-            _request(
-                model="html-standin-v1",
-                messages=[LLMMessage(role="user", content="Prototype a repair guide")],
-            )
-        )
-    )
-    assert len(streamed) == 1
-    assert "Prototype a repair guide" in (streamed[0].text_delta or "")
 
 
 def test_llama_cpp_backend_delegates_to_server_and_http_backend(

@@ -1,9 +1,9 @@
 """# Agents / Direct LLM Call.
 
 ## Introduction
-Fast offline onboarding is easiest when the runtime path is fully inspectable, deterministic, and free of
-external service setup. This example uses the built-in HTML stand-in client so a first run still exercises
-the same tracing and execution contracts without requiring network access, model downloads, or API keys.
+The default built-in path is the OpenAI-compatible HTTP client. This keeps the base install lightweight
+while still talking to a real endpoint, whether that endpoint is local (for example llama.cpp, vLLM, or
+SGLang) or remote behind an OpenAI-shaped gateway.
 
 
 ## Technical Implementation
@@ -43,8 +43,8 @@ Example output shape (values vary by run):
    }
 
 ## References
-- `WHATWG HTML Living Standard <https://html.spec.whatwg.org/>`_
-- `Python html module <https://docs.python.org/3/library/html.html>`_
+- `OpenAI API Reference <https://platform.openai.com/docs/api-reference/chat>`_
+- `llama.cpp server documentation <https://github.com/ggml-org/llama.cpp/tree/master/tools/server>`_
 - `Holistic Evaluation of Language Models (HELM) <https://arxiv.org/abs/2211.09110>`_
 """
 
@@ -55,7 +55,7 @@ from pathlib import Path
 
 from design_research_agents import (
     DirectLLMCall,
-    HTMLLLMClient,
+    OpenAICompatibleHTTPLLMClient,
     Tracer,
 )
 
@@ -71,8 +71,11 @@ def main() -> None:
         enable_console=True,
     )
 
-    # Run the direct LLM call using the zero-dependency HTML stand-in client.
-    with HTMLLLMClient() as llm_client:
+    # Point the built-in HTTP client at any reachable OpenAI-compatible endpoint.
+    with OpenAICompatibleHTTPLLMClient(
+        base_url="http://127.0.0.1:8001/v1",
+        default_model="qwen2-1.5b-q4",
+    ) as llm_client:
         llm = DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
             "Write one sentence describing the one primary engineering specification for a "

@@ -120,7 +120,7 @@ Recommended profiles
 - All hosted provider SDKs: ``pip install -e ".[dev,providers]"``
 - Local backend experimentation: ``pip install -e ".[dev,local]"``
 - Full backend coverage (where supported): ``pip install -e ".[dev,full]"``
-- Minimal base setup: ``pip install -e .``
+- Minimal base setup with ``OpenAICompatibleHTTPLLMClient``: ``pip install -e .``
 
 Notes
 -----
@@ -132,6 +132,8 @@ Notes
   ``openai`` for ``OpenAIServiceLLMClient`` and ``azure`` for
   ``AzureOpenAIServiceLLMClient`` when you want the install command to match
   the backend you are enabling.
+- ``OpenAICompatibleHTTPLLMClient`` is part of the base install and does not
+  require the ``openai`` package.
 - ``providers`` installs the hosted-provider SDK set only. ``full`` installs
   that hosted-provider set plus the local backends that are supported on the
   current platform.

@@ -22,7 +22,6 @@ from design_research_agents.llm.clients import (
     AzureOpenAIServiceLLMClient,
     GeminiServiceLLMClient,
     GroqServiceLLMClient,
-    HTMLLLMClient,
     LlamaCppServerLLMClient,
     MLXLocalLLMClient,
     OllamaLLMClient,
@@ -89,7 +88,6 @@ def test_provider_clients_empty_init_and_default_model() -> None:
             AzureOpenAIServiceLLMClient(),
             GeminiServiceLLMClient(),
             GroqServiceLLMClient(),
-            HTMLLLMClient(),
             OpenAIServiceLLMClient(),
             OpenAICompatibleHTTPLLMClient(),
             TransformersLocalLLMClient(),
@@ -111,7 +109,6 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
     assert AzureOpenAIServiceLLMClient()._backend.name == "azure-openai"
     assert GeminiServiceLLMClient()._backend.name == "gemini"
     assert GroqServiceLLMClient()._backend.name == "groq"
-    assert HTMLLLMClient()._backend.name == "html-model"
     assert OpenAIServiceLLMClient()._backend.name == "openai"
     assert OpenAICompatibleHTTPLLMClient()._backend.name == "openai-compatible"
     assert TransformersLocalLLMClient()._backend.name == "transformers-local"
@@ -337,33 +334,6 @@ def test_provider_client_config_snapshot_contains_provider_fields() -> None:
     assert snapshot["base_url"] == "http://127.0.0.1:8010/v1"
     assert snapshot["chat_url"] == "http://127.0.0.1:8010/v1/chat/completions"
     assert snapshot["has_api_key"] is True
-
-
-def test_html_client_renders_expected_markup_and_escapes_content() -> None:
-    client = HTMLLLMClient()
-    response = client.generate(
-        LLMRequest(
-            messages=(LLMMessage(role="user", content='Design a <mug> & "lid".'),),
-            model=client.default_model(),
-        )
-    )
-
-    assert response.text == (
-        "<html>\n"
-        "  <body>\n"
-        "    <h1>Mock Model Response</h1>\n"
-        "    <p>Design a &lt;mug&gt; &amp; &quot;lid&quot;.</p>\n"
-        "  </body>\n"
-        "</html>"
-    )
-    assert [delta.text_delta for delta in client.stream(LLMRequest(messages=(), model=client.default_model()))] == [
-        "<html>\n"
-        "  <body>\n"
-        "    <h1>Mock Model Response</h1>\n"
-        "    <p>Hello from design-research-agents.</p>\n"
-        "  </body>\n"
-        "</html>"
-    ]
 
 
 def test_azure_provider_client_config_snapshot_contains_provider_fields() -> None:

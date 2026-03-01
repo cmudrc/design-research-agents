@@ -26,16 +26,16 @@ Comparison matrix
      - Default model behavior
      - Setup burden
      - Privacy / cost / latency profile
+   * - ``OpenAICompatibleHTTPLLMClient``
+     - Remote or local OpenAI-compatible endpoint
+     - Defaults to ``qwen2-1.5b-q4``
+     - Low-medium (compatible server + endpoint config)
+     - Flexible privacy/cost posture based on endpoint hosting
    * - ``LlamaCppServerLLMClient``
      - Local managed ``llama_cpp.server`` process
      - Defaults to ``api_model="qwen2-1.5b-q4"`` mapped to a local GGUF
      - Medium (local runtime + model download)
      - Strong privacy, lowest marginal cost, variable latency by hardware
-   * - ``HTMLLLMClient``
-     - In-process deterministic HTML stand-in
-     - Defaults to ``html-standin-v1``
-     - Lowest (no setup)
-     - Zero network, no model runtime, ideal for offline onboarding and trace smoke checks
    * - ``TransformersLocalLLMClient``
      - Local in-process transformers runtime
      - Defaults to ``model_id=default_model="distilgpt2"``
@@ -86,26 +86,19 @@ Comparison matrix
      - Defaults to ``llama-3.1-8b-instant``
      - Low (API key)
      - Low setup effort, network/data egress tradeoff, usage-based cost
-   * - ``OpenAICompatibleHTTPLLMClient``
-     - Remote or local OpenAI-compatible endpoint
-     - Defaults to ``qwen2-1.5b-q4``
-     - Low-medium (compatible server + endpoint config)
-     - Flexible privacy/cost posture based on endpoint hosting
 
 When to choose what
 -------------------
 
-1. Need zero-dependency onboarding, offline demos, or tracing smoke checks: use
-   ``HTMLLLMClient``.
+1. Need the built-in no-SDK path and already have a compatible endpoint: use
+   ``OpenAICompatibleHTTPLLMClient``.
 2. Need strict data-local execution: start with ``LlamaCppServerLLMClient``,
    ``TransformersLocalLLMClient``, ``MLXLocalLLMClient``, ``VLLMServerLLMClient``,
    ``OllamaLLMClient``, or ``SGLangServerLLMClient``.
 3. Need fastest hosted setup and managed model quality: use ``OpenAIServiceLLMClient``,
    ``AzureOpenAIServiceLLMClient``, ``AnthropicServiceLLMClient``,
    ``GeminiServiceLLMClient``, or ``GroqServiceLLMClient``.
-4. Need provider portability or self-hosted OpenAI-compatible infra: use
-   ``OpenAICompatibleHTTPLLMClient``.
-5. Need policy-driven choice between local and remote options: use
+4. Need policy-driven choice between local and remote options: use
    :doc:`model_selection`.
 
 See examples
@@ -117,7 +110,6 @@ Pages
 -----
 
 - :doc:`model_selection`
-- :doc:`html_llm`
 - :doc:`llama_cpp_server`
 - :doc:`openai_service`
 - :doc:`azure_openai_service`
@@ -136,7 +128,6 @@ Pages
    :hidden:
 
    model_selection
-   html_llm
    llama_cpp_server
    openai_service
    azure_openai_service

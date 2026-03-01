@@ -32,7 +32,7 @@ def test_agent_example_smoke_runs() -> None:
     completed = subprocess.run(
         [sys.executable, str(example_path)],
         cwd=REPO_ROOT,
-        env=_example_env("examples/agents/direct_llm_call.py", use_monkeypatch=False),
+        env=_example_env("examples/agents/direct_llm_call.py"),
         capture_output=True,
         text=True,
         check=False,
@@ -40,7 +40,7 @@ def test_agent_example_smoke_runs() -> None:
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload["success"] is True
-    assert "Mock Model Response" in payload["final_output"]
+    assert payload["final_output"] == "4"
 
 
 def test_workflow_example_smoke_runs() -> None:

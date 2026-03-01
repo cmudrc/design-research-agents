@@ -13,7 +13,6 @@ _EXPORTS: Final[dict[str, str]] = {
     ),
     "GeminiServiceLLMClient": "design_research_agents.llm.clients._gemini_service:GeminiServiceLLMClient",
     "GroqServiceLLMClient": "design_research_agents.llm.clients._groq_service:GroqServiceLLMClient",
-    "HTMLLLMClient": "design_research_agents.llm.clients._html:HTMLLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm.clients._llama_cpp_server:LlamaCppServerLLMClient",
     "MLXLocalLLMClient": "design_research_agents.llm.clients._mlx_local:MLXLocalLLMClient",
     "OllamaLLMClient": "design_research_agents.llm.clients._ollama:OllamaLLMClient",
@@ -49,7 +48,6 @@ if TYPE_CHECKING:
     from ._azure_openai_service import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from ._gemini_service import GeminiServiceLLMClient as GeminiServiceLLMClient
     from ._groq_service import GroqServiceLLMClient as GroqServiceLLMClient
-    from ._html import HTMLLLMClient as HTMLLLMClient
     from ._llama_cpp_server import LlamaCppServerLLMClient as LlamaCppServerLLMClient
     from ._mlx_local import MLXLocalLLMClient as MLXLocalLLMClient
     from ._ollama import OllamaLLMClient as OllamaLLMClient

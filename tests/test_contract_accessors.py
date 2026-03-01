@@ -28,7 +28,6 @@ from design_research_agents.llm import (
     AzureOpenAIServiceLLMClient,
     GeminiServiceLLMClient,
     GroqServiceLLMClient,
-    HTMLLLMClient,
     OpenAICompatibleHTTPLLMClient,
     OpenAIServiceLLMClient,
 )
@@ -221,7 +220,6 @@ def test_memory_store_protocol_supplies_default_context_manager_lifecycle() -> N
         AnthropicServiceLLMClient,
         GeminiServiceLLMClient,
         GroqServiceLLMClient,
-        HTMLLLMClient,
         OpenAICompatibleHTTPLLMClient,
     ],
     ids=[
@@ -230,7 +228,6 @@ def test_memory_store_protocol_supplies_default_context_manager_lifecycle() -> N
         "anthropic",
         "gemini",
         "groq",
-        "html",
         "openai-compatible",
     ],
 )
