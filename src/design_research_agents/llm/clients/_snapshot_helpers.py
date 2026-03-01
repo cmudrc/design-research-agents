@@ -44,6 +44,7 @@ def llama_config_snapshot(
     poll_interval_seconds: float,
     python_executable: str,
     extra_server_args: tuple[str, ...],
+    request_timeout_seconds: float,
 ) -> dict[str, object]:
     """Build llama-cpp client config snapshot payload."""
     return {
@@ -55,6 +56,7 @@ def llama_config_snapshot(
         "poll_interval_seconds": poll_interval_seconds,
         "python_executable": python_executable,
         "extra_server_args": list(extra_server_args),
+        "request_timeout_seconds": request_timeout_seconds,
     }
 
 

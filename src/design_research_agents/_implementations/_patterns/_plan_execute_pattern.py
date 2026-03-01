@@ -591,6 +591,8 @@ class PlanExecutePattern(Delegate):
             if isinstance(plan_steps_value, list)
             else []
         )
+        planned_step_count = len(plan_steps)
+        scheduled_step_count = min(planned_step_count, self._max_iterations)
         loop_step_result = workflow_result.step_results.get("plan_execute_loop")
         if loop_step_result is None:
             raise RuntimeError("Plan execute loop step result is missing.")
@@ -604,15 +606,10 @@ class PlanExecutePattern(Delegate):
             final_output = dict(maybe_final_output)
 
         loop_terminated_reason = str(loop_output.get("terminated_reason", "max_iterations_reached"))
-        if loop_terminated_reason == "iteration_failed":
-            terminated_reason = "step_failure"
-        elif len(plan_steps) > self._max_iterations:
-            terminated_reason = "truncated_max_iterations"
-        else:
-            terminated_reason = "completed"
+        terminated_reason = "step_failure" if loop_terminated_reason == "iteration_failed" else "completed"
 
         plan_execute_result = build_pattern_execution_result(
-            success=terminated_reason in {"completed", "truncated_max_iterations"} and bool(step_results),
+            success=terminated_reason == "completed" and len(step_results) == scheduled_step_count,
             final_output=final_output,
             terminated_reason=terminated_reason,
             details={
@@ -637,8 +634,10 @@ class PlanExecutePattern(Delegate):
             budget_metadata=budget_tracker.as_metadata(),
             extra_metadata={
                 "plan": {
-                    "step_count": len(plan_steps),
+                    "step_count": planned_step_count,
+                    "scheduled_step_count": scheduled_step_count,
                     "executed_step_count": len(step_results),
+                    "was_truncated": planned_step_count > scheduled_step_count,
                 },
                 "loop": {
                     "iterations": loop_output.get("iterations", self._max_iterations),

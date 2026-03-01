@@ -33,7 +33,7 @@ from ._ollama_server import OllamaServerBackend
 _OLLAMA_CAPABILITIES = BackendCapabilities(
     streaming=True,
     tool_calling="best_effort",
-    json_mode="prompt+validate",
+    json_mode="native",
     vision=False,
     max_context_tokens=None,
 )
@@ -117,12 +117,17 @@ class OllamaLocalBackend(BaseLLMBackend):
         """
         self._ensure_server_ready()
         payload = self._build_payload(request, stream=False)
-        response = _post_json_with_retry(
-            self._chat_url,
-            payload,
-            timeout_seconds=self._request_timeout_seconds,
-            max_retries=self.max_retries,
-        )
+        try:
+            response = _post_json_with_retry(
+                self._chat_url,
+                payload,
+                timeout_seconds=self._request_timeout_seconds,
+                max_retries=self.max_retries,
+            )
+        except Exception as exc:
+            if _should_fallback_to_prompt_validated_json(request, exc):
+                return self._generate_prompt_validated_json(request)
+            raise
         return _parse_completion_response(response, request, provider=self.name)
 
     @override
@@ -137,12 +142,18 @@ class OllamaLocalBackend(BaseLLMBackend):
         """
         self._ensure_server_ready()
         payload = self._build_payload(request, stream=True)
-        response = _post_stream_with_retry(
-            self._chat_url,
-            payload,
-            timeout_seconds=self._request_timeout_seconds,
-            max_retries=self.max_retries,
-        )
+        try:
+            response = _post_stream_with_retry(
+                self._chat_url,
+                payload,
+                timeout_seconds=self._request_timeout_seconds,
+                max_retries=self.max_retries,
+            )
+        except Exception as exc:
+            if _should_fallback_to_prompt_validated_json(request, exc):
+                yield from _stream_prompt_validated_json_fallback(self._generate_prompt_validated_json(request))
+                return
+            raise
         for chunk in _iter_json_events(response):
             message = chunk.get("message")
             if isinstance(message, dict):
@@ -187,6 +198,9 @@ class OllamaLocalBackend(BaseLLMBackend):
             "messages": _format_messages(request.messages),
             "stream": stream,
         }
+        native_format = _format_ollama_response_format(request)
+        if native_format is not None:
+            payload["format"] = native_format
         options: dict[str, object] = {}
         if request.temperature is not None:
             options["temperature"] = request.temperature
@@ -201,6 +215,67 @@ class OllamaLocalBackend(BaseLLMBackend):
             payload["options"] = options
         payload.update(provider_options)
         return payload
+
+
+def _format_ollama_response_format(request: LLMRequest) -> dict[str, Any] | str | None:
+    """Translate provider-neutral structured-output hints into Ollama's ``format`` field."""
+    if isinstance(request.response_format, dict):
+        return _translate_ollama_response_format(request.response_format)
+    if isinstance(request.response_schema, dict):
+        return dict(request.response_schema)
+    return None
+
+
+def _translate_ollama_response_format(
+    response_format: dict[str, Any],
+) -> dict[str, Any] | str:
+    """Return one Ollama ``format`` payload from a generic response-format mapping."""
+    format_type = response_format.get("type")
+    if format_type == "json_schema":
+        if isinstance(response_format.get("schema"), dict):
+            return dict(response_format["schema"])
+        json_schema = response_format.get("json_schema")
+        if isinstance(json_schema, dict) and isinstance(json_schema.get("schema"), dict):
+            return dict(json_schema["schema"])
+        return "json"
+    if format_type == "json_object":
+        if isinstance(response_format.get("schema"), dict):
+            return dict(response_format["schema"])
+        return "json"
+    return dict(response_format)
+
+
+def _should_fallback_to_prompt_validated_json(
+    request: LLMRequest,
+    exc: Exception,
+) -> bool:
+    """Return whether one failed native JSON request should retry via prompt validation."""
+    if request.response_schema is None and request.response_format is None:
+        return False
+    return _is_format_error(exc)
+
+
+def _is_format_error(exc: Exception) -> bool:
+    """Return whether one normalized error indicates unsupported Ollama ``format``."""
+    if not isinstance(exc, LLMInvalidRequestError):
+        return False
+    message = str(exc).lower()
+    return "format" in message or "json schema" in message
+
+
+def _stream_prompt_validated_json_fallback(response: LLMResponse) -> Iterator[LLMDelta]:
+    """Emit one non-streaming structured fallback response as minimal stream deltas."""
+    if response.text:
+        yield LLMDelta(text_delta=response.text)
+    usage = (
+        response.usage
+        if isinstance(response.usage, Usage)
+        else _parse_ollama_usage(response.usage)
+        if isinstance(response.usage, dict)
+        else None
+    )
+    if usage is not None:
+        yield LLMDelta(usage_delta=usage)
 
 
 def _post_json_with_retry(

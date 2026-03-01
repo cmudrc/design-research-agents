@@ -199,7 +199,13 @@ def test_plan_execute_pattern_delegate_paths_and_payload_extraction() -> None:
     )
     capped_result = capped_pattern.run("Cap iterations")
     assert capped_result.success is True
-    assert capped_result.output["terminated_reason"] == "truncated_max_iterations"
+    assert capped_result.output["terminated_reason"] == "completed"
+    runtime_metadata = capped_result.metadata.get("runtime")
+    assert isinstance(runtime_metadata, Mapping)
+    plan_metadata = runtime_metadata.get("plan")
+    assert isinstance(plan_metadata, Mapping)
+    assert plan_metadata["was_truncated"] is True
+    assert plan_metadata["scheduled_step_count"] == 1
 
 
 def test_debate_pattern_delegate_and_helper_branches() -> None:

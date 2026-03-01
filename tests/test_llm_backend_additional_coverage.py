@@ -128,6 +128,7 @@ def test_llama_cpp_backend_delegates_to_server_and_http_backend(
     )
 
     assert backend.capabilities().tool_calling == "best_effort"
+    assert backend.capabilities().json_mode == "native"
     assert backend.healthcheck().ok is True
 
     request = _request(model="llama-model")

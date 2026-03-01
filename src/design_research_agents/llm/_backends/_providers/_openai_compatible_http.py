@@ -6,7 +6,7 @@ import json
 import os
 from collections.abc import Iterable, Iterator, Sequence
 from http.client import HTTPResponse
-from typing import Any, cast, override
+from typing import Any, Literal, cast, override
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -41,6 +41,8 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         api_key: str | None,
         capabilities: BackendCapabilities,
         config_hash: str,
+        request_timeout_seconds: float = 60.0,
+        response_format_style: Literal["openai", "llama_cpp"] = "openai",
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
@@ -56,6 +58,8 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
             capabilities: Declared capabilities for this backend (e.g. tool calling and JSON mode
                 support levels).
             config_hash: Unique hash of the configuration for caching and invalidation purposes.
+            request_timeout_seconds: HTTP timeout for generate and stream requests.
+            response_format_style: Native response-format dialect expected by the endpoint.
             max_retries: Maximum number of retries for generation attempts.
             model_patterns: Optional tuple of glob patterns to match against
                 model names for routing purposes.
@@ -69,9 +73,15 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
             max_retries=max_retries,
             model_patterns=model_patterns,
         )
+        if request_timeout_seconds <= 0:
+            raise ValueError("request_timeout_seconds must be > 0.")
+        if response_format_style not in {"openai", "llama_cpp"}:
+            raise ValueError("response_format_style must be 'openai' or 'llama_cpp'.")
         self._api_key_env = api_key_env
         self._api_key = api_key
         self._capabilities = capabilities
+        self._request_timeout_seconds = request_timeout_seconds
+        self._response_format_style = response_format_style
 
     @override
     def capabilities(self) -> BackendCapabilities:
@@ -102,7 +112,12 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
             Normalized completion response.
         """
         payload = self._build_payload(request, include_response_format=True)
-        response = _post_json(self._chat_url, payload, headers=self._headers())
+        response = _post_json(
+            self._chat_url,
+            payload,
+            headers=self._headers(),
+            timeout_seconds=self._request_timeout_seconds,
+        )
         return _parse_completion_response(response, request, provider=self.name)
 
     @override
@@ -117,7 +132,12 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         """
         payload = self._build_payload(request, include_response_format=True)
         payload["stream"] = True
-        response = _post_stream(self._chat_url, payload, headers=self._headers())
+        response = _post_stream(
+            self._chat_url,
+            payload,
+            headers=self._headers(),
+            timeout_seconds=self._request_timeout_seconds,
+        )
         for data in _iter_sse_events(response):
             if data == "[DONE]":
                 break
@@ -203,20 +223,27 @@ class OpenAICompatibleHTTPBackend(BaseLLMBackend):
         if request.tools and self._capabilities.tool_calling == "native":
             payload["tools"] = [_format_tool(tool) for tool in request.tools]
         if include_response_format and self._capabilities.json_mode == "native":
-            response_format = _format_response_format(request)
+            response_format = _format_response_format(request, style=self._response_format_style)
             if response_format:
                 payload["response_format"] = response_format
         payload.update(request.provider_options)
         return payload
 
 
-def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> dict[str, Any]:
+def _post_json(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    timeout_seconds: float = 60.0,
+) -> dict[str, Any]:
     """POST one JSON request and parse a JSON-object response.
 
     Args:
         url: Endpoint URL to call.
         payload: JSON-serializable request payload.
         headers: Request headers, including auth when needed.
+        timeout_seconds: HTTP timeout for the request.
 
     Returns:
         Parsed JSON response object.
@@ -231,7 +258,7 @@ def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) ->
         method="POST",
     )
     try:
-        with urlopen(request, timeout=60.0) as response:
+        with urlopen(request, timeout=timeout_seconds) as response:
             body = response.read().decode("utf-8")
             parsed = json.loads(body)
             if not isinstance(parsed, dict):
@@ -243,13 +270,20 @@ def _post_json(url: str, payload: dict[str, Any], *, headers: dict[str, str]) ->
         raise map_backend_exception(exc) from exc
 
 
-def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) -> HTTPResponse:
+def _post_stream(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    timeout_seconds: float = 60.0,
+) -> HTTPResponse:
     """POST one streaming request and return the raw HTTP response handle.
 
     Args:
         url: Endpoint URL to call.
         payload: JSON-serializable request payload.
         headers: Request headers, including auth when needed.
+        timeout_seconds: HTTP timeout for the request.
 
     Returns:
         Open HTTP response object suitable for SSE iteration.
@@ -264,7 +298,7 @@ def _post_stream(url: str, payload: dict[str, Any], *, headers: dict[str, str]) 
         method="POST",
     )
     try:
-        return cast(HTTPResponse, urlopen(request, timeout=60.0))
+        return cast(HTTPResponse, urlopen(request, timeout=timeout_seconds))
     except HTTPError as exc:
         raise map_backend_exception(_http_error(exc)) from exc
     except URLError as exc:
@@ -376,18 +410,30 @@ def _format_tool(tool: ToolSpec) -> dict[str, Any]:
     }
 
 
-def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
+def _format_response_format(
+    request: LLMRequest,
+    *,
+    style: Literal["openai", "llama_cpp"] = "openai",
+) -> dict[str, Any] | None:
     """Translate structured-output hints into ``response_format`` payloads.
 
     Args:
         request: Request containing response-format or schema hints.
+        style: Native response-format dialect to emit.
 
     Returns:
         OpenAI-compatible ``response_format`` mapping, or ``None`` when absent.
     """
     if request.response_format and isinstance(request.response_format, dict):
+        if style == "llama_cpp":
+            return _translate_llama_cpp_response_format(request.response_format)
         return request.response_format
     if request.response_schema:
+        if style == "llama_cpp":
+            return {
+                "type": "json_object",
+                "schema": request.response_schema,
+            }
         return {
             "type": "json_schema",
             "json_schema": {
@@ -396,6 +442,34 @@ def _format_response_format(request: LLMRequest) -> dict[str, Any] | None:
             },
         }
     return None
+
+
+def _translate_llama_cpp_response_format(response_format: dict[str, Any]) -> dict[str, Any]:
+    """Translate generic response-format payloads into llama.cpp's JSON dialect.
+
+    Args:
+        response_format: Generic response-format mapping requested by the caller.
+
+    Returns:
+        Response-format mapping accepted by ``llama_cpp.server``.
+    """
+    if response_format.get("type") != "json_schema":
+        return response_format
+
+    if isinstance(response_format.get("schema"), dict):
+        return {
+            "type": "json_object",
+            "schema": response_format["schema"],
+        }
+
+    json_schema = response_format.get("json_schema")
+    if isinstance(json_schema, dict) and isinstance(json_schema.get("schema"), dict):
+        return {
+            "type": "json_object",
+            "schema": json_schema["schema"],
+        }
+
+    return {"type": "json_object"}
 
 
 def _http_error(exc: HTTPError) -> Exception:

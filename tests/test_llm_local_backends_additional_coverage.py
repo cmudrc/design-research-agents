@@ -75,6 +75,7 @@ def test_openai_like_local_backends_cover_additional_branches(
 
     capabilities = backend.capabilities()
     assert capabilities.streaming is True
+    assert capabilities.json_mode == "native"
     assert backend.healthcheck().ok is True
     assert backend._chat_url.endswith("/chat/completions")
 
@@ -315,6 +316,7 @@ def test__ollama_local_additional_transport_and_parser_paths(
         managed_server=managed,
     )
     assert backend.capabilities().streaming is True
+    assert backend.capabilities().json_mode == "native"
     assert backend.healthcheck().ok is True
     assert backend._chat_url == "http://127.0.0.1:11434/api/chat"
 

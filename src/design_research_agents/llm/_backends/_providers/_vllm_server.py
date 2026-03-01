@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import socket
 import subprocess
 import sys
 import time
@@ -66,6 +67,7 @@ class VllmServerBackend:
         self.python_executable = python_executable
         self.extra_server_args = tuple(extra_server_args)
         self._process: subprocess.Popen[str] | None = None
+        self._port_reservation_socket: socket.socket | None = None
         atexit.register(self.close)
 
     @property
@@ -125,6 +127,7 @@ class VllmServerBackend:
             return
 
         self._ensure_server_dependency()
+        self._release_port_reservation()
         self._process = subprocess.Popen(
             self._build_command(),
             stdout=subprocess.DEVNULL,
@@ -169,6 +172,7 @@ class VllmServerBackend:
 
     def close(self) -> None:
         """Stop the managed server process if it is running."""
+        self._release_port_reservation()
         process = self._process
         if process is None:
             return
@@ -182,6 +186,19 @@ class VllmServerBackend:
                 process.wait(timeout=5.0)
 
         self._process = None
+
+    def set_port_reservation(self, reservation_socket: socket.socket | None) -> None:
+        """Hold one reserved socket until the managed server is ready to start."""
+        self._release_port_reservation()
+        self._port_reservation_socket = reservation_socket
+
+    def _release_port_reservation(self) -> None:
+        """Release any held socket reservation."""
+        reservation_socket = self._port_reservation_socket
+        if reservation_socket is None:
+            return
+        reservation_socket.close()
+        self._port_reservation_socket = None
 
 
 def create_backend(

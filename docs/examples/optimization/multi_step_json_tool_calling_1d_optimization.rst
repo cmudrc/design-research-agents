@@ -24,7 +24,7 @@ Technical Implementation
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
        B --> C["MultiStepAgent.run(...)"]
-       C --> D["optimization loop combines callable tools with continuation control"]
+       C --> D["optimization loop combines callable tools with explicit final answers"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]
        E --> F

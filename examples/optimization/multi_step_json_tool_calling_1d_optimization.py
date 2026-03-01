@@ -17,7 +17,7 @@ evaluations.
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
     B --> C["MultiStepAgent.run(...)"]
-    C --> D["optimization loop combines callable tools with continuation control"]
+    C --> D["optimization loop combines callable tools with explicit final answers"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
     E --> F
@@ -63,12 +63,13 @@ from design_research_agents import (
     Tracer,
 )
 
-_STRONGER_LLAMA_CLIENT_KWARGS = {
+_EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
     "api_model": "qwen3-4b-instruct-2507-q4km",
     "context_window": 8192,
-    "startup_timeout_seconds": 180.0,
+    "startup_timeout_seconds": 240.0,
+    "request_timeout_seconds": 240.0,
 }
 
 
@@ -168,7 +169,7 @@ def main() -> None:
                 ),
             ),
         ) as tools,
-        LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
+        LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
         agent = MultiStepAgent(
             mode="json",

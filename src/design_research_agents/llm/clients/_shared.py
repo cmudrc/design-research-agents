@@ -43,6 +43,9 @@ from .._backends._providers._vllm_local import VllmLocalBackend
 from .._backends._providers._vllm_server import (
     create_backend as create_vllm_server,
 )
+from ._managed_port_reservations import (
+    _reserve_managed_server_port,
+)
 from ._snapshot_helpers import (
     capabilities_to_dict,
     llama_config_snapshot,
@@ -351,6 +354,7 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
         port: int = 8001,
         context_window: int = 4096,
         startup_timeout_seconds: float = 60.0,
+        request_timeout_seconds: float = 60.0,
         poll_interval_seconds: float = 0.25,
         python_executable: str = sys.executable,
         extra_server_args: tuple[str, ...] = (),
@@ -371,6 +375,7 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
             context_window: Context window size (n_ctx) to configure the llama_cpp.server with.
             startup_timeout_seconds: Max time to wait for the server process to start and become
                 healthy.
+            request_timeout_seconds: HTTP timeout for generate and stream requests.
             poll_interval_seconds: Time interval between health check polls during startup.
             python_executable: Python executable to use for running the server process.
             extra_server_args: Additional command-line arguments to pass when starting the server
@@ -380,17 +385,20 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
                 routing decisions. If None, defaults to (api_model,).
         """
         combined_server_args = ("--n_ctx", str(context_window), *extra_server_args)
+        reserved_port = _reserve_managed_server_port(host=host, requested_port=port)
+        resolved_port = reserved_port.port
         self._llama_server = create_llama_cpp_server(
             model=model,
             hf_model_repo_id=hf_model_repo_id,
             api_model=api_model,
             host=host,
-            port=port,
+            port=resolved_port,
             startup_timeout_seconds=startup_timeout_seconds,
             poll_interval_seconds=poll_interval_seconds,
             python_executable=python_executable,
             extra_server_args=combined_server_args,
         )
+        self._llama_server.set_port_reservation(reserved_port.reservation_socket)
         config_hash = _config_hash(
             {
                 "kind": "llama_cpp",
@@ -399,9 +407,10 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
                 "hf_model_repo_id": hf_model_repo_id,
                 "api_model": api_model,
                 "host": host,
-                "port": port,
+                "port": resolved_port,
                 "context_window": context_window,
                 "startup_timeout_seconds": startup_timeout_seconds,
+                "request_timeout_seconds": request_timeout_seconds,
                 "poll_interval_seconds": poll_interval_seconds,
                 "python_executable": python_executable,
                 "extra_server_args": combined_server_args,
@@ -413,6 +422,7 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
             llama_backend=self._llama_server,
             default_model=api_model,
             config_hash=config_hash,
+            request_timeout_seconds=request_timeout_seconds,
             max_retries=max_retries,
             model_patterns=_resolve_model_patterns(model_patterns, api_model),
         )
@@ -424,6 +434,7 @@ class LlamaCppServerLLMClient(_SingleBackendLLMClient):
                 api_model=api_model,
                 context_window=context_window,
                 startup_timeout_seconds=startup_timeout_seconds,
+                request_timeout_seconds=request_timeout_seconds,
                 poll_interval_seconds=poll_interval_seconds,
                 python_executable=python_executable,
                 extra_server_args=combined_server_args,
@@ -486,12 +497,14 @@ class VLLMServerLLMClient(_SingleBackendLLMClient):
         if manage_server and base_url is not None:
             raise ValueError("base_url cannot be provided when manage_server is True.")
 
+        reserved_vllm_port = _reserve_managed_server_port(host=host, requested_port=port) if manage_server else None
+        resolved_port = reserved_vllm_port.port if reserved_vllm_port is not None else port
         self._vllm_server = (
             create_vllm_server(
                 model=model,
                 api_model=api_model,
                 host=host,
-                port=port,
+                port=resolved_port,
                 startup_timeout_seconds=startup_timeout_seconds,
                 poll_interval_seconds=poll_interval_seconds,
                 python_executable=python_executable,
@@ -500,6 +513,9 @@ class VLLMServerLLMClient(_SingleBackendLLMClient):
             if manage_server
             else None
         )
+        if self._vllm_server is not None:
+            reservation_socket = reserved_vllm_port.reservation_socket if reserved_vllm_port is not None else None
+            self._vllm_server.set_port_reservation(reservation_socket)
         resolved_base_url = (
             self._vllm_server.base_url if self._vllm_server is not None else (base_url or f"http://{host}:{port}/v1")
         )
@@ -510,7 +526,7 @@ class VLLMServerLLMClient(_SingleBackendLLMClient):
                 "model": model,
                 "api_model": api_model,
                 "host": host,
-                "port": port,
+                "port": resolved_port,
                 "manage_server": manage_server,
                 "startup_timeout_seconds": startup_timeout_seconds,
                 "poll_interval_seconds": poll_interval_seconds,
@@ -537,7 +553,7 @@ class VLLMServerLLMClient(_SingleBackendLLMClient):
                 model=model,
                 api_model=api_model,
                 host=host,
-                port=port,
+                port=resolved_port,
                 manage_server=manage_server,
                 startup_timeout_seconds=startup_timeout_seconds,
                 poll_interval_seconds=poll_interval_seconds,
@@ -594,10 +610,12 @@ class OllamaLLMClient(_SingleBackendLLMClient):
             max_retries: Number of retries for retryable provider/transport errors.
             model_patterns: Optional tuple of model patterns for routing decisions.
         """
+        reserved_ollama_port = _reserve_managed_server_port(host=host, requested_port=port) if manage_server else None
+        resolved_port = reserved_ollama_port.port if reserved_ollama_port is not None else port
         self._ollama_server = (
             create_ollama_server(
                 host=host,
-                port=port,
+                port=resolved_port,
                 ollama_executable=ollama_executable,
                 auto_pull_model=auto_pull_model,
                 default_model=default_model,
@@ -607,6 +625,9 @@ class OllamaLLMClient(_SingleBackendLLMClient):
             if manage_server
             else None
         )
+        if self._ollama_server is not None:
+            reservation_socket = reserved_ollama_port.reservation_socket if reserved_ollama_port is not None else None
+            self._ollama_server.set_port_reservation(reservation_socket)
         resolved_base_url = self._ollama_server.base_url if self._ollama_server is not None else f"http://{host}:{port}"
         config_hash = _config_hash(
             {
@@ -614,7 +635,7 @@ class OllamaLLMClient(_SingleBackendLLMClient):
                 "name": name,
                 "default_model": default_model,
                 "host": host,
-                "port": port,
+                "port": resolved_port,
                 "manage_server": manage_server,
                 "ollama_executable": ollama_executable,
                 "auto_pull_model": auto_pull_model,
@@ -638,7 +659,7 @@ class OllamaLLMClient(_SingleBackendLLMClient):
             backend=backend,
             config_snapshot=ollama_config_snapshot(
                 host=host,
-                port=port,
+                port=resolved_port,
                 manage_server=manage_server,
                 ollama_executable=ollama_executable,
                 auto_pull_model=auto_pull_model,
@@ -704,11 +725,13 @@ class SGLangServerLLMClient(_SingleBackendLLMClient):
         if manage_server and base_url is not None:
             raise ValueError("base_url cannot be provided when manage_server is True.")
 
+        reserved_sglang_port = _reserve_managed_server_port(host=host, requested_port=port) if manage_server else None
+        resolved_port = reserved_sglang_port.port if reserved_sglang_port is not None else port
         self._sglang_server = (
             create_sglang_server(
                 model=model,
                 host=host,
-                port=port,
+                port=resolved_port,
                 startup_timeout_seconds=startup_timeout_seconds,
                 poll_interval_seconds=poll_interval_seconds,
                 python_executable=python_executable,
@@ -717,6 +740,9 @@ class SGLangServerLLMClient(_SingleBackendLLMClient):
             if manage_server
             else None
         )
+        if self._sglang_server is not None:
+            reservation_socket = reserved_sglang_port.reservation_socket if reserved_sglang_port is not None else None
+            self._sglang_server.set_port_reservation(reservation_socket)
         resolved_base_url = (
             self._sglang_server.base_url
             if self._sglang_server is not None
@@ -728,7 +754,7 @@ class SGLangServerLLMClient(_SingleBackendLLMClient):
                 "name": name,
                 "model": model,
                 "host": host,
-                "port": port,
+                "port": resolved_port,
                 "manage_server": manage_server,
                 "startup_timeout_seconds": startup_timeout_seconds,
                 "poll_interval_seconds": poll_interval_seconds,
@@ -754,7 +780,7 @@ class SGLangServerLLMClient(_SingleBackendLLMClient):
             config_snapshot=sglang_config_snapshot(
                 model=model,
                 host=host,
-                port=port,
+                port=resolved_port,
                 manage_server=manage_server,
                 startup_timeout_seconds=startup_timeout_seconds,
                 poll_interval_seconds=poll_interval_seconds,

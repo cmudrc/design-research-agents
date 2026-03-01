@@ -25,23 +25,24 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     "examples/agents/multi_step_code_tool_calling_agent.py": (
         "\n".join(
             [
-                'first_stats = call_tool("text.word_count", {"text": "design review metrics"})',
-                'second_stats = call_tool("text.word_count", {"text": "runtime tool boundaries"})',
-                "final_output = {",
-                '    "first_count": first_stats["word_count"],',
-                '    "second_count": second_stats["word_count"],',
-                "}",
+                'stats = call_tool("text.word_count", {"text": "design review metrics"})',
+                'final_answer({"word_count": stats["word_count"]})',
             ]
         ),
-        'final_answer({"first_count": 3, "second_count": 3})',
     ),
     "examples/agents/multi_step_json_tool_calling_agent.py": (
-        ('{"tool_name":"repo.readme_snapshot","tool_input":{},"reason":"Need repository text context."}'),
-        ('{"tool_name":"final_answer","tool_input":{"result":true},"reason":"done"}'),
+        (
+            '{"tool_name":"text.word_count","tool_input":{"text":"design research agents"},'
+            '"reason":"Measure the phrase before answering."}'
+        ),
+        ('{"tool_name":"final_answer","tool_input":{"word_count":3},"reason":"done"}'),
     ),
     "examples/agents/multi_step_json_with_memory.py": (
-        '{"tool_name": "text.word_count", "tool_input": {"text": "design context memory"}}',
-        '{"tool_name":"final_answer","tool_input":{"word_count":3},"reason":"done"}',
+        (
+            '{"tool_name":"text.word_count","tool_input":{"text":"Prior design note: target quick '
+            'maintenance by minimizing tool changes and favoring reusable fasteners."}}'
+        ),
+        '{"tool_name":"final_answer","tool_input":{"word_count":14},"reason":"done"}',
     ),
     "examples/agents/multi_step_direct_llm_agent.py": (
         '{"decision":"CONTINUE","content":"Draft answer: compute 6 * 7.","reason":"Need final wording."}',
@@ -55,11 +56,15 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     ),
     "examples/patterns/plan_execute.py": (
         (
-            '{"steps":[{"step_id":"analyze_readme","instruction":"Call repo.readme_metrics and return '
-            'a compact summary.","success_criteria":"Return README path and line count."}]}'
+            '{"steps":[{"step_id":"count_phrase_words","instruction":"Call text.word_count on '
+            '\'design system research workflow\' and return only word_count.","success_criteria":'
+            '"Return the exact word count."}]}'
         ),
-        '{"tool_name":"repo.readme_metrics","tool_input":{},"reason":"Collect README metrics first."}',
-        ('{"tool_name":"final_answer","tool_input":{"path":"README.md","line_count":1},"reason":"done"}'),
+        (
+            '{"tool_name":"text.word_count","tool_input":{"text":"design system research '
+            'workflow"},"reason":"Count the phrase before answering."}'
+        ),
+        '{"tool_name":"final_answer","tool_input":{"word_count":4},"reason":"done"}',
     ),
     "examples/patterns/propose_critic.py": (
         "Draft v1: simple proposal.",

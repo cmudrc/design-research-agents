@@ -71,9 +71,59 @@ def test_openai_http_backend_chat_url_headers_and_payload(
     assert payload["extra"] is True
 
 
+def test_openai_http_backend_supports_llama_cpp_response_format_translation() -> None:
+    backend = oai_http.OpenAICompatibleHTTPBackend(
+        name="compat",
+        base_url="https://host/api",
+        default_model="m",
+        api_key_env="COMPAT_KEY",
+        api_key=None,
+        capabilities=caps(),
+        config_hash="cfg",
+        response_format_style="llama_cpp",
+    )
+
+    payload = backend._build_payload(
+        request(response_schema={"type": "object", "properties": {"foo": {"type": "integer"}}}),
+        include_response_format=True,
+    )
+    assert payload["response_format"] == {
+        "type": "json_object",
+        "schema": {"type": "object", "properties": {"foo": {"type": "integer"}}},
+    }
+
+    translated = oai_http._format_response_format(
+        request(
+            response_format={
+                "type": "json_schema",
+                "json_schema": {"name": "response", "schema": {"type": "object", "required": ["foo"]}},
+            }
+        ),
+        style="llama_cpp",
+    )
+    assert translated == {
+        "type": "json_object",
+        "schema": {"type": "object", "required": ["foo"]},
+    }
+
+    with pytest.raises(ValueError, match="response_format_style"):
+        oai_http.OpenAICompatibleHTTPBackend(
+            name="compat",
+            base_url="https://host/api",
+            default_model="m",
+            api_key_env="COMPAT_KEY",
+            api_key=None,
+            capabilities=caps(),
+            config_hash="cfg",
+            response_format_style="invalid",  # type: ignore[arg-type]
+        )
+
+
 def test_openai_http_backend_generate_and_stream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    captured_timeouts: dict[str, float] = {}
+
     backend = oai_http.OpenAICompatibleHTTPBackend(
         name="compat",
         base_url="https://api.example/v1",
@@ -82,18 +132,26 @@ def test_openai_http_backend_generate_and_stream(
         api_key="explicit",
         capabilities=caps(),
         config_hash="cfg",
+        request_timeout_seconds=12.0,
     )
 
     completion_payload = {
         "choices": [{"message": {"content": "  hi  "}, "finish_reason": "stop"}],
         "usage": {"total_tokens": 3},
     }
-    monkeypatch.setattr(oai_http, "_post_json", lambda *args, **kwargs: completion_payload)
+
+    def _fake_post_json(*args: object, **kwargs: object) -> dict[str, object]:
+        del args
+        captured_timeouts["json"] = float(kwargs["timeout_seconds"])
+        return completion_payload
+
+    monkeypatch.setattr(oai_http, "_post_json", _fake_post_json)
 
     response = backend._generate(request())
     assert response.text == "hi"
     assert response.provider == "compat"
     assert response.usage is not None
+    assert captured_timeouts["json"] == 12.0
 
     stream_chunk = {
         "choices": [
@@ -121,7 +179,10 @@ def test_openai_http_backend_generate_and_stream(
     monkeypatch.setattr(
         oai_http,
         "_post_stream",
-        lambda *args, **kwargs: _ResponseContext(lines=stream_lines),
+        lambda *args, **kwargs: (
+            captured_timeouts.__setitem__("stream", float(kwargs["timeout_seconds"]))
+            or _ResponseContext(lines=stream_lines)
+        ),
     )
 
     deltas = list(backend._stream(request()))
@@ -130,6 +191,7 @@ def test_openai_http_backend_generate_and_stream(
     assert deltas[1].tool_call_delta.call_id == "c1"
     assert deltas[2].usage_delta is not None
     assert deltas[2].usage_delta.prompt_tokens == 1
+    assert captured_timeouts["stream"] == 12.0
 
 
 def test_openai_http_post_helpers_and_response_parsers(

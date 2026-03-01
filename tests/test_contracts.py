@@ -251,12 +251,14 @@ def test_llama_cpp_client_constructor_propagates_settings() -> None:
         host="0.0.0.0",
         port=9100,
         context_window=2048,
+        request_timeout_seconds=180.0,
         extra_server_args=("--n-gpu-layers", "35"),
         model_patterns=("custom-model",),
     ) as client:
         assert client.default_model() == "custom-model"
         assert client._backend.name == "custom-llama"
         assert client._backend.model_patterns == ("custom-model",)
+        assert client.config_snapshot()["request_timeout_seconds"] == 180.0
 
         command = client._llama_server._build_command()
         assert "--n_ctx" in command

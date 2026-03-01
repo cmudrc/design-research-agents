@@ -9,6 +9,7 @@ from design_research_agents._contracts._llm import (
     LLMInvalidRequestError,
     LLMProviderError,
     LLMRateLimitError,
+    LLMResponse,
 )
 from design_research_agents.llm._backends._providers import (
     _vllm_local,
@@ -46,6 +47,15 @@ def test__vllm_local_backend_payload_and_chat_url() -> None:
     assert payload["temperature"] == 0.3
     assert payload["max_tokens"] == 64
     assert payload["seed"] == 123
+
+    structured_payload = backend._build_payload(request(response_schema={"type": "object"}))
+    assert structured_payload["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "response",
+            "schema": {"type": "object"},
+        },
+    }
 
 
 def test__vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,6 +114,32 @@ def test__vllm_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch
     assert deltas[1].tool_call_delta is not None
     assert deltas[1].tool_call_delta.call_id == "c1"
     assert deltas[2].usage_delta is not None
+
+
+def test__vllm_local_backend_falls_back_when_native_response_format_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = _vllm_local.VllmLocalBackend(
+        name="vllm",
+        base_url="http://127.0.0.1:8002/v1",
+        default_model="demo-model",
+        request_timeout_seconds=10.0,
+        config_hash="cfg",
+    )
+    monkeypatch.setattr(
+        _vllm_local,
+        "_post_json_with_retry",
+        lambda *args, **kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("Unsupported field: response_format")),
+    )
+    monkeypatch.setattr(
+        backend,
+        "_generate_prompt_validated_json",
+        lambda req: LLMResponse(model=req.model, text='{"ok":true}', provider="fallback"),
+    )
+
+    response = backend._generate(request(response_schema={"type": "object"}))
+    assert response.provider == "fallback"
+    assert response.text == '{"ok":true}'
 
 
 def test__vllm_local_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:

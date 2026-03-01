@@ -52,11 +52,9 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from pathlib import Path
 
 from design_research_agents import (
-    CallableToolConfig,
     LlamaCppServerLLMClient,
     MultiStepAgent,
     Toolbox,
@@ -64,41 +62,14 @@ from design_research_agents import (
 )
 from design_research_agents.patterns import PlanExecutePattern
 
-_STRONGER_LLAMA_CLIENT_KWARGS = {
+_EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
     "api_model": "qwen3-4b-instruct-2507-q4km",
     "context_window": 8192,
-    "startup_timeout_seconds": 180.0,
+    "startup_timeout_seconds": 240.0,
+    "request_timeout_seconds": 240.0,
 }
-_EXECUTOR_STEP_PROMPT_TEMPLATE = "\n".join(
-    [
-        "Task: $task_prompt",
-        "Plan step id: $step_id",
-        "Instruction: $instruction",
-        "Success criteria: $success_criteria",
-        "Within this executor run, use exactly two internal steps.",
-        "When Current step is 1, choose repo.readme_metrics exactly once.",
-        "When Current step is 2, choose final_answer and return a compact summary dict using",
-        "the prior repo.readme_metrics result.",
-        "Prior step outputs:",
-        "$prior_step_outputs_json",
-    ]
-)
-
-
-def _readme_metrics(payload: Mapping[str, object]) -> dict[str, object]:
-    """Return basic README metrics for plan/execute demos."""
-    del payload
-    readme_path = Path("README.md")
-    readme_text = readme_path.read_text(encoding="utf-8")
-    lines = readme_text.splitlines()
-    first_heading = next((line.lstrip("#").strip() for line in lines if line.startswith("#")), "")
-    return {
-        "path": str(readme_path),
-        "line_count": len(lines),
-        "first_heading": first_heading,
-    }
 
 
 def main() -> None:
@@ -111,26 +82,13 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    with (
-        Toolbox(
-            enable_core_tools=False,
-            callable_tools=(
-                CallableToolConfig(
-                    name="repo.readme_metrics",
-                    description="Return README line-count and first heading.",
-                    # Inject one deterministic local tool so planning can reference concrete capabilities.
-                    handler=_readme_metrics,
-                ),
-            ),
-        ) as tool_runtime,
-        LlamaCppServerLLMClient(**_STRONGER_LLAMA_CLIENT_KWARGS) as llm_client,
-    ):
+    with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
         executor_delegate = MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
-            max_steps=2,
-            allowed_tools=("repo.readme_metrics",),
+            max_steps=3,
+            allowed_tools=("text.word_count",),
             tracer=tracer,
         )
         workflow = PlanExecutePattern(
@@ -138,14 +96,12 @@ def main() -> None:
             tool_runtime=tool_runtime,
             executor_delegate=executor_delegate,
             max_iterations=1,
-            executor_step_prompt_template=_EXECUTOR_STEP_PROMPT_TEMPLATE,
             tracer=tracer,
         )
         result = workflow.run(
             prompt=(
-                "Create and execute a concise engineering-design audit plan using the available "
-                "repo.readme_metrics tool. The executor must use repo.readme_metrics and end the "
-                "task with an explicit final_answer containing a compact summary."
+                "Create and execute a one-step plan that uses text.word_count to count the words "
+                "in the phrase 'design system research workflow', then return only word_count."
             ),
             request_id=request_id,
         )

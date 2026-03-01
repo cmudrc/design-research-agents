@@ -28,12 +28,13 @@ from design_research_agents.llm._backends._utils import (
     parse_usage,
 )
 
+from ._openai_compatible_http import _format_response_format
 from ._sglang_server import SglangServerBackend
 
 _SGLANG_CAPABILITIES = BackendCapabilities(
     streaming=True,
     tool_calling="best_effort",
-    json_mode="prompt+validate",
+    json_mode="native",
     vision=False,
     max_context_tokens=None,
 )
@@ -117,12 +118,17 @@ class SglangLocalBackend(BaseLLMBackend):
         """
         self._ensure_server_ready()
         payload = self._build_payload(request)
-        response = _post_json_with_retry(
-            self._chat_url,
-            payload,
-            timeout_seconds=self._request_timeout_seconds,
-            max_retries=self.max_retries,
-        )
+        try:
+            response = _post_json_with_retry(
+                self._chat_url,
+                payload,
+                timeout_seconds=self._request_timeout_seconds,
+                max_retries=self.max_retries,
+            )
+        except Exception as exc:
+            if _should_fallback_to_prompt_validated_json(request, exc):
+                return self._generate_prompt_validated_json(request)
+            raise
         return _parse_completion_response(response, request, provider=self.name)
 
     @override
@@ -138,12 +144,18 @@ class SglangLocalBackend(BaseLLMBackend):
         self._ensure_server_ready()
         payload = self._build_payload(request)
         payload["stream"] = True
-        response = _post_stream_with_retry(
-            self._chat_url,
-            payload,
-            timeout_seconds=self._request_timeout_seconds,
-            max_retries=self.max_retries,
-        )
+        try:
+            response = _post_stream_with_retry(
+                self._chat_url,
+                payload,
+                timeout_seconds=self._request_timeout_seconds,
+                max_retries=self.max_retries,
+            )
+        except Exception as exc:
+            if _should_fallback_to_prompt_validated_json(request, exc):
+                yield from _stream_prompt_validated_json_fallback(self._generate_prompt_validated_json(request))
+                return
+            raise
         for data in _iter_sse_events(response):
             if data == "[DONE]":
                 break
@@ -207,8 +219,38 @@ class SglangLocalBackend(BaseLLMBackend):
             payload["temperature"] = request.temperature
         if request.max_tokens is not None:
             payload["max_tokens"] = request.max_tokens
+        response_format = _format_response_format(request, style="openai")
+        if response_format:
+            payload["response_format"] = response_format
         payload.update(request.provider_options)
         return payload
+
+
+def _should_fallback_to_prompt_validated_json(
+    request: LLMRequest,
+    exc: Exception,
+) -> bool:
+    """Return whether one failed native JSON request should retry via prompt validation."""
+    if request.response_schema is None and request.response_format is None:
+        return False
+    return _is_response_format_error(exc)
+
+
+def _is_response_format_error(exc: Exception) -> bool:
+    """Return whether one normalized error indicates unsupported ``response_format``."""
+    if not isinstance(exc, LLMInvalidRequestError):
+        return False
+    message = str(exc).lower()
+    return "response_format" in message or "json_schema" in message or "json_object" in message
+
+
+def _stream_prompt_validated_json_fallback(response: LLMResponse) -> Iterator[LLMDelta]:
+    """Emit one non-streaming structured fallback response as minimal stream deltas."""
+    if response.text:
+        yield LLMDelta(text_delta=response.text)
+    usage = parse_usage(response.usage)
+    if usage is not None:
+        yield LLMDelta(usage_delta=usage)
 
 
 def _post_json_with_retry(

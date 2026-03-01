@@ -9,6 +9,7 @@ from design_research_agents._contracts._llm import (
     LLMInvalidRequestError,
     LLMProviderError,
     LLMRateLimitError,
+    LLMResponse,
 )
 from design_research_agents.llm._backends._providers import (
     _ollama_local,
@@ -51,6 +52,18 @@ def test__ollama_local_backend_payload_and_chat_url() -> None:
     assert options["temperature"] == 0.4
     assert options["num_predict"] == 33
     assert options["num_ctx"] == 8192
+
+    structured_payload = backend._build_payload(
+        request(response_schema={"type": "object"}),
+        stream=False,
+    )
+    assert structured_payload["format"] == {"type": "object"}
+
+    json_object_payload = backend._build_payload(
+        request(response_format={"type": "json_object"}),
+        stream=False,
+    )
+    assert json_object_payload["format"] == "json"
 
 
 def test__ollama_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,6 +110,32 @@ def test__ollama_local_backend_generate_and_stream(monkeypatch: pytest.MonkeyPat
     assert deltas[1].tool_call_delta.name == "calculator"
     assert deltas[2].usage_delta is not None
     assert deltas[2].usage_delta.total_tokens == 3
+
+
+def test__ollama_local_backend_falls_back_when_native_format_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = _ollama_local.OllamaLocalBackend(
+        name="ollama",
+        base_url="http://127.0.0.1:11434",
+        default_model="qwen2.5:1.5b-instruct",
+        request_timeout_seconds=10.0,
+        config_hash="cfg",
+    )
+    monkeypatch.setattr(
+        _ollama_local,
+        "_post_json_with_retry",
+        lambda *args, **kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("Unsupported format parameter")),
+    )
+    monkeypatch.setattr(
+        backend,
+        "_generate_prompt_validated_json",
+        lambda req: LLMResponse(model=req.model, text='{"ok":true}', provider="fallback"),
+    )
+
+    response = backend._generate(request(response_schema={"type": "object"}))
+    assert response.provider == "fallback"
+    assert response.text == '{"ok":true}'
 
 
 def test_ollama_retry_helpers(monkeypatch: pytest.MonkeyPatch) -> None:

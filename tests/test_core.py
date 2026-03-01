@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from types import SimpleNamespace
 
 import pytest
 
+import design_research_agents.llm.clients._managed_port_reservations as managed_port_module
 import design_research_agents.llm.clients._shared as shared_client_module
 from design_research_agents._contracts._llm import (
     BackendCapabilities,
@@ -114,6 +116,97 @@ def test_provider_clients_use_expected_default_backend_names() -> None:
     assert VLLMServerLLMClient(manage_server=False)._backend.name == "vllm-local"
     assert OllamaLLMClient(manage_server=False)._backend.name == "ollama-local"
     assert SGLangServerLLMClient(manage_server=False)._backend.name == "sglang-local"
+
+
+def test_resolve_managed_server_port_falls_back_when_requested_port_is_busy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    probe_calls: list[int] = []
+
+    def _fake_probe(*, host: str, port: int) -> int | None:
+        del host
+        probe_calls.append(port)
+        if port == 8001:
+            return None
+        return 43123
+
+    monkeypatch.setattr(managed_port_module, "_probe_bindable_tcp_port", _fake_probe)
+    assert managed_port_module._resolve_managed_server_port(host="127.0.0.1", requested_port=8001) == 43123
+    assert probe_calls == [8001, 0]
+
+
+def test_reserve_managed_server_port_covers_fallback_and_release_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    closed: list[str] = []
+    reservations = [
+        None,
+        managed_port_module._ReservedManagedPort(
+            port=45123,
+            reservation_socket=SimpleNamespace(close=lambda: closed.append("fallback")),  # type: ignore[arg-type]
+        ),
+        None,
+        None,
+    ]
+
+    monkeypatch.setattr(
+        managed_port_module,
+        "_reserve_bindable_tcp_port",
+        lambda *, host, port: reservations.pop(0),
+    )
+
+    fallback = managed_port_module._reserve_managed_server_port(host="127.0.0.1", requested_port=8001)
+    assert fallback.port == 45123
+    fallback.release()
+    assert closed == ["fallback"]
+
+    unresolved = managed_port_module._reserve_managed_server_port(host="127.0.0.1", requested_port=8001)
+    assert unresolved.port == 8001
+    unresolved.release()
+
+
+def test_probe_bindable_tcp_port_returns_none_when_host_lookup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        managed_port_module.socket,
+        "getaddrinfo",
+        lambda *args, **kwargs: (_ for _ in ()).throw(managed_port_module.socket.gaierror("bad host")),
+    )
+    assert managed_port_module._probe_bindable_tcp_port(host="bad-host", port=8001) is None
+
+
+def test_managed_server_clients_use_auto_resolved_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        shared_client_module,
+        "_reserve_managed_server_port",
+        lambda *, host, requested_port: managed_port_module._ReservedManagedPort(
+            port=requested_port + 7,
+        ),
+    )
+
+    with LlamaCppServerLLMClient(port=9100) as llama:
+        assert llama._llama_server.port == 9107
+        assert llama._backend.base_url == "http://127.0.0.1:9107/v1"
+        assert llama.server_snapshot()["port"] == 9107
+
+    with VLLMServerLLMClient(port=9200, manage_server=True) as vllm:
+        assert vllm._vllm_server is not None
+        assert vllm._vllm_server.port == 9207
+        assert vllm._backend.base_url == "http://127.0.0.1:9207/v1"
+        assert vllm.config_snapshot()["port"] == 9207
+
+    with OllamaLLMClient(port=9300, manage_server=True) as ollama:
+        assert ollama._ollama_server is not None
+        assert ollama._ollama_server.port == 9307
+        assert ollama._backend.base_url == "http://127.0.0.1:9307"
+        assert ollama.config_snapshot()["port"] == 9307
+
+    with SGLangServerLLMClient(port=9400, manage_server=True) as sglang:
+        assert sglang._sglang_server is not None
+        assert sglang._sglang_server.port == 9407
+        assert sglang._backend.base_url == "http://127.0.0.1:9407/v1"
+        assert sglang.config_snapshot()["port"] == 9407
 
 
 def test_chat_builds_request_from_chat_params() -> None:

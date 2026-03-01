@@ -60,9 +60,6 @@ dev = [
   "twine>=5,<7",
 ]
 
-# Shared HF utilities (handy for multiple backends)
-hf = ["huggingface-hub>=0.24"]
-
 # Hosted provider SDKs
 anthropic = ["anthropic>=0.40,<1"]
 
@@ -97,7 +94,7 @@ sglang = [
 
 # Convenience bundles
 # - "local" = all local backends that make sense on the current platform
-# - "full"  = local + server backends (Linux-only pieces auto-skip elsewhere)
+# - "full" = local + server backends (Linux-only pieces auto-skip elsewhere)
 local = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",

@@ -23,7 +23,7 @@ from design_research_agents.llm._backends._providers._openai_compatible_http imp
 _LLAMA_CPP_CAPABILITIES = BackendCapabilities(
     streaming=True,
     tool_calling="best_effort",
-    json_mode="prompt+validate",
+    json_mode="native",
     vision=False,
     max_context_tokens=None,
 )
@@ -39,6 +39,7 @@ class LlamaCppBackend(BaseLLMBackend):
         llama_backend: LlamaCppServerBackend,
         default_model: str,
         config_hash: str,
+        request_timeout_seconds: float = 60.0,
         max_retries: int = 2,
         model_patterns: tuple[str, ...] = (),
     ) -> None:
@@ -49,6 +50,7 @@ class LlamaCppBackend(BaseLLMBackend):
             llama_backend: Value supplied for ``llama_backend``.
             default_model: Value supplied for ``default_model``.
             config_hash: Value supplied for ``config_hash``.
+            request_timeout_seconds: Value supplied for ``request_timeout_seconds``.
             max_retries: Value supplied for ``max_retries``.
             model_patterns: Value supplied for ``model_patterns``.
         """
@@ -70,6 +72,8 @@ class LlamaCppBackend(BaseLLMBackend):
             api_key=None,
             capabilities=_LLAMA_CPP_CAPABILITIES,
             config_hash=config_hash,
+            request_timeout_seconds=request_timeout_seconds,
+            response_format_style="llama_cpp",
             max_retries=max_retries,
             model_patterns=model_patterns,
         )

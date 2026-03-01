@@ -10,6 +10,7 @@ from __future__ import annotations
 import atexit
 import importlib
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -57,6 +58,8 @@ class LlamaCppServerBackend:
     """Stored ``extra_server_args`` value."""
     _process: subprocess.Popen[str] | None = field(default=None, init=False, repr=False)
     """Stored ``_process`` value."""
+    _port_reservation_socket: socket.socket | None = field(default=None, init=False, repr=False)
+    """Held port reservation released immediately before process start."""
 
     def __post_init__(self) -> None:
         """Initialize delegated OpenAI-compatible caller and shutdown hook.
@@ -219,6 +222,7 @@ class LlamaCppServerBackend:
 
         # Fail fast with a direct dependency message before spawning a process.
         self._ensure_server_dependency()
+        self._release_port_reservation()
 
         self._process = subprocess.Popen(
             self._build_command(),
@@ -282,6 +286,7 @@ class LlamaCppServerBackend:
         Shutdown first attempts a graceful terminate/wait sequence and escalates
         to kill only when termination does not complete within timeout.
         """
+        self._release_port_reservation()
         process = self._process
         if process is None:
             return
@@ -297,6 +302,19 @@ class LlamaCppServerBackend:
                 process.wait(timeout=5.0)
 
         self._process = None
+
+    def set_port_reservation(self, reservation_socket: socket.socket | None) -> None:
+        """Hold one reserved socket until the managed server is ready to start."""
+        self._release_port_reservation()
+        self._port_reservation_socket = reservation_socket
+
+    def _release_port_reservation(self) -> None:
+        """Release any held socket reservation."""
+        reservation_socket = self._port_reservation_socket
+        if reservation_socket is None:
+            return
+        reservation_socket.close()
+        self._port_reservation_socket = None
 
 
 def create_backend(

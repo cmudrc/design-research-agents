@@ -7,8 +7,10 @@ Follow a ReAct-style step:
 Return Python code only.
 Use tools only via call_tool("tool_name", {...}).
 Do not use import statements.
+If the answer depends on counting, calculation, lookup, or inspection, call a tool instead of guessing.
 Use final_answer({...}) when you are ready to end the overall task.
 Use final_output = {...} only when recording this step's observation and continuing.
+If you assign final_output, derive it from variables or tool results, not placeholder strings.
 You may call tools first and then call final_answer({...}) in the same step.
 Memory tail: $memory_tail
 Retrieved context: $retrieved_context

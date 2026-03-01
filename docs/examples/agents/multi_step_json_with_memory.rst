@@ -24,7 +24,7 @@ Technical Implementation
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
        B --> C["MultiStepAgent.run(...)"]
-       C --> D["WorkflowRuntime loop enforces continuation and max-step policy"]
+       C --> D["WorkflowRuntime loop enforces explicit final-answer and max-step policy"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]
        E --> F
