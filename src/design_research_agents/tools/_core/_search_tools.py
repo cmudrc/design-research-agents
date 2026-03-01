@@ -92,6 +92,7 @@ def _search(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mapping[
             globs=globs,
             max_matches=max_matches,
             context_lines=context_lines,
+            timeout_s=policy.config.default_timeout_s,
         )
 
     return _search_with_python(
@@ -109,6 +110,7 @@ def _search_with_rg(
     globs: list[str],
     max_matches: int,
     context_lines: int,
+    timeout_s: int,
 ) -> Mapping[str, object]:
     """Search with rg.
 
@@ -119,6 +121,7 @@ def _search_with_rg(
         globs: Value supplied for ``globs``.
         max_matches: Value supplied for ``max_matches``.
         context_lines: Value supplied for ``context_lines``.
+        timeout_s: Value supplied for ``timeout_s``.
 
     Returns:
         Result produced by this call.
@@ -139,12 +142,16 @@ def _search_with_rg(
         command.extend(["-g", glob])
     command.extend([query, str(root)])
 
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"ripgrep search timed out after {timeout_s}s.") from exc
 
     matches: list[dict[str, object]] = []
     line_pattern = re.compile(r"^(.*?):(\d+):(\d+):(.*)$")

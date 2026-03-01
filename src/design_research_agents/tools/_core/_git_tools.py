@@ -177,14 +177,25 @@ def _git_show(input_dict: Mapping[str, object], *, policy: ToolPolicy) -> Mappin
         Exception: Raised when this operation cannot complete.
     """
     repo = policy.resolve_read_path(get_str(input_dict, "repo", default="."))
-    rev = get_str(input_dict, "rev").strip()
-    if not rev:
-        raise ValueError("rev is required.")
+    rev = _validate_git_rev(get_str(input_dict, "rev").strip())
     return {
         "repo": str(repo),
         "rev": rev,
         "show": _run_git(policy=policy, repo=str(repo), args=["show", rev]),
     }
+
+
+def _validate_git_rev(rev: str) -> str:
+    """Validate one revision string before passing it to ``git show``."""
+    if not rev:
+        raise ValueError("rev is required.")
+    if rev.startswith("-"):
+        raise ValueError("rev must not start with '-'.")
+    if any(char.isspace() for char in rev):
+        raise ValueError("rev must not contain whitespace.")
+    if any(ord(char) < 32 or ord(char) == 127 for char in rev):
+        raise ValueError("rev must not contain control characters.")
+    return rev
 
 
 def _run_git(*, policy: ToolPolicy, repo: str, args: list[str]) -> str:
@@ -199,12 +210,17 @@ def _run_git(*, policy: ToolPolicy, repo: str, args: list[str]) -> str:
         Command output with stderr appended when present.
     """
     policy.validate_command("git")
-    completed = subprocess.run(
-        ["git", "-C", repo, *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    timeout_s = policy.config.default_timeout_s
+    try:
+        completed = subprocess.run(
+            ["git", "-C", repo, *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"git command timed out after {timeout_s}s.") from exc
     output = completed.stdout
     if completed.stderr.strip():
         output = f"{output}\n{completed.stderr.strip()}".strip()

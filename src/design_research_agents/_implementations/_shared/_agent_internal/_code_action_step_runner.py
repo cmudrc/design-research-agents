@@ -17,6 +17,7 @@ from design_research_agents._contracts._llm import (
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime
 from design_research_agents._contracts._workflow import LogicStep
 from design_research_agents._implementations._shared._agent_internal._code_tool_agent_execution import (
+    _clamp_tool_result,
     compile_sandboxed_code,
     execute_compiled_code,
     failure_result,
@@ -670,7 +671,7 @@ class CodeActionStepRunner(Delegate):
                 if not tool_result.ok or not isinstance(tool_result.result, Mapping):
                     return None
                 calculator_results.append(dict(tool_result.result))
-            tool_results.extend(fallback_tool_results)
+            tool_results.extend(_clamp_tool_result(tool_result) for tool_result in fallback_tool_results)
 
             if len(calculator_results) == 1:
                 return calculator_results[0]
@@ -695,7 +696,7 @@ class CodeActionStepRunner(Delegate):
         fallback_tool_results.append(tool_result)
         if not tool_result.ok or not isinstance(tool_result.result, Mapping):
             return None
-        tool_results.extend(fallback_tool_results)
+        tool_results.extend(_clamp_tool_result(tool_result) for tool_result in fallback_tool_results)
         return dict(tool_result.result)
 
     def _finalize_handler(self, context: Mapping[str, object]) -> Mapping[str, object]:

@@ -260,6 +260,13 @@ def test_ollama_server_pull_and_close_paths(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(RuntimeError, match="Failed to pull Ollama model"):
         backend._pull_model("qwen2.5:1.5b-instruct")
 
+    def _raise_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(_ollama_server.subprocess, "run", _raise_timeout)
+    with pytest.raises(RuntimeError, match="Timed out pulling Ollama model"):
+        backend._pull_model("qwen2.5:1.5b-instruct")
+
     class _StubbornProcess:
         def __init__(self) -> None:
             self.killed = False

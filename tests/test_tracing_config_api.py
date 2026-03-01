@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
@@ -39,6 +40,32 @@ def test_injected_tracer_drives_trace_sink(tmp_path) -> None:
 
     trace_files = list((tmp_path / "custom-traces").glob("run_*.jsonl"))
     assert trace_files, "Expected JSONL trace file in configured trace_dir."
+
+
+def test_injected_tracer_redacts_root_run_payloads(tmp_path: Path) -> None:
+    tracer = Tracer(
+        enabled=True,
+        trace_dir=tmp_path / "redacted-traces",
+        enable_jsonl=True,
+        enable_console=False,
+    )
+
+    scope = start_trace_run(
+        agent_name="TraceConfigTestAgent",
+        request_id="trace-redaction-test",
+        input_payload={"prompt": "hello", "api_key": "secret"},
+        dependencies={},
+        tracer=tracer,
+    )
+    finish_trace_run(scope, result={"ok": True, "secret": "hidden"})
+
+    trace_files = list((tmp_path / "redacted-traces").glob("run_*.jsonl"))
+    assert trace_files
+    events = [json.loads(line) for line in trace_files[0].read_text(encoding="utf-8").splitlines()]
+    started = next(event for event in events if event["event_type"] == "RunStarted")
+    finished = next(event for event in events if event["event_type"] == "RunFinished")
+    assert started["attributes"]["input"]["api_key"] == "***REDACTED***"
+    assert finished["attributes"]["result"]["secret"] == "***REDACTED***"
 
 
 def test_disabled_tracer_skips_trace_creation(tmp_path) -> None:

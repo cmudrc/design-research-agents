@@ -6,8 +6,11 @@ import json
 import select
 import subprocess
 import time
+from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from threading import Lock, Thread
+from typing import TextIO
 
 from design_research_agents._contracts._tools import (
     ToolMetadata,
@@ -38,6 +41,9 @@ class _StdioMcpClient:
         self._process: subprocess.Popen[str] | None = None
         self._request_id = 0
         self._initialized = False
+        self._stderr_lines: deque[str] = deque(maxlen=32)
+        self._stderr_lock = Lock()
+        self._stderr_thread: Thread | None = None
 
     def list_tools(self) -> list[dict[str, object]]:
         """Fetch raw tool descriptors from the remote MCP server.
@@ -130,6 +136,9 @@ class _StdioMcpClient:
         if self._process is not None:
             return
 
+        with self._stderr_lock:
+            self._stderr_lines.clear()
+
         # Launch subprocesses with an allowlisted environment to reduce accidental secret leakage.
         env = self._policy.sanitize_subprocess_env(
             allowlist=self._server.env_allowlist,
@@ -144,6 +153,41 @@ class _StdioMcpClient:
             bufsize=1,
             env=env,
         )
+        if self._process.stderr is not None:
+            self._stderr_thread = Thread(
+                target=self._drain_stderr,
+                args=(self._process.stderr,),
+                daemon=True,
+                name=f"dra-mcp-stderr-{self._server.id}",
+            )
+            self._stderr_thread.start()
+
+    def _drain_stderr(self, stderr: TextIO) -> None:
+        """Continuously drain ``stderr`` to avoid child-process backpressure."""
+        try:
+            for line in iter(stderr.readline, ""):
+                self._record_stderr_line(line)
+        except Exception:
+            # Best-effort background draining should not disrupt the client lifecycle.
+            return
+
+    def _record_stderr_line(self, line: str) -> None:
+        """Store one bounded stderr line for later diagnostics."""
+        normalized = line.rstrip()
+        if not normalized:
+            return
+        with self._stderr_lock:
+            self._stderr_lines.append(normalized)
+
+    def _stderr_preview(self) -> str:
+        """Return a bounded stderr preview captured by the background drain thread."""
+        with self._stderr_lock:
+            if not self._stderr_lines:
+                return ""
+            preview = "\n".join(self._stderr_lines)
+        if len(preview) <= 2_000:
+            return preview
+        return f"...{preview[-1_997:]}"
 
     def _ensure_initialized(self) -> None:
         """Perform the MCP initialize and initialized handshake once.
@@ -214,10 +258,9 @@ class _StdioMcpClient:
                 continue
             line = process.stdout.readline()
             if line == "":
-                stderr_text = ""
-                if process.stderr is not None:
-                    stderr_text = process.stderr.read() or ""
-                raise McpProtocolError(f"MCP server '{self._server.id}' closed unexpectedly. stderr={stderr_text!r}")
+                stderr_text = self._stderr_preview()
+                details = f" stderr={stderr_text!r}" if stderr_text else ""
+                raise McpProtocolError(f"MCP server '{self._server.id}' closed unexpectedly.{details}")
             try:
                 response_payload = json.loads(line)
             except json.JSONDecodeError:
@@ -243,6 +286,12 @@ class _StdioMcpClient:
                 process.kill()
         self._process = None
         self._initialized = False
+        stderr_thread = self._stderr_thread
+        if stderr_thread is not None:
+            stderr_thread.join(timeout=0.1)
+        self._stderr_thread = None
+        with self._stderr_lock:
+            self._stderr_lines.clear()
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
         """Perform best-effort shutdown during interpreter garbage collection."""

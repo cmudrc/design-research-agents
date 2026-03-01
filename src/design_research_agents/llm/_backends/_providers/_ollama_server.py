@@ -171,13 +171,19 @@ class OllamaServerBackend:
         Raises:
             RuntimeError: If model pull command fails.
         """
-        completed = subprocess.run(
-            [self.ollama_executable, "pull", model],
-            env=self._serve_env(),
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            completed = subprocess.run(
+                [self.ollama_executable, "pull", model],
+                env=self._serve_env(),
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=self.startup_timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"Timed out pulling Ollama model '{model}' after {self.startup_timeout_seconds}s."
+            ) from exc
         if completed.returncode != 0:
             stderr = completed.stderr.strip()
             stdout = completed.stdout.strip()

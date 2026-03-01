@@ -21,6 +21,25 @@ from design_research_agents._tracing import emit_guardrail_decision
 from ._code_tool_agent_parsing import AllowedTool
 
 _FINAL_ANSWER_TOOL_NAME = "final_answer"
+_MAX_SERIALIZED_PAYLOAD_BYTES = 65_536
+_TRUNCATED_PAYLOAD_MESSAGE = f"[truncated: serialized payload exceeded {_MAX_SERIALIZED_PAYLOAD_BYTES} bytes]"
+
+
+@dataclass(slots=True, frozen=True)
+class _PayloadBounds:
+    """Recursive normalization limits used for sandbox-visible payloads."""
+
+    max_depth: int
+    max_items: int
+    max_string_chars: int
+
+
+_SANDBOX_VIEW_BOUNDS = _PayloadBounds(max_depth=12, max_items=512, max_string_chars=262_144)
+_SERIALIZATION_BOUNDS_PROFILES = (
+    _PayloadBounds(max_depth=8, max_items=128, max_string_chars=8_192),
+    _PayloadBounds(max_depth=6, max_items=32, max_string_chars=2_048),
+    _PayloadBounds(max_depth=4, max_items=8, max_string_chars=512),
+)
 
 
 def compile_sandboxed_code(code_text: str) -> CodeType:
@@ -210,6 +229,153 @@ class _FinalAnswerSignal(Exception):
     """Internal control-flow signal used to stop execution after ``final_answer()``."""
 
 
+def _truncate_string(value: str, *, max_chars: int) -> tuple[str, bool]:
+    """Clamp one string to a bounded preview while preserving original length."""
+    if len(value) <= max_chars:
+        return value, False
+    preview_len = max(0, max_chars - 16)
+    return f"{value[:preview_len]}...[truncated:{len(value)}]", True
+
+
+def _normalize_json_value(
+    value: object,
+    *,
+    bounds: _PayloadBounds,
+    depth: int = 0,
+) -> tuple[object, bool]:
+    """Normalize arbitrary values into bounded JSON-safe structures."""
+    if depth >= bounds.max_depth:
+        return "[truncated: max depth reached]", True
+
+    if isinstance(value, Mapping):
+        normalized: dict[str, object] = {}
+        changed = False
+        items = list(value.items())
+        for index, (key, raw_val) in enumerate(items):
+            if index >= bounds.max_items:
+                normalized["__truncated_items__"] = len(items) - bounds.max_items
+                changed = True
+                break
+            key_text = str(key)
+            normalized_key, key_changed = _truncate_string(key_text, max_chars=128)
+            normalized_value, value_changed = _normalize_json_value(raw_val, bounds=bounds, depth=depth + 1)
+            normalized[normalized_key] = normalized_value
+            changed = changed or key_changed or value_changed or normalized_key != key_text
+        return normalized, changed
+
+    if isinstance(value, (list, tuple, set)):
+        sequence = list(value)
+        normalized_items: list[object] = []
+        changed = not isinstance(value, list)
+        for index, item in enumerate(sequence):
+            if index >= bounds.max_items:
+                normalized_items.append(f"[truncated_items:{len(sequence) - bounds.max_items}]")
+                changed = True
+                break
+            normalized_item, item_changed = _normalize_json_value(item, bounds=bounds, depth=depth + 1)
+            normalized_items.append(normalized_item)
+            changed = changed or item_changed
+        return normalized_items, changed
+
+    if isinstance(value, str):
+        return _truncate_string(value, max_chars=bounds.max_string_chars)
+
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value, False
+
+    text_value = str(value)
+    truncated_text, _ = _truncate_string(text_value, max_chars=bounds.max_string_chars)
+    return truncated_text, True
+
+
+def _serialized_size_bytes(value: object) -> int:
+    """Return UTF-8 byte length for one JSON-serializable value."""
+    return len(json.dumps(value, ensure_ascii=True, sort_keys=True).encode("utf-8"))
+
+
+def _bounded_json_clone(
+    value: object,
+    *,
+    bounds_profiles: Sequence[_PayloadBounds],
+    fallback_root: str,
+) -> tuple[object, bool]:
+    """Return a bounded JSON clone using progressively tighter normalization profiles."""
+    clamped = False
+    last_serialized: object | None = None
+
+    for index, bounds in enumerate(bounds_profiles):
+        normalized, changed = _normalize_json_value(value, bounds=bounds)
+        serialized = json.loads(json.dumps(normalized))
+        last_serialized = serialized
+        if _serialized_size_bytes(serialized) <= _MAX_SERIALIZED_PAYLOAD_BYTES:
+            return serialized, clamped or changed or index > 0
+        clamped = True
+
+    if fallback_root == "mapping":
+        return {
+            "_truncated": True,
+            "_reason": _TRUNCATED_PAYLOAD_MESSAGE,
+        }, True
+    if fallback_root == "sequence":
+        return [_TRUNCATED_PAYLOAD_MESSAGE], True
+    if isinstance(last_serialized, str):
+        return _truncate_string(last_serialized, max_chars=256)[0], True
+    return _TRUNCATED_PAYLOAD_MESSAGE, True
+
+
+def _sandbox_visible_copy(value: object) -> object:
+    """Return a JSON-safe copy for values exposed directly to sandboxed code."""
+    normalized, _ = _normalize_json_value(value, bounds=_SANDBOX_VIEW_BOUNDS)
+    return json.loads(json.dumps(normalized))
+
+
+def _clamp_tool_result(tool_result: ToolResult) -> ToolResult:
+    """Return a bounded clone safe for result storage and downstream serialization."""
+    result_root = (
+        "mapping"
+        if isinstance(tool_result.result, Mapping)
+        else "sequence"
+        if isinstance(tool_result.result, (list, tuple, set))
+        else "scalar"
+    )
+    result_payload, result_clamped = _bounded_json_clone(
+        tool_result.result,
+        bounds_profiles=_SERIALIZATION_BOUNDS_PROFILES,
+        fallback_root=result_root,
+    )
+    metadata_payload, metadata_clamped = _bounded_json_clone(
+        tool_result.metadata,
+        bounds_profiles=_SERIALIZATION_BOUNDS_PROFILES,
+        fallback_root="mapping",
+    )
+    warnings_payload, warnings_clamped = _bounded_json_clone(
+        list(tool_result.warnings),
+        bounds_profiles=_SERIALIZATION_BOUNDS_PROFILES,
+        fallback_root="sequence",
+    )
+
+    metadata = dict(metadata_payload) if isinstance(metadata_payload, Mapping) else {}
+    if result_clamped:
+        metadata["result_clamped"] = True
+    if metadata_clamped:
+        metadata["metadata_clamped"] = True
+    if warnings_clamped:
+        metadata["warnings_clamped"] = True
+
+    warnings = (
+        tuple(str(item) for item in warnings_payload) if isinstance(warnings_payload, list) else tool_result.warnings
+    )
+    return ToolResult(
+        tool_name=tool_result.tool_name,
+        ok=tool_result.ok,
+        result=result_payload,
+        artifacts=tool_result.artifacts,
+        warnings=warnings,
+        error=tool_result.error,
+        metadata=metadata,
+    )
+
+
 def _normalize_tool_name(
     *,
     tool_name: str,
@@ -350,7 +516,7 @@ def _invoke_tool_runtime(
         request_id=request_id,
         dependencies=dependencies,
     )
-    tool_results.append(tool_result)
+    tool_results.append(_clamp_tool_result(tool_result))
     if not tool_result.ok:
         error_message = tool_result.error.message if tool_result.error is not None else "Unknown tool runtime error."
         raise RuntimeError(f"Tool '{tool_name}' failed: {error_message}")
@@ -395,16 +561,20 @@ def _serialize_mapping_payload(
         )
         raise ValueError(type_error)
 
-    serialized = json.loads(json.dumps(dict(raw_payload)))
-    if isinstance(serialized, dict):
-        return serialized
-
-    emit_guardrail_decision(
-        guardrail=json_guardrail,
-        decision="reject",
-        reason=json_reason,
+    serialized, was_clamped = _bounded_json_clone(
+        dict(raw_payload),
+        bounds_profiles=_SERIALIZATION_BOUNDS_PROFILES,
+        fallback_root="mapping",
     )
-    raise ValueError(json_error)
+    if not isinstance(serialized, dict):
+        raise AssertionError(f"Guardrail '{json_guardrail}' returned a non-mapping payload.")
+    if was_clamped:
+        emit_guardrail_decision(
+            guardrail=f"{json_guardrail}_size",
+            decision="clamp",
+            reason=f"payload was clamped to stay within {_MAX_SERIALIZED_PAYLOAD_BYTES} bytes",
+        )
+    return serialized
 
 
 def _resolve_execution_outcome(
@@ -583,11 +753,11 @@ def execute_compiled_code(
         "final_answer": final_answer,
     }
     sandbox_locals: dict[str, object] = {
-        "prompt": prompt,
-        "input_payload": dict(input_payload),
-        "request_id": request_id,
-        "dependencies": dict(dependencies),
-        "allowed_tools": [tool.tool_name for tool in allowed_tools],
+        "prompt": _sandbox_visible_copy(prompt),
+        "input_payload": _sandbox_visible_copy(dict(input_payload)),
+        "request_id": _sandbox_visible_copy(request_id),
+        "dependencies": _sandbox_visible_copy(dict(dependencies)),
+        "allowed_tools": _sandbox_visible_copy([tool.tool_name for tool in allowed_tools]),
         "final_output": _FinalOutputProxy(),
     }
 
@@ -620,6 +790,12 @@ def execution_timeout(*, seconds: int) -> Iterator[None]:
     """
     if not hasattr(signal, "SIGALRM"):
         # Non-POSIX fallback: no hard timeout support.
+        emit_guardrail_decision(
+            guardrail="execution_timeout_enforced",
+            decision="warn",
+            reason="hard timeout unavailable because SIGALRM is not supported on this platform",
+            details={"seconds": seconds, "enforced": False, "fallback": "unsupported_platform"},
+        )
         yield
         return
 
@@ -641,6 +817,12 @@ def execution_timeout(*, seconds: int) -> Iterator[None]:
         signal.signal(signal.SIGALRM, _on_timeout)
     except ValueError:
         # Signals only work in the main thread; fallback to no hard timeout.
+        emit_guardrail_decision(
+            guardrail="execution_timeout_enforced",
+            decision="warn",
+            reason="hard timeout unavailable because SIGALRM only works in the main thread",
+            details={"seconds": seconds, "enforced": False, "fallback": "not_main_thread"},
+        )
         yield
         return
     signal.alarm(seconds)

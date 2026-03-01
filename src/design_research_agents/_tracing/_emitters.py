@@ -34,11 +34,13 @@ def start_model_call(
     attributes = {
         "model": model,
         "message_count": len(messages),
-        "messages": messages,
-        "params": params,
+        "messages": _sanitize_trace_payload(list(messages)),
+        "params": _sanitize_trace_payload(params),
     }
     if metadata:
-        attributes.update(dict(metadata))
+        sanitized_metadata = _sanitize_trace_payload(dict(metadata))
+        if isinstance(sanitized_metadata, Mapping):
+            attributes.update(dict(sanitized_metadata))
     return session.start_span(
         "ModelCallStarted",
         parent_span_id=parent_span_id,
@@ -73,8 +75,10 @@ def finish_model_call(
             attributes={
                 "error": error,
                 "model": model_name,
-                "usage": getattr(response, "usage", None) if response is not None else None,
-                "latency_ms": getattr(response, "latency_ms", None) if response is not None else None,
+                "usage": _sanitize_trace_payload(getattr(response, "usage", None) if response is not None else None),
+                "latency_ms": _sanitize_trace_payload(
+                    getattr(response, "latency_ms", None) if response is not None else None
+                ),
             },
         )
         return
@@ -82,12 +86,12 @@ def finish_model_call(
         "ModelCallFinished",
         span_id=span_id,
         attributes={
-            "response": response,
+            "response": _sanitize_trace_payload(response),
             "model": getattr(response, "model", None),
-            "usage": getattr(response, "usage", None),
-            "latency_ms": getattr(response, "latency_ms", None),
-            "finish_reason": getattr(response, "finish_reason", None),
-            "provider": getattr(response, "provider", None),
+            "usage": _sanitize_trace_payload(getattr(response, "usage", None)),
+            "latency_ms": _sanitize_trace_payload(getattr(response, "latency_ms", None)),
+            "finish_reason": _sanitize_trace_payload(getattr(response, "finish_reason", None)),
+            "provider": _sanitize_trace_payload(getattr(response, "provider", None)),
         },
     )
 
@@ -211,7 +215,7 @@ def start_tool_call(
         parent_span_id=parent_span_id,
         attributes={
             "tool_name": tool_name,
-            "tool_input": dict(tool_input),
+            "tool_input": _sanitize_trace_payload(dict(tool_input)),
             "request_id": request_id,
             # Only persist dependency keys here to keep span payloads compact.
             "dependency_keys": sorted(dependencies.keys()),
@@ -241,7 +245,7 @@ def finish_tool_call(
         attributes={
             "tool_name": tool_name,
             "ok": True,
-            "result": result,
+            "result": _sanitize_trace_payload(result),
         },
     )
 

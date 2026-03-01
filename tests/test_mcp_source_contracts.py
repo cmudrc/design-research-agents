@@ -193,15 +193,16 @@ def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyP
         def readline(self) -> str:
             return ""
 
-    process = _FakeProcess(stdout=_FakeStdout(), stderr=StringIO("boom"))
+    process = _FakeProcess(stdout=_FakeStdout(), stderr=StringIO(""))
     client._process = process  # type: ignore[assignment]
+    client._record_stderr_line("boom")
 
     monkeypatch.setattr(
         mcp_source.select,
         "select",
         lambda *_args, **_kwargs: ([process.stdout], [], []),
     )
-    with pytest.raises(McpProtocolError, match="closed unexpectedly"):
+    with pytest.raises(McpProtocolError, match="stderr='boom'"):
         client._read_response(expected_id=1)
 
     ticks = iter([0.0, 0.0, 2.0])

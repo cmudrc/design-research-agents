@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -78,8 +79,9 @@ def test_search_uses_python_fallback_when_rg_missing(tmp_path: Path, monkeypatch
 def test_search_with_rg_parses_matches_and_keeps_context_flags(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
-    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def _fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
         captured["command"] = command
+        captured["timeout"] = kwargs.get("timeout")
         return SimpleNamespace(
             stdout="\n".join(
                 [
@@ -99,15 +101,34 @@ def test_search_with_rg_parses_matches_and_keeps_context_flags(monkeypatch: pyte
         globs=["*.py"],
         max_matches=1,
         context_lines=2,
+        timeout_s=9,
     )
 
     command = captured["command"]
     assert isinstance(command, list)
     assert "-C" in command and "2" in command
     assert "-g" in command and "*.py" in command
+    assert captured["timeout"] == 9
     assert result["count"] == 1
     assert result["matches"][0]["ref"] == "src/a.py:10:2"
     assert result["stderr"] == "warning"
+
+
+def test_search_with_rg_raises_clear_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        raise subprocess.TimeoutExpired(cmd=command, timeout=7)
+
+    monkeypatch.setattr(search_tools.subprocess, "run", _fake_run)
+    with pytest.raises(RuntimeError, match="ripgrep search timed out after 7s"):
+        search_tools._search_with_rg(
+            rg_binary="/usr/bin/rg",
+            root=tmp_path,
+            query="x",
+            globs=[],
+            max_matches=1,
+            context_lines=0,
+            timeout_s=7,
+        )
 
 
 def test_search_with_python_skips_unreadable_and_limits_results(tmp_path: Path) -> None:
@@ -237,9 +258,11 @@ def test_git_helpers_build_expected_arguments_and_errors(tmp_path: Path, monkeyp
     repo.mkdir()
     policy = _policy(tmp_path)
     calls: list[list[str]] = []
+    timeouts: list[object] = []
 
-    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def _fake_run(command: list[str], **kwargs: object) -> SimpleNamespace:
         calls.append(command)
+        timeouts.append(kwargs.get("timeout"))
         return SimpleNamespace(stdout="ok", stderr="")
 
     monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
@@ -252,9 +275,14 @@ def test_git_helpers_build_expected_arguments_and_errors(tmp_path: Path, monkeyp
     assert any("--staged" in cmd for cmd in calls)
     assert any(cmd[-2:] == ["--", "a.py"] for cmd in calls)
     assert any(cmd[-4:] == ["log", "--oneline", "-n", "7"] for cmd in calls)
+    assert all(timeout == policy.config.default_timeout_s for timeout in timeouts)
 
     with pytest.raises(ValueError, match="rev is required"):
         git_tools._git_show({"repo": "repo", "rev": "   "}, policy=policy)
+    with pytest.raises(ValueError, match="must not start with '-'"):
+        git_tools._git_show({"repo": "repo", "rev": "--paginate"}, policy=policy)
+    with pytest.raises(ValueError, match="must not contain whitespace"):
+        git_tools._git_show({"repo": "repo", "rev": "HEAD~1 other"}, policy=policy)
 
 
 def test_run_git_merges_stderr_and_appends_truncated_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -263,13 +291,29 @@ def test_run_git_merges_stderr_and_appends_truncated_marker(tmp_path: Path, monk
     policy = ToolPolicy(
         ToolPolicyConfig(workspace_root=str(tmp_path), default_max_output_bytes=5),
     )
+    captured: dict[str, object] = {}
 
-    def _fake_run(_command: list[str], **_kwargs: object) -> SimpleNamespace:
+    def _fake_run(_command: list[str], **kwargs: object) -> SimpleNamespace:
+        captured["timeout"] = kwargs.get("timeout")
         return SimpleNamespace(stdout="abcdef", stderr="err")
 
     monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
     output = git_tools._run_git(policy=policy, repo=str(repo), args=["status"])
+    assert captured["timeout"] == policy.config.default_timeout_s
     assert output.endswith("[truncated]")
+
+
+def test_run_git_raises_clear_timeout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    policy = ToolPolicy(ToolPolicyConfig(workspace_root=str(tmp_path), default_timeout_s=11))
+
+    def _fake_run(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        raise subprocess.TimeoutExpired(cmd=command, timeout=11)
+
+    monkeypatch.setattr(git_tools.subprocess, "run", _fake_run)
+    with pytest.raises(RuntimeError, match="git command timed out after 11s"):
+        git_tools._run_git(policy=policy, repo=str(repo), args=["status"])
 
 
 def test_bash_allowed_commands_validation_and_normalization() -> None:

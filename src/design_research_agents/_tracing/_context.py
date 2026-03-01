@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 from ._config import Tracer
 from ._session import TraceSession, _SpanInfo
-from ._utils import _normalize_value
+from ._utils import _normalize_value, _sanitize_trace_payload
 
 
 @dataclass(slots=True, kw_only=True)
@@ -94,7 +94,7 @@ def start_trace_run(
             attributes={
                 "agent": agent_name,
                 "request_id": request_id,
-                "input": dict(input_payload),
+                "input": _sanitize_trace_payload(dict(input_payload)),
                 "dependency_keys": sorted(dependencies.keys()),
                 "trace_path": str(trace_path) if trace_path is not None else None,
             },
@@ -116,7 +116,7 @@ def start_trace_run(
         attributes={
             "agent": agent_name,
             "request_id": request_id,
-            "input": dict(input_payload),
+            "input": _sanitize_trace_payload(dict(input_payload)),
             "dependency_keys": sorted(dependencies.keys()),
         },
     )
@@ -151,7 +151,7 @@ def finish_trace_run(
         attributes = {
             "success": (bool(getattr(result, "success", False)) if result is not None else False),
             "error": error,
-            "result": _normalize_value(result),
+            "result": _sanitize_trace_payload(_normalize_value(result)),
         }
         scope.session.finish_span(
             "RunFinished",

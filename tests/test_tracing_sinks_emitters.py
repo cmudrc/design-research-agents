@@ -115,14 +115,16 @@ def test_model_tool_and_decision_emitters(monkeypatch) -> None:
 
     span_id = emitters.start_model_call(
         model="gpt-test",
-        messages=[{"role": "user"}],
-        params={"temperature": 0.1},
+        messages=[{"role": "user", "authorization": "Bearer token"}],
+        params={"temperature": 0.1, "api_key": "secret"},
         metadata={"extra": "yes"},
     )
     assert span_id == "span-1"
     assert session.start_calls[0][0] == "ModelCallStarted"
     assert session.start_calls[0][1] == "current-span"
     assert session.start_calls[0][2]["extra"] == "yes"
+    assert session.start_calls[0][2]["messages"][0]["authorization"] == "***REDACTED***"
+    assert session.start_calls[0][2]["params"]["api_key"] == "***REDACTED***"
 
     emitters.finish_model_call(
         span_id,
@@ -143,16 +145,18 @@ def test_model_tool_and_decision_emitters(monkeypatch) -> None:
 
     tool_span = emitters.start_tool_call(
         tool_name="calculator",
-        tool_input={"expression": "1+1"},
+        tool_input={"expression": "1+1", "password": "hidden"},
         request_id="r1",
         dependencies={"z": 1, "a": 2},
     )
     assert tool_span == "span-2"
     assert session.start_calls[-1][0] == "ToolCallStarted"
     assert session.start_calls[-1][2]["dependency_keys"] == ["a", "z"]
+    assert session.start_calls[-1][2]["tool_input"]["password"] == "***REDACTED***"
 
-    emitters.finish_tool_call(tool_span, tool_name="calculator", result={"result": 2})
+    emitters.finish_tool_call(tool_span, tool_name="calculator", result={"result": 2, "token": "secret"})
     assert session.finish_calls[-1][0] == "ToolCallFinished"
+    assert session.finish_calls[-1][2]["result"]["token"] == "***REDACTED***"
     emitters.fail_tool_call(tool_span, tool_name="calculator", error="boom")
     assert session.finish_calls[-1][0] == "ToolCallFailed"
 
