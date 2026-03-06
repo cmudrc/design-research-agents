@@ -1,0 +1,16 @@
+.wy-side-nav-search > a.icon.icon-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.wy-side-nav-search > a.icon.icon-home::before {
+  display: none;
+}
+
+.wy-side-nav-search > a.icon.icon-home img.logo {
+  order: -1;
+  margin: 0;
+}

@@ -58,6 +58,7 @@ intersphinx_mapping = (
 nitpick_ignore = [
     ("py:class", "ExecutionResult"),
     ("py:class", "LlamaCppServerBackend"),
+    ("py:class", "design_research_agents._contracts._delegate.Delegate"),
     ("py:class", "design_research_agents._contracts._delegate.ExecutionResult"),
     ("py:class", "design_research_agents._contracts._execution.ExecutionResult"),
     ("py:class", "design_research_agents._contracts._llm.LLMResponse"),
@@ -66,7 +67,10 @@ nitpick_ignore = [
     ("py:class", "design_research_agents._contracts._tools.ToolCostHints"),
     ("py:class", "design_research_agents._contracts._tools.ToolMetadata"),
     ("py:class", "design_research_agents._contracts._tools.ToolResult"),
+    ("py:class", "design_research_agents._contracts._workflow.DelegateBatchCall"),
+    ("py:class", "design_research_agents._contracts._workflow.DelegateRunner"),
     ("py:class", "design_research_agents._contracts._workflow.WorkflowArtifact"),
+    ("py:class", "design_research_agents._contracts._workflow.WorkflowDelegate"),
     ("py:class", "design_research_agents._model_selection._catalog.ModelCatalog"),
     ("py:class", "design_research_agents._model_selection._types.ModelCostHint"),
     ("py:class", "design_research_agents._model_selection._types.ModelLatencyHint"),
@@ -100,10 +104,11 @@ else:
         html_theme = "alabaster"
 
 html_static_path = ["_static"]
-
+html_css_files = ["custom.css"]
 html_logo = "drc.png"
+html_title = project
 html_theme_options = {
-    "logo_only": True,
+    "logo_only": False,
 }
 
 # Linkcheck tuning for stable CI behavior.
