@@ -1,50 +1,48 @@
 design-research-agents
 ======================
 
-A flexible, modular framework for researching AI agents in design workflows.
+A modular framework for engineering design agent research and experimentation.
 
-Build and compare agent behaviors, swap LLM backends, and capture traces
-without rewriting your pipeline. The library favors small, composable
-pieces so you can test ideas quickly and keep experiments reproducible.
+Use it to:
+
+- prototype direct and multi-step agent behavior,
+- orchestrate workflows with explicit runtime steps and tools, and
+- compare backends and orchestration patterns with reproducible traces.
 
 Highlights
 ----------
 
-- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``.
-- ``MultiStepAgent`` supports explicit modes: ``direct``, ``json``, and ``code``.
-- JSON mode uses structured ``tool_name``/``tool_input`` selection for
-  iterative tool-call loops.
-- Model selection policies with local/remote catalogs.
-- Tool contracts and schemas for safe, structured I/O.
-- Tracing hooks and emitters for debugging and evaluation.
-- Runnable examples for deterministic validation and experimentation.
-- Workflow-native memory, networked blackboard coordination, and reusable
-  reasoning patterns (tree search and RAG).
+- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent`` (``direct``, ``json``, ``code`` modes).
+- A workflow runtime with explicit primitives for model, tool, delegate, loop, and memory steps.
+- A unified tool runtime via ``Toolbox`` for callable, script, and MCP-backed sources.
+- Hosted and local LLM clients, plus ``ModelSelector`` policy-driven backend selection.
+- Prebuilt orchestration patterns for plan/execute, propose/critic, debate, routing, beam search, RAG, blackboard, and conversation.
+- Tracing hooks and structured ``ExecutionResult`` outputs for repeatable evaluation.
 
-Typical workflow
+Typical Workflow
 ----------------
 
-1. Choose an agent type and backend.
-2. Define tools, prompts, and policies.
-3. Run experiments and capture traces.
-4. Compare results and iterate.
+1. Choose an agent entry point and backend strategy.
+2. Configure tools, prompts, and execution policies.
+3. Run experiments and capture traces/artifacts.
+4. Compare outcomes and iterate on workflow design.
 
-Get started
------------
+Start Here
+----------
 
 - :doc:`quickstart` for a fast, end-to-end example.
-- :doc:`dependencies_and_extras` for optional dependency profiles and platform constraints.
-- :doc:`examples/index` for scenario-driven runnable examples and expected observations.
+- :doc:`dependencies_and_extras` for install profiles, extras, and release checks.
+- :doc:`examples/index` for scenario-driven runnable examples.
 - :doc:`examples/workflow/index` for runnable workflow primitive examples.
 - :doc:`examples/patterns/index` for runnable orchestration pattern examples.
-- :doc:`llm_clients/index` to choose local or remote client backends.
-- :doc:`tools/index` for unified runtime + MCP + script tools.
-- :doc:`agents/index` to understand agent execution tradeoffs.
-- :doc:`workflows/index` for workflow builder primitives and composition.
-- :doc:`patterns/index` for prebuilt workflow implementations.
-- :doc:`api` for the guaranteed public API surface.
+- :doc:`llm_clients/index` to choose local or remote LLM client backends.
+- :doc:`tools/index` for runtime basics plus script and MCP tools.
+- :doc:`agents/index` for agent execution tradeoffs.
+- :doc:`workflows/index` for workflow-builder primitives and composition.
+- :doc:`patterns/index` for reusable workflow implementations.
+- :doc:`api` for the curated public API surface.
 - `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
-  for contribution workflow and PR expectations.
+  for contribution workflow and quality gates.
 
 .. toctree::
    :maxdepth: 2

@@ -5,74 +5,76 @@
 [![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
-`design-research-agents` is a modular framework for prototyping and researching engineering design AI agents.
-It features shared runtime contracts, workflow orchestration, and pluggable LLM backends for quick iteration.
+`design-research-agents` is the agent-execution layer in the cmudrc design
+research ecosystem.
+
+It provides typed, composable contracts for direct calls, multi-step runs,
+workflow orchestration, tool execution, and traceable experimentation.
 
 ## Overview
 
-This library centers on a small set of composable pieces you can run, inspect, and test:
+This package centers on reproducible agent workflows with a compact public API:
 
-- Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
-- A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
-- Prebuilt orchestration patterns for plan/execute, debate, propose/critic, routing, beam search, RAG, blackboard, and conversations
-- Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
-- Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
-- A workflow runtime with explicit step primitives for model calls, tool calls, delegation, loops, and memory
-
-## A Super Basic Agent
-
-```python
-from design_research_agents import DirectLLMCall, OpenAICompatibleHTTPLLMClient
-
-with OpenAICompatibleHTTPLLMClient(
-    base_url="http://127.0.0.1:8001/v1",
-    default_model="qwen2-1.5b-q4",
-) as llm_client:
-    agent = DirectLLMCall(llm_client=llm_client)
-    result = agent.run("Suggest two design goals for a field-repairable drone battery latch.")
-
-print(result.final_output)
-```
-
-`OpenAICompatibleHTTPLLMClient` is the built-in default client. It talks to any
-OpenAI-compatible endpoint and does not depend on the `openai` package. For the
-main managed cloud and local paths, see the Quickstart guide for
-`OpenAIServiceLLMClient` and `LlamaCppServerLLMClient`.
+- Direct and multi-step agent entry points (`DirectLLMCall`, `MultiStepAgent`)
+- Workflow primitives for model, tool, delegate, loop, and memory steps
+- A unified tool runtime (`Toolbox`) for callable, script, and MCP-backed tools
+- Hosted and local LLM clients, plus `ModelSelector` policy-driven backend selection
+- Prebuilt coordination patterns for plan/execute, propose/critic, debate, routing, beam search, RAG, blackboard, and conversation
+- Tracing hooks and structured execution outputs for deterministic evaluation
 
 ## Quickstart
 
 Requires Python 3.12+.
-Reproducible release installs are pinned to Python `3.12.12` (see `.python-version`).
+Reproducible release installs are pinned to Python `3.12.12` (`.python-version`).
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 make dev
 make test
-PYTHONPATH=src python3 examples/agents/direct_llm_call.py
+PYTHONPATH=src python examples/agents/direct_llm_call.py
 ```
 
-That example is the built-in base-install path and expects a running
-OpenAI-compatible endpoint. ``make dev`` installs contributor tooling only;
-backend runtimes remain explicit extras. Use ``.[openai]`` for OpenAI,
-``.[azure]`` for Azure OpenAI (same SDK, explicit intent), ``.[llama_cpp]`` for
-the recommended local managed path, or ``.[full]`` for broader local backend
-coverage. The full quickstart guide also
-covers the OpenAI (cloud) and llama.cpp (local) paths.
+The base-install path uses `OpenAICompatibleHTTPLLMClient` and expects a running
+OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
+tooling only; backend runtimes are explicit extras.
 
-For frozen installs, optional extras, and release maintenance, see [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
+For frozen installs, extras, and release maintenance, see
+[Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
 
 ## Examples
 
-Start with [examples/README.md](https://github.com/cmudrc/design-research-agents/blob/main/examples/README.md) for runnable examples grouped by agents, clients, workflows, patterns, model selection, and tools.
-
+Start with [examples/README.md](https://github.com/cmudrc/design-research-agents/blob/main/examples/README.md)
+for runnable examples grouped by agents, clients, workflows, patterns, model
+selection, and tools.
 
 ## Docs
 
-See the [documentation site](https://cmudrc.github.io/design-research-agents/) for the full guide set, including quickstart, backend setup, workflows, patterns, and API reference.
+See the [published documentation](https://cmudrc.github.io/design-research-agents/)
+for quickstart guidance, backend setup, workflow/pattern guides, and API docs.
 
-Build docs locally with `make docs`.
+Build docs locally with:
+
+```bash
+make docs
+```
+
+## Public API
+
+The supported public surface is whatever is exported from
+`design_research_agents.__all__`.
+
+Top-level exports include:
+
+- Agent entry points: `DirectLLMCall`, `MultiStepAgent`
+- Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
+- Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
+- Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
+- Patterns: conversation, debate, plan/execute, propose/critic, routing, round-based coordination, blackboard, beam search, and RAG
+- LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
+- Runtime services: `ModelSelector` and `Tracer`
 
 ## Contributing
 
-Contribution guidelines now live in [CONTRIBUTING.md](https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md).
+Contribution workflow and quality gates are documented in
+[CONTRIBUTING.md](https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md).
