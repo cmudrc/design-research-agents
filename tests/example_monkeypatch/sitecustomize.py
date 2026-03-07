@@ -113,18 +113,28 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         "Peer contribution: finalize blackboard recommendation summary.",
     ),
     "examples/patterns/tree_search.py": (
-        "Peer contribution: prioritize captive screws for quicker service loops.",
-        "Peer contribution: keep gasket alignment features for resealing reliability.",
-        "Peer contribution: propose tool-less battery tray removal path.",
-        "Peer contribution: add visual fastener indexing for field technicians.",
+        (
+            '{"candidates":[{"concept":"lightweight frame","tradeoff":"low mass"},'
+            '{"concept":"modular frame","tradeoff":"serviceability"}]}'
+        ),
+        '{"score":0.44}',
+        '{"score":0.73}',
+        (
+            '{"candidates":[{"concept":"modular frame + keyed hatch","tradeoff":"maintainability"},'
+            '{"concept":"modular frame + fail-safe latch","tradeoff":"reliability"}]}'
+        ),
+        '{"score":0.79}',
+        '{"score":0.91}',
     ),
     "examples/patterns/ralph_loop.py": (
-        "Draft v1: modular enclosure with service hatch.",
-        "Add clearer serviceability details.",
-        '{"score": 0.55}',
-        "Draft v2: modular enclosure with keyed service hatch and alignment tabs.",
-        "Feedback resolved; proposal is actionable.",
-        '{"score": 0.86}',
+        '{"proposal":"Draft v1 with modular panels","changes":["add service hatch"]}',
+        '{"risks":["hatch alignment unclear"],"advice":["add keyed guides"]}',
+        '{"synthesis":"Draft v1 + keyed guides","actions":["spec hatch alignment"]}',
+        '{"score":0.62,"rationale":"initial draft still missing service procedure details"}',
+        ('{"proposal":"Draft v2 with keyed guides and service sequence","changes":["add torque notes"]}'),
+        '{"risks":["tooling variation"],"advice":["standardize fastener heads"]}',
+        ('{"synthesis":"Draft v2 standardized fasteners and service sequence","actions":["freeze fastener standard"]}'),
+        '{"score":0.88,"rationale":"consensus threshold met"}',
     ),
     "examples/patterns/rag.py": (
         "Prioritize maintainability checks and explicit testability criteria in the recommended architecture.",

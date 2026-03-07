@@ -164,3 +164,29 @@ def test_ralph_loop_pattern_reports_unknown_template_variables() -> None:
     assert len(history) == 1
     first_roles = history[0]["roles"]
     assert "unknown variable" in str(first_roles["proposer"]["error"])
+
+
+def test_ralph_loop_pattern_requires_evaluator_score_payload() -> None:
+    pattern = RalphLoopPattern(
+        roles=(
+            RalphLoopPattern.RoleSpec(
+                role_id="proposer",
+                delegate=_SequenceRoleAgent(outputs=[{"proposal": "draft v1"}]),
+            ),
+            RalphLoopPattern.RoleSpec(
+                role_id="evaluator",
+                delegate=_SequenceRoleAgent(outputs=[{"feedback": "no score provided"}]),
+            ),
+        ),
+        evaluator_role_id="evaluator",
+        loop_config=RalphLoopPattern.LoopConfig(max_iterations=2),
+    )
+
+    result = pattern.run("Refine this concept.")
+
+    assert not result.success
+    assert result.output["terminated_reason"] == "role_failure"
+    assert "score" in str(result.error)
+    history = result.output["details"]["iteration_history"]
+    assert len(history) == 1
+    assert history[0]["failed_role"] == "evaluator"

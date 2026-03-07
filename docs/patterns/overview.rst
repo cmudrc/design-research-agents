@@ -6,12 +6,12 @@ Available reusable pattern implementations:
 - ``TwoSpeakerConversationPattern``: two-speaker LLM conversation loops with per-speaker prompts and clients.
 - ``DebatePattern``: multi-round affirmative/negative debate with a judging pass.
 - ``PlanExecutePattern``: planner + executor decomposition for complex tasks.
-- ``ProposeCriticPattern``: iterative proposal/revision loops.
+- ``ProposeCriticPattern``: fixed two-role proposal/critique loops with approval gating.
 - ``RouterDelegatePattern``: intent-based delegation to selected agents.
 - ``RoundBasedCoordinationPattern``: round-based peer coordination with no central orchestrator.
 - ``BlackboardPattern``: networked coordination with explicit shared board semantics.
 - ``TreeSearchPattern``: generator/evaluator reasoning over configurable tree-search strategies.
-- ``RalphLoopPattern``: dynamic multi-role iterative refinement with evaluator-threshold stopping.
+- ``RalphLoopPattern``: ordered multi-role refinement with dedicated evaluator-score threshold stopping.
 - ``RAGPattern``: retrieval-augmented reasoning via memory workflow steps.
 
 Patterns are concrete workflow implementations, not construction primitives.

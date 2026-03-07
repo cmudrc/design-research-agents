@@ -1,22 +1,22 @@
 """# Patterns / Tree Search.
 
 ## Introduction
-Tree of Thoughts motivates branching deliberation over single-chain prompting, while Plan-and-Solve and
-ReAct provide complementary stepwise control principles. This example instantiates tree-search reasoning as
-an inspectable pattern for comparing branch quality under fixed runtime controls.
+Tree of Thoughts motivates explicit branching and ranking instead of single-pass revision.
+This example uses dedicated generator/evaluator delegates and a bounded beam search to show
+search-policy behavior (expand, score, prune) in a traceable way.
 
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``TreeSearchPattern.run(...)`` with a fixed ``request_id``.
-3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
+2. Build generator and evaluator delegates with ``DirectLLMCall`` and a managed ``LlamaCppServerLLMClient``.
+3. Execute ``TreeSearchPattern.run(...)`` with explicit search controls and preserve frontier diagnostics.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
 flowchart LR
     A["Input prompt or scenario"] --> B["main(): runtime wiring"]
     B --> C["TreeSearchPattern.run(...)"]
-    C --> D["generator/evaluator loop expands and prunes candidate tree"]
+    C --> D["generator/evaluator delegates expand and score candidate nodes"]
     C --> E["Tracer JSONL + console events"]
     D --> F["ExecutionResult/payload"]
     E --> F
@@ -51,35 +51,19 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import Tracer
+from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Tracer
 from design_research_agents.patterns import TreeSearchPattern
 
-
-def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:
-    """Generate deterministic design candidates for one search depth."""
-    depth = int(context.get("depth", 0))
-    if depth == 1:
-        return [
-            {"concept": "lightweight frame", "score_hint": 0.45},
-            {"concept": "modular frame", "score_hint": 0.7},
-        ]
-    return [
-        {"concept": "modular frame + fail-safe", "score_hint": 0.92},
-        {"concept": "modular frame + low cost", "score_hint": 0.61},
-    ]
-
-
-def _evaluator(context: Mapping[str, object]) -> float:
-    """Return deterministic score for one candidate payload."""
-    candidate = context.get("candidate")
-    if isinstance(candidate, Mapping):
-        score = candidate.get("score_hint")
-        if isinstance(score, (int, float)):
-            return float(score)
-    return 0.0
+_EXAMPLE_LLAMA_CLIENT_KWARGS = {
+    "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",
+    "api_model": "qwen3-4b-instruct-2507-q4km",
+    "context_window": 8192,
+    "startup_timeout_seconds": 240.0,
+    "request_timeout_seconds": 240.0,
+}
 
 
 def main() -> None:
@@ -92,18 +76,36 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    pattern = TreeSearchPattern(
-        generator_delegate=_generator,
-        evaluator_delegate=_evaluator,
-        max_depth=2,
-        branch_factor=2,
-        beam_width=1,
-        tracer=tracer,
-    )
-    result = pattern.run(
-        "Find the most robust concept architecture for a serviceable edge-device enclosure.",
-        request_id=request_id,
-    )
+    with LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
+        generator_delegate = DirectLLMCall(
+            llm_client=llm_client,
+            system_prompt=(
+                "You are a search-node generator. Return JSON with key `candidates` mapped to a list of"
+                " 1-2 short candidate objects. Keep output concise."
+            ),
+            tracer=tracer,
+        )
+        evaluator_delegate = DirectLLMCall(
+            llm_client=llm_client,
+            system_prompt=(
+                "You are a search-node evaluator. Return JSON with numeric key `score` in [0,1]"
+                " for the candidate provided by the user."
+            ),
+            tracer=tracer,
+        )
+        pattern = TreeSearchPattern(
+            generator_delegate=generator_delegate,
+            evaluator_delegate=evaluator_delegate,
+            max_depth=2,
+            branch_factor=2,
+            beam_width=1,
+            search_strategy="beam",
+            tracer=tracer,
+        )
+        result = pattern.run(
+            "Find the most robust concept architecture for a serviceable edge-device enclosure.",
+            request_id=request_id,
+        )
     # Print the results
     summary = result.summary()
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))

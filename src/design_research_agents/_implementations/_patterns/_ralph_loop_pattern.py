@@ -156,9 +156,12 @@ class RalphLoopPattern(Delegate):
         """Build workflow graph for one Ralph loop run."""
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
-            role_results = self._extract_role_results(context)
-            failure_role, failure_error = self._find_role_failure(role_results)
-            if failure_role is not None:
+            def _build_role_failure_state(
+                *,
+                failure_role: str,
+                failure_error: str,
+                current_role_results: Mapping[str, Mapping[str, object]],
+            ) -> Mapping[str, object]:
                 loop_state = context.get("loop_state")
                 current_state = dict(loop_state) if isinstance(loop_state, Mapping) else {}
                 history = (
@@ -172,7 +175,7 @@ class RalphLoopPattern(Delegate):
                 history.append(
                     {
                         "iteration": self._resolve_iteration(context),
-                        "roles": _json_ready(role_results),
+                        "roles": _json_ready(current_role_results),
                         "consensus_score": 0.0,
                         "failed_role": failure_role,
                         "error": failure_error,
@@ -181,14 +184,39 @@ class RalphLoopPattern(Delegate):
                 return {
                     **current_state,
                     "iteration_history": history,
-                    "role_outputs": _json_ready(role_results),
+                    "role_outputs": _json_ready(current_role_results),
                     "failure_role": failure_role,
                     "failure_error": failure_error,
                     "should_continue": False,
                     "terminated_reason": "role_failure",
                 }
 
-            consensus_score = self._extract_evaluator_score(role_results)
+            role_results = self._extract_role_results(context)
+            failure_role, failure_error = self._find_role_failure(role_results)
+            if failure_role is not None:
+                return _build_role_failure_state(
+                    failure_role=failure_role,
+                    failure_error=failure_error or "Role call failed.",
+                    current_role_results=role_results,
+                )
+
+            consensus_score, evaluator_error = self._extract_evaluator_score(role_results)
+            if evaluator_error is not None:
+                normalized_role_results = {
+                    role_id: dict(result) if isinstance(result, Mapping) else {}
+                    for role_id, result in role_results.items()
+                }
+                evaluator_result = dict(normalized_role_results.get(self._evaluator_role_id, {}))
+                evaluator_result["success"] = False
+                evaluator_result["error"] = evaluator_error
+                evaluator_result["output"] = _as_dict(evaluator_result.get("output"))
+                normalized_role_results[self._evaluator_role_id] = evaluator_result
+                return _build_role_failure_state(
+                    failure_role=self._evaluator_role_id,
+                    failure_error=evaluator_error,
+                    current_role_results=normalized_role_results,
+                )
+
             synthesized_output = _resolve_synthesized_output(
                 role_results,
                 ordered_roles=self._roles,
@@ -422,15 +450,18 @@ class RalphLoopPattern(Delegate):
             return role.role_id, str(error) if error is not None else "Role call failed."
         return None, None
 
-    def _extract_evaluator_score(self, role_results: Mapping[str, Mapping[str, object]]) -> float:
+    def _extract_evaluator_score(self, role_results: Mapping[str, Mapping[str, object]]) -> tuple[float, str | None]:
         """Extract normalized score from configured evaluator role output."""
         evaluator_result = role_results.get(self._evaluator_role_id)
         if not isinstance(evaluator_result, Mapping):
-            return 0.0
+            return 0.0, "Evaluator role result is missing."
         output = evaluator_result.get("output")
         if not isinstance(output, Mapping):
-            return 0.0
-        return _extract_score(output)
+            return 0.0, "Evaluator role output is missing."
+        score = _extract_score(output)
+        if score is None:
+            return 0.0, "Evaluator output must include numeric score in `score` or JSON `model_text.score`."
+        return score, None
 
     def _finalize_result(
         self,
@@ -530,7 +561,7 @@ def _resolve_synthesized_output(
     return {}
 
 
-def _extract_score(output: Mapping[str, object]) -> float:
+def _extract_score(output: Mapping[str, object]) -> float | None:
     """Extract normalized score from role output mapping."""
     score = output.get("score")
     if isinstance(score, (int, float)):
@@ -541,12 +572,12 @@ def _extract_score(output: Mapping[str, object]) -> float:
         try:
             parsed = json.loads(model_text)
         except json.JSONDecodeError:
-            return 0.0
+            return None
         if isinstance(parsed, Mapping):
             parsed_score = parsed.get("score")
             if isinstance(parsed_score, (int, float)):
                 return max(0.0, min(1.0, float(parsed_score)))
-    return 0.0
+    return None
 
 
 def _safe_float(value: object) -> float:
