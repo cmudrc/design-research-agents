@@ -1,68 +1,97 @@
 design-research-agents
 ======================
 
-A modular framework for engineering design agent research and experimentation.
+A modular framework for building and studying AI agents in engineering design workflows.
 
-Use it to:
+What This Library Does
+----------------------
 
-- prototype direct and multi-step agent behavior,
-- orchestrate workflows with explicit runtime steps and tools, and
-- compare backends and orchestration patterns with reproducible traces.
+``design-research-agents`` provides reusable abstractions for agent behavior,
+tool use, workflow composition, and multi-step reasoning. We use it in research
+settings where traceability, reproducibility, and experimental control matter as
+much as raw model capability.
 
 Highlights
 ----------
 
-- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent`` (``direct``, ``json``, ``code`` modes).
-- A workflow runtime with explicit primitives for model, tool, delegate, loop, and memory steps.
-- A unified tool runtime via ``Toolbox`` for callable, script, and MCP-backed sources.
-- Hosted and local LLM clients, plus ``ModelSelector`` policy-driven backend selection.
-- Prebuilt orchestration patterns for plan/execute, propose/critic, debate, routing, beam search, RAG, blackboard, and conversation.
-- Tracing hooks and structured ``ExecutionResult`` outputs for repeatable evaluation.
+- Agent abstractions
+- Tool-use runtime
+- Workflow primitives
+- Orchestration patterns
+- Trace capture
+- Backend flexibility
+
+This library is not only for deploying agents. It is designed to support agent
+**study**: reproducible runs, behavioral comparison, and interpretable execution
+artifacts that can be analyzed across controlled conditions.
 
 Typical Workflow
 ----------------
 
-1. Choose an agent entry point and backend strategy.
-2. Configure tools, prompts, and execution policies.
-3. Run experiments and capture traces/artifacts.
-4. Compare outcomes and iterate on workflow design.
+1. Choose an LLM client and execution setting.
+2. Define tools, prompts, and constraints.
+3. Select ``DirectLLMCall``, ``MultiStepAgent``, or a higher-order pattern.
+4. Execute runs and capture traces.
+5. Export outputs for downstream experiment orchestration and analysis.
+
+Integration With The Ecosystem
+------------------------------
+
+The Design Research Collective maintains a modular ecosystem of libraries for
+studying human and AI design behavior.
+
+- **design-research-agents** implements AI participants, workflows, and tool-using reasoning patterns.
+- **design-research-problems** provides benchmark design tasks, prompts, grammars, and evaluators.
+- **design-research-analysis** analyzes the traces, event tables, and outcomes generated during studies.
+- **design-research-experiments** sits above the stack as the study-design and orchestration layer, defining hypotheses, factors, conditions, replications, and artifact flows across agents, problems, and analysis.
+
+Together these libraries support end-to-end design research pipelines, from
+study design through execution and interpretation.
+
+.. image:: _static/ecosystem-platform.svg
+   :alt: Ecosystem diagram showing experiments above agents, problems, and analysis.
+   :width: 100%
+   :align: center
 
 Start Here
 ----------
 
-- :doc:`quickstart` for a fast, end-to-end example.
-- :doc:`dependencies_and_extras` for install profiles, extras, and release checks.
-- :doc:`examples/index` for scenario-driven runnable examples.
-- :doc:`examples/workflow/index` for runnable workflow primitive examples.
-- :doc:`examples/patterns/index` for runnable orchestration pattern examples.
-- :doc:`llm_clients/index` to choose local or remote LLM client backends.
-- :doc:`tools/index` for runtime basics plus script and MCP tools.
-- :doc:`agents/index` for agent execution tradeoffs.
-- :doc:`workflows/index` for workflow-builder primitives and composition.
-- :doc:`patterns/index` for reusable workflow implementations.
-- :doc:`api` for the curated public API surface.
-- `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
-  for contribution workflow and quality gates.
+- :doc:`quickstart`
+- :doc:`installation`
+- :doc:`concepts`
+- :doc:`typical_workflow`
+- :doc:`examples/index`
+- :doc:`api`
 
 .. toctree::
    :maxdepth: 2
-   :caption: Guides
+   :caption: Documentation
    :hidden:
 
    quickstart
-   dependencies_and_extras
+   installation
+   concepts
+   typical_workflow
    examples/index
-   philosophy
+   api
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development
+   :hidden:
+
+   dependencies_and_extras
+   Contributing <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Additional Guides
+   :hidden:
+
    llm_clients/index
    tools/index
    agents/index
    workflows/index
    patterns/index
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-   :hidden:
-
-   api
    reference/index
+   philosophy

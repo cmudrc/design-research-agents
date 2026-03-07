@@ -1,30 +1,31 @@
 Quickstart
 ==========
 
-Requires Python 3.12+ and assumes you are working from the repository root.
+This example shows the shortest meaningful path through
+``design-research-agents``.
 
-Create and activate a virtual environment:
+1. Install
+----------
 
 .. code-block:: bash
 
+   pip install design-research-agents
+
+Or install from source:
+
+.. code-block:: bash
+
+   git clone https://github.com/cmudrc/design-research-agents.git
+   cd design-research-agents
    python -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-
-Path A: Built-In OpenAI-Compatible HTTP
----------------------------------------
-
-Use this when you want the default built-in client with no provider SDKs. It
-works with any OpenAI-compatible endpoint, including local servers such as
-llama.cpp, vLLM, and SGLang, or a remote compatibility gateway.
-
-1. Install only the base package:
-
-.. code-block:: bash
-
    pip install -e .
 
-2. Point the client at your endpoint:
+2. Minimal Runnable Example
+---------------------------
+
+This snippet requires an OpenAI-compatible endpoint (local or remote).
 
 .. code-block:: python
 
@@ -38,84 +39,25 @@ llama.cpp, vLLM, and SGLang, or a remote compatibility gateway.
        result = agent.run("List three interview themes about onboarding friction.")
        print(result.output)
 
-Path B: Cloud (OpenAI)
-----------------------
+3. What Happened
+----------------
 
-Use this when you want the fastest managed hosted path for a typical first run.
+You instantiated a concrete participant (``DirectLLMCall``), executed one run
+through a configured backend client, and received structured output that can be
+traced and compared in later studies.
 
-1. Install the OpenAI extra:
+4. Where To Go Next
+-------------------
 
-.. code-block:: bash
+- :doc:`concepts`
+- :doc:`typical_workflow`
+- :doc:`examples/index`
+- :doc:`api`
 
-   pip install -e ".[dev,openai]"
+Ecosystem Note
+--------------
 
-   # If you are using Azure OpenAI instead, install:
-   # pip install -e ".[dev,azure]"
-
-2. Set API key:
-
-.. code-block:: bash
-
-   export OPENAI_API_KEY="<your-key>"
-
-3. Run one agent call:
-
-.. code-block:: python
-
-   from design_research_agents import DirectLLMCall, OpenAIServiceLLMClient
-
-   with OpenAIServiceLLMClient() as llm_client:
-       agent = DirectLLMCall(llm_client=llm_client)
-       result = agent.run("List three interview themes about onboarding friction.")
-       print(result.output)
-
-For Azure OpenAI, use ``AzureOpenAIServiceLLMClient`` and install
-``.[dev,azure]``. The ``azure`` extra installs the same ``openai`` SDK as the
-``openai`` extra, but makes the backend intent explicit in setup commands.
-
-Path C: Local (llama.cpp recommended)
--------------------------------------
-
-Use this when you want the primary managed local path.
-
-1. Install backend-specific extras for local inference:
-
-.. code-block:: bash
-
-   pip install -e ".[dev,llama_cpp]"      # managed llama.cpp server client
-   # or: pip install -e ".[dev,transformers]"  # in-process transformers backend
-   # or: pip install -e ".[dev,mlx]"           # Apple MLX backend
-   # or: pip install -e ".[dev,local]"         # core local backends
-   # or: pip install -e ".[dev,full]"          # local + Linux server backends
-
-2. Run one agent call with the managed llama.cpp server client:
-
-.. code-block:: python
-
-   from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient
-
-   with LlamaCppServerLLMClient() as llm_client:
-       agent = DirectLLMCall(llm_client=llm_client)
-       result = agent.run("Summarize this study brief in five bullets.")
-       print(result.output)
-
-Checks and Docs
----------------
-
-.. code-block:: bash
-
-   make test
-   make docs-check
-   make docs-build
-
-Next Steps
-----------
-
-- Optional dependency profiles and platform notes: :doc:`dependencies_and_extras`
-- Scenario-driven examples and expected outputs: :doc:`examples/index`
-- Explore runnable examples: ``examples/README.md``
-- LLM client setup details: :doc:`llm_clients/index`
-- Agent behavior tradeoffs: :doc:`agents/index`
-- Workflow builder primitives: :doc:`workflows/index`
-- Prebuilt workflow implementations: :doc:`patterns/index`
-- Tool runtime and integrations: :doc:`tools/index`
+In a typical study, ``design-research-agents`` provides executable
+participants, ``design-research-problems`` supplies the task,
+``design-research-experiments`` defines the study structure, and
+``design-research-analysis`` interprets the resulting records.
