@@ -54,14 +54,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Tracer
+import design_research_agents as drag
 
 
 def main() -> None:
     """Execute one multi-step direct run and print summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-multi-step-direct-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -69,8 +69,8 @@ def main() -> None:
     )
     # Run the direct multi-step example using the managed local client. Using this with statement will automatically
     # shut down the client when the example is done.
-    with LlamaCppServerLLMClient() as llm_client:
-        direct_agent = MultiStepAgent(
+    with drag.LlamaCppServerLLMClient() as llm_client:
+        direct_agent = drag.MultiStepAgent(
             mode="direct",
             llm_client=llm_client,
             max_steps=3,

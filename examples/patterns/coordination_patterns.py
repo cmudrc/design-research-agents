@@ -67,36 +67,30 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    DirectLLMCall,
-    ExecutionResult,
-    LlamaCppServerLLMClient,
-    Tracer,
-)
-from design_research_agents.patterns import BlackboardPattern, RoundBasedCoordinationPattern
+import design_research_agents as drag
 
 
-def _summarize(result: ExecutionResult) -> dict[str, object]:
+def _summarize(result: drag.ExecutionResult) -> dict[str, object]:
     return result.summary()
 
 
 def main() -> None:
     """Run one round-based coordination and one blackboard pass."""
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
         enable_console=True,
     )
 
-    with LlamaCppServerLLMClient(context_window=16384) as llm_client:
-        peer_a = DirectLLMCall(llm_client=llm_client, tracer=tracer)
-        peer_b = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+    with drag.LlamaCppServerLLMClient(context_window=16384) as llm_client:
+        peer_a = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        peer_b = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
         # Split ids by pattern variant to keep networked and blackboard traces distinct.
 
         coordination_request_id = "example-workflow-round-based-coordination-design-001"
-        coordination = RoundBasedCoordinationPattern(
+        coordination = drag.RoundBasedCoordinationPattern(
             peers={
                 "peer_b": peer_b,
                 "peer_a": peer_a,
@@ -112,7 +106,7 @@ def main() -> None:
         # Split ids by pattern variant to keep networked and blackboard traces distinct.
 
         blackboard_request_id = "example-workflow-blackboard-design-001"
-        blackboard = BlackboardPattern(
+        blackboard = drag.BlackboardPattern(
             peers={
                 "peer_b": peer_b,
                 "peer_a": peer_a,

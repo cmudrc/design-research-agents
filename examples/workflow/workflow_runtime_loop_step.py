@@ -54,7 +54,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import LogicStep, LoopStep, Tracer, Workflow
+import design_research_agents as drag
 
 
 def _increment_handler(context: Mapping[str, object]) -> Mapping[str, object]:
@@ -102,23 +102,23 @@ def main() -> None:
     """Run a small loop and print compact JSON summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-loop-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
         enable_console=True,
     )
     # Build and run the loop workflow using public runtime APIs.
-    workflow = Workflow(
+    workflow = drag.Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
         tracer=tracer,
         steps=[
-            LoopStep(
+            drag.LoopStep(
                 step_id="design_counter_loop",
                 steps=(
-                    LogicStep(step_id="increment", handler=_increment_handler),
-                    LogicStep(
+                    drag.LogicStep(step_id="increment", handler=_increment_handler),
+                    drag.LogicStep(
                         step_id="snapshot",
                         dependencies=("increment",),
                         handler=_snapshot_handler,

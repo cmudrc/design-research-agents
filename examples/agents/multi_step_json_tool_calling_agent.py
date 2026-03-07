@@ -53,7 +53,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
+import design_research_agents as drag
 
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
@@ -69,7 +69,7 @@ def main() -> None:
     """Execute one traced multi-step JSON tool-calling run."""
     # Stable ids make trace correlation and docs output easier to audit.
     request_id = "example-multi-step-json-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -77,8 +77,8 @@ def main() -> None:
     )
     # Run the JSON tool-calling example using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client and tool runtime when the example is done.
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
-        json_tool_agent = MultiStepAgent(
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
+        json_tool_agent = drag.MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,

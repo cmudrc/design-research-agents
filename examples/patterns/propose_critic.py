@@ -53,15 +53,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, Toolbox, Tracer
-from design_research_agents.patterns import ProposeCriticPattern
+import design_research_agents as drag
 
 
 def main() -> None:
     """Run propose/critique refinement orchestration with tracing."""
     # Keep request ids deterministic so critique traces are easy to compare run-to-run.
     request_id = "example-workflow-propose-critic-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -69,8 +68,8 @@ def main() -> None:
     )
     # Run the propose/critic pattern using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client and tool runtime when the example is done.
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
-        workflow = ProposeCriticPattern(
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient() as llm_client:
+        workflow = drag.ProposeCriticPattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             # Tracer is threaded through the pattern so proposer/critic turns share one timeline.

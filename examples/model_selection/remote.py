@@ -62,11 +62,11 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from design_research_agents import ModelSelector, Tracer
+import design_research_agents as drag
 
 
 def _select_remote() -> dict[str, object]:
-    selector = ModelSelector()
+    selector = drag.ModelSelector()
     decision = selector.select(
         task="Handle a fast design triage chat during incident response.",
         priority="speed",
@@ -90,7 +90,7 @@ def main() -> None:
     """Run traced remote-favoring model selection and print decision."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-model-selection-remote-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

@@ -54,15 +54,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, Toolbox, Tracer
-from design_research_agents.patterns import DebatePattern
+import design_research_agents as drag
 
 
 def main() -> None:
     """Run one debate round with final judge verdict."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-debate-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -70,8 +69,8 @@ def main() -> None:
     )
     # Run the debate pattern using public runtime surfaces. Using this with statement will automatically shut down
     # the managed client and tool runtime when the example is done.
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
-        workflow = DebatePattern(
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient() as llm_client:
+        workflow = drag.DebatePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             max_rounds=1,

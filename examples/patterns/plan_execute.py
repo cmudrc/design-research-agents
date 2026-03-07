@@ -54,13 +54,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    LlamaCppServerLLMClient,
-    MultiStepAgent,
-    Toolbox,
-    Tracer,
-)
-from design_research_agents.patterns import PlanExecutePattern
+import design_research_agents as drag
 
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
@@ -76,7 +70,7 @@ def main() -> None:
     """Run planner-executor orchestration with tracing."""
     # Fixed request ids keep trace paths and sample output stable for docs/tests.
     request_id = "example-workflow-plan-execute-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -84,8 +78,8 @@ def main() -> None:
     )
     # Run the planner/executor pattern using public runtime surfaces. Using this with statement will
     # automatically shut down the managed client and tool runtime when the example is done.
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
-        executor_delegate = MultiStepAgent(
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
+        executor_delegate = drag.MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -93,7 +87,7 @@ def main() -> None:
             allowed_tools=("text.word_count",),
             tracer=tracer,
         )
-        workflow = PlanExecutePattern(
+        workflow = drag.PlanExecutePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             executor_delegate=executor_delegate,

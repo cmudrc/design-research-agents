@@ -53,18 +53,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    DirectLLMCall,
-    OpenAICompatibleHTTPLLMClient,
-    Tracer,
-)
+import design_research_agents as drag
 
 
 def main() -> None:
     """Execute one direct model call with explicit tracing."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-direct-llm-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -72,11 +68,11 @@ def main() -> None:
     )
 
     # Point the built-in HTTP client at any reachable OpenAI-compatible endpoint.
-    with OpenAICompatibleHTTPLLMClient(
+    with drag.OpenAICompatibleHTTPLLMClient(
         base_url="http://127.0.0.1:8001/v1",
         default_model="qwen2-1.5b-q4",
     ) as llm_client:
-        llm = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        llm = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
             "Write one sentence describing the one primary engineering specification for a "
             "field-repairable wearable sensor enclosure."

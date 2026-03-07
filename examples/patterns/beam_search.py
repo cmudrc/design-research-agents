@@ -54,8 +54,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import Tracer
-from design_research_agents.patterns import BeamSearchPattern
+import design_research_agents as drag
 
 
 def _generator(context: Mapping[str, object]) -> list[dict[str, object]]:
@@ -86,13 +85,13 @@ def main() -> None:
     """Run one beam-search workflow and print JSON summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-beam-search-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
         enable_console=True,
     )
-    pattern = BeamSearchPattern(
+    pattern = drag.BeamSearchPattern(
         generator_delegate=_generator,
         evaluator_delegate=_evaluator,
         max_depth=2,

@@ -61,13 +61,13 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import MCPServerConfig, Toolbox, ToolResult, Tracer
+import design_research_agents as drag
 
 
 def _run_report() -> dict[str, object]:
-    with Toolbox(
+    with drag.Toolbox(
         mcp_servers=(
-            MCPServerConfig(
+            drag.MCPServerConfig(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},
@@ -78,7 +78,7 @@ def _run_report() -> dict[str, object]:
         enable_core_tools=False,
     ) as runtime:
         mcp_tools = sorted(spec.name for spec in runtime.list_tools() if spec.name.startswith("local_core::"))
-        direct_result: ToolResult = runtime.invoke(
+        direct_result: drag.ToolResult = runtime.invoke(
             "local_core::text.word_count",
             {"text": "design research"},
             request_id="example-mcp-minimal",
@@ -101,7 +101,7 @@ def main() -> None:
     """Run traced MCP report generation and print JSON result."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-tools-mcp-minimal-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

@@ -66,26 +66,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    DelegateStep,
-    DirectLLMCall,
-    ExecutionResult,
-    LlamaCppServerLLMClient,
-    LogicStep,
-    Toolbox,
-    ToolStep,
-    Tracer,
-    Workflow,
-)
+import design_research_agents as drag
 
 
-def _summarize_run(result: ExecutionResult) -> dict[str, object]:
+def _summarize_run(result: drag.ExecutionResult) -> dict[str, object]:
     return result.summary()
 
 
 def main() -> None:
     """Run reusable prompt-mode workflow for two routed design requests."""
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -93,11 +83,11 @@ def main() -> None:
     )
     # Run the prompt-mode workflow using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client and tool runtime when the example is done.
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient() as llm_client:
-        writer_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient() as llm_client:
+        writer_agent = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
         workflow_steps = [
-            LogicStep(
+            drag.LogicStep(
                 step_id="router",
                 handler=lambda context: {
                     "route": (
@@ -109,7 +99,7 @@ def main() -> None:
                     "template_path": ("draft_template",),
                 },
             ),
-            DelegateStep(
+            drag.DelegateStep(
                 step_id="draft_agent",
                 delegate=writer_agent,
                 dependencies=("router",),
@@ -117,7 +107,7 @@ def main() -> None:
                     f"Write one JSON object with keys title and summary for this design request: {context['prompt']}"
                 ),
             ),
-            ToolStep(
+            drag.ToolStep(
                 step_id="parse_agent_json",
                 tool_name="text.extract_json",
                 dependencies=("draft_agent",),
@@ -125,7 +115,7 @@ def main() -> None:
                     "text": context["dependency_results"]["draft_agent"]["output"]["output"]["model_text"]
                 },
             ),
-            LogicStep(
+            drag.LogicStep(
                 step_id="finalize_agent",
                 dependencies=("parse_agent_json",),
                 handler=lambda context: {
@@ -138,7 +128,7 @@ def main() -> None:
                     ),
                 },
             ),
-            LogicStep(
+            drag.LogicStep(
                 step_id="draft_template",
                 dependencies=("router",),
                 handler=lambda context: {
@@ -146,7 +136,7 @@ def main() -> None:
                     "summary": f"Template mode output for: {context['prompt']}",
                 },
             ),
-            LogicStep(
+            drag.LogicStep(
                 step_id="finalize_template",
                 dependencies=("draft_template",),
                 handler=lambda context: {
@@ -157,7 +147,7 @@ def main() -> None:
             ),
         ]
 
-        workflow = Workflow(
+        workflow = drag.Workflow(
             tool_runtime=tool_runtime,
             steps=workflow_steps,
             tracer=tracer,

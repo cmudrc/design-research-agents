@@ -88,14 +88,13 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import SGLangServerLLMClient, Tracer
-from design_research_agents.llm import LLMMessage, LLMRequest
+import design_research_agents as drag
 
 
 def _build_payload() -> dict[str, object]:
     # Run the managed SGLang client using public runtime APIs. Using this with statement will automatically
     # shut down the managed local server when the example is done.
-    with SGLangServerLLMClient(
+    with drag.SGLangServerLLMClient(
         name="sglang-local-dev",
         model="Qwen/Qwen2.5-1.5B-Instruct",
         host="127.0.0.1",
@@ -112,10 +111,10 @@ def _build_payload() -> dict[str, object]:
         description = client.describe()
         prompt = "Provide one sentence on when SGLang-style serving helps local benchmarking."
         response = client.generate(
-            LLMRequest(
+            drag.LLMRequest(
                 messages=(
-                    LLMMessage(role="system", content="You are a concise engineering design assistant."),
-                    LLMMessage(role="user", content=prompt),
+                    drag.LLMMessage(role="system", content="You are a concise engineering design assistant."),
+                    drag.LLMMessage(role="user", content=prompt),
                 ),
                 model=client.default_model(),
                 temperature=0.0,
@@ -143,7 +142,7 @@ def main() -> None:
     """Run traced SGLang client call payload."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-clients-sglang-server-call-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

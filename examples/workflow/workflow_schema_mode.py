@@ -66,7 +66,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import ExecutionResult, LogicStep, Toolbox, ToolStep, Tracer, Workflow
+import design_research_agents as drag
 
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -88,13 +88,13 @@ INPUT_SCHEMA: dict[str, object] = {
 }
 
 
-def _summarize(result: ExecutionResult) -> dict[str, object]:
+def _summarize(result: drag.ExecutionResult) -> dict[str, object]:
     return result.summary()
 
 
 def main() -> None:
     """Run schema-mode workflow with strict and relaxed quality thresholds."""
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -119,12 +119,12 @@ def main() -> None:
 
     # Run the schema-mode workflow using public runtime surfaces. Using this with statement will automatically
     # close the tool runtime when the example is done.
-    with Toolbox() as tool_runtime:
-        workflow = Workflow(
+    with drag.Toolbox() as tool_runtime:
+        workflow = drag.Workflow(
             tool_runtime=tool_runtime,
             tracer=tracer,
             steps=[
-                ToolStep(
+                drag.ToolStep(
                     step_id="describe_dataset",
                     tool_name="data.describe",
                     input_builder=lambda context: {
@@ -132,7 +132,7 @@ def main() -> None:
                         "kind": "csv",
                     },
                 ),
-                ToolStep(
+                drag.ToolStep(
                     step_id="load_sample",
                     tool_name="data.load_csv",
                     dependencies=("describe_dataset",),
@@ -141,7 +141,7 @@ def main() -> None:
                         "nrows": context["inputs"]["sample_nrows"],
                     },
                 ),
-                LogicStep(
+                drag.LogicStep(
                     step_id="quality_gate",
                     dependencies=("describe_dataset", "load_sample"),
                     handler=lambda context: {
@@ -151,7 +151,7 @@ def main() -> None:
                         "threshold": context["inputs"]["max_missing_ratio_per_column"],
                     },
                 ),
-                ToolStep(
+                drag.ToolStep(
                     step_id="persist_report",
                     tool_name="fs.write_text",
                     dependencies=("quality_gate",),
@@ -161,7 +161,7 @@ def main() -> None:
                         "overwrite": True,
                     },
                 ),
-                LogicStep(
+                drag.LogicStep(
                     step_id="finalize",
                     dependencies=("persist_report",),
                     handler=lambda context: {
