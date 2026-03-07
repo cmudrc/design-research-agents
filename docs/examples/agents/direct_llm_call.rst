@@ -6,11 +6,9 @@ Source: ``examples/agents/direct_llm_call.py``
 Introduction
 ------------
 
-Engineering-design studies show that transparent prompt-to-response traces are essential for credible
-evaluation and human oversight; the benchmark framing in Toward Engineering AGI and the collaboration
-framing in Human-AI collaboration by design both depend on this visibility, while llama.cpp server docs
-ground practical local deployment. This example is the smallest reproducible path for observing one direct
-call end to end with runtime traces.
+The default built-in path is the OpenAI-compatible HTTP client. This keeps the base install lightweight
+while still talking to a real endpoint, whether that endpoint is local (for example llama.cpp, vLLM, or
+SGLang) or remote behind an OpenAI-shaped gateway.
 
 Technical Implementation
 ------------------------
@@ -33,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/direct_llm_call.py
    :language: python
-   :lines: 53-
+   :lines: 51-
    :linenos:
 
 Expected Results
@@ -64,6 +62,6 @@ Example output shape (values vary by run):
 References
 ----------
 
-- `Toward Engineering AGI: Benchmarking the Engineering Design Capabilities of LLMs <https://arxiv.org/abs/2509.16204>`_
-- `Human-AI collaboration by design <https://www.cambridge.org/core/journals/proceedings-of-the-design-society/article/humanai-collaboration-by-design/45BC30ADFF2FE3B204D4A29DD67F6353>`_
-- `llama.cpp llama-server docs <https://github.com/ggml-org/llama.cpp#llama-server>`_
+- `OpenAI API Reference <https://platform.openai.com/docs/api-reference/chat>`_
+- `llama.cpp server documentation <https://github.com/ggml-org/llama.cpp/tree/master/tools/server>`_
+- `Holistic Evaluation of Language Models (HELM) <https://arxiv.org/abs/2211.09110>`_
