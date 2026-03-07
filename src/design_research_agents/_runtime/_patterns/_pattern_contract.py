@@ -14,10 +14,11 @@ MODE_TWO_SPEAKER_CONVERSATION = "two_speaker_conversation"
 MODE_DEBATE = "debate"
 MODE_PLAN_EXECUTE = "plan_execute"
 MODE_PROPOSE_CRITIC = "propose_critic"
+MODE_RALPH_LOOP = "ralph_loop"
 MODE_ROUTER_DELEGATE = "router_delegate"
 MODE_ROUND_BASED_COORDINATION = "round_based_coordination"
 MODE_BLACKBOARD = "blackboard"
-MODE_BEAM_SEARCH = "beam_search"
+MODE_TREE_SEARCH = "tree_search"
 MODE_RAG = "rag"
 
 
@@ -104,14 +105,15 @@ def _normalize_artifacts(artifacts: object | None) -> list[object]:
 
 
 __all__ = [
-    "MODE_BEAM_SEARCH",
     "MODE_BLACKBOARD",
     "MODE_DEBATE",
     "MODE_PLAN_EXECUTE",
     "MODE_PROPOSE_CRITIC",
     "MODE_RAG",
+    "MODE_RALPH_LOOP",
     "MODE_ROUND_BASED_COORDINATION",
     "MODE_ROUTER_DELEGATE",
+    "MODE_TREE_SEARCH",
     "MODE_TWO_SPEAKER_CONVERSATION",
     "OUTPUT_CONTRACT_VERSION",
     "build_pattern_execution_result",

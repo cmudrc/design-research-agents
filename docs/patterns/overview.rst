@@ -10,7 +10,8 @@ Available reusable pattern implementations:
 - ``RouterDelegatePattern``: intent-based delegation to selected agents.
 - ``RoundBasedCoordinationPattern``: round-based peer coordination with no central orchestrator.
 - ``BlackboardPattern``: networked coordination with explicit shared board semantics.
-- ``BeamSearchPattern``: generator/evaluator reasoning over beam-searched candidates.
+- ``TreeSearchPattern``: generator/evaluator reasoning over configurable tree-search strategies.
+- ``RalphLoopPattern``: dynamic multi-role iterative refinement with evaluator-threshold stopping.
 - ``RAGPattern``: retrieval-augmented reasoning via memory workflow steps.
 
 Patterns are concrete workflow implementations, not construction primitives.
@@ -28,5 +29,6 @@ Examples
 - ``examples/patterns/debate_pattern.py``
 - ``examples/patterns/two_speaker_conversation.py``
 - ``examples/patterns/coordination_patterns.py``
-- ``examples/patterns/beam_search.py``
+- ``examples/patterns/tree_search.py``
+- ``examples/patterns/ralph_loop.py``
 - ``examples/patterns/rag.py``

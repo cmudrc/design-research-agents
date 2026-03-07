@@ -10,9 +10,6 @@ from collections.abc import Callable
 import pytest
 
 from design_research_agents._contracts import ExecutionResult
-from design_research_agents._implementations._patterns._beam_search_pattern import (
-    BeamSearchPattern,
-)
 from design_research_agents._implementations._patterns._debate_pattern import (
     DebatePattern,
 )
@@ -25,6 +22,9 @@ from design_research_agents._implementations._patterns._propose_critic_pattern i
 from design_research_agents._implementations._patterns._rag_pattern import (
     RAGPattern,
 )
+from design_research_agents._implementations._patterns._ralph_loop_pattern import (
+    RalphLoopPattern,
+)
 from design_research_agents._implementations._patterns._round_based_coordination_pattern import (
     BlackboardPattern,
     RoundBasedCoordinationPattern,
@@ -32,12 +32,30 @@ from design_research_agents._implementations._patterns._round_based_coordination
 from design_research_agents._implementations._patterns._router_delegate_pattern import (
     RouterDelegatePattern,
 )
+from design_research_agents._implementations._patterns._tree_search_pattern import (
+    TreeSearchPattern,
+)
 from design_research_agents._implementations._patterns._two_speaker_conversation_pattern import (
     TwoSpeakerConversationPattern,
 )
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import CompiledExecution, Workflow
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
+
+
+class _StaticScoreAgent:
+    def __init__(self, score: float) -> None:
+        self._score = score
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: dict[str, object] | None = None,
+    ) -> ExecutionResult:
+        del prompt, request_id, dependencies
+        return ExecutionResult(output={"score": self._score}, success=True, tool_results=[], model_response=None)
 
 
 @pytest.mark.parametrize(
@@ -87,6 +105,23 @@ from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
             "Refine this sentence.",
         ),
         (
+            RalphLoopPattern(
+                roles=(
+                    RalphLoopPattern.RoleSpec(
+                        role_id="proposer",
+                        delegate=StaticMarkerAgent(marker="draft"),
+                    ),
+                    RalphLoopPattern.RoleSpec(
+                        role_id="evaluator",
+                        delegate=_StaticScoreAgent(0.9),
+                    ),
+                ),
+                evaluator_role_id="evaluator",
+                loop_config=RalphLoopPattern.LoopConfig(max_iterations=2, consensus_threshold=0.8),
+            ),
+            "Refine with dynamic roles.",
+        ),
+        (
             RouterDelegatePattern(
                 llm_client=SequenceLLMClient(
                     response_texts=['{"tool_name":"route_a","tool_input":{},"reason":"best fit"}']
@@ -112,7 +147,7 @@ from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
             "Coordinate one blackboard round.",
         ),
         (
-            BeamSearchPattern(
+            TreeSearchPattern(
                 generator_delegate=lambda _context: [{"candidate": "x"}],
                 evaluator_delegate=lambda _context: 1.0,
                 max_depth=1,
@@ -221,6 +256,24 @@ def test_exported_patterns_compile_contract(
             {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
         ),
         (
+            lambda: RalphLoopPattern(
+                roles=(
+                    RalphLoopPattern.RoleSpec(
+                        role_id="proposer",
+                        delegate=StaticMarkerAgent(marker="draft"),
+                    ),
+                    RalphLoopPattern.RoleSpec(
+                        role_id="evaluator",
+                        delegate=_StaticScoreAgent(0.9),
+                    ),
+                ),
+                evaluator_role_id="evaluator",
+                loop_config=RalphLoopPattern.LoopConfig(max_iterations=2, consensus_threshold=0.8),
+            ),
+            "Refine with dynamic roles.",
+            {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
+        ),
+        (
             lambda: RouterDelegatePattern(
                 llm_client=SequenceLLMClient(
                     response_texts=['{"tool_name":"alt_two","tool_input":{},"reason":"best fit"}']
@@ -252,7 +305,7 @@ def test_exported_patterns_compile_contract(
             {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
         ),
         (
-            lambda: BeamSearchPattern(
+            lambda: TreeSearchPattern(
                 generator_delegate=lambda _context: [{"candidate": "x"}],
                 evaluator_delegate=lambda _context: 1.0,
                 max_depth=1,
@@ -447,10 +500,18 @@ def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
     blackboard_params = inspect.signature(BlackboardPattern.__init__).parameters
     assert "stability_rounds" in blackboard_params
 
-    tree_params = inspect.signature(BeamSearchPattern.__init__).parameters
+    tree_params = inspect.signature(TreeSearchPattern.__init__).parameters
     assert "generator_delegate" in tree_params
     assert "evaluator_delegate" in tree_params
     assert "beam_width" in tree_params
+    assert "search_strategy" in tree_params
+    assert "mcts_exploration_weight" in tree_params
+    assert "simulation_budget" in tree_params
+
+    ralph_params = inspect.signature(RalphLoopPattern.__init__).parameters
+    assert "roles" in ralph_params
+    assert "evaluator_role_id" in ralph_params
+    assert "loop_config" in ralph_params
 
     rag_params = inspect.signature(RAGPattern.__init__).parameters
     assert "reasoning_delegate" in rag_params

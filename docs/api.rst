@@ -217,6 +217,10 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.RalphLoopPattern
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.RouterDelegatePattern
    :members:
    :undoc-members:
@@ -229,7 +233,7 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.BeamSearchPattern
+.. autoclass:: design_research_agents.TreeSearchPattern
    :members:
    :undoc-members:
 

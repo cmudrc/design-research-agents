@@ -112,6 +112,20 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         "Peer contribution: document final maintenance SOP candidates.",
         "Peer contribution: finalize blackboard recommendation summary.",
     ),
+    "examples/patterns/tree_search.py": (
+        "Peer contribution: prioritize captive screws for quicker service loops.",
+        "Peer contribution: keep gasket alignment features for resealing reliability.",
+        "Peer contribution: propose tool-less battery tray removal path.",
+        "Peer contribution: add visual fastener indexing for field technicians.",
+    ),
+    "examples/patterns/ralph_loop.py": (
+        "Draft v1: modular enclosure with service hatch.",
+        "Add clearer serviceability details.",
+        '{"score": 0.55}',
+        "Draft v2: modular enclosure with keyed service hatch and alignment tabs.",
+        "Feedback resolved; proposal is actionable.",
+        '{"score": 0.86}',
+    ),
     "examples/patterns/rag.py": (
         "Prioritize maintainability checks and explicit testability criteria in the recommended architecture.",
     ),
@@ -179,7 +193,7 @@ _PATH_ALIASES: dict[str, str] = {
     "examples/workflow/debate_pattern.py": "examples/patterns/debate_pattern.py",
     "examples/workflow/conversation_pattern.py": "examples/patterns/two_speaker_conversation.py",
     "examples/workflow/networked_blackboard.py": "examples/patterns/coordination_patterns.py",
-    "examples/workflow/tree_search.py": "examples/patterns/beam_search.py",
+    "examples/workflow/tree_search.py": "examples/patterns/tree_search.py",
     "examples/workflow/rag.py": "examples/patterns/rag.py",
 }
 

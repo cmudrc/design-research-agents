@@ -15,7 +15,8 @@ Quick chooser
 - Need two-speaker conversational iteration: ``TwoSpeakerConversationPattern``.
 - Need decentralized peer rounds: ``RoundBasedCoordinationPattern``.
 - Need shared-state convergence rounds: ``BlackboardPattern``.
-- Need candidate expansion + scoring search: ``BeamSearchPattern``.
+- Need candidate expansion + scoring search: ``TreeSearchPattern``.
+- Need dynamic nominal-team refinement loops: ``RalphLoopPattern``.
 - Need retrieval-augmented reasoning with write-back: ``RAGPattern``.
 - Need to author a new implementation from scratch: :doc:`/workflows/index`.
 

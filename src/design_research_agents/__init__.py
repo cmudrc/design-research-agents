@@ -33,10 +33,11 @@ _EXPORTS: Final[dict[str, str]] = {
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
     "ProposeCriticPattern": "design_research_agents.patterns:ProposeCriticPattern",
+    "RalphLoopPattern": "design_research_agents.patterns:RalphLoopPattern",
     "RouterDelegatePattern": "design_research_agents.patterns:RouterDelegatePattern",
     "RoundBasedCoordinationPattern": "design_research_agents.patterns:RoundBasedCoordinationPattern",
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
-    "BeamSearchPattern": "design_research_agents.patterns:BeamSearchPattern",
+    "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
@@ -120,14 +121,15 @@ if TYPE_CHECKING:
     from .llm import SGLangServerLLMClient as SGLangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
     from .llm import VLLMServerLLMClient as VLLMServerLLMClient
-    from .patterns import BeamSearchPattern as BeamSearchPattern
     from .patterns import BlackboardPattern as BlackboardPattern
     from .patterns import DebatePattern as DebatePattern
     from .patterns import PlanExecutePattern as PlanExecutePattern
     from .patterns import ProposeCriticPattern as ProposeCriticPattern
     from .patterns import RAGPattern as RAGPattern
+    from .patterns import RalphLoopPattern as RalphLoopPattern
     from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
     from .patterns import RouterDelegatePattern as RouterDelegatePattern
+    from .patterns import TreeSearchPattern as TreeSearchPattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
     from .tools import CallableToolConfig as CallableToolConfig
     from .tools import MCPServerConfig as MCPServerConfig

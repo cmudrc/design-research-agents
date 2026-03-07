@@ -10,7 +10,8 @@ These scripts demonstrate reusable orchestration patterns built on top of workfl
 - `debate_pattern.py`
 - `two_speaker_conversation.py`
 - `coordination_patterns.py`
-- `beam_search.py`
+- `tree_search.py`
+- `ralph_loop.py`
 - `rag.py`
 
 ## Quick Start

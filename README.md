@@ -14,7 +14,7 @@ This library centers on a small set of composable pieces you can run, inspect, a
 
 - Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
-- Prebuilt orchestration patterns for plan/execute, debate, propose/critic, routing, beam search, RAG, blackboard, and conversations
+- Prebuilt orchestration patterns for plan/execute, debate, propose/critic, routing, tree search, Ralph loops, RAG, blackboard, and conversations
 - Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
 - Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
 - A workflow runtime with explicit step primitives for model calls, tool calls, delegation, loops, and memory
