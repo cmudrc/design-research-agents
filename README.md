@@ -18,6 +18,7 @@ This library centers on a small set of composable pieces you can run, inspect, a
 - Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
 - Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
 - A workflow runtime with explicit step primitives for model calls, tool calls, delegation, loops, and memory
+- Automated generation of diagrams describing how agents function
 
 ## A Super Basic Agent
 
