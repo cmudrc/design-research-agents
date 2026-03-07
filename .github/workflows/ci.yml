@@ -53,7 +53,7 @@ jobs:
         run: |
           DRA_EXAMPLE_LLM_MODE=deterministic \
           DRA_EXAMPLE_ID=examples/agents/direct_llm_call.py \
-          PYTHONPATH=tests/example_monkeypatch:src \
+          PYTHONPATH=tests/example_monkeypatch \
           python examples/agents/direct_llm_call.py
 
   latest:
