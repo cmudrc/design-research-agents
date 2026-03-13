@@ -10,16 +10,9 @@ development, docs, and review discussions.
 ## Technical Implementation
 1. Build a representative workflow using only the public workflow primitives.
 2. Call ``Workflow.to_mermaid(direction="LR")`` to render the declared topology.
-3. Persist the Mermaid text under ``artifacts/examples/`` for local inspection or docs reuse.
-4. Print a compact JSON payload so example automation can verify the generated diagram shape.
-
-```mermaid
-flowchart LR
-    A["Workflow definition"] --> B["Workflow.to_mermaid()"]
-    B --> C["Mermaid flowchart text"]
-    C --> D["artifacts/examples/workflow_diagram.mmd"]
-    C --> E["JSON summary for tests/docs"]
-```
+3. Call ``Workflow.to_svg(direction="LR")`` to emit a static SVG for notebooks, docs assets, or reviews.
+4. Persist both diagram formats under ``artifacts/examples/`` for local inspection or docs reuse.
+5. Print a compact JSON payload so example automation can verify the generated diagram shape.
 
 
 ## Expected Results
@@ -30,8 +23,10 @@ Example output shape (values vary by run):
 
    {
      "diagram_path": "artifacts/examples/workflow_diagram.mmd",
+     "svg_path": "artifacts/examples/workflow_diagram.svg",
      "line_count": 18,
      "starts_with": "flowchart LR",
+     "svg_starts_with": "<svg",
      "contains_loop": true,
      "contains_route": true
    }
@@ -48,6 +43,8 @@ import json
 from pathlib import Path
 
 import design_research_agents as drag
+
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
 
 
 def build_example_workflow() -> drag.Workflow:
@@ -93,20 +90,25 @@ def build_example_workflow() -> drag.Workflow:
 
 
 def main() -> None:
-    """Generate Mermaid output for a representative workflow."""
+    """Generate Mermaid and SVG output for a representative workflow."""
     workflow = build_example_workflow()
-    diagram = workflow.to_mermaid(direction="LR")
+    diagram = workflow.to_mermaid(direction=WORKFLOW_DIAGRAM_DIRECTION)
+    svg = workflow.to_svg(direction=WORKFLOW_DIAGRAM_DIRECTION)
 
-    artifact_path = Path("artifacts/examples/workflow_diagram.mmd")
-    artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    artifact_path.write_text(diagram + "\n", encoding="utf-8")
+    mermaid_path = Path("artifacts/examples/workflow_diagram.mmd")
+    svg_path = Path("artifacts/examples/workflow_diagram.svg")
+    mermaid_path.parent.mkdir(parents=True, exist_ok=True)
+    mermaid_path.write_text(diagram + "\n", encoding="utf-8")
+    svg_path.write_text(svg + "\n", encoding="utf-8")
 
     print(
         json.dumps(
             {
-                "diagram_path": artifact_path.as_posix(),
+                "diagram_path": mermaid_path.as_posix(),
+                "svg_path": svg_path.as_posix(),
                 "line_count": len(diagram.splitlines()),
                 "starts_with": diagram.splitlines()[0],
+                "svg_starts_with": svg.lstrip()[:4],
                 "contains_loop": "Loop Body: review_loop" in diagram,
                 "contains_route": "route=draft_path" in diagram,
             },

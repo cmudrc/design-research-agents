@@ -12,17 +12,6 @@ handling inside a workflow graph with deterministic trace capture.
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
-```mermaid
-flowchart LR
-    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (LogicStep, ModelStep)"]
-    C --> E["Tracer JSONL + console events"]
-    D --> F["ExecutionResult/payload"]
-    E --> F
-    F --> G["Printed JSON output"]
-```
-
 
 ## Expected Results
 
@@ -55,6 +44,60 @@ from pathlib import Path
 
 import design_research_agents as drag
 
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
+
+
+class _DocLLMClient:
+    """Minimal LLM client stub used only for docs-diagram workflow construction."""
+
+    def default_model(self) -> str:
+        return "doc-model"
+
+
+def build_example_workflow(
+    *,
+    tracer: drag.Tracer | None = None,
+    llm_client: object | None = None,
+) -> drag.Workflow:
+    """Build the model-step workflow used for docs diagrams and runtime execution."""
+    resolved_llm_client = llm_client or _DocLLMClient()
+    return drag.Workflow(
+        tool_runtime=None,
+        tracer=tracer,
+        input_schema={"type": "object"},
+        steps=[
+            drag.ModelStep(
+                step_id="design_tradeoff_model",
+                llm_client=resolved_llm_client,
+                request_builder=lambda context: drag.LLMRequest(
+                    messages=[
+                        drag.LLMMessage(
+                            role="user",
+                            content=(
+                                "Summarize one engineering tradeoff for this goal: "
+                                f"{context['inputs'].get('design_goal', '')}"
+                            ),
+                        )
+                    ],
+                    model=resolved_llm_client.default_model(),
+                ),
+                response_parser=lambda response, _context: {
+                    "tradeoff_summary": response.text,
+                    "model": response.model,
+                },
+            ),
+            drag.LogicStep(
+                step_id="finalize",
+                dependencies=("design_tradeoff_model",),
+                handler=lambda context: {
+                    "tradeoff": context["dependency_results"]["design_tradeoff_model"]["output"]["parsed"][
+                        "tradeoff_summary"
+                    ]
+                },
+            ),
+        ],
+    )
+
 
 def main() -> None:
     """Run model-step workflow and print compact design tradeoff summary."""
@@ -69,42 +112,7 @@ def main() -> None:
     # Run the model-step workflow using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client when the example is done.
     with drag.LlamaCppServerLLMClient() as llm_client:
-        workflow = drag.Workflow(
-            tool_runtime=None,
-            tracer=tracer,
-            input_schema={"type": "object"},
-            steps=[
-                drag.ModelStep(
-                    step_id="design_tradeoff_model",
-                    llm_client=llm_client,
-                    request_builder=lambda context: drag.LLMRequest(
-                        messages=[
-                            drag.LLMMessage(
-                                role="user",
-                                content=(
-                                    "Summarize one engineering tradeoff for this goal: "
-                                    f"{context['inputs'].get('design_goal', '')}"
-                                ),
-                            )
-                        ],
-                        model=llm_client.default_model(),
-                    ),
-                    response_parser=lambda response, _context: {
-                        "tradeoff_summary": response.text,
-                        "model": response.model,
-                    },
-                ),
-                drag.LogicStep(
-                    step_id="finalize",
-                    dependencies=("design_tradeoff_model",),
-                    handler=lambda context: {
-                        "tradeoff": context["dependency_results"]["design_tradeoff_model"]["output"]["parsed"][
-                            "tradeoff_summary"
-                        ]
-                    },
-                ),
-            ],
-        )
+        workflow = build_example_workflow(tracer=tracer, llm_client=llm_client)
 
         result = workflow.run(
             {"design_goal": "reduce repair time for edge-device battery modules"},

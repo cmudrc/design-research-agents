@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from html import escape as html_escape
 
-from design_research_agents._contracts._workflow import (
-    DelegateBatchStep,
-    DelegateStep,
-    LogicStep,
-    LoopStep,
-    MemoryReadStep,
-    MemoryWriteStep,
-    ModelStep,
-    ToolStep,
-    WorkflowStep,
-)
+from design_research_agents._contracts._workflow import LogicStep, LoopStep, WorkflowStep
 from design_research_agents._runtime._workflow import prepare_workflow_graph, validate_no_cycles
 
-_ALLOWED_DIRECTIONS = frozenset({"TD", "LR", "BT", "RL"})
+from ._diagram_common import (
+    _escape_label,
+    _normalize_direction,
+    _qualified_step_id,
+    _route_label,
+    _step_label,
+)
+from ._diagram_svg import render_workflow_as_svg
+
+__all__ = ["render_workflow_as_mermaid", "render_workflow_as_svg"]
 
 
 class _MermaidBuilder:
@@ -68,22 +66,8 @@ class _MermaidBuilder:
 
 
 def render_workflow_as_mermaid(steps: Sequence[WorkflowStep], *, direction: str = "TD") -> str:
-    """Render one static workflow step graph as Mermaid flowchart text.
-
-    Args:
-        steps: Workflow steps to render.
-        direction: Mermaid flowchart direction (for example ``TD`` or ``LR``).
-
-    Returns:
-        Mermaid flowchart text for the supplied workflow.
-
-    Raises:
-        ValueError: Raised when ``direction`` is unsupported or the workflow graph is invalid.
-    """
-    normalized_direction = direction.strip().upper()
-    if normalized_direction not in _ALLOWED_DIRECTIONS:
-        raise ValueError("direction must be one of: " + ", ".join(sorted(_ALLOWED_DIRECTIONS)))
-
+    """Render one static workflow step graph as Mermaid flowchart text."""
+    normalized_direction = _normalize_direction(direction)
     prepared = prepare_workflow_graph(steps)
     validate_no_cycles(prepared.step_map, prepared.dependencies)
 
@@ -276,48 +260,3 @@ def _terminal_node_ids(
 ) -> tuple[str, ...]:
     """Return node ids for terminal steps in one prepared sequence."""
     return tuple(step_nodes[step.step_id] for step in steps if not dependents.get(step.step_id))
-
-
-def _qualified_step_id(prefix: tuple[str, ...], step_id: str) -> str:
-    """Return one step id qualified by its parent loop path when present."""
-    if not prefix:
-        return step_id
-    return "::".join((*prefix, step_id))
-
-
-def _step_label(step: WorkflowStep, qualified_step_id: str) -> str:
-    """Build one stable Mermaid node label for a workflow step."""
-    step_kind = type(step).__name__
-    detail = _step_detail(step)
-    if detail is None:
-        return f"{qualified_step_id}\n{step_kind}"
-    return f"{qualified_step_id}\n{step_kind}\n{detail}"
-
-
-def _step_detail(step: WorkflowStep) -> str | None:
-    """Return one compact step-detail string when available."""
-    if isinstance(step, ToolStep):
-        return f"tool={step.tool_name}"
-    if isinstance(step, LoopStep):
-        return f"max_iterations={step.max_iterations}"
-    if isinstance(step, MemoryReadStep):
-        return f"namespace={step.namespace}"
-    if isinstance(step, MemoryWriteStep):
-        return f"namespace={step.namespace}"
-    if isinstance(step, DelegateBatchStep):
-        return "batch delegate calls"
-    if isinstance(step, DelegateStep | ModelStep | LogicStep):
-        return None
-    return None
-
-
-def _route_label(route_key: object) -> str:
-    """Return a normalized route label for a conditional edge."""
-    if isinstance(route_key, str) and route_key.strip():
-        return f"route={route_key.strip()}"
-    return "route"
-
-
-def _escape_label(label: str) -> str:
-    """Escape Mermaid node and edge labels safely."""
-    return html_escape(label, quote=True).replace("\n", "<br/>")

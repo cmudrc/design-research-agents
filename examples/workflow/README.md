@@ -25,4 +25,5 @@ PYTHONPATH=src python3 examples/workflow/workflow_diagram_generation.py
 
 - JSON summaries with execution order and final output details.
 - Mermaid diagram text written to `artifacts/examples/workflow_diagram.mmd`.
+- Static SVG workflow diagram written to `artifacts/examples/workflow_diagram.svg`.
 - Trace metadata in each script payload.

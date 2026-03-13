@@ -409,6 +409,43 @@ def test_workflow_to_mermaid_includes_routes_and_loop_structure() -> None:
     assert 'step_6 -. "next iteration" .-> loop_entry_1' in diagram
 
 
+def test_workflow_to_svg_renders_static_diagram_markup() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(step_id="start", handler=lambda _context: {"status": "ready"}),
+            LoopStep(
+                step_id="review_loop",
+                dependencies=("start",),
+                max_iterations=2,
+                steps=(
+                    LogicStep(
+                        step_id="router",
+                        handler=lambda _context: {"route": "draft_path"},
+                        route_map={"draft_path": ("draft",)},
+                    ),
+                    LogicStep(
+                        step_id="draft",
+                        dependencies=("router",),
+                        handler=lambda _context: {"draft": "v1"},
+                    ),
+                ),
+            ),
+        ],
+    )
+
+    svg = workflow.to_svg(direction="LR")
+
+    assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"')
+    assert 'aria-label="Workflow diagram"' in svg
+    assert 'id="workflow_entry"' in svg
+    assert 'id="step_2"' in svg
+    assert "Loop Body: review_loop" in svg
+    assert "route=draft_path" in svg
+    assert "next iteration" in svg
+    assert 'marker-end="url(#workflow-arrow)"' in svg
+
+
 def test_workflow_to_mermaid_rejects_unknown_directions() -> None:
     workflow = Workflow(
         tool_runtime=Toolbox(),

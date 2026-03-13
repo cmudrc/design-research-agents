@@ -74,6 +74,7 @@ def test_workflow_diagram_example_smoke_runs() -> None:
     assert completed.returncode == 0, completed.stderr
     payload = json.loads(completed.stdout)
     assert payload["starts_with"] == "flowchart LR"
+    assert payload["svg_starts_with"] == "<svg"
     assert payload["contains_loop"] is True
     assert payload["contains_route"] is True
 

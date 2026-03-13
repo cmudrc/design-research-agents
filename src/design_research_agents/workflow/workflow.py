@@ -21,7 +21,7 @@ from design_research_agents._runtime._workflow._engine import WorkflowRuntime
 from design_research_agents._schemas import validate_payload_against_schema
 from design_research_agents._tracing import Tracer
 
-from ._diagram import render_workflow_as_mermaid
+from ._diagram import render_workflow_as_mermaid, render_workflow_as_svg
 
 
 def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
@@ -149,6 +149,17 @@ class Workflow:
             Mermaid flowchart text that reflects the declared step topology.
         """
         return render_workflow_as_mermaid(self._steps, direction=direction)
+
+    def to_svg(self, *, direction: str = "TD") -> str:
+        """Return a deterministic SVG diagram for the configured workflow.
+
+        Args:
+            direction: Diagram direction (for example ``TD`` or ``LR``).
+
+        Returns:
+            Standalone SVG markup that reflects the declared step topology.
+        """
+        return render_workflow_as_svg(self._steps, direction=direction)
 
     def run(
         self,
