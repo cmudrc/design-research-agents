@@ -327,6 +327,98 @@ def test_workflow_allows_agent_steps_nested_inside_loop_step() -> None:
     assert writer_agent.run_count == 1
 
 
+def test_workflow_to_mermaid_renders_deterministic_dependencies() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(step_id="collect", handler=lambda _context: {"status": "ready"}),
+            ToolStep(
+                step_id="persist",
+                tool_name="fs.write_text",
+                dependencies=("collect",),
+                input_data={"path": "artifacts/report.txt", "content": "ok", "overwrite": True},
+            ),
+        ],
+    )
+
+    assert workflow.to_mermaid() == "\n".join(
+        [
+            "flowchart TD",
+            '    workflow_entry["Workflow Entrypoint"]',
+            '    step_1["collect<br/>LogicStep"]',
+            '    step_2["persist<br/>ToolStep<br/>tool=fs.write_text"]',
+            "    workflow_entry --> step_1",
+            "    step_1 --> step_2",
+        ]
+    )
+
+
+def test_workflow_to_mermaid_includes_routes_and_loop_structure() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(step_id="start", handler=lambda _context: {"status": "ready"}),
+            LoopStep(
+                step_id="review_loop",
+                dependencies=("start",),
+                max_iterations=3,
+                steps=(
+                    LogicStep(
+                        step_id="router",
+                        handler=lambda _context: {"route": "draft_path"},
+                        route_map={
+                            "draft_path": ("draft",),
+                            "score_path": ("score",),
+                        },
+                    ),
+                    LogicStep(
+                        step_id="draft",
+                        dependencies=("router",),
+                        handler=lambda _context: {"draft": "v1"},
+                    ),
+                    LogicStep(
+                        step_id="score",
+                        dependencies=("draft",),
+                        handler=lambda _context: {"score": 1.0},
+                    ),
+                ),
+            ),
+            LogicStep(
+                step_id="publish",
+                dependencies=("review_loop",),
+                handler=lambda _context: {"published": True},
+            ),
+        ],
+    )
+
+    diagram = workflow.to_mermaid(direction="LR")
+
+    assert diagram.startswith("flowchart LR\n")
+    assert 'step_2["review_loop<br/>LoopStep<br/>max_iterations=3"]' in diagram
+    assert 'subgraph loop_body_1["Loop Body: review_loop"]' in diagram
+    assert 'loop_entry_1["review_loop iteration entry"]' in diagram
+    assert 'step_4["review_loop::router<br/>LogicStep"]' in diagram
+    assert 'step_5["review_loop::draft<br/>LogicStep"]' in diagram
+    assert 'step_6["review_loop::score<br/>LogicStep"]' in diagram
+    assert 'step_2 -. "iterate" .-> loop_entry_1' in diagram
+    assert "    loop_entry_1 --> step_4" in diagram
+    assert "    step_4 --> step_5" in diagram
+    assert "    step_5 --> step_6" in diagram
+    assert 'step_4 -. "route=draft_path" .-> step_5' in diagram
+    assert 'step_4 -. "route=score_path" .-> step_6' in diagram
+    assert 'step_6 -. "next iteration" .-> loop_entry_1' in diagram
+
+
+def test_workflow_to_mermaid_rejects_unknown_directions() -> None:
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[LogicStep(step_id="echo", handler=lambda _context: {"ok": True})],
+    )
+
+    with pytest.raises(ValueError, match="direction must be one of"):
+        workflow.to_mermaid(direction="down")
+
+
 def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied() -> None:
     capture_agent = CaptureDependenciesAgent()
     workflow = Workflow(

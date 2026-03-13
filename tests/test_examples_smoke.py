@@ -61,6 +61,23 @@ def test_workflow_example_smoke_runs() -> None:
     assert payload["success"] is True
 
 
+def test_workflow_diagram_example_smoke_runs() -> None:
+    example_path = REPO_ROOT / "examples" / "workflow" / "workflow_diagram_generation.py"
+    completed = subprocess.run(
+        [sys.executable, str(example_path)],
+        cwd=REPO_ROOT,
+        env=_example_env("examples/workflow/workflow_diagram_generation.py"),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["starts_with"] == "flowchart LR"
+    assert payload["contains_loop"] is True
+    assert payload["contains_route"] is True
+
+
 def test_script_example_smoke_runs() -> None:
     example_path = REPO_ROOT / "examples" / "tools" / "script_tools" / "repo_quickscan.sh"
     completed = subprocess.run(
