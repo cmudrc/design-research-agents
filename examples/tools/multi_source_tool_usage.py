@@ -66,10 +66,10 @@ import json
 import sys
 from pathlib import Path
 
-from design_research_agents import MCPServerConfig, ScriptToolConfig, Toolbox, Tracer
+import design_research_agents as drag
 
 
-def _source_tool_counts(runtime: Toolbox) -> dict[str, int]:
+def _source_tool_counts(runtime: drag.Toolbox) -> dict[str, int]:
     counts = {"core": 0, "script": 0, "mcp": 0}
     for spec in runtime.list_tools():
         if spec.name.startswith("script::"):
@@ -87,11 +87,11 @@ def _run_report() -> dict[str, object]:
         "and keep maintenance steps field-serviceable."
     )
 
-    with Toolbox(
+    with drag.Toolbox(
         workspace_root=".",
         enable_core_tools=True,
         script_tools=(
-            ScriptToolConfig(
+            drag.ScriptToolConfig(
                 name="rubric_score",
                 path="examples/tools/script_tools/rubric_score.py",
                 description="Score text against a simple rubric.",
@@ -109,7 +109,7 @@ def _run_report() -> dict[str, object]:
             ),
         ),
         mcp_servers=(
-            MCPServerConfig(
+            drag.MCPServerConfig(
                 id="local_core",
                 command=(sys.executable, "-m", "design_research_agents._mcp_server"),
                 env={"PYTHONPATH": "src"},
@@ -178,7 +178,7 @@ def main() -> None:
     """Run traced multi-source report generation."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-tools-multi-source-tool-usage-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

@@ -61,11 +61,11 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-from design_research_agents import ModelSelector, Tracer
+import design_research_agents as drag
 
 
 def _select_local() -> dict[str, object]:
-    selector = ModelSelector()
+    selector = drag.ModelSelector()
     decision = selector.select(
         task="Summarize engineering design review findings for stakeholders.",
         priority="quality",
@@ -89,7 +89,7 @@ def main() -> None:
     """Run traced local-first model selection and print decision."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-model-selection-local-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

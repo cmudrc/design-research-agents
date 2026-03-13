@@ -85,14 +85,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import AzureOpenAIServiceLLMClient, LLMResponse, OpenAIServiceLLMClient, Tracer
-from design_research_agents.llm import LLMMessage, LLMRequest
+import design_research_agents as drag
 
 
 def _build_payload() -> dict[str, object]:
-    assert AzureOpenAIServiceLLMClient.__name__ == "AzureOpenAIServiceLLMClient"
+    assert drag.AzureOpenAIServiceLLMClient.__name__ == "AzureOpenAIServiceLLMClient"
     # Build the hosted OpenAI client using public runtime APIs, then execute one representative request.
-    with OpenAIServiceLLMClient(
+    with drag.OpenAIServiceLLMClient(
         name="openai-prod",
         default_model="gpt-4o-mini",
         api_key_env="OPENAI_API_KEY",
@@ -104,10 +103,10 @@ def _build_payload() -> dict[str, object]:
         description = client.describe()
         prompt = "In one sentence, when should engineering teams use multi-agent design critique?"
         response = client.generate(
-            LLMRequest(
+            drag.LLMRequest(
                 messages=(
-                    LLMMessage(role="system", content="You are a concise engineering design assistant."),
-                    LLMMessage(role="user", content=prompt),
+                    drag.LLMMessage(role="system", content="You are a concise engineering design assistant."),
+                    drag.LLMMessage(role="user", content=prompt),
                 ),
                 model=client.default_model(),
                 temperature=0.0,
@@ -121,7 +120,7 @@ def _build_payload() -> dict[str, object]:
             "response_provider": response.provider,
             "response_has_text": bool(response.text.strip()),
         }
-        response_contract = LLMResponse(
+        response_contract = drag.LLMResponse(
             text=response.text,
             model=response.model,
             provider=response.provider,
@@ -144,7 +143,7 @@ def main() -> None:
     """Run traced OpenAI service client call payload."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-clients-openai-service-call-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

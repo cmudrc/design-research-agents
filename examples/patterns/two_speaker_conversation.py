@@ -55,15 +55,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, Tracer
-from design_research_agents.patterns import TwoSpeakerConversationPattern
+import design_research_agents as drag
 
 
 def main() -> None:
     """Run two-speaker brainstorming loop for a serviceable device enclosure."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-two-speaker-conversation-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -71,8 +70,8 @@ def main() -> None:
     )
     # Run the two-speaker conversation using the managed local client. Using this with statement will
     # automatically shut down the client when the example is done.
-    with LlamaCppServerLLMClient() as llm_client:
-        pattern = TwoSpeakerConversationPattern(
+    with drag.LlamaCppServerLLMClient() as llm_client:
+        pattern = drag.TwoSpeakerConversationPattern(
             llm_client_a=llm_client,
             max_turns=5,
             speaker_a_name="Concept Designer",

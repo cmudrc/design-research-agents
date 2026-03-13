@@ -15,13 +15,14 @@ EXAMPLE_MONKEYPATCH_ROOT = REPO_ROOT / "tests" / "example_monkeypatch"
 pytestmark = pytest.mark.examples_smoke
 
 
-def _example_env(example_id: str) -> dict[str, str]:
+def _example_env(example_id: str, *, use_monkeypatch: bool = True) -> dict[str, str]:
     env = dict(os.environ)
-    env["DRA_EXAMPLE_LLM_MODE"] = "deterministic"
-    env["DRA_EXAMPLE_ID"] = example_id
     env["DRA_EXAMPLE_MCP_COMMAND"] = f"{sys.executable} -m design_research_agents._mcp_server"
+    if use_monkeypatch:
+        env["DRA_EXAMPLE_LLM_MODE"] = "deterministic"
+        env["DRA_EXAMPLE_ID"] = example_id
     existing_pythonpath = env.get("PYTHONPATH")
-    test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src"
+    test_paths = f"{EXAMPLE_MONKEYPATCH_ROOT}{os.pathsep}src" if use_monkeypatch else "src"
     env["PYTHONPATH"] = f"{test_paths}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else test_paths
     return env
 
@@ -37,7 +38,9 @@ def test_agent_example_smoke_runs() -> None:
         check=False,
     )
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip()
+    payload = json.loads(completed.stdout)
+    assert payload["success"] is True
+    assert payload["final_output"] == "4"
 
 
 def test_workflow_example_smoke_runs() -> None:

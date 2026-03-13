@@ -54,16 +54,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    DelegateBatchStep,
-    DirectLLMCall,
-    LlamaCppServerLLMClient,
-    LogicStep,
-    MemoryReadStep,
-    MemoryWriteStep,
-    Tracer,
-    Workflow,
-)
+import design_research_agents as drag
 from design_research_agents.memory import SQLiteMemoryStore
 
 
@@ -71,7 +62,7 @@ def main() -> None:
     """Execute memory and delegate-batch primitives in one traced workflow."""
     # Stable request ids keep workflow trace artifacts deterministic for docs snapshots.
     request_id = "example-workflow-delegate-memory-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -87,19 +78,19 @@ def main() -> None:
     # memory store and managed client when the example is done.
     with (
         SQLiteMemoryStore(db_path=db_path) as store,
-        LlamaCppServerLLMClient() as llm_client,
+        drag.LlamaCppServerLLMClient() as llm_client,
     ):
         # Two delegates share the same backend client to model role-specific prompts over one transport.
-        manufacturing_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
-        reliability_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        manufacturing_peer = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        reliability_peer = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
-        workflow = Workflow(
+        workflow = drag.Workflow(
             tool_runtime=None,
             memory_store=store,
             tracer=tracer,
             input_schema={"type": "object"},
             steps=[
-                MemoryWriteStep(
+                drag.MemoryWriteStep(
                     step_id="seed_constraints",
                     namespace="design_constraints",
                     # Seed memory first so downstream reads/delegates operate on explicit constraints.
@@ -114,7 +105,7 @@ def main() -> None:
                         },
                     ],
                 ),
-                MemoryReadStep(
+                drag.MemoryReadStep(
                     step_id="read_constraints",
                     namespace="design_constraints",
                     dependencies=("seed_constraints",),
@@ -124,7 +115,7 @@ def main() -> None:
                         "metadata_filters": {"kind": "constraint"},
                     },
                 ),
-                DelegateBatchStep(
+                drag.DelegateBatchStep(
                     step_id="peer_batch",
                     dependencies=("read_constraints",),
                     fail_fast=False,
@@ -145,7 +136,7 @@ def main() -> None:
                         },
                     ],
                 ),
-                LogicStep(
+                drag.LogicStep(
                     step_id="finalize",
                     dependencies=("read_constraints", "peer_batch"),
                     handler=lambda context: {

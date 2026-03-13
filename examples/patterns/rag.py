@@ -55,16 +55,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Toolbox, Tracer
+import design_research_agents as drag
 from design_research_agents.memory import SQLiteMemoryStore
-from design_research_agents.patterns import RAGPattern
 
 
 def main() -> None:
     """Run one local RAG workflow and print compact JSON result."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-rag-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -78,9 +77,9 @@ def main() -> None:
     # Run the local RAG pattern using public runtime surfaces. Using this with statement will automatically close
     # the tool runtime, memory store, and managed client when the example is done.
     with (
-        Toolbox() as seed_toolbox,
+        drag.Toolbox() as seed_toolbox,
         SQLiteMemoryStore(db_path=db_path) as store,
-        LlamaCppServerLLMClient() as llm_client,
+        drag.LlamaCppServerLLMClient() as llm_client,
     ):
         seed_toolbox.invoke_dict(
             "memory.write",
@@ -97,8 +96,8 @@ def main() -> None:
             request_id=f"{request_id}:seed_memory",
             dependencies={},
         )
-        pattern = RAGPattern(
-            reasoning_delegate=DirectLLMCall(llm_client=llm_client, tracer=tracer),
+        pattern = drag.RAGPattern(
+            reasoning_delegate=drag.DirectLLMCall(llm_client=llm_client, tracer=tracer),
             memory_store=store,
             memory_namespace="design_examples",
             memory_top_k=3,

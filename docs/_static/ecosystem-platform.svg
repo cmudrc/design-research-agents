@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="560" viewBox="0 0 1500 560" role="img">
+  <defs>
+    <style>
+      .title { font-family: Inter, Arial, sans-serif; font-size: 30px; font-weight: 700; fill:#000000; }
+      .subtitle { font-family: Inter, Arial, sans-serif; font-size: 17px; font-weight: 500; fill:#000000; }
+      .link { stroke:#D0D0D0; stroke-width:6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+      .box { filter: drop-shadow(0 8px 18px rgba(0,0,0,0.14)); }
+    </style>
+
+    <marker id="arrowGrey" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L14,7 L0,14 Z" fill="#D0D0D0"/>
+    </marker>
+  </defs>
+
+  <!-- CONNECTION LINES (drawn first so they sit below boxes) -->
+
+  <!-- main pipeline -->
+  <path d="M460 394 C505 394, 520 394, 555 394" class="link"/>
+  <path d="M945 394 C990 394, 1005 394, 1040 394" class="link"/>
+
+  <!-- orchestration -->
+  <path d="M600 174 C520 198, 440 240, 345 330" class="link"/>
+  <path d="M750 174 C750 220, 750 260, 750 330" class="link"/>
+  <path d="M900 174 C980 198, 1060 240, 1155 330" class="link"/>
+
+  <!-- BOXES -->
+
+  <!-- experiments -->
+  <g class="box">
+    <rect x="430" y="42" width="640" height="132" rx="34" fill="#57B7BA" stroke="#57B7BA" stroke-width="6"/>
+    <text class="title" x="750" y="101" text-anchor="middle">design-research-experiments</text>
+    <text class="subtitle" x="750" y="136" text-anchor="middle">study design, orchestration, and replication</text>
+  </g>
+
+  <!-- agents -->
+  <g class="box">
+    <rect x="70" y="330" width="390" height="128" rx="30" fill="#DF5127" stroke="#DF5127" stroke-width="6"/>
+    <text class="title" x="265" y="385" text-anchor="middle">design-research-agents</text>
+    <text class="subtitle" x="265" y="420" text-anchor="middle">AI participants and workflows</text>
+  </g>
+
+  <!-- problems -->
+  <g class="box">
+    <rect x="540" y="330" width="420" height="128" rx="30" fill="#EA8534" stroke="#EA8534" stroke-width="6"/>
+    <text class="title" x="750" y="385" text-anchor="middle">design-research-problems</text>
+    <text class="subtitle" x="750" y="420" text-anchor="middle">tasks, briefs, and evaluators</text>
+  </g>
+
+  <!-- analysis -->
+  <g class="box">
+    <rect x="1040" y="330" width="390" height="128" rx="30" fill="#4D8687" stroke="#4D8687" stroke-width="6"/>
+    <text class="title" x="1235" y="385" text-anchor="middle">design-research-analysis</text>
+    <text class="subtitle" x="1235" y="420" text-anchor="middle">metrics, models, and inference</text>
+  </g>
+
+</svg>

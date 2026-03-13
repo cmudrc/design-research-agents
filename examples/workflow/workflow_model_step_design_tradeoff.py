@@ -53,15 +53,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, LogicStep, ModelStep, Tracer, Workflow
-from design_research_agents.llm import LLMMessage, LLMRequest
+import design_research_agents as drag
 
 
 def main() -> None:
     """Run model-step workflow and print compact design tradeoff summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-model-step-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -69,18 +68,18 @@ def main() -> None:
     )
     # Run the model-step workflow using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client when the example is done.
-    with LlamaCppServerLLMClient() as llm_client:
-        workflow = Workflow(
+    with drag.LlamaCppServerLLMClient() as llm_client:
+        workflow = drag.Workflow(
             tool_runtime=None,
             tracer=tracer,
             input_schema={"type": "object"},
             steps=[
-                ModelStep(
+                drag.ModelStep(
                     step_id="design_tradeoff_model",
                     llm_client=llm_client,
-                    request_builder=lambda context: LLMRequest(
+                    request_builder=lambda context: drag.LLMRequest(
                         messages=[
-                            LLMMessage(
+                            drag.LLMMessage(
                                 role="user",
                                 content=(
                                     "Summarize one engineering tradeoff for this goal: "
@@ -95,7 +94,7 @@ def main() -> None:
                         "model": response.model,
                     },
                 ),
-                LogicStep(
+                drag.LogicStep(
                     step_id="finalize",
                     dependencies=("design_tradeoff_model",),
                     handler=lambda context: {

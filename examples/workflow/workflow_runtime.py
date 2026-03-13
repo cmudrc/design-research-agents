@@ -53,26 +53,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LogicStep, Tracer, Workflow
+import design_research_agents as drag
 
 
 def main() -> None:
     """Run a minimal logic workflow and print literal payload."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-runtime-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
         enable_console=True,
     )
     # Build and run the minimal workflow using public runtime APIs.
-    workflow = Workflow(
+    workflow = drag.Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
         tracer=tracer,
         steps=[
-            LogicStep(
+            drag.LogicStep(
                 step_id="design_runtime_ready",
                 handler=lambda _context: {
                     "message": "Design runtime orchestration validated.",
