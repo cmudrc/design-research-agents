@@ -17,6 +17,7 @@ Quick chooser
 - Need shared-state convergence rounds: ``BlackboardPattern``.
 - Need branch-and-score candidate search (beam or MCTS): ``TreeSearchPattern``.
 - Need ordered multi-role refinement with evaluator score threshold: ``RalphLoopPattern``.
+- Need independent fan-out drafts with evaluator-based best-of-N selection: ``NominalTeamPattern``.
 - Need retrieval-augmented reasoning with write-back: ``RAGPattern``.
 - Need to author a new implementation from scratch: :doc:`/workflows/index`.
 

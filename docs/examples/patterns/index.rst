@@ -8,6 +8,7 @@ Generated from canonical example docstrings/comments in ``examples/patterns``.
 
    coordination_patterns
    debate_pattern
+   nominal_team
    plan_execute
    propose_critic
    rag

@@ -44,6 +44,7 @@ EXPECTED_PUBLIC_API = [
     "PlanExecutePattern",
     "ProposeCriticPattern",
     "RalphLoopPattern",
+    "NominalTeamPattern",
     "RouterDelegatePattern",
     "RoundBasedCoordinationPattern",
     "BlackboardPattern",
@@ -94,6 +95,7 @@ EXPECTED_PATTERNS_API = [
     "RAGPattern",
     "ProposeCriticPattern",
     "RalphLoopPattern",
+    "NominalTeamPattern",
     "RouterDelegatePattern",
     "TreeSearchPattern",
 ]

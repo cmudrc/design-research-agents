@@ -136,6 +136,18 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         ('{"synthesis":"Draft v2 standardized fasteners and service sequence","actions":["freeze fastener standard"]}'),
         '{"score":0.88,"rationale":"consensus threshold met"}',
     ),
+    "examples/patterns/nominal_team.py": (
+        ('{"concept":"split enclosure with captive screws","strengths":["fast field access"],"risks":["gasket wear"]}'),
+        (
+            '{"concept":"sealed cartridge bay with keyed latch","strengths":["weather sealing"],'
+            '"risks":["latch tolerance stack"]}'
+        ),
+        ('{"concept":"sheet-metal drawer module","strengths":["simple fabrication"],"risks":["larger envelope size"]}'),
+        (
+            '{"best_member_id":"repairability","scores":{"repairability":0.91,"reliability":0.74,'
+            '"manufacturability":0.68},"rationale":"Best maintenance turnaround under the active task."}'
+        ),
+    ),
     "examples/patterns/rag.py": (
         "Prioritize maintainability checks and explicit testability criteria in the recommended architecture.",
     ),

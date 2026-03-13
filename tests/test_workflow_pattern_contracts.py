@@ -13,6 +13,9 @@ from design_research_agents._contracts import ExecutionResult
 from design_research_agents._implementations._patterns._debate_pattern import (
     DebatePattern,
 )
+from design_research_agents._implementations._patterns._nominal_team_pattern import (
+    NominalTeamPattern,
+)
 from design_research_agents._implementations._patterns._plan_execute_pattern import (
     PlanExecutePattern,
 )
@@ -81,6 +84,22 @@ class _StaticScoreAgent:
                 max_rounds=1,
             ),
             "Debate local model hosting tradeoffs.",
+        ),
+        (
+            NominalTeamPattern(
+                team_members=(
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_a",
+                        delegate=StaticMarkerAgent(marker="draft-a"),
+                    ),
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_b",
+                        delegate=StaticMarkerAgent(marker="draft-b"),
+                    ),
+                ),
+                evaluator_delegate=lambda _context: {"best_index": 0, "scores": [1.0, 0.5]},
+            ),
+            "Compare two independent drafts.",
         ),
         (
             PlanExecutePattern(
@@ -204,6 +223,23 @@ def test_exported_patterns_compile_contract(
                 max_rounds=1,
             ),
             "Debate local model hosting tradeoffs.",
+            {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
+        ),
+        (
+            lambda: NominalTeamPattern(
+                team_members=(
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_a",
+                        delegate=StaticMarkerAgent(marker="draft-a"),
+                    ),
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_b",
+                        delegate=StaticMarkerAgent(marker="draft-b"),
+                    ),
+                ),
+                evaluator_delegate=lambda _context: {"best_member_id": "member_b", "scores": [0.4, 0.9]},
+            ),
+            "Compare two independent drafts.",
             {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
         ),
         (
@@ -512,6 +548,10 @@ def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
     assert "roles" in ralph_params
     assert "evaluator_role_id" in ralph_params
     assert "loop_config" in ralph_params
+
+    nominal_team_params = inspect.signature(NominalTeamPattern.__init__).parameters
+    assert "team_members" in nominal_team_params
+    assert "evaluator_delegate" in nominal_team_params
 
     rag_params = inspect.signature(RAGPattern.__init__).parameters
     assert "reasoning_delegate" in rag_params

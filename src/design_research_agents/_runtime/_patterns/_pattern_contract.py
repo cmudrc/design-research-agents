@@ -15,6 +15,7 @@ MODE_DEBATE = "debate"
 MODE_PLAN_EXECUTE = "plan_execute"
 MODE_PROPOSE_CRITIC = "propose_critic"
 MODE_RALPH_LOOP = "ralph_loop"
+MODE_NOMINAL_TEAM = "nominal_team"
 MODE_ROUTER_DELEGATE = "router_delegate"
 MODE_ROUND_BASED_COORDINATION = "round_based_coordination"
 MODE_BLACKBOARD = "blackboard"
@@ -107,6 +108,7 @@ def _normalize_artifacts(artifacts: object | None) -> list[object]:
 __all__ = [
     "MODE_BLACKBOARD",
     "MODE_DEBATE",
+    "MODE_NOMINAL_TEAM",
     "MODE_PLAN_EXECUTE",
     "MODE_PROPOSE_CRITIC",
     "MODE_RAG",

@@ -221,6 +221,10 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.NominalTeamPattern
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.RouterDelegatePattern
    :members:
    :undoc-members:

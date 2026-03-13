@@ -15,6 +15,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "RAGPattern": "design_research_agents._implementations._patterns:RAGPattern",
     "ProposeCriticPattern": "design_research_agents._implementations._patterns:ProposeCriticPattern",
     "RalphLoopPattern": "design_research_agents._implementations._patterns:RalphLoopPattern",
+    "NominalTeamPattern": "design_research_agents._implementations._patterns:NominalTeamPattern",
     "RouterDelegatePattern": "design_research_agents._implementations._patterns:RouterDelegatePattern",
     "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }

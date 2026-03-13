@@ -22,6 +22,10 @@ Available patterns
   - Dynamic role-ordered loop with dedicated evaluator role, threshold-based stopping, and configurable selection strategy.
   - Stop signal: evaluator ``score`` crosses ``consensus_threshold`` (or max-iteration fallback).
   - Typical output focus: selected synthesis + per-role iteration history.
+- ``NominalTeamPattern``
+  - Independent member fan-out followed by evaluator-driven best-of-N selection.
+  - Stop signal: evaluator selects one candidate, or the run fails if no candidate can be selected.
+  - Typical output focus: selected candidate + per-member generation diagnostics.
 - ``RAGPattern``
   - Retrieval-augmented reasoning with memory read/write workflow primitives.
   - Background references: `Retrieval-Augmented Generation (RAG) <https://arxiv.org/abs/2005.11401>`_. Conceptual grounding only; this pattern composes retrieval and context injection at workflow level.
@@ -51,11 +55,13 @@ Pattern differentiation (quick)
 - Use ``ProposeCriticPattern`` when you want a strict two-role revision contract with explicit approval semantics.
 - Use ``TreeSearchPattern`` when you want branching search over alternatives and deterministic score-driven pruning/selection.
 - Use ``RalphLoopPattern`` when you want 3+ ordered roles and a separate evaluator scoring consensus quality each round.
+- Use ``NominalTeamPattern`` when you want diverse independent drafts first and only compare/select after generation.
 
 Examples
 --------
 
 - ``examples/patterns/tree_search.py``
 - ``examples/patterns/ralph_loop.py``
+- ``examples/patterns/nominal_team.py``
 - ``examples/patterns/propose_critic.py``
 - ``examples/patterns/rag.py``

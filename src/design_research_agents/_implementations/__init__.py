@@ -7,6 +7,7 @@ from ._agents import (
 from ._patterns import (
     BlackboardPattern,
     DebatePattern,
+    NominalTeamPattern,
     PlanExecutePattern,
     ProposeCriticPattern,
     RAGPattern,
@@ -22,6 +23,7 @@ __all__ = [
     "DebatePattern",
     "DirectLLMCall",
     "MultiStepAgent",
+    "NominalTeamPattern",
     "PlanExecutePattern",
     "ProposeCriticPattern",
     "RAGPattern",

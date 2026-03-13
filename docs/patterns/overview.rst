@@ -12,6 +12,7 @@ Available reusable pattern implementations:
 - ``BlackboardPattern``: networked coordination with explicit shared board semantics.
 - ``TreeSearchPattern``: generator/evaluator reasoning over configurable tree-search strategies.
 - ``RalphLoopPattern``: ordered multi-role refinement with dedicated evaluator-score threshold stopping.
+- ``NominalTeamPattern``: independent fan-out generation with evaluator-driven best-of-N selection.
 - ``RAGPattern``: retrieval-augmented reasoning via memory workflow steps.
 
 Patterns are concrete workflow implementations, not construction primitives.
@@ -31,4 +32,5 @@ Examples
 - ``examples/patterns/coordination_patterns.py``
 - ``examples/patterns/tree_search.py``
 - ``examples/patterns/ralph_loop.py``
+- ``examples/patterns/nominal_team.py``
 - ``examples/patterns/rag.py``

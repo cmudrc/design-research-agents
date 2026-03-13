@@ -12,6 +12,7 @@ These scripts demonstrate reusable orchestration patterns built on top of workfl
 - `coordination_patterns.py`
 - `tree_search.py`
 - `ralph_loop.py`
+- `nominal_team.py`
 - `rag.py`
 
 ## Quick Start

@@ -22,6 +22,7 @@ from ._loop_state import normalize_mapping, normalize_mapping_records, parse_loo
 from ._pattern_contract import (
     MODE_BLACKBOARD,
     MODE_DEBATE,
+    MODE_NOMINAL_TEAM,
     MODE_PLAN_EXECUTE,
     MODE_PROPOSE_CRITIC,
     MODE_RAG,
@@ -50,6 +51,7 @@ from ._run_context import (
 __all__ = [
     "MODE_BLACKBOARD",
     "MODE_DEBATE",
+    "MODE_NOMINAL_TEAM",
     "MODE_PLAN_EXECUTE",
     "MODE_PROPOSE_CRITIC",
     "MODE_RAG",

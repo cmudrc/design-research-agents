@@ -19,7 +19,7 @@ Highlights
 - Tracing hooks and emitters for debugging and evaluation.
 - Runnable examples for deterministic validation and experimentation.
 - Workflow-native memory, networked blackboard coordination, and reusable
-  reasoning patterns (tree search and RAG).
+  reasoning patterns (tree search, nominal teams, and RAG).
 
 Typical workflow
 ----------------

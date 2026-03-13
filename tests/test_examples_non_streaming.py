@@ -41,6 +41,7 @@ _EXECUTION_RESULT_EXAMPLES = {
     "examples/patterns/plan_execute.py",
     "examples/patterns/propose_critic.py",
     "examples/patterns/ralph_loop.py",
+    "examples/patterns/nominal_team.py",
     "examples/patterns/rag.py",
     "examples/patterns/tree_search.py",
     "examples/patterns/coordination_patterns.py",

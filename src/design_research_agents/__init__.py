@@ -34,6 +34,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
     "ProposeCriticPattern": "design_research_agents.patterns:ProposeCriticPattern",
     "RalphLoopPattern": "design_research_agents.patterns:RalphLoopPattern",
+    "NominalTeamPattern": "design_research_agents.patterns:NominalTeamPattern",
     "RouterDelegatePattern": "design_research_agents.patterns:RouterDelegatePattern",
     "RoundBasedCoordinationPattern": "design_research_agents.patterns:RoundBasedCoordinationPattern",
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
@@ -123,6 +124,7 @@ if TYPE_CHECKING:
     from .llm import VLLMServerLLMClient as VLLMServerLLMClient
     from .patterns import BlackboardPattern as BlackboardPattern
     from .patterns import DebatePattern as DebatePattern
+    from .patterns import NominalTeamPattern as NominalTeamPattern
     from .patterns import PlanExecutePattern as PlanExecutePattern
     from .patterns import ProposeCriticPattern as ProposeCriticPattern
     from .patterns import RAGPattern as RAGPattern

@@ -2,6 +2,7 @@
 
 from ._blackboard_pattern import BlackboardPattern
 from ._debate_pattern import DebatePattern
+from ._nominal_team_pattern import NominalTeamPattern
 from ._plan_execute_pattern import PlanExecutePattern
 from ._propose_critic_pattern import ProposeCriticPattern
 from ._rag_pattern import RAGPattern
@@ -14,6 +15,7 @@ from ._two_speaker_conversation_pattern import TwoSpeakerConversationPattern
 __all__ = [
     "BlackboardPattern",
     "DebatePattern",
+    "NominalTeamPattern",
     "PlanExecutePattern",
     "ProposeCriticPattern",
     "RAGPattern",
