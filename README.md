@@ -5,6 +5,13 @@
 [![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
+<!-- release-callout:start -->
+> [!IMPORTANT]
+> Current monthly release: [The April Alignment](https://github.com/cmudrc/design-research-agents/milestone/1)  
+> Due: April 1, 2026  
+> Tracks: March 2026 work
+<!-- release-callout:end -->
+
 `design-research-agents` is a modular framework for prototyping and researching engineering design AI agents.
 It features shared runtime contracts, workflow orchestration, and pluggable LLM backends for quick iteration.
 

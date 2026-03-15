@@ -59,6 +59,32 @@ Use the smallest useful check while iterating, then run full gates before merge.
 - Do not reintroduce removed legacy/fallback paths; CI enforces this.
 - Do not silence complexity issues with `# noqa: C901`; split code instead.
 
+## Release Naming
+- Theme: famous folks in STEM, with a bias toward women and historically underrepresented figures when possible.
+- Monthly release names are shared across milestone titles, release PR titles, and release branches.
+  - Milestone title / PR title: `{base name} - {Month YYYY}`
+  - Release branch: slugified full title, for example `lovelace-lift-may-2026`
+- Milestone descriptions must use:
+  - `Tracks {previous month YYYY} work.`
+  - `Theme source: <url>`
+- Release PR bodies must repeat the same `Theme source:` link used on the milestone.
+- Never reuse an exact base name or the same primary subject across any month or any of the four design-research module repos unless all four `AGENTS.md` files are intentionally updated together.
+- Before adding a new release name, check the `Release Naming` tables in all four repos to avoid repeats.
+- `The April Alignment` is a carry-forward exception for the April 1, 2026 milestone and remains unchanged.
+
+| Due date | Base name | Source subject |
+| --- | --- | --- |
+| April 1, 2026 | The April Alignment | Carry-forward exception (existing April 2026 milestone) |
+| May 1, 2026 | Lovelace Lift | Ada Lovelace |
+| June 1, 2026 | Mayer Momentum | Maria Goeppert Mayer |
+| July 1, 2026 | Johnson Jumpstart | Katherine Johnson |
+| August 1, 2026 | Jemison Journey | Mae Jemison |
+| September 1, 2026 | Noether Nexus | Emmy Noether |
+| October 1, 2026 | Ochoa Orbit | Ellen Ochoa |
+| November 1, 2026 | Ride Relay | Sally Ride |
+| December 1, 2026 | Doudna Drive | Jennifer Doudna |
+| January 1, 2027 | Jackson Junction | Shirley Ann Jackson |
+
 ## Keep This File Up To Date
 Update this file when contributor-facing workflow changes. In particular:
 
