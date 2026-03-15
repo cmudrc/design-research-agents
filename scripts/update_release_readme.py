@@ -1,3 +1,5 @@
+"""Refresh the current monthly release callout in README.md."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,7 +12,6 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-
 CALLOUT_START = "<!-- release-callout:start -->"
 CALLOUT_END = "<!-- release-callout:end -->"
 NEW_YORK = ZoneInfo("America/New_York")
@@ -18,15 +19,16 @@ NEW_YORK = ZoneInfo("America/New_York")
 
 @dataclass(frozen=True)
 class Milestone:
+    """Metadata for an open GitHub milestone with a due date."""
+
     title: str
     html_url: str
     due_on: datetime
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Refresh the monthly release callout in README.md."
-    )
+    """Parse command-line arguments for README callout updates."""
+    parser = argparse.ArgumentParser(description="Refresh the monthly release callout in README.md.")
     parser.add_argument(
         "--readme",
         default="README.md",
@@ -34,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--repo",
-        help="GitHub repository in owner/name form. Defaults to GITHUB_REPOSITORY or origin remote.",
+        help=("GitHub repository in owner/name form. Defaults to GITHUB_REPOSITORY or origin remote."),
     )
     parser.add_argument(
         "--today",
@@ -44,6 +46,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_gh_api(route: str) -> list[dict[str, object]]:
+    """Return the list payload from a `gh api` request."""
     output = subprocess.check_output(
         ["gh", "api", route],
         text=True,
@@ -55,6 +58,7 @@ def run_gh_api(route: str) -> list[dict[str, object]]:
 
 
 def resolve_repo(explicit_repo: str | None) -> str:
+    """Resolve the repository slug from args, env, or git remote."""
     if explicit_repo:
         return explicit_repo
     env_repo = os.environ.get("GITHUB_REPOSITORY")
@@ -74,6 +78,7 @@ def resolve_repo(explicit_repo: str | None) -> str:
 
 
 def resolve_today(raw_today: str | None) -> date:
+    """Resolve the effective date in America/New_York unless overridden."""
     env_today = raw_today or os.environ.get("RELEASE_README_TODAY")
     if env_today:
         return date.fromisoformat(env_today)
@@ -81,6 +86,7 @@ def resolve_today(raw_today: str | None) -> date:
 
 
 def load_open_milestones(repo: str) -> list[Milestone]:
+    """Load open milestones that have due dates, sorted by due date."""
     route = f"repos/{repo}/milestones?state=open&per_page=100"
     raw_items = run_gh_api(route)
     milestones: list[Milestone] = []
@@ -104,6 +110,7 @@ def load_open_milestones(repo: str) -> list[Milestone]:
 
 
 def select_current_milestone(milestones: list[Milestone], today: date) -> Milestone:
+    """Choose the first milestone whose due date is still current."""
     for milestone in milestones:
         if milestone.due_on.date() >= today:
             return milestone
@@ -111,11 +118,13 @@ def select_current_milestone(milestones: list[Milestone], today: date) -> Milest
 
 
 def tracked_work_month(due_date: date) -> str:
+    """Return the work month tracked by a milestone due date."""
     previous_month_last_day = due_date.replace(day=1) - timedelta(days=1)
     return previous_month_last_day.strftime("%B %Y")
 
 
 def format_callout(milestone: Milestone) -> str:
+    """Render the README callout block for a milestone."""
     due_date = milestone.due_on.date()
     return "\n".join(
         [
@@ -130,6 +139,7 @@ def format_callout(milestone: Milestone) -> str:
 
 
 def update_readme(readme_path: Path, callout: str) -> bool:
+    """Insert or replace the release callout block in the README."""
     original_text = readme_path.read_text()
     block_pattern = re.compile(
         rf"{re.escape(CALLOUT_START)}.*?{re.escape(CALLOUT_END)}",
@@ -152,6 +162,7 @@ def update_readme(readme_path: Path, callout: str) -> bool:
 
 
 def main() -> int:
+    """Refresh the README callout from the repo's open milestones."""
     args = parse_args()
     repo = resolve_repo(args.repo)
     today = resolve_today(args.today)
