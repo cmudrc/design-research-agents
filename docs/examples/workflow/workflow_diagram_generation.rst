@@ -38,8 +38,7 @@ The diagram below is generated from the example's configured ``Workflow``.
            loop_entry_1 --> step_4
            step_4 -. "route=draft_path" .-> step_5
            step_4 -. "route=score_path" .-> step_6
-           step_4 --> step_5
-           step_5 --> step_6
+           step_5 -. "next iteration" .-> loop_entry_1
            step_6 -. "next iteration" .-> loop_entry_1
        end
        workflow_entry --> step_1
@@ -68,7 +67,7 @@ Example output shape (values vary by run):
    {
      "diagram_path": "artifacts/examples/workflow_diagram.mmd",
      "svg_path": "artifacts/examples/workflow_diagram.svg",
-     "line_count": 18,
+     "line_count": 21,
      "starts_with": "flowchart LR",
      "svg_starts_with": "<svg",
      "contains_loop": true,

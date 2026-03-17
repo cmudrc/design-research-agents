@@ -71,6 +71,7 @@ def render_workflow_as_svg(steps: Sequence[WorkflowStep], *, direction: str = "T
         entry_node_id="workflow_entry",
         entry_label="Workflow Entrypoint",
         qualified_prefix=(),
+        direction=normalized_direction,
     )
     return _render_svg_document(layout=layout, direction=normalized_direction)
 
@@ -82,6 +83,7 @@ def _build_svg_sequence_layout(
     entry_node_id: str,
     entry_label: str,
     qualified_prefix: tuple[str, ...],
+    direction: str,
 ) -> _SvgLayout:
     """Build a deterministic SVG layout for one workflow step sequence."""
     prepared = prepare_workflow_graph(steps)
@@ -98,6 +100,35 @@ def _build_svg_sequence_layout(
         steps=steps,
         qualified_prefix=qualified_prefix,
     )
+    if direction in {"LR", "RL"}:
+        return _build_svg_horizontal_sequence_layout(
+            steps=steps,
+            prepared_dependencies=prepared.dependencies,
+            dependents=prepared.dependents,
+            row_layouts=row_layouts,
+            entry_node=entry_node,
+            entry_node_id=entry_node_id,
+        )
+    return _build_svg_vertical_sequence_layout(
+        steps=steps,
+        prepared_dependencies=prepared.dependencies,
+        dependents=prepared.dependents,
+        row_layouts=row_layouts,
+        entry_node=entry_node,
+        entry_node_id=entry_node_id,
+    )
+
+
+def _build_svg_vertical_sequence_layout(
+    *,
+    steps: Sequence[WorkflowStep],
+    prepared_dependencies: Mapping[str, tuple[str, ...]],
+    dependents: Mapping[str, Sequence[str]],
+    row_layouts: Sequence[_SvgRowLayout],
+    entry_node: _SvgNode,
+    entry_node_id: str,
+) -> _SvgLayout:
+    """Build a top-to-bottom SVG layout for one workflow step sequence."""
     node_column_width = max(
         [entry_node.width, *[row.step_node.width for row in row_layouts]],
         default=entry_node.width,
@@ -114,10 +145,9 @@ def _build_svg_sequence_layout(
     step_node_ids: dict[str, str] = {}
     node_lookup: dict[str, _SvgNode] = {entry_node_id: positioned_nodes[0]}
     current_y = positioned_nodes[0].height + _SVG_VERTICAL_GAP
-    max_width = node_column_width
 
     for row in row_layouts:
-        placed_node, loop_width, row_height, nested_nodes, nested_edges, nested_groups = _place_svg_row(
+        placed_node, row_height, nested_nodes, nested_edges, nested_groups = _place_svg_vertical_row(
             row=row,
             current_y=current_y,
             node_column_width=node_column_width,
@@ -131,19 +161,22 @@ def _build_svg_sequence_layout(
         for node in nested_nodes:
             node_lookup[node.node_id] = node
         current_y += row_height + _SVG_VERTICAL_GAP
-        max_width = max(max_width, node_column_width + loop_width)
 
     positioned_edges.extend(
         _build_svg_sequence_edges(
             steps=steps,
-            prepared_dependencies=prepared.dependencies,
+            prepared_dependencies=prepared_dependencies,
             step_node_ids=step_node_ids,
             node_lookup=node_lookup,
             entry_node_id=entry_node_id,
             row_layouts=row_layouts,
         )
     )
-    height = current_y - _SVG_VERTICAL_GAP if row_layouts else positioned_nodes[0].height
+    width, height = _svg_layout_bounds(
+        nodes=positioned_nodes,
+        groups=positioned_groups,
+        edges=positioned_edges,
+    )
     return _SvgLayout(
         nodes=tuple(positioned_nodes),
         edges=tuple(positioned_edges),
@@ -154,9 +187,83 @@ def _build_svg_sequence_layout(
         terminal_node_ids=_svg_terminal_node_ids(
             steps=steps,
             step_node_ids=step_node_ids,
-            dependents=prepared.dependents,
+            dependents=dependents,
         ),
-        width=max_width,
+        width=width,
+        height=height,
+    )
+
+
+def _build_svg_horizontal_sequence_layout(
+    *,
+    steps: Sequence[WorkflowStep],
+    prepared_dependencies: Mapping[str, tuple[str, ...]],
+    dependents: Mapping[str, Sequence[str]],
+    row_layouts: Sequence[_SvgRowLayout],
+    entry_node: _SvgNode,
+    entry_node_id: str,
+) -> _SvgLayout:
+    """Build a left-to-right SVG layout for one workflow step sequence."""
+    node_row_height = max(
+        [entry_node.height, *[row.step_node.height for row in row_layouts]],
+        default=entry_node.height,
+    )
+    positioned_entry = _move_svg_node(
+        entry_node,
+        x=0.0,
+        y=(node_row_height - entry_node.height) / 2.0,
+    )
+    positioned_nodes: list[_SvgNode] = [positioned_entry]
+    positioned_edges: list[_SvgEdge] = []
+    positioned_groups: list[_SvgGroup] = []
+    step_node_ids: dict[str, str] = {}
+    node_lookup: dict[str, _SvgNode] = {entry_node_id: positioned_entry}
+    current_x = positioned_entry.width + _SVG_HORIZONTAL_GAP
+
+    for row in row_layouts:
+        placed_node, column_width, nested_nodes, nested_edges, nested_groups = _place_svg_horizontal_column(
+            row=row,
+            current_x=current_x,
+            node_row_height=node_row_height,
+        )
+        positioned_nodes.append(placed_node)
+        step_node_ids[row.step.step_id] = placed_node.node_id
+        node_lookup[placed_node.node_id] = placed_node
+        positioned_nodes.extend(nested_nodes)
+        positioned_edges.extend(nested_edges)
+        positioned_groups.extend(nested_groups)
+        for node in nested_nodes:
+            node_lookup[node.node_id] = node
+        current_x += column_width + _SVG_HORIZONTAL_GAP
+
+    positioned_edges.extend(
+        _build_svg_sequence_edges(
+            steps=steps,
+            prepared_dependencies=prepared_dependencies,
+            step_node_ids=step_node_ids,
+            node_lookup=node_lookup,
+            entry_node_id=entry_node_id,
+            row_layouts=row_layouts,
+        )
+    )
+    width, height = _svg_layout_bounds(
+        nodes=positioned_nodes,
+        groups=positioned_groups,
+        edges=positioned_edges,
+    )
+    return _SvgLayout(
+        nodes=tuple(positioned_nodes),
+        edges=tuple(positioned_edges),
+        groups=tuple(positioned_groups),
+        step_node_ids=step_node_ids,
+        node_lookup=node_lookup,
+        entry_node_id=entry_node_id,
+        terminal_node_ids=_svg_terminal_node_ids(
+            steps=steps,
+            step_node_ids=step_node_ids,
+            dependents=dependents,
+        ),
+        width=width,
         height=height,
     )
 
@@ -209,20 +316,21 @@ def _build_nested_loop_svg_layout(
         entry_node_id=loop_entry_id,
         entry_label=f"{qualified_step_id} iteration entry",
         qualified_prefix=(*qualified_prefix, step.step_id),
+        direction="TD",
     )
 
 
-def _place_svg_row(
+def _place_svg_vertical_row(
     *,
     row: _SvgRowLayout,
     current_y: float,
     node_column_width: float,
-) -> tuple[_SvgNode, float, float, list[_SvgNode], list[_SvgEdge], list[_SvgGroup]]:
-    """Position one step row and any nested loop-body layout."""
+) -> tuple[_SvgNode, float, list[_SvgNode], list[_SvgEdge], list[_SvgGroup]]:
+    """Position one top-to-bottom step row and any nested loop-body layout."""
     node_x = (node_column_width - row.step_node.width) / 2.0
     placed_node = _move_svg_node(row.step_node, x=node_x, y=current_y)
     if row.nested_layout is None:
-        return placed_node, 0.0, placed_node.height, [], [], []
+        return placed_node, placed_node.height, [], [], []
 
     nested_x = node_column_width + _SVG_HORIZONTAL_GAP + _SVG_GROUP_PADDING
     nested_y = current_y + _SVG_GROUP_LABEL_HEIGHT
@@ -240,8 +348,58 @@ def _place_svg_row(
     )
     return (
         placed_node,
-        group.width + _SVG_HORIZONTAL_GAP,
         max(placed_node.height, group.height),
+        list(nested_layout.nodes),
+        [*nested_layout.edges, *loop_edges],
+        [group, *nested_layout.groups],
+    )
+
+
+def _place_svg_horizontal_column(
+    *,
+    row: _SvgRowLayout,
+    current_x: float,
+    node_row_height: float,
+) -> tuple[_SvgNode, float, list[_SvgNode], list[_SvgEdge], list[_SvgGroup]]:
+    """Position one left-to-right step column and any nested loop-body layout."""
+    if row.nested_layout is None:
+        placed_node = _move_svg_node(
+            row.step_node,
+            x=current_x,
+            y=(node_row_height - row.step_node.height) / 2.0,
+        )
+        return placed_node, row.step_node.width, [], [], []
+
+    group_width = row.nested_layout.width + (_SVG_GROUP_PADDING * 2.0)
+    group_height = row.nested_layout.height + _SVG_GROUP_LABEL_HEIGHT + _SVG_GROUP_PADDING
+    column_width = max(row.step_node.width, group_width)
+    node_x = current_x + ((column_width - row.step_node.width) / 2.0)
+    group_x = current_x + ((column_width - group_width) / 2.0)
+    group_y = node_row_height + _SVG_VERTICAL_GAP
+    placed_node = _move_svg_node(
+        row.step_node,
+        x=node_x,
+        y=(node_row_height - row.step_node.height) / 2.0,
+    )
+    nested_layout = _offset_svg_layout(
+        row.nested_layout,
+        dx=group_x + _SVG_GROUP_PADDING,
+        dy=group_y + _SVG_GROUP_LABEL_HEIGHT,
+    )
+    group = _SvgGroup(
+        label=f"Loop Body: {placed_node.label_lines[0]}",
+        x=group_x,
+        y=group_y,
+        width=group_width,
+        height=group_height,
+    )
+    loop_edges = _build_svg_loopback_edges(
+        layout=nested_layout,
+        loop_entry_id=row.nested_layout.entry_node_id,
+    )
+    return (
+        placed_node,
+        column_width,
         list(nested_layout.nodes),
         [*nested_layout.edges, *loop_edges],
         [group, *nested_layout.groups],
@@ -277,12 +435,15 @@ def _build_svg_sequence_edges(
 ) -> list[_SvgEdge]:
     """Build dependency, route, and outer-loop edges for one sequence."""
     step_lookup = {row.step.step_id: row for row in row_layouts}
+    workflow_step_lookup = {step.step_id: step for step in steps}
     edges: list[_SvgEdge] = []
     for step in steps:
         step_node = node_lookup[step_node_ids[step.step_id]]
         edges.extend(
             _build_svg_dependency_edges(
                 dependencies=prepared_dependencies.get(step.step_id, ()),
+                target_step_id=step.step_id,
+                step_lookup=workflow_step_lookup,
                 step_node=step_node,
                 step_node_ids=step_node_ids,
                 node_lookup=node_lookup,
@@ -315,6 +476,8 @@ def _build_svg_sequence_edges(
 def _build_svg_dependency_edges(
     *,
     dependencies: Sequence[str],
+    target_step_id: str,
+    step_lookup: Mapping[str, WorkflowStep],
     step_node: _SvgNode,
     step_node_ids: Mapping[str, str],
     node_lookup: Mapping[str, _SvgNode],
@@ -331,16 +494,24 @@ def _build_svg_dependency_edges(
                 stroke="#475569",
             )
         ]
-    return [
-        _svg_edge(
-            source=node_lookup[step_node_ids[dependency_step_id]],
-            target=step_node,
-            label=None,
-            dashed=False,
-            stroke="#475569",
+    edges: list[_SvgEdge] = []
+    for dependency_step_id in dependencies:
+        dependency_step = step_lookup.get(dependency_step_id)
+        if dependency_step is not None and _is_routed_dependency_edge(
+            dependency_step=dependency_step,
+            target_step_id=target_step_id,
+        ):
+            continue
+        edges.append(
+            _svg_edge(
+                source=node_lookup[step_node_ids[dependency_step_id]],
+                target=step_node,
+                label=None,
+                dashed=False,
+                stroke="#475569",
+            )
         )
-        for dependency_step_id in dependencies
-    ]
+    return edges
 
 
 def _build_svg_route_edges(
@@ -370,6 +541,39 @@ def _build_svg_route_edges(
                 )
             )
     return edges
+
+
+def _svg_layout_bounds(
+    *,
+    nodes: Sequence[_SvgNode],
+    groups: Sequence[_SvgGroup],
+    edges: Sequence[_SvgEdge],
+) -> tuple[float, float]:
+    """Return concrete width/height bounds for one positioned layout."""
+    max_x = max(
+        [
+            *[node.x + node.width for node in nodes],
+            *[group.x + group.width for group in groups],
+            *[x for edge in edges for x, _ in edge.points],
+        ],
+        default=0.0,
+    )
+    max_y = max(
+        [
+            *[node.y + node.height for node in nodes],
+            *[group.y + group.height for group in groups],
+            *[y for edge in edges for _, y in edge.points],
+        ],
+        default=0.0,
+    )
+    return max_x, max_y
+
+
+def _is_routed_dependency_edge(*, dependency_step: WorkflowStep, target_step_id: str) -> bool:
+    """Return True when one dependency is already represented as a route edge."""
+    if not isinstance(dependency_step, LogicStep) or not isinstance(dependency_step.route_map, Mapping):
+        return False
+    return any(target_step_id in route_targets for route_targets in dependency_step.route_map.values())
 
 
 def _svg_node(

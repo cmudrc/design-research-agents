@@ -177,11 +177,14 @@ def _render_sequence_edges(
     entry_node_id: str,
 ) -> None:
     """Render dependency, loop, and route edges for one step sequence."""
+    step_lookup = {step.step_id: step for step in steps}
     for step in steps:
         step_node_id = step_nodes[step.step_id]
         _render_dependency_edges(
             builder=builder,
             dependencies=prepared_dependencies.get(step.step_id, ()),
+            target_step_id=step.step_id,
+            step_lookup=step_lookup,
             step_nodes=step_nodes,
             step_node_id=step_node_id,
             entry_node_id=entry_node_id,
@@ -204,6 +207,8 @@ def _render_dependency_edges(
     *,
     builder: _MermaidBuilder,
     dependencies: Sequence[str],
+    target_step_id: str,
+    step_lookup: Mapping[str, WorkflowStep],
     step_nodes: Mapping[str, str],
     step_node_id: str,
     entry_node_id: str,
@@ -213,6 +218,12 @@ def _render_dependency_edges(
         builder.line(f"{entry_node_id} --> {step_node_id}")
         return
     for dependency_step_id in dependencies:
+        dependency_step = step_lookup.get(dependency_step_id)
+        if dependency_step is not None and _is_routed_dependency_edge(
+            dependency_step=dependency_step,
+            target_step_id=target_step_id,
+        ):
+            continue
         dependency_node_id = step_nodes[dependency_step_id]
         builder.line(f"{dependency_node_id} --> {step_node_id}")
 
@@ -250,6 +261,13 @@ def _render_route_edges(
             if target_node_id is None:
                 continue
             builder.line(f'{step_node_id} -. "{_escape_label(route_label)}" .-> {target_node_id}')
+
+
+def _is_routed_dependency_edge(*, dependency_step: WorkflowStep, target_step_id: str) -> bool:
+    """Return True when one dependency is already represented by a route edge."""
+    if not isinstance(dependency_step, LogicStep) or not isinstance(dependency_step.route_map, Mapping):
+        return False
+    return any(target_step_id in route_targets for route_targets in dependency_step.route_map.values())
 
 
 def _terminal_node_ids(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -24,6 +25,16 @@ from design_research_agents.patterns import DebatePattern
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import Workflow, list_of, scalar, typed_dict
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
+
+
+def _svg_rect_bounds(svg: str, element_id: str) -> tuple[float, float, float, float]:
+    match = re.search(
+        rf'<rect id="{re.escape(element_id)}" x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"',
+        svg,
+    )
+    assert match is not None, f"Missing SVG rect for {element_id!r}."
+    x, y, width, height = match.groups()
+    return float(x), float(y), float(width), float(height)
 
 
 def _write_dataset(*, base_dir: str, filename: str) -> str:
@@ -378,7 +389,7 @@ def test_workflow_to_mermaid_includes_routes_and_loop_structure() -> None:
                     ),
                     LogicStep(
                         step_id="score",
-                        dependencies=("draft",),
+                        dependencies=("router",),
                         handler=lambda _context: {"score": 1.0},
                     ),
                 ),
@@ -402,10 +413,11 @@ def test_workflow_to_mermaid_includes_routes_and_loop_structure() -> None:
     assert 'step_6["review_loop::score<br/>LogicStep"]' in diagram
     assert 'step_2 -. "iterate" .-> loop_entry_1' in diagram
     assert "    loop_entry_1 --> step_4" in diagram
-    assert "    step_4 --> step_5" in diagram
-    assert "    step_5 --> step_6" in diagram
     assert 'step_4 -. "route=draft_path" .-> step_5' in diagram
     assert 'step_4 -. "route=score_path" .-> step_6' in diagram
+    assert "    step_4 --> step_5" not in diagram
+    assert "    step_4 --> step_6" not in diagram
+    assert 'step_5 -. "next iteration" .-> loop_entry_1' in diagram
     assert 'step_6 -. "next iteration" .-> loop_entry_1' in diagram
 
 
@@ -435,6 +447,10 @@ def test_workflow_to_svg_renders_static_diagram_markup() -> None:
     )
 
     svg = workflow.to_svg(direction="LR")
+    entry = _svg_rect_bounds(svg, "workflow_entry")
+    start = _svg_rect_bounds(svg, "step_1")
+    review_loop = _svg_rect_bounds(svg, "step_2")
+    loop_entry = _svg_rect_bounds(svg, "loop_entry_1")
 
     assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"')
     assert 'aria-label="Workflow diagram"' in svg
@@ -444,6 +460,9 @@ def test_workflow_to_svg_renders_static_diagram_markup() -> None:
     assert "route=draft_path" in svg
     assert "next iteration" in svg
     assert 'marker-end="url(#workflow-arrow)"' in svg
+    assert entry[0] + entry[2] < start[0]
+    assert start[0] + start[2] < review_loop[0]
+    assert loop_entry[1] > review_loop[1] + review_loop[3]
 
 
 def test_workflow_to_mermaid_rejects_unknown_directions() -> None:

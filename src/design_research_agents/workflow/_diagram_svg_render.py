@@ -83,14 +83,13 @@ def _render_svg_document(*, layout: _SvgLayout, direction: str) -> str:
 
 def _svg_canvas_size(*, width: float, height: float, direction: str) -> tuple[float, float]:
     """Return canvas dimensions for one layout direction."""
-    if direction in {"TD", "BT"}:
-        return width, height
-    return height, width
+    del direction
+    return width, height
 
 
 def _transform_svg_node(*, node: _SvgNode, width: float, height: float, direction: str) -> _SvgNode:
     """Transform one SVG node into the requested output direction."""
-    if direction == "TD":
+    if direction in {"TD", "LR"}:
         return node
     if direction == "BT":
         return _SvgNode(
@@ -104,23 +103,11 @@ def _transform_svg_node(*, node: _SvgNode, width: float, height: float, directio
             stroke=node.stroke,
             text_fill=node.text_fill,
         )
-    if direction == "LR":
-        return _SvgNode(
-            node_id=node.node_id,
-            label_lines=node.label_lines,
-            x=node.y,
-            y=node.x,
-            width=node.width,
-            height=node.height,
-            fill=node.fill,
-            stroke=node.stroke,
-            text_fill=node.text_fill,
-        )
     return _SvgNode(
         node_id=node.node_id,
         label_lines=node.label_lines,
-        x=height - node.y - node.width,
-        y=node.x,
+        x=width - node.x - node.width,
+        y=node.y,
         width=node.width,
         height=node.height,
         fill=node.fill,
@@ -131,8 +118,7 @@ def _transform_svg_node(*, node: _SvgNode, width: float, height: float, directio
 
 def _transform_svg_group(*, group: _SvgGroup, width: float, height: float, direction: str) -> _SvgGroup:
     """Transform one SVG group box into the requested output direction."""
-    del width
-    if direction == "TD":
+    if direction in {"TD", "LR"}:
         return group
     if direction == "BT":
         return _SvgGroup(
@@ -142,20 +128,12 @@ def _transform_svg_group(*, group: _SvgGroup, width: float, height: float, direc
             width=group.width,
             height=group.height,
         )
-    if direction == "LR":
-        return _SvgGroup(
-            label=group.label,
-            x=group.y,
-            y=group.x,
-            width=group.height,
-            height=group.width,
-        )
     return _SvgGroup(
         label=group.label,
-        x=height - group.y - group.height,
-        y=group.x,
-        width=group.height,
-        height=group.width,
+        x=width - group.x - group.width,
+        y=group.y,
+        width=group.width,
+        height=group.height,
     )
 
 
@@ -173,14 +151,11 @@ def _transform_svg_edge(*, edge: _SvgEdge, width: float, height: float, directio
 
 def _transform_svg_point(*, x: float, y: float, width: float, height: float, direction: str) -> tuple[float, float]:
     """Transform one SVG point into the requested output direction."""
-    del width
-    if direction == "TD":
+    if direction in {"TD", "LR"}:
         return x, y
     if direction == "BT":
         return x, height - y
-    if direction == "LR":
-        return y, x
-    return height - y, x
+    return width - x, y
 
 
 def _render_svg_group(*, group: _SvgGroup) -> str:

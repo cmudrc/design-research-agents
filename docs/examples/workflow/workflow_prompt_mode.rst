@@ -33,10 +33,8 @@ The diagram below is generated from the example's configured ``Workflow``.
        workflow_entry --> step_1
        step_1 -. "route=agent_path" .-> step_2
        step_1 -. "route=template_path" .-> step_5
-       step_1 --> step_2
        step_2 --> step_3
        step_3 --> step_4
-       step_1 --> step_5
        step_5 --> step_6
 
 .. literalinclude:: ../../../examples/workflow/workflow_prompt_mode.py

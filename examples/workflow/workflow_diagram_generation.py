@@ -24,7 +24,7 @@ Example output shape (values vary by run):
    {
      "diagram_path": "artifacts/examples/workflow_diagram.mmd",
      "svg_path": "artifacts/examples/workflow_diagram.svg",
-     "line_count": 18,
+     "line_count": 21,
      "starts_with": "flowchart LR",
      "svg_starts_with": "<svg",
      "contains_loop": true,
@@ -75,7 +75,7 @@ def build_example_workflow() -> drag.Workflow:
                     ),
                     drag.LogicStep(
                         step_id="score",
-                        dependencies=("draft",),
+                        dependencies=("router",),
                         handler=lambda _context: {"score": 0.9},
                     ),
                 ),
