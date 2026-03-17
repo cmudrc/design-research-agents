@@ -21,10 +21,11 @@ from design_research_agents._contracts._workflow import (
     ToolStep,
 )
 from design_research_agents._schemas import SchemaValidationError
+from design_research_agents.agent import DirectLLMCall
 from design_research_agents.patterns import DebatePattern
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import Workflow, list_of, scalar, typed_dict
-from tests.helpers.workflow_stubs import CaptureDependenciesAgent, StaticJsonDraftAgent
+from tests.helpers.workflow_stubs import CaptureDependenciesAgent, SequenceLLMClient, StaticJsonDraftAgent
 
 
 def _svg_rect_bounds(svg: str, element_id: str) -> tuple[float, float, float, float]:
@@ -473,6 +474,33 @@ def test_workflow_to_mermaid_rejects_unknown_directions() -> None:
 
     with pytest.raises(ValueError, match="direction must be one of"):
         workflow.to_mermaid(direction="down")
+
+
+def test_workflow_diagrams_expand_static_prompt_delegate_workflows() -> None:
+    workflow = Workflow(
+        tool_runtime=None,
+        steps=[
+            DelegateStep(
+                step_id="delegate",
+                delegate=DirectLLMCall(
+                    llm_client=SequenceLLMClient(response_texts=["unused"]),
+                ),
+                prompt="Summarize this request.",
+            )
+        ],
+    )
+
+    diagram = workflow.to_mermaid(direction="LR")
+    svg = workflow.to_svg(direction="LR")
+
+    assert "Delegate Workflow: delegate" in diagram
+    assert 'delegate_entry_1["delegate delegate entry"]' in diagram
+    assert "delegate::prepare_request<br/>LogicStep" in diagram
+    assert 'step_1 -. "delegate" .-> delegate_entry_1' in diagram
+
+    assert "Delegate Workflow: delegate" in svg
+    assert "delegate delegate entry" in svg
+    assert "delegate::prepare_request" in svg
 
 
 def test_workflow_prompt_mode_default_run_controls_and_dependencies_are_applied() -> None:

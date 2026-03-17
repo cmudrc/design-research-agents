@@ -25,7 +25,7 @@ The diagram below is generated from the example's configured ``Workflow``.
    flowchart LR
        workflow_entry["Workflow Entrypoint"]
        step_1["router<br/>LogicStep"]
-       step_2["draft_agent<br/>DelegateStep"]
+       step_2["draft_agent<br/>DelegateStep<br/>delegate=_DocDelegate"]
        step_3["parse_agent_json<br/>ToolStep<br/>tool=text.extract_json"]
        step_4["finalize_agent<br/>LogicStep"]
        step_5["draft_template<br/>LogicStep"]

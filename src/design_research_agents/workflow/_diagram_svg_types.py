@@ -47,12 +47,24 @@ class _SvgGroup:
 
 
 @dataclass(slots=True, frozen=True)
+class _SvgNestedLayout:
+    """Nested SVG layout metadata for expanded loop or delegate bodies."""
+
+    layout: _SvgLayout
+    group_label: str
+    edge_label: str
+    edge_stroke: str
+    terminal_edge_label: str | None = None
+    terminal_edge_stroke: str | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class _SvgRowLayout:
     """Precomputed row layout for one step and any nested loop body."""
 
     step: WorkflowStep
     step_node: _SvgNode
-    nested_layout: _SvgLayout | None
+    nested_layout: _SvgNestedLayout | None
 
 
 @dataclass(slots=True, frozen=True)

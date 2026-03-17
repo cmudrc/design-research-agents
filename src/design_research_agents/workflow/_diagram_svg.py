@@ -18,6 +18,7 @@ from design_research_agents._contracts._workflow import (
 from design_research_agents._runtime._workflow import prepare_workflow_graph, validate_no_cycles
 
 from ._diagram_common import (
+    _delegate_nested_steps,
     _normalize_direction,
     _qualified_step_id,
     _route_label,
@@ -30,6 +31,7 @@ from ._diagram_svg_types import (
     _SvgEdge,
     _SvgGroup,
     _SvgLayout,
+    _SvgNestedLayout,
     _SvgNode,
     _SvgRowLayout,
 )
@@ -48,6 +50,7 @@ class _SvgLayoutBuilder:
     def __init__(self) -> None:
         self._step_counter = 0
         self._loop_entry_counter = 0
+        self._delegate_entry_counter = 0
 
     def next_step_node_id(self) -> str:
         """Return the next synthetic step node id."""
@@ -58,6 +61,11 @@ class _SvgLayoutBuilder:
         """Return the next synthetic loop-entry node id."""
         self._loop_entry_counter += 1
         return f"loop_entry_{self._loop_entry_counter}"
+
+    def next_delegate_entry_id(self) -> str:
+        """Return the next synthetic delegate-entry node id."""
+        self._delegate_entry_counter += 1
+        return f"delegate_entry_{self._delegate_entry_counter}"
 
 
 def render_workflow_as_svg(steps: Sequence[WorkflowStep], *, direction: str = "TD") -> str:
@@ -283,7 +291,7 @@ def _build_svg_row_layouts(
             step=step,
             qualified_step_id=qualified_id,
         )
-        nested_layout = _build_nested_loop_svg_layout(
+        nested_layout = _build_nested_svg_layout(
             builder=builder,
             step=step,
             qualified_step_id=qualified_id,
@@ -299,24 +307,47 @@ def _build_svg_row_layouts(
     return rows
 
 
-def _build_nested_loop_svg_layout(
+def _build_nested_svg_layout(
     *,
     builder: _SvgLayoutBuilder,
     step: WorkflowStep,
     qualified_step_id: str,
     qualified_prefix: tuple[str, ...],
-) -> _SvgLayout | None:
-    """Build nested SVG layout when the step is a loop."""
-    if not isinstance(step, LoopStep):
+) -> _SvgNestedLayout | None:
+    """Build nested SVG layout when the step is a loop or delegate."""
+    if isinstance(step, LoopStep):
+        loop_entry_id = builder.next_loop_entry_id()
+        return _SvgNestedLayout(
+            layout=_build_svg_sequence_layout(
+                builder=builder,
+                steps=step.steps,
+                entry_node_id=loop_entry_id,
+                entry_label=f"{qualified_step_id} iteration entry",
+                qualified_prefix=(*qualified_prefix, step.step_id),
+                direction="TD",
+            ),
+            group_label=f"Loop Body: {qualified_step_id}",
+            edge_label="iterate",
+            edge_stroke="#7C3AED",
+            terminal_edge_label="next iteration",
+            terminal_edge_stroke="#7C3AED",
+        )
+
+    nested_steps = _delegate_nested_steps(step)
+    if nested_steps is None:
         return None
-    loop_entry_id = builder.next_loop_entry_id()
-    return _build_svg_sequence_layout(
-        builder=builder,
-        steps=step.steps,
-        entry_node_id=loop_entry_id,
-        entry_label=f"{qualified_step_id} iteration entry",
-        qualified_prefix=(*qualified_prefix, step.step_id),
-        direction="TD",
+    return _SvgNestedLayout(
+        layout=_build_svg_sequence_layout(
+            builder=builder,
+            steps=nested_steps,
+            entry_node_id=builder.next_delegate_entry_id(),
+            entry_label=f"{qualified_step_id} delegate entry",
+            qualified_prefix=(*qualified_prefix, step.step_id),
+            direction="TD",
+        ),
+        group_label=f"Delegate Workflow: {qualified_step_id}",
+        edge_label="delegate",
+        edge_stroke="#0284C7",
     )
 
 
@@ -334,23 +365,25 @@ def _place_svg_vertical_row(
 
     nested_x = node_column_width + _SVG_HORIZONTAL_GAP + _SVG_GROUP_PADDING
     nested_y = current_y + _SVG_GROUP_LABEL_HEIGHT
-    nested_layout = _offset_svg_layout(row.nested_layout, dx=nested_x, dy=nested_y)
+    nested_layout = _offset_svg_layout(row.nested_layout.layout, dx=nested_x, dy=nested_y)
     group = _SvgGroup(
-        label=f"Loop Body: {placed_node.label_lines[0]}",
+        label=row.nested_layout.group_label,
         x=node_column_width + _SVG_HORIZONTAL_GAP,
         y=current_y,
         width=nested_layout.width + (_SVG_GROUP_PADDING * 2.0),
         height=nested_layout.height + _SVG_GROUP_LABEL_HEIGHT + _SVG_GROUP_PADDING,
     )
-    loop_edges = _build_svg_loopback_edges(
+    terminal_edges = _build_svg_terminal_edges(
         layout=nested_layout,
-        loop_entry_id=row.nested_layout.entry_node_id,
+        entry_node_id=row.nested_layout.layout.entry_node_id,
+        edge_label=row.nested_layout.terminal_edge_label,
+        stroke=row.nested_layout.terminal_edge_stroke,
     )
     return (
         placed_node,
         max(placed_node.height, group.height),
         list(nested_layout.nodes),
-        [*nested_layout.edges, *loop_edges],
+        [*nested_layout.edges, *terminal_edges],
         [group, *nested_layout.groups],
     )
 
@@ -370,8 +403,8 @@ def _place_svg_horizontal_column(
         )
         return placed_node, row.step_node.width, [], [], []
 
-    group_width = row.nested_layout.width + (_SVG_GROUP_PADDING * 2.0)
-    group_height = row.nested_layout.height + _SVG_GROUP_LABEL_HEIGHT + _SVG_GROUP_PADDING
+    group_width = row.nested_layout.layout.width + (_SVG_GROUP_PADDING * 2.0)
+    group_height = row.nested_layout.layout.height + _SVG_GROUP_LABEL_HEIGHT + _SVG_GROUP_PADDING
     column_width = max(row.step_node.width, group_width)
     node_x = current_x + ((column_width - row.step_node.width) / 2.0)
     group_x = current_x + ((column_width - group_width) / 2.0)
@@ -382,46 +415,56 @@ def _place_svg_horizontal_column(
         y=(node_row_height - row.step_node.height) / 2.0,
     )
     nested_layout = _offset_svg_layout(
-        row.nested_layout,
+        row.nested_layout.layout,
         dx=group_x + _SVG_GROUP_PADDING,
         dy=group_y + _SVG_GROUP_LABEL_HEIGHT,
     )
     group = _SvgGroup(
-        label=f"Loop Body: {placed_node.label_lines[0]}",
+        label=row.nested_layout.group_label,
         x=group_x,
         y=group_y,
         width=group_width,
         height=group_height,
     )
-    loop_edges = _build_svg_loopback_edges(
+    terminal_edges = _build_svg_terminal_edges(
         layout=nested_layout,
-        loop_entry_id=row.nested_layout.entry_node_id,
+        entry_node_id=row.nested_layout.layout.entry_node_id,
+        edge_label=row.nested_layout.terminal_edge_label,
+        stroke=row.nested_layout.terminal_edge_stroke,
     )
     return (
         placed_node,
         column_width,
         list(nested_layout.nodes),
-        [*nested_layout.edges, *loop_edges],
+        [*nested_layout.edges, *terminal_edges],
         [group, *nested_layout.groups],
     )
 
 
-def _build_svg_loopback_edges(*, layout: _SvgLayout, loop_entry_id: str) -> list[_SvgEdge]:
-    """Build dashed loopback edges from terminal nodes to the loop entry."""
-    loop_entry_node = layout.node_lookup[loop_entry_id]
-    loopback_edges: list[_SvgEdge] = []
+def _build_svg_terminal_edges(
+    *,
+    layout: _SvgLayout,
+    entry_node_id: str,
+    edge_label: str | None,
+    stroke: str | None,
+) -> list[_SvgEdge]:
+    """Build terminal edges from nested bodies back to their entry when configured."""
+    if edge_label is None or stroke is None:
+        return []
+    entry_node = layout.node_lookup[entry_node_id]
+    terminal_edges: list[_SvgEdge] = []
     for terminal_node_id in layout.terminal_node_ids:
         terminal_node = layout.node_lookup[terminal_node_id]
-        loopback_edges.append(
+        terminal_edges.append(
             _svg_edge(
                 source=terminal_node,
-                target=loop_entry_node,
-                label="next iteration",
+                target=entry_node,
+                label=edge_label,
                 dashed=True,
-                stroke="#7C3AED",
+                stroke=stroke,
             )
         )
-    return loopback_edges
+    return terminal_edges
 
 
 def _build_svg_sequence_edges(
@@ -460,14 +503,14 @@ def _build_svg_sequence_edges(
         )
         row = step_lookup[step.step_id]
         if row.nested_layout is not None:
-            nested_entry_node = node_lookup[row.nested_layout.entry_node_id]
+            nested_entry_node = node_lookup[row.nested_layout.layout.entry_node_id]
             edges.append(
                 _svg_edge(
                     source=step_node,
                     target=nested_entry_node,
-                    label="iterate",
+                    label=row.nested_layout.edge_label,
                     dashed=True,
-                    stroke="#7C3AED",
+                    stroke=row.nested_layout.edge_stroke,
                 )
             )
     return edges
