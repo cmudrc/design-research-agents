@@ -27,6 +27,38 @@ class Delegate(Protocol):
     ) -> CompiledExecution:
         """Compile one delegate run into a bound workflow execution."""
 
+    def compile_to_mermaid(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+        direction: str = "TD",
+    ) -> str:
+        """Compile one delegate run and return a Mermaid workflow diagram."""
+        compiled = self.compile(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        return compiled.to_mermaid(direction=direction)
+
+    def compile_to_svg(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+        direction: str = "TD",
+    ) -> str:
+        """Compile one delegate run and return an SVG workflow diagram."""
+        compiled = self.compile(
+            prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        return compiled.to_svg(direction=direction)
+
     def run(
         self,
         prompt: str,
