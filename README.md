@@ -27,6 +27,11 @@ This package centers on reproducible agent workflows with a compact public API:
 Requires Python 3.12+.
 Reproducible release installs are pinned to Python `3.12.12` (`.python-version`).
 
+If you prefer a guided editor-first flow, use the
+[VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).
+The repository now includes recommended extensions, workspace tasks, and an
+`F5` hello-world launch configuration.
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate

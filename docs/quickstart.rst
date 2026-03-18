@@ -4,6 +4,12 @@ Quickstart
 This example shows the shortest meaningful path through
 ``design-research-agents``.
 
+.. note::
+
+   If you want a step-by-step editor workflow with installation, ``.venv``
+   setup, extension recommendations, and a built-in launch configuration, see
+   :doc:`vscode_setup`.
+
 1. Install
 ----------
 

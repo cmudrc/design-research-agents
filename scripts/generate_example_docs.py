@@ -62,6 +62,7 @@ TITLE_TOKEN_OVERRIDES = {
     "openai": "OpenAI",
     "sglang": "SGLang",
     "vllm": "vLLM",
+    "vscode": "VS Code",
 }
 
 

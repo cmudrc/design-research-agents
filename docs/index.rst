@@ -58,6 +58,7 @@ Start Here
 
 - :doc:`quickstart`
 - :doc:`installation`
+- :doc:`vscode_setup`
 - :doc:`concepts`
 - :doc:`typical_workflow`
 - :doc:`examples/index`
@@ -70,6 +71,7 @@ Start Here
 
    quickstart
    installation
+   vscode_setup
    concepts
    typical_workflow
    examples/index
