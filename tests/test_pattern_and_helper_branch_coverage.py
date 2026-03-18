@@ -175,6 +175,8 @@ def test_agent_routing_helper_extractors_cover_selection_shapes() -> None:
         available_alternatives=("alpha",),
         workflow_payload={"success": False},
         workflow_artifacts=(),
+        skills_context=None,
+        tool_results=(),
     )
     assert failure.success is False
     assert failure.output["terminated_reason"] == "routing_failure"

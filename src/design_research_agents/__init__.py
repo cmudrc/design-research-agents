@@ -10,6 +10,7 @@ from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
+    "SkillsConfig": "design_research_agents.skills:SkillsConfig",
     "Toolbox": "design_research_agents.tools:Toolbox",
     "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
     "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
@@ -129,6 +130,7 @@ if TYPE_CHECKING:
     from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
     from .patterns import RouterDelegatePattern as RouterDelegatePattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
+    from .skills import SkillsConfig as SkillsConfig
     from .tools import CallableToolConfig as CallableToolConfig
     from .tools import MCPServerConfig as MCPServerConfig
     from .tools import ScriptToolConfig as ScriptToolConfig

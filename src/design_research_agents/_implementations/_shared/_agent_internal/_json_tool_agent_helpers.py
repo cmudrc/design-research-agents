@@ -115,6 +115,8 @@ def resolve_allowed_tool_names(
         if isinstance(tool_name, str) and tool_name.strip() in runtime_specs
     ]
     deduped_names = tuple(dict.fromkeys(resolved_names))
+    if "skills.activate" in runtime_specs and "skills.activate" not in deduped_names:
+        deduped_names = (*deduped_names, "skills.activate")
     if not deduped_names:
         raise ValueError("allowed_tools did not match any runtime tools.")
     return deduped_names

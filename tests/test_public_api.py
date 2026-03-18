@@ -11,6 +11,7 @@ import design_research_agents as dra
 import design_research_agents.llm as dra_llm
 import design_research_agents.memory as dra_memory
 import design_research_agents.patterns as dra_patterns
+import design_research_agents.skills as dra_skills
 import design_research_agents.tools as dra_tools
 import design_research_agents.workflow as dra_workflow
 from design_research_agents import _contracts as dra_contracts
@@ -20,6 +21,7 @@ EXPECTED_PUBLIC_API = [
     "__version__",
     "DirectLLMCall",
     "MultiStepAgent",
+    "SkillsConfig",
     "Toolbox",
     "CallableToolConfig",
     "ScriptToolConfig",
@@ -65,6 +67,7 @@ EXPECTED_PUBLIC_API = [
 ]
 
 EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
+EXPECTED_SKILLS_API = ["SkillsConfig"]
 EXPECTED_WORKFLOW_API = [
     "CompiledExecution",
     "DelegateBatchCall",
@@ -127,6 +130,12 @@ def test_tools_module_exports_match_curated_contract() -> None:
     assert dra_tools.__all__ == EXPECTED_TOOLS_API
     for symbol_name in dra_tools.__all__:
         assert getattr(dra_tools, symbol_name) is not None
+
+
+def test_skills_module_exports_match_curated_contract() -> None:
+    assert dra_skills.__all__ == EXPECTED_SKILLS_API
+    for symbol_name in dra_skills.__all__:
+        assert getattr(dra_skills, symbol_name) is not None
 
 
 def test_workflow_module_exports_builder_surface_contract() -> None:

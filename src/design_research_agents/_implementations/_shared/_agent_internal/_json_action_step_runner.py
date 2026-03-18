@@ -52,6 +52,7 @@ from design_research_agents._implementations._shared._agent_internal._tool_input
 from design_research_agents._implementations._shared._agent_internal._workflow_first_envelope import (
     build_workflow_first_output,
 )
+from design_research_agents._skills import SkillsContext, inject_skills_into_prompt_pair, merge_skills_metadata
 from design_research_agents._tracing import (
     Tracer,
     emit_guardrail_decision,
@@ -76,6 +77,7 @@ class JsonActionStepRunner(Delegate):
         user_prompt_template: str | None = None,
         alternatives_prompt_target: AlternativesPromptTarget = "user",
         allowed_tools: Sequence[str] | None = None,
+        skills_context: SkillsContext | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a tool-calling agent with injected runtime dependencies.
@@ -87,11 +89,13 @@ class JsonActionStepRunner(Delegate):
             user_prompt_template: Optional user prompt template override.
             alternatives_prompt_target: Prompt target for tools block.
             allowed_tools: Optional tool allowlist.
+            skills_context: Optional resolved Agent Skills context.
             tracer: Optional explicit tracer dependency.
         """
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._tracer = tracer
+        self._skills_context = skills_context
         self._system_prompt = resolve_prompt_text(
             override=system_prompt,
             default_prompt_name="tool_calling_system",
@@ -268,6 +272,12 @@ class JsonActionStepRunner(Delegate):
                 section_label="Available actions",
                 alternatives_text=choices_text,
             )
+        system_prompt, user_prompt = inject_skills_into_prompt_pair(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            skills_context=self._skills_context,
+            include_catalog=True,
+        )
 
         model_messages = [
             LLMMessage(role="system", content=system_prompt),
@@ -486,7 +496,11 @@ class JsonActionStepRunner(Delegate):
                 success=False,
                 tool_results=list(base_result.tool_results),
                 model_response=model_response,
-                metadata=dict(base_result.metadata),
+                metadata=merge_skills_metadata(
+                    metadata=base_result.metadata,
+                    skills_context=self._skills_context,
+                    tool_results=base_result.tool_results,
+                ),
             )
 
         if selected_tool_name_text == _FINAL_ANSWER_TOOL_NAME:
@@ -510,11 +524,14 @@ class JsonActionStepRunner(Delegate):
                 success=True,
                 tool_results=[],
                 model_response=model_response,
-                metadata={
-                    "request_id": request_id,
-                    "dependency_keys": sorted(dependencies.keys()),
-                    "tool_call": tool_call_info,
-                },
+                metadata=merge_skills_metadata(
+                    metadata={
+                        "request_id": request_id,
+                        "dependency_keys": sorted(dependencies.keys()),
+                        "tool_call": tool_call_info,
+                    },
+                    skills_context=self._skills_context,
+                ),
             )
 
         if selected_tool_step is None:
@@ -543,11 +560,15 @@ class JsonActionStepRunner(Delegate):
             success=workflow_result.success and tool_result.ok,
             tool_results=[tool_result],
             model_response=model_response,
-            metadata={
-                "request_id": request_id,
-                "dependency_keys": sorted(dependencies.keys()),
-                "tool_call": tool_call_info,
-            },
+            metadata=merge_skills_metadata(
+                metadata={
+                    "request_id": request_id,
+                    "dependency_keys": sorted(dependencies.keys()),
+                    "tool_call": tool_call_info,
+                },
+                skills_context=self._skills_context,
+                tool_results=[tool_result],
+            ),
         )
 
 

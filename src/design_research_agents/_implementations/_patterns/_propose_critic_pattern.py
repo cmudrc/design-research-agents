@@ -46,6 +46,12 @@ from design_research_agents._runtime._patterns import (
     resolve_pattern_run_context,
     resolve_prompt_override,
 )
+from design_research_agents._skills import (
+    SkillsConfig,
+    SkillsContext,
+    merge_skills_metadata,
+    resolve_skills_context,
+)
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
 from design_research_agents.workflow.workflow import Workflow
@@ -68,6 +74,7 @@ class ProposeCriticPattern(Delegate):
         critic_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize workflow-native orchestration settings.
@@ -84,6 +91,7 @@ class ProposeCriticPattern(Delegate):
             critic_user_prompt_template: Optional critic user prompt template.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
+            skills: Optional Agent Skills configuration.
             tracer: Optional tracer used for run-level instrumentation.
 
         Raises:
@@ -98,6 +106,8 @@ class ProposeCriticPattern(Delegate):
         self._critic_delegate = critic_delegate
         self._max_iterations = max_iterations
         self._tracer = tracer
+        self._skills_config = skills
+        self._skills_context = resolve_skills_context(skills)
         self.workflow: Workflow | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
@@ -180,6 +190,7 @@ class ProposeCriticPattern(Delegate):
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
                 max_iterations=self._max_iterations,
+                skills_context=self._skills_context,
             ),
         )
 
@@ -198,6 +209,7 @@ class ProposeCriticPattern(Delegate):
             proposer = DirectLLMCall(
                 llm_client=self._llm_client,
                 system_prompt=self._proposer_system_prompt,
+                skills=self._skills_config,
                 tracer=self._tracer,
             )
         callbacks = ProposeCriticLoopCallbacks(
@@ -209,6 +221,7 @@ class ProposeCriticPattern(Delegate):
             critic_system_prompt=self._critic_system_prompt,
             critic_user_prompt_template=self._critic_user_prompt_template,
             budget_tracker=budget_tracker,
+            skills_context=self._skills_context,
         )
         loop_steps: tuple[WorkflowStep, ...]
         if self._critic_delegate is None:
@@ -337,6 +350,7 @@ class ProposeCriticPattern(Delegate):
             request_id=request_id,
             dependencies=dependencies,
             max_iterations=self._max_iterations,
+            skills_context=self._skills_context,
         )
 
 
@@ -348,6 +362,7 @@ def _finalize_propose_critic_result(
     request_id: str,
     dependencies: Mapping[str, object],
     max_iterations: int,
+    skills_context: SkillsContext | None,
 ) -> ExecutionResult:
     """Build final propose/critic result from a workflow execution."""
     loop_step_result = workflow_result.step_results.get("propose_critic_loop")
@@ -397,7 +412,10 @@ def _finalize_propose_critic_result(
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_PROPOSE_CRITIC,
-            metadata={"stage": "critic", "iterations": len(critique_iterations)},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "critic", "iterations": len(critique_iterations)},
+                skills_context=skills_context,
+            ),
             tool_results=[],
             model_response=callbacks.last_model_response,
             error=failure_error or "Critic iteration failed.",
@@ -420,7 +438,10 @@ def _finalize_propose_critic_result(
         request_id=request_id,
         dependencies=dependencies,
         mode=MODE_PROPOSE_CRITIC,
-        metadata={"iterations": len(critique_iterations)},
+        metadata=merge_skills_metadata(
+            metadata={"iterations": len(critique_iterations)},
+            skills_context=skills_context,
+        ),
         tool_results=[],
         model_response=callbacks.last_model_response,
     )

@@ -24,6 +24,7 @@ from design_research_agents._contracts._termination import (
     TERMINATED_MAX_STEPS_REACHED,
     stop_reason,
 )
+from design_research_agents._skills import SkillsContext, inject_skills_into_prompt_pair, merge_skills_metadata
 from design_research_agents._tracing import (
     Tracer,
     emit_continuation_decision,
@@ -90,6 +91,7 @@ class MultiStepDirectLLMAgent(Delegate):
         controller_system_prompt: str | None = None,
         controller_user_prompt_template: str | None = None,
         step_memory_tail_items: int = 8,
+        skills_context: SkillsContext | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step direct-response controller agent.
@@ -100,6 +102,7 @@ class MultiStepDirectLLMAgent(Delegate):
             controller_system_prompt: Optional controller system prompt override.
             controller_user_prompt_template: Optional controller user prompt template override.
             step_memory_tail_items: Memory tail size rendered into each controller step prompt.
+            skills_context: Optional resolved Agent Skills context.
             tracer: Optional explicit tracer dependency.
 
         Raises:
@@ -126,6 +129,7 @@ class MultiStepDirectLLMAgent(Delegate):
         )
         self._step_memory_tail_items = step_memory_tail_items
         self._controller_response_schema = build_multi_step_direct_controller_response_schema()
+        self._skills_context = skills_context
 
     def run(
         self,
@@ -215,8 +219,14 @@ class MultiStepDirectLLMAgent(Delegate):
                 prompt_template=self._controller_user_prompt_template,
                 memory_tail_items=self._step_memory_tail_items,
             )
+            system_prompt, user_prompt = inject_skills_into_prompt_pair(
+                system_prompt=self._controller_system_prompt,
+                user_prompt=user_prompt,
+                skills_context=self._skills_context,
+                include_catalog=False,
+            )
             messages = [
-                LLMMessage(role="system", content=self._controller_system_prompt),
+                LLMMessage(role="system", content=system_prompt),
                 LLMMessage(role="user", content=user_prompt),
             ]
             llm_params = LLMChatParams(
@@ -377,7 +387,10 @@ class MultiStepDirectLLMAgent(Delegate):
                     tool_results=[],
                     request_id=resolved_request_id,
                     dependencies=resolved_dependencies,
-                    metadata=fatal_metadata,
+                    metadata=merge_skills_metadata(
+                        metadata=fatal_metadata,
+                        skills_context=self._skills_context,
+                    ),
                     output={
                         "final_output": final_output,
                         "steps_executed": len(step_outputs),
@@ -402,15 +415,18 @@ class MultiStepDirectLLMAgent(Delegate):
                 success=True,
                 tool_results=[],
                 model_response=last_model_response,
-                metadata={
-                    "request_id": resolved_request_id,
-                    "dependency_keys": sorted(resolved_dependencies.keys()),
-                    "controller_steps": list(step_outputs),
-                    "config": {
-                        "max_steps": max_steps,
-                        "step_memory_tail_items": self._step_memory_tail_items,
+                metadata=merge_skills_metadata(
+                    metadata={
+                        "request_id": resolved_request_id,
+                        "dependency_keys": sorted(resolved_dependencies.keys()),
+                        "controller_steps": list(step_outputs),
+                        "config": {
+                            "max_steps": max_steps,
+                            "step_memory_tail_items": self._step_memory_tail_items,
+                        },
                     },
-                },
+                    skills_context=self._skills_context,
+                ),
             )
 
         return CompiledExecution(

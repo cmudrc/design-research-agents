@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from contextlib import suppress
 
@@ -53,8 +52,22 @@ from design_research_agents._schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
+from design_research_agents._skills import (
+    SkillsConfig,
+    SkillsContext,
+    inject_skills_into_prompt_pair,
+    merge_skills_metadata,
+    resolve_skills_context,
+)
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
+
+from .._shared._workflow_internal._debate_pattern_helpers import (
+    normalize_optional_text as _normalize_optional_text,
+)
+from .._shared._workflow_internal._debate_pattern_helpers import (
+    render_judge_prompt as _render_judge_prompt,
+)
 
 _VERDICT_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -121,6 +134,7 @@ class _DebateWorkflowCallbacks:
         judge_delegate: DelegateTarget | None,
         resolved_model: str,
         runtime_state: dict[str, object],
+        skills_context: SkillsContext | None,
     ) -> None:
         """Store per-run callback dependencies."""
         self._pattern = pattern
@@ -132,6 +146,7 @@ class _DebateWorkflowCallbacks:
         self._judge_delegate = judge_delegate
         self._resolved_model = resolved_model
         self._runtime_state = runtime_state
+        self._skills_context = skills_context
 
     def continue_predicate(self, iteration: int, state: Mapping[str, object]) -> bool:
         """Return whether the debate loop should continue."""
@@ -286,9 +301,15 @@ class _DebateWorkflowCallbacks:
     def build_judge_request(self, context: Mapping[str, object]) -> LLMRequest:
         """Build model request for direct judge invocation."""
         judge_prompt = self.build_judge_prompt_from_context(context)
+        system_prompt, user_prompt = inject_skills_into_prompt_pair(
+            system_prompt=self._pattern._judge_system_prompt,
+            user_prompt=judge_prompt,
+            skills_context=self._skills_context,
+            include_catalog=False,
+        )
         judge_messages = [
-            LLMMessage(role="system", content=self._pattern._judge_system_prompt),
-            LLMMessage(role="user", content=judge_prompt),
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt),
         ]
         return LLMRequest(
             messages=judge_messages,
@@ -433,6 +454,7 @@ class DebatePattern(Delegate):
         judge_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = "debate",
         default_dependencies: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize prompt defaults."""
@@ -445,6 +467,8 @@ class DebatePattern(Delegate):
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
         self._tracer = tracer
+        self._skills_config = skills
+        self._skills_context = resolve_skills_context(skills)
         self.workflow: Workflow | None = None
         self._affirmative_delegate = affirmative_delegate
         self._negative_delegate = negative_delegate
@@ -529,6 +553,7 @@ class DebatePattern(Delegate):
                 runtime_state=runtime_state,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
+                skills_context=self._skills_context,
             ),
         )
 
@@ -546,6 +571,7 @@ class DebatePattern(Delegate):
             affirmative_delegate = DirectLLMCall(
                 llm_client=self._llm_client,
                 system_prompt=self._affirmative_system_prompt,
+                skills=self._skills_config,
                 tracer=self._tracer,
             )
         negative_delegate = self._negative_delegate
@@ -553,6 +579,7 @@ class DebatePattern(Delegate):
             negative_delegate = DirectLLMCall(
                 llm_client=self._llm_client,
                 system_prompt=self._negative_system_prompt,
+                skills=self._skills_config,
                 tracer=self._tracer,
             )
 
@@ -567,6 +594,7 @@ class DebatePattern(Delegate):
             judge_delegate=self._judge_delegate,
             resolved_model=resolved_model,
             runtime_state=runtime_state,
+            skills_context=self._skills_context,
         )
 
         steps: list[LoopStep | DelegateStep | ModelStep | LogicStep] = [
@@ -675,6 +703,7 @@ class DebatePattern(Delegate):
             runtime_state=self._debate_runtime_state or {"last_model_response": None},
             request_id=request_id,
             dependencies=dependencies,
+            skills_context=self._skills_context,
         )
 
 
@@ -684,6 +713,7 @@ def _build_debate_result(
     runtime_state: Mapping[str, object],
     request_id: str,
     dependencies: Mapping[str, object],
+    skills_context: SkillsContext | None,
 ) -> ExecutionResult:
     """Build final debate output from workflow result payloads."""
     round_state = _extract_debate_round_state(workflow_result)
@@ -721,7 +751,10 @@ def _build_debate_result(
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_DEBATE,
-            metadata={"stage": "round", "rounds": len(normalized_rounds)},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "round", "rounds": len(normalized_rounds)},
+                skills_context=skills_context,
+            ),
             tool_results=[],
             model_response=model_response,
             error=round_failure_error or "Debate round failed.",
@@ -760,7 +793,10 @@ def _build_debate_result(
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_DEBATE,
-            metadata={"stage": "judge", "rounds": len(normalized_rounds)},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "judge", "rounds": len(normalized_rounds)},
+                skills_context=skills_context,
+            ),
             tool_results=[],
             model_response=model_response,
             error=error_text,
@@ -781,7 +817,10 @@ def _build_debate_result(
         request_id=request_id,
         dependencies=dependencies,
         mode=MODE_DEBATE,
-        metadata={"rounds": len(normalized_rounds)},
+        metadata=merge_skills_metadata(
+            metadata={"rounds": len(normalized_rounds)},
+            skills_context=skills_context,
+        ),
         tool_results=[],
         model_response=model_response,
         requested_mode=MODE_DEBATE,
@@ -927,23 +966,6 @@ def _extract_call_error(
     return _runtime_extract_call_error(call_result, fallback_message=fallback_message)
 
 
-def _render_judge_prompt(
-    *,
-    prompt_template: str,
-    task_prompt: str,
-    rounds: list[dict[str, object]],
-) -> str:
-    """Render judge prompt from task prompt and normalized rounds."""
-    return render_prompt_template(
-        template_text=prompt_template,
-        variables={
-            "task_prompt": task_prompt,
-            "debate_rounds_json": json.dumps(rounds, ensure_ascii=True, sort_keys=True),
-        },
-        field_name="judge_user_prompt_template",
-    )
-
-
 def _extract_delegate_verdict(output: Mapping[str, object]) -> dict[str, object] | None:
     """Extract verdict payload from delegate output mappings or model text."""
     if {"winner", "rationale", "synthesis"}.issubset(output.keys()):
@@ -961,14 +983,6 @@ def _extract_delegate_verdict(output: Mapping[str, object]) -> dict[str, object]
     if isinstance(model_text, str):
         return _parse_json_mapping(model_text)
     return None
-
-
-def _normalize_optional_text(value: object) -> str | None:
-    """Normalize optional text value."""
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip()
-    return normalized or None
 
 
 def _safe_int(value: object) -> int:

@@ -16,8 +16,10 @@ from design_research_agents.agent import (
     MultiStepAgent,
 )
 from design_research_agents.patterns import (
+    DebatePattern,
     PlanExecutePattern,
     ProposeCriticPattern,
+    RouterDelegatePattern,
     TwoSpeakerConversationPattern,
 )
 from design_research_agents.tools import Toolbox
@@ -72,24 +74,41 @@ def test_agent_constructor_signatures_do_not_accept_model_kwarg() -> None:
     classes = (
         DirectLLMCall,
         MultiStepAgent,
+        DebatePattern,
         TwoSpeakerConversationPattern,
         PlanExecutePattern,
         ProposeCriticPattern,
+        RouterDelegatePattern,
     )
     for cls in classes:
         assert "model" not in inspect.signature(cls.__init__).parameters
 
 
 def test_agent_constructor_signatures_expose_supported_kwargs() -> None:
+    direct_params = inspect.signature(DirectLLMCall.__init__).parameters
+    assert "skills" in direct_params
+
     multi_code_params = inspect.signature(MultiStepAgent.__init__).parameters
     assert "execution_timeout_seconds" in multi_code_params
+    assert "skills" in multi_code_params
+
+    debate_params = inspect.signature(DebatePattern.__init__).parameters
+    assert "skills" in debate_params
 
     planner_params = inspect.signature(PlanExecutePattern.__init__).parameters
     assert "max_iterations" in planner_params
     assert "max_tool_calls_per_step" in planner_params
+    assert "skills" in planner_params
 
     reflexion_params = inspect.signature(ProposeCriticPattern.__init__).parameters
     assert "max_iterations" in reflexion_params
+    assert "skills" in reflexion_params
+
+    conversation_params = inspect.signature(TwoSpeakerConversationPattern.__init__).parameters
+    assert "skills" in conversation_params
+
+    routing_params = inspect.signature(RouterDelegatePattern.__init__).parameters
+    assert "skills" in routing_params
 
 
 def test_direct_llm_agent_fails_when_llm_default_model_is_empty() -> None:

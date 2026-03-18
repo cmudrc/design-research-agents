@@ -33,6 +33,7 @@ classifiers = [
 dependencies = [
   "bashkit>=0.1.4",
   "jsonschema>=4.23,<5",
+  "PyYAML>=6,<7",
 ]
 
 [project.urls]
@@ -216,5 +217,7 @@ module = [
   "torch.*",
   "transformers",
   "transformers.*",
+  "yaml",
+  "yaml.*",
 ]
 ignore_missing_imports = true

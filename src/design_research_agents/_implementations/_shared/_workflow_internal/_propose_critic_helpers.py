@@ -21,6 +21,7 @@ from design_research_agents._schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
+from design_research_agents._skills import SkillsContext, inject_skills_into_prompt_pair
 
 CRITIC_SCHEMA: dict[str, object] = {
     "type": "object",
@@ -74,6 +75,7 @@ class ProposeCriticLoopCallbacks:
         critic_system_prompt: str,
         critic_user_prompt_template: str,
         budget_tracker: WorkflowBudgetTracker,
+        skills_context: SkillsContext | None = None,
     ) -> None:
         """Store loop dependencies shared by callback methods."""
         self.resolved_model = resolved_model
@@ -84,6 +86,7 @@ class ProposeCriticLoopCallbacks:
         self.critic_system_prompt = critic_system_prompt
         self.critic_user_prompt_template = critic_user_prompt_template
         self.budget_tracker = budget_tracker
+        self.skills_context = skills_context
         self.last_model_response: LLMResponse | None = None
 
     def continue_predicate(self, iteration: int, state: Mapping[str, object]) -> bool:
@@ -126,10 +129,16 @@ class ProposeCriticLoopCallbacks:
             "phase": "critic",
             "request_id": self.request_id,
         }
+        system_prompt, user_prompt = inject_skills_into_prompt_pair(
+            system_prompt=self.critic_system_prompt,
+            user_prompt=critic_prompt,
+            skills_context=self.skills_context,
+            include_catalog=False,
+        )
         return LLMRequest(
             messages=[
-                LLMMessage(role="system", content=self.critic_system_prompt),
-                LLMMessage(role="user", content=critic_prompt),
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt),
             ],
             model=self.resolved_model,
             response_schema=dict(CRITIC_SCHEMA),

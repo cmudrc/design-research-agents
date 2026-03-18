@@ -8,7 +8,9 @@ Generated from canonical example docstrings/comments in ``examples/agents``.
 
    direct_llm_call
    direct_llm_compiled_execution
+   direct_llm_with_pinned_skills
    multi_step_code_tool_calling_agent
    multi_step_direct_llm_agent
    multi_step_json_tool_calling_agent
    multi_step_json_with_memory
+   multi_step_json_with_skills

@@ -16,6 +16,7 @@ Top-level groups:
 
 - Metadata: ``__version__``
 - Entry points: agents, LLM clients, ``ModelSelector``
+- Skills: ``SkillsConfig``
 - Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
   with normalized read helpers for structured payload access
 - Orchestration: workflow step classes, ``Workflow``, and pattern classes
@@ -40,6 +41,13 @@ Agents
    :undoc-members:
 
 .. autoclass:: design_research_agents.MultiStepAgent
+   :members:
+   :undoc-members:
+
+Skills
+^^^^^^
+
+.. autoclass:: design_research_agents.SkillsConfig
    :members:
    :undoc-members:
 
