@@ -12,17 +12,6 @@ schema-mode workflow execution where each step contract is explicit and testable
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
-```mermaid
-flowchart LR
-    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (LogicStep, ToolStep)"]
-    C --> E["Tracer JSONL + console events"]
-    D --> F["ExecutionResult/payload"]
-    E --> F
-    F --> G["Printed JSON output"]
-```
-
 
 ## Expected Results
 
@@ -68,6 +57,8 @@ from pathlib import Path
 
 import design_research_agents as drag
 
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
+
 INPUT_SCHEMA: dict[str, object] = {
     "type": "object",
     "required": [
@@ -90,6 +81,65 @@ INPUT_SCHEMA: dict[str, object] = {
 
 def _summarize(result: drag.ExecutionResult) -> dict[str, object]:
     return result.summary()
+
+
+def build_example_workflow(
+    *,
+    tracer: drag.Tracer | None = None,
+    tool_runtime: object | None = None,
+) -> drag.Workflow:
+    """Build the schema-mode workflow used for runtime illustration and docs diagrams."""
+    return drag.Workflow(
+        tool_runtime=tool_runtime,
+        tracer=tracer,
+        steps=[
+            drag.ToolStep(
+                step_id="describe_dataset",
+                tool_name="data.describe",
+                input_builder=lambda context: {
+                    "path": context["inputs"]["dataset_csv_path"],
+                    "kind": "csv",
+                },
+            ),
+            drag.ToolStep(
+                step_id="load_sample",
+                tool_name="data.load_csv",
+                dependencies=("describe_dataset",),
+                input_builder=lambda context: {
+                    "path": context["inputs"]["dataset_csv_path"],
+                    "nrows": context["inputs"]["sample_nrows"],
+                },
+            ),
+            drag.LogicStep(
+                step_id="quality_gate",
+                dependencies=("describe_dataset", "load_sample"),
+                handler=lambda context: {
+                    "row_count": (context["dependency_results"]["describe_dataset"]["output"]["result"]["rows"]),
+                    "sample_count": (context["dependency_results"]["load_sample"]["output"]["result"]["count"]),
+                    "required_columns": context["inputs"]["required_columns"],
+                    "threshold": context["inputs"]["max_missing_ratio_per_column"],
+                },
+            ),
+            drag.ToolStep(
+                step_id="persist_report",
+                tool_name="fs.write_text",
+                dependencies=("quality_gate",),
+                input_builder=lambda context: {
+                    "path": context["inputs"]["quality_report_path"],
+                    "content": str(context["dependency_results"]["quality_gate"]["output"]) + "\n",
+                    "overwrite": True,
+                },
+            ),
+            drag.LogicStep(
+                step_id="finalize",
+                dependencies=("persist_report",),
+                handler=lambda context: {
+                    "report_path": (context["dependency_results"]["persist_report"]["output"]["result"]["path"])
+                },
+            ),
+        ],
+        input_schema=INPUT_SCHEMA,
+    )
 
 
 def main() -> None:
@@ -120,57 +170,7 @@ def main() -> None:
     # Run the schema-mode workflow using public runtime surfaces. Using this with statement will automatically
     # close the tool runtime when the example is done.
     with drag.Toolbox() as tool_runtime:
-        workflow = drag.Workflow(
-            tool_runtime=tool_runtime,
-            tracer=tracer,
-            steps=[
-                drag.ToolStep(
-                    step_id="describe_dataset",
-                    tool_name="data.describe",
-                    input_builder=lambda context: {
-                        "path": context["inputs"]["dataset_csv_path"],
-                        "kind": "csv",
-                    },
-                ),
-                drag.ToolStep(
-                    step_id="load_sample",
-                    tool_name="data.load_csv",
-                    dependencies=("describe_dataset",),
-                    input_builder=lambda context: {
-                        "path": context["inputs"]["dataset_csv_path"],
-                        "nrows": context["inputs"]["sample_nrows"],
-                    },
-                ),
-                drag.LogicStep(
-                    step_id="quality_gate",
-                    dependencies=("describe_dataset", "load_sample"),
-                    handler=lambda context: {
-                        "row_count": (context["dependency_results"]["describe_dataset"]["output"]["result"]["rows"]),
-                        "sample_count": (context["dependency_results"]["load_sample"]["output"]["result"]["count"]),
-                        "required_columns": context["inputs"]["required_columns"],
-                        "threshold": context["inputs"]["max_missing_ratio_per_column"],
-                    },
-                ),
-                drag.ToolStep(
-                    step_id="persist_report",
-                    tool_name="fs.write_text",
-                    dependencies=("quality_gate",),
-                    input_builder=lambda context: {
-                        "path": context["inputs"]["quality_report_path"],
-                        "content": str(context["dependency_results"]["quality_gate"]["output"]) + "\n",
-                        "overwrite": True,
-                    },
-                ),
-                drag.LogicStep(
-                    step_id="finalize",
-                    dependencies=("persist_report",),
-                    handler=lambda context: {
-                        "report_path": (context["dependency_results"]["persist_report"]["output"]["result"]["path"])
-                    },
-                ),
-            ],
-            input_schema=INPUT_SCHEMA,
-        )
+        workflow = build_example_workflow(tracer=tracer, tool_runtime=tool_runtime)
 
         # Use explicit strict and relaxed ids so each policy run is traceable independently.
         strict_request_id = "example-workflow-schema-design-strict-001"

@@ -18,20 +18,28 @@ Technical Implementation
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
+The diagram below is generated from the example's configured ``Workflow``.
+
 .. mermaid::
 
    flowchart LR
-       A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-       B --> C["Workflow.run(...)"]
-       C --> D["WorkflowRuntime schedules step graph (LogicStep, LoopStep)"]
-       C --> E["Tracer JSONL + console events"]
-       D --> F["ExecutionResult/payload"]
-       E --> F
-       F --> G["Printed JSON output"]
+       workflow_entry["Workflow Entrypoint"]
+       step_1["design_counter_loop<br/>LoopStep<br/>max_iterations=10"]
+       subgraph loop_body_1["Loop Body: design_counter_loop"]
+           direction TD
+           loop_entry_1["design_counter_loop iteration entry"]
+           step_2["design_counter_loop::increment<br/>LogicStep"]
+           step_3["design_counter_loop::snapshot<br/>LogicStep"]
+           loop_entry_1 --> step_2
+           step_2 --> step_3
+           step_3 -. "next iteration" .-> loop_entry_1
+       end
+       workflow_entry --> step_1
+       step_1 -. "iterate" .-> loop_entry_1
 
 .. literalinclude:: ../../../examples/workflow/workflow_runtime_loop_step.py
    :language: python
-   :lines: 51-
+   :lines: 40-
    :linenos:
 
 Expected Results

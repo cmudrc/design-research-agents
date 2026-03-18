@@ -8,7 +8,22 @@ from typing import TYPE_CHECKING, Protocol
 from ._execution import ExecutionResult
 
 if TYPE_CHECKING:
+    from design_research_agents.workflow import Workflow
     from design_research_agents.workflow._compiled import CompiledExecution
+
+
+def _require_compiled_workflow(delegate: object) -> Workflow:
+    """Return the most recently compiled workflow attached to a delegate."""
+    from design_research_agents.workflow import Workflow
+
+    workflow = getattr(delegate, "workflow", None)
+    if isinstance(workflow, Workflow):
+        return workflow
+    raise RuntimeError(
+        "No compiled workflow is available on this delegate. "
+        "Compile the delegate once before calling compile_to_mermaid() or compile_to_svg(), "
+        "or render from the returned CompiledExecution instead."
+    )
 
 
 class Delegate(Protocol):
@@ -26,6 +41,24 @@ class Delegate(Protocol):
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one delegate run into a bound workflow execution."""
+
+    def compile_to_mermaid(
+        self,
+        *,
+        direction: str = "TD",
+    ) -> str:
+        """Render Mermaid for the most recently compiled workflow on this delegate."""
+        workflow = _require_compiled_workflow(self)
+        return workflow.to_mermaid(direction=direction)
+
+    def compile_to_svg(
+        self,
+        *,
+        direction: str = "TD",
+    ) -> str:
+        """Render SVG for the most recently compiled workflow on this delegate."""
+        workflow = _require_compiled_workflow(self)
+        return workflow.to_svg(direction=direction)
 
     def run(
         self,

@@ -12,17 +12,6 @@ workflow composition with agent, logic, and tool steps under one runtime.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
-```mermaid
-flowchart LR
-    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (DelegateStep, LogicStep, ToolStep)"]
-    C --> E["Tracer JSONL + console events"]
-    D --> F["ExecutionResult/payload"]
-    E --> F
-    F --> G["Printed JSON output"]
-```
-
 
 ## Expected Results
 
@@ -68,25 +57,33 @@ from pathlib import Path
 
 import design_research_agents as drag
 
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
+
+
+class _DocDelegate:
+    """Minimal delegate stub used only for docs-diagram workflow construction."""
+
+    def run(self, prompt: str, *, request_id: str | None = None, dependencies: object | None = None) -> object:
+        del prompt, request_id, dependencies
+        raise RuntimeError("Docs-only delegate stub should not be executed.")
+
 
 def _summarize_run(result: drag.ExecutionResult) -> dict[str, object]:
     return result.summary()
 
 
-def main() -> None:
-    """Run reusable prompt-mode workflow for two routed design requests."""
-    tracer = drag.Tracer(
-        enabled=True,
-        trace_dir=Path("artifacts/examples/traces"),
-        enable_jsonl=True,
-        enable_console=True,
-    )
-    # Run the prompt-mode workflow using public runtime surfaces. Using this with statement will automatically
-    # shut down the managed client and tool runtime when the example is done.
-    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient() as llm_client:
-        writer_agent = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
-
-        workflow_steps = [
+def build_example_workflow(
+    *,
+    tracer: drag.Tracer | None = None,
+    tool_runtime: object | None = None,
+    writer_agent: object | None = None,
+) -> drag.Workflow:
+    """Build the routed prompt-mode workflow used for docs diagrams and runtime execution."""
+    resolved_writer_agent = writer_agent or _DocDelegate()
+    return drag.Workflow(
+        tool_runtime=tool_runtime,
+        tracer=tracer,
+        steps=[
             drag.LogicStep(
                 step_id="router",
                 handler=lambda context: {
@@ -101,7 +98,7 @@ def main() -> None:
             ),
             drag.DelegateStep(
                 step_id="draft_agent",
-                delegate=writer_agent,
+                delegate=resolved_writer_agent,
                 dependencies=("router",),
                 prompt_builder=lambda context: (
                     f"Write one JSON object with keys title and summary for this design request: {context['prompt']}"
@@ -145,12 +142,26 @@ def main() -> None:
                     "summary": context["dependency_results"]["draft_template"]["output"]["summary"],
                 },
             ),
-        ]
+        ],
+    )
 
-        workflow = drag.Workflow(
-            tool_runtime=tool_runtime,
-            steps=workflow_steps,
+
+def main() -> None:
+    """Run reusable prompt-mode workflow for two routed design requests."""
+    tracer = drag.Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    # Run the prompt-mode workflow using public runtime surfaces. Using this with statement will automatically
+    # shut down the managed client and tool runtime when the example is done.
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient() as llm_client:
+        writer_agent = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        workflow = build_example_workflow(
             tracer=tracer,
+            tool_runtime=tool_runtime,
+            writer_agent=writer_agent,
         )
 
         # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
