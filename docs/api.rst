@@ -148,7 +148,10 @@ Workflow Steps and Facade
 workflow and applies delegate-specific finalization. Accessing
 ``compiled.workflow`` gives the raw workflow graph for inspection and testing.
 Calling ``compiled.workflow.run(...)`` directly bypasses that finalization
-layer and returns the raw workflow result.
+layer and returns the raw workflow result. Use ``compiled.to_mermaid()`` /
+``compiled.to_svg()`` for direct compiled-workflow diagrams, or
+``delegate.compile_to_mermaid()`` / ``delegate.compile_to_svg()`` to render
+the most recently compiled workflow stored on a delegate instance.
 
 Workflow step executions surface ``WorkflowStepResult`` payloads through
 ``ExecutionResult.step_results``. These step results mirror the top-level

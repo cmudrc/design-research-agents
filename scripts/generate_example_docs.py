@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -74,6 +76,7 @@ class ExampleDocSpec:
     extension: str
     source_start_line: int
     sections: dict[str, str]
+    generated_mermaid: str | None = None
 
 
 def _repo_root() -> Path:
@@ -188,10 +191,7 @@ def _parse_canonical_sections(
     if missing:
         raise ValueError(f"{source_path}: missing canonical section(s): {missing}")
 
-    parsed = {name: "\n".join(sections[name]).strip() for name in sections}
-    if "Technical Implementation" in required_sections:
-        _extract_mermaid(parsed.get("Technical Implementation", ""), source_path=source_path.as_posix())
-    return parsed
+    return {name: "\n".join(sections[name]).strip() for name in sections}
 
 
 def _slug_for_example(*, rel_parts: tuple[str, ...], extension: str) -> str:
@@ -242,6 +242,40 @@ def _extract_mermaid(technical_section: str, *, source_path: str) -> str:
     if not mermaid_text:
         raise ValueError(f"{source_path}: Technical Implementation must include Mermaid content.")
     return mermaid_text
+
+
+def _load_generated_workflow_mermaid(*, repo_root: Path, path: Path) -> str | None:
+    """Load generated Mermaid from a workflow example builder when available."""
+    if path.suffix != ".py":
+        return None
+    if path.parent.name != "workflow":
+        return None
+
+    module_name = "docs_example_" + path.relative_to(repo_root).with_suffix("").as_posix().replace("/", "_")
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        return None
+
+    original_sys_path = list(sys.path)
+    sys.path.insert(0, str(repo_root))
+    sys.path.insert(0, str(repo_root / "src"))
+    try:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_sys_path
+
+    workflow_builder = getattr(module, "build_example_workflow", None)
+    if not callable(workflow_builder):
+        return None
+
+    workflow = workflow_builder()
+    to_mermaid = getattr(workflow, "to_mermaid", None)
+    if not callable(to_mermaid):
+        return None
+
+    direction = getattr(module, "WORKFLOW_DIAGRAM_DIRECTION", "LR")
+    return to_mermaid(direction=direction)
 
 
 def _strip_mermaid_block(technical_section: str) -> str:
@@ -356,7 +390,7 @@ def _render_example_page(spec: ExampleDocSpec) -> str:
         _strip_expected_results_run_preface(spec.sections["Expected Results"])
     )
     references = spec.sections.get("References")
-    mermaid = _extract_mermaid(technical_implementation, source_path=spec.rel_path)
+    mermaid = spec.generated_mermaid or _extract_mermaid(technical_implementation, source_path=spec.rel_path)
     technical_text = _strip_mermaid_block(technical_implementation)
     indented_mermaid = "\n".join(f"   {line}" for line in mermaid.splitlines())
 
@@ -379,6 +413,12 @@ def _render_example_page(spec: ExampleDocSpec) -> str:
         indented_mermaid,
         "",
     ]
+    if spec.generated_mermaid is not None:
+        diagram_block = [
+            "The diagram below is generated from the example's configured ``Workflow``.",
+            "",
+            *diagram_block,
+        ]
 
     lines = [
         title,
@@ -448,14 +488,56 @@ def _render_examples_index() -> str:
             title,
             "=" * len(title),
             "",
-            "Per-example documentation is generated from runnable example docstrings/comments.",
+            "The examples in this repository are runnable research-oriented scripts. They are",
+            "designed to show not only API usage, but how the library fits into realistic",
+            "experimental workflows. Each example lists dependencies, expected scope, and",
+            "the primary concept it demonstrates.",
+            "",
+            "Featured Examples",
+            "-----------------",
+            "",
+            "Direct LLM Call",
+            "~~~~~~~~~~~~~~~~",
+            "",
+            "One-step participant execution with a configured backend client.",
+            "",
+            "**Requires:** base install + reachable backend endpoint",
+            "**Runtime:** short",
+            "**Teaches:** baseline participant setup, request execution, structured output handling",
+            "",
+            "Multi-Step JSON Tool Calling Agent",
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+            "",
+            "Iterative tool-using execution with explicit action/observation loops.",
+            "",
+            "**Requires:** base install",
+            "**Runtime:** short to medium",
+            "**Teaches:** tool-routing behavior, multi-step control, inspectable intermediate state",
+            "",
+            "Debate Pattern",
+            "~~~~~~~~~~~~~~",
+            "",
+            "Role-based multi-agent coordination with adjudication workflow structure.",
+            "",
+            "**Requires:** base install",
+            "**Runtime:** medium",
+            "**Teaches:** orchestration patterns, delegate coordination, traceable multi-role reasoning",
+            "",
+            "MCP Minimal",
+            "~~~~~~~~~~~",
+            "",
+            "Small end-to-end MCP-backed tool integration example.",
+            "",
+            "**Requires:** ``mcp``-compatible server/runtime setup",
+            "**Runtime:** medium",
+            "**Teaches:** external tool connectivity, MCP source wiring, runtime safety boundaries",
             "",
             "Deterministic runs for tests are provided by",
             "``tests/example_monkeypatch/sitecustomize.py`` when",
             "``DRA_EXAMPLE_LLM_MODE=deterministic`` is set.",
             "",
-            "Categories",
-            "----------",
+            "Full Catalog",
+            "------------",
             "",
             ".. toctree::",
             "   :maxdepth: 2",
@@ -493,6 +575,7 @@ def _build_specs(repo_root: Path) -> list[ExampleDocSpec]:
             source_path=path,
             required_sections=_required_sections_for_example(rel_path),
         )
+        generated_mermaid = _load_generated_workflow_mermaid(repo_root=repo_root, path=path)
 
         specs.append(
             ExampleDocSpec(
@@ -503,6 +586,7 @@ def _build_specs(repo_root: Path) -> list[ExampleDocSpec]:
                 extension=path.suffix,
                 source_start_line=source_start_line,
                 sections=sections,
+                generated_mermaid=generated_mermaid,
             )
         )
 

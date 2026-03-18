@@ -214,7 +214,7 @@ def test__openai_service_create_client_import_error(monkeypatch) -> None:
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", _fake_import)
-    with pytest.raises(RuntimeError, match="openai"):
+    with pytest.raises(RuntimeError, match="design-research-agents\\[openai\\]"):
         backend._create_client()
 
 

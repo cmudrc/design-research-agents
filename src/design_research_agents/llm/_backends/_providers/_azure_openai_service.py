@@ -6,6 +6,7 @@ import os
 from typing import Any, override
 
 from design_research_agents._contracts._llm import BackendCapabilities, BackendStatus
+from design_research_agents.llm._backends._optional_deps import raise_missing_optional_dependency
 
 from ._openai_service import OpenAIServiceBackend
 
@@ -61,10 +62,12 @@ class AzureOpenAIServiceBackend(OpenAIServiceBackend):
         api_version = self._resolve_api_version()
         try:
             from openai import AzureOpenAI
-        except ImportError as exc:
-            raise RuntimeError(
-                "The 'openai' package is required for azure_openai_service backends. Install with: pip install -e ."
-            ) from exc
+        except ImportError:
+            raise_missing_optional_dependency(
+                package_name="openai",
+                extra_name="openai",
+                feature_name="AzureOpenAIServiceLLMClient",
+            )
         self._client = AzureOpenAI(
             api_key=api_key,
             azure_endpoint=azure_endpoint,

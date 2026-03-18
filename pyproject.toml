@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # Core package metadata used by pip/PyPI tooling.
 [project]
 name = "design-research-agents"
-version = "0.2.1"
+version = "0.3.0"
 description = "A flexible, modular framework for researching engineering design AI agents"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -29,11 +29,10 @@ classifiers = [
   "Typing :: Typed",
 ]
 
-# Core deps: includes a "works everywhere" default backend (OpenAI).
+# Core deps: keep the base install lightweight and stdlib-first.
 dependencies = [
   "bashkit>=0.1.4",
   "jsonschema>=4.23,<5",
-  "openai>=1.40,<2",
 ]
 
 [project.urls]
@@ -61,20 +60,21 @@ dev = [
 ]
 
 # Hosted provider SDKs
+# Explicit Azure OpenAI intent; same underlying SDK as the ``openai`` extra.
+azure = ["openai>=1.40,<2"]
+
+openai = ["openai>=1.40,<2"]
+
 anthropic = ["anthropic>=0.40,<1"]
 
 gemini = ["google-genai>=1.0,<2"]
 
 groq = ["groq>=1.0,<2"]
 
-# Local backends
+# Multi-OS backends
 llama_cpp = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
-]
-
-mlx = [
-  "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
 ]
 
 transformers = [
@@ -83,7 +83,12 @@ transformers = [
   "transformers>=4.44",
 ]
 
-# Server-focused runtimes: gate to Linux so bundles don't explode elsewhere.
+# Apple-specific runtimes
+mlx = [
+  "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+]
+
+# Linux-specific runtimes
 vllm = [
   "vllm>=0.6,<1; platform_system == 'Linux' and python_version < '3.14'",
 ]
@@ -94,19 +99,33 @@ sglang = [
 
 # Convenience bundles
 # - "local" = all local backends that make sense on the current platform
-# - "full" = local + server backends (Linux-only pieces auto-skip elsewhere)
+# - "providers" = all provider backends
+# - "full" = providers + local backends (platform-gated pieces auto-skip where unsupported)
 local = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
   "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
   "torch>=2.4,<3",
   "transformers>=4.44",
+  "vllm>=0.6,<1; platform_system == 'Linux' and python_version < '3.14'",
+  "sglang>=0.4,<1; platform_system == 'Linux' and python_version < '3.14'",
+]
+
+providers = [
+  "anthropic>=0.40,<1",
+  "google-genai>=1.0,<2",
+  "groq>=1.0,<2",
+  "openai>=1.40,<2",
 ]
 
 full = [
+  "anthropic>=0.40,<1",
+  "google-genai>=1.0,<2",
+  "groq>=1.0,<2",
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
   "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "openai>=1.40,<2",
   "torch>=2.4,<3",
   "transformers>=4.44",
   "vllm>=0.6,<1; platform_system == 'Linux' and python_version < '3.14'",

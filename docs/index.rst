@@ -1,70 +1,97 @@
 design-research-agents
 ======================
 
-A flexible, modular framework for researching AI agents in design workflows.
+A modular framework for building and studying AI agents in engineering design workflows.
 
-Build and compare agent behaviors, swap LLM backends, and capture traces
-without rewriting your pipeline. The library favors small, composable
-pieces so you can test ideas quickly and keep experiments reproducible.
+What This Library Does
+----------------------
+
+``design-research-agents`` provides reusable abstractions for agent behavior,
+tool use, workflow composition, and multi-step reasoning. We use it in research
+settings where traceability, reproducibility, and experimental control matter as
+much as raw model capability.
 
 Highlights
 ----------
 
-- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``.
-- ``MultiStepAgent`` supports explicit modes: ``direct``, ``json``, and ``code``.
-- JSON mode uses structured ``tool_name``/``tool_input`` selection for
-  iterative tool-call loops.
-- Model selection policies with local/remote catalogs.
-- Tool contracts and schemas for safe, structured I/O.
-- Tracing hooks and emitters for debugging and evaluation.
-- Runnable examples for deterministic validation and experimentation.
-- Workflow-native memory, networked blackboard coordination, and reusable
-  reasoning patterns (tree search and RAG).
+- Agent abstractions
+- Tool-use runtime
+- Workflow primitives
+- Orchestration patterns
+- Trace capture
+- Backend flexibility
 
-Typical workflow
+This library is not only for deploying agents. It is designed to support agent
+**study**: reproducible runs, behavioral comparison, and interpretable execution
+artifacts that can be analyzed across controlled conditions.
+
+Typical Workflow
 ----------------
 
-1. Choose an agent type and backend.
-2. Define tools, prompts, and policies.
-3. Run experiments and capture traces.
-4. Compare results and iterate.
+1. Choose an LLM client and execution setting.
+2. Define tools, prompts, and constraints.
+3. Select ``DirectLLMCall``, ``MultiStepAgent``, or a higher-order pattern.
+4. Execute runs and capture traces.
+5. Export outputs for downstream experiment orchestration and analysis.
 
-Get started
------------
+Integration With The Ecosystem
+------------------------------
 
-- :doc:`quickstart` for a fast, end-to-end example.
-- :doc:`dependencies_and_extras` for optional dependency profiles and platform constraints.
-- :doc:`examples/index` for scenario-driven runnable examples and expected observations.
-- :doc:`examples/workflow/index` for runnable workflow primitive examples.
-- :doc:`examples/patterns/index` for runnable orchestration pattern examples.
-- :doc:`llm_clients/index` to choose local or remote client backends.
-- :doc:`tools/index` for unified runtime + MCP + script tools.
-- :doc:`agents/index` to understand agent execution tradeoffs.
-- :doc:`workflows/index` for workflow builder primitives and composition.
-- :doc:`patterns/index` for prebuilt workflow implementations.
-- :doc:`api` for the guaranteed public API surface.
-- `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
-  for contribution workflow and PR expectations.
+The Design Research Collective maintains a modular ecosystem of libraries for
+studying human and AI design behavior.
+
+- **design-research-agents** implements AI participants, workflows, and tool-using reasoning patterns.
+- **design-research-problems** provides benchmark design tasks, prompts, grammars, and evaluators.
+- **design-research-analysis** analyzes the traces, event tables, and outcomes generated during studies.
+- **design-research-experiments** sits above the stack as the study-design and orchestration layer, defining hypotheses, factors, conditions, replications, and artifact flows across agents, problems, and analysis.
+
+Together these libraries support end-to-end design research pipelines, from
+study design through execution and interpretation.
+
+.. image:: _static/ecosystem-platform.svg
+   :alt: Ecosystem diagram showing experiments above agents, problems, and analysis.
+   :width: 100%
+   :align: center
+
+Start Here
+----------
+
+- :doc:`quickstart`
+- :doc:`installation`
+- :doc:`concepts`
+- :doc:`typical_workflow`
+- :doc:`examples/index`
+- :doc:`api`
 
 .. toctree::
    :maxdepth: 2
-   :caption: Guides
+   :caption: Documentation
    :hidden:
 
    quickstart
-   dependencies_and_extras
+   installation
+   concepts
+   typical_workflow
    examples/index
-   philosophy
+   api
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development
+   :hidden:
+
+   dependencies_and_extras
+   Contributing <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Additional Guides
+   :hidden:
+
    llm_clients/index
    tools/index
    agents/index
    workflows/index
    patterns/index
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-   :hidden:
-
-   api
    reference/index
+   philosophy

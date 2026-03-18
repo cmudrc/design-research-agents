@@ -53,14 +53,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    DirectLLMCall,
-    LlamaCppServerLLMClient,
-    MultiStepAgent,
-    Toolbox,
-    Tracer,
-)
-from design_research_agents.patterns import RouterDelegatePattern
+import design_research_agents as drag
 
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
@@ -76,7 +69,7 @@ def main() -> None:
     """Route one design prompt to the best delegate and print summary."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-workflow-router-delegate-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -84,9 +77,9 @@ def main() -> None:
     )
     # Run the router/delegate pattern using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client and tool runtime when the example is done.
-    with Toolbox() as tool_runtime, LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
-        direct_llm_agent = DirectLLMCall(llm_client=llm_client, tracer=tracer)
-        json_tool_agent = MultiStepAgent(
+    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
+        direct_llm_agent = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        json_tool_agent = drag.MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
@@ -95,7 +88,7 @@ def main() -> None:
             tracer=tracer,
         )
 
-        workflow = RouterDelegatePattern(
+        workflow = drag.RouterDelegatePattern(
             llm_client=llm_client,
             tool_runtime=tool_runtime,
             alternatives={
