@@ -37,6 +37,12 @@ from design_research_agents._schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
+from design_research_agents._skills import (
+    SkillsConfig,
+    inject_skills_into_prompt_pair,
+    merge_skills_metadata,
+    resolve_skills_context,
+)
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
 
@@ -71,6 +77,7 @@ class PlanExecutePattern(Delegate):
         executor_step_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize workflow-native orchestration settings.
@@ -87,6 +94,7 @@ class PlanExecutePattern(Delegate):
             executor_step_prompt_template: Optional override for executor step prompt.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
+            skills: Optional Agent Skills configuration.
             tracer: Optional tracer used for run-level instrumentation.
 
         Raises:
@@ -104,6 +112,8 @@ class PlanExecutePattern(Delegate):
         self._max_iterations = max_iterations
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._tracer = tracer
+        self._skills_config = skills
+        self._skills_context = resolve_skills_context(skills)
         self.workflow: Workflow | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
@@ -261,6 +271,7 @@ class PlanExecutePattern(Delegate):
             tool_runtime=self._tool_runtime,
             max_steps=1,
             max_tool_calls_per_step=self._max_tool_calls_per_step,
+            skills=self._skills_config,
             tracer=self._tracer,
         )
 
@@ -561,7 +572,10 @@ class PlanExecutePattern(Delegate):
                 request_id=request_id,
                 dependencies=dependencies,
                 mode=MODE_PLAN_EXECUTE,
-                metadata={"stage": "planner"},
+                metadata=merge_skills_metadata(
+                    metadata={"stage": "planner"},
+                    skills_context=self._skills_context,
+                ),
                 tool_results=[],
                 model_response=model_response,
                 error=(
@@ -620,7 +634,11 @@ class PlanExecutePattern(Delegate):
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_PLAN_EXECUTE,
-            metadata={"stage": "execution"},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "execution"},
+                skills_context=self._skills_context,
+                tool_results=callbacks.all_tool_results,
+            ),
             tool_results=callbacks.all_tool_results,
             model_response=callbacks.last_model_response,
         )
@@ -716,12 +734,17 @@ class PlanExecutePattern(Delegate):
             "mode": MODE_PLAN_EXECUTE,
             "phase": "planner",
         }
-        planner_messages = [
-            LLMMessage(role="system", content=self._planner_system_prompt),
-            LLMMessage(role="user", content=planner_prompt),
-        ]
+        system_prompt, user_prompt = inject_skills_into_prompt_pair(
+            system_prompt=self._planner_system_prompt,
+            user_prompt=planner_prompt,
+            skills_context=self._skills_context,
+            include_catalog=False,
+        )
         return LLMRequest(
-            messages=planner_messages,
+            messages=[
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt),
+            ],
             model=resolved_model,
             response_schema=dict(PLAN_SCHEMA),
             metadata=dict(planner_metadata),

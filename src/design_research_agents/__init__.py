@@ -12,6 +12,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
     "SeededRandomBaselineAgent": "design_research_agents.agent:SeededRandomBaselineAgent",
     "WorkflowStudyDelegate": "design_research_agents.agent:WorkflowStudyDelegate",
+    "SkillsConfig": "design_research_agents.skills:SkillsConfig",
     "Toolbox": "design_research_agents.tools:Toolbox",
     "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
     "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
@@ -137,6 +138,7 @@ if TYPE_CHECKING:
     from .patterns import RouterDelegatePattern as RouterDelegatePattern
     from .patterns import TreeSearchPattern as TreeSearchPattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
+    from .skills import SkillsConfig as SkillsConfig
     from .tools import CallableToolConfig as CallableToolConfig
     from .tools import MCPServerConfig as MCPServerConfig
     from .tools import ScriptToolConfig as ScriptToolConfig

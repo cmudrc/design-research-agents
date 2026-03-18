@@ -35,6 +35,7 @@ from design_research_agents._implementations._shared._agent_internal._model_reso
 from design_research_agents._implementations._shared._agent_internal._workflow_first_envelope import (
     build_workflow_first_output,
 )
+from design_research_agents._skills import SkillsConfig, merge_skills_metadata, resolve_skills_context
 from design_research_agents._tracing import (
     Tracer,
     finish_model_call,
@@ -62,6 +63,7 @@ class DirectLLMCall(Delegate):
         temperature: float | None = None,
         max_tokens: int | None = None,
         provider_options: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a direct-LLM agent with optional default generation args.
@@ -72,6 +74,7 @@ class DirectLLMCall(Delegate):
             temperature: Optional default sampling temperature.
             max_tokens: Optional default output-token cap.
             provider_options: Optional default backend-specific options.
+            skills: Optional Agent Skills configuration.
             tracer: Optional explicit tracer dependency.
 
         Raises:
@@ -93,6 +96,7 @@ class DirectLLMCall(Delegate):
 
         # Normalize provider options once at init so downstream merging is predictable.
         self._provider_options = coerce_provider_options(provider_options) if provider_options is not None else {}
+        self._skills_context = resolve_skills_context(skills)
 
         # Stored for introspection/debugging; the workflow is rebuilt per-run.
         self.workflow: Workflow | None = None
@@ -282,6 +286,8 @@ class DirectLLMCall(Delegate):
         messages, message_source = extract_messages(
             input_payload=normalized_input,
             default_system_prompt=self._default_system_prompt,
+            skills_context=self._skills_context,
+            include_skill_catalog=False,
         )
 
         # Build a single LLMRequest object, merging defaults with per-run overrides.
@@ -400,13 +406,17 @@ class DirectLLMCall(Delegate):
             message_count=_int_or_default(prepare_output.get("message_count"), default=0),
             llm_request=llm_request,
         )
+        metadata = merge_skills_metadata(
+            metadata=run_result.metadata,
+            skills_context=self._skills_context,
+        )
 
         # Return both:
         # - structured output/metadata (dicts)
         # - the raw model response object for the outer `run()` method to attach to ExecutionResult
         return {
             "output": dict(run_result.output),
-            "metadata": dict(run_result.metadata),
+            "metadata": metadata,
             "model_response": llm_response,
         }
 

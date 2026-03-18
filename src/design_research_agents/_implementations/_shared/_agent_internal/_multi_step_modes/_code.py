@@ -9,6 +9,7 @@ from design_research_agents._contracts._delegate import Delegate, ExecutionResul
 from design_research_agents._contracts._llm import LLMClient, LLMResponse
 from design_research_agents._contracts._memory import MemoryStore
 from design_research_agents._contracts._tools import ToolRuntime
+from design_research_agents._skills import SkillsContext, merge_skills_metadata
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
 
@@ -99,6 +100,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
         memory_namespace: str = "default",
         memory_read_top_k: int = 4,
         memory_write_observations: bool = True,
+        skills_context: SkillsContext | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step code-tool agent.
@@ -123,6 +125,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
             memory_namespace: Namespace partition for memory reads/writes.
             memory_read_top_k: Number of memory matches retrieved per step.
             memory_write_observations: Whether to persist per-step observation summaries.
+            skills_context: Optional resolved Agent Skills context.
             tracer: Optional explicit tracer dependency.
 
         Raises:
@@ -161,6 +164,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
         self._memory_namespace = memory_namespace.strip() or "default"
         self._memory_read_top_k = memory_read_top_k
         self._memory_write_observations = memory_write_observations
+        self._skills_context = skills_context
         self._default_tools_per_step = (
             tuple(dict(default_tool) for default_tool in default_tools_per_step if isinstance(default_tool, Mapping))
             if default_tools_per_step is not None
@@ -225,6 +229,7 @@ class MultiStepCodeToolCallingAgent(Delegate):
             normalize_generated_code_per_step=normalize_generated_code_per_step,
             default_tools_per_step=self._default_tools_per_step,
             alternatives_prompt_target=alternatives_prompt_target,
+            skills_context=self._skills_context,
             tracer=self._tracer,
         )
 
@@ -284,7 +289,11 @@ class MultiStepCodeToolCallingAgent(Delegate):
                 success=result.success,
                 tool_results=list(result.tool_results),
                 model_response=result.model_response,
-                metadata=dict(result.metadata),
+                metadata=merge_skills_metadata(
+                    metadata=result.metadata,
+                    skills_context=self._skills_context,
+                    tool_results=result.tool_results,
+                ),
                 step_results=dict(result.step_results),
                 execution_order=list(result.execution_order),
             )

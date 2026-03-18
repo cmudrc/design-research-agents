@@ -22,6 +22,9 @@ if _DETERMINISTIC_MODE:
 
 _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     "examples/agents/direct_llm_call.py": ("4",),
+    "examples/agents/direct_llm_with_pinned_skills.py": (
+        "Repairability priorities: use accessible fasteners, clear service order, and fast battery swaps.",
+    ),
     "examples/agents/multi_step_code_tool_calling_agent.py": (
         "\n".join(
             [
@@ -31,6 +34,17 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         ),
     ),
     "examples/agents/multi_step_json_tool_calling_agent.py": (
+        (
+            '{"tool_name":"text.word_count","tool_input":{"text":"design research agents"},'
+            '"reason":"Measure the phrase before answering."}'
+        ),
+        ('{"tool_name":"final_answer","tool_input":{"word_count":3},"reason":"done"}'),
+    ),
+    "examples/agents/multi_step_json_with_skills.py": (
+        (
+            '{"tool_name":"skills.activate","tool_input":{"skill_name":"word_count_helper"},'
+            '"reason":"Load the local counting instructions first."}'
+        ),
         (
             '{"tool_name":"text.word_count","tool_input":{"text":"design research agents"},'
             '"reason":"Measure the phrase before answering."}'

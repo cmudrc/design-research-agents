@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient
@@ -11,7 +11,7 @@ from design_research_agents._contracts._termination import (
     TERMINATED_ROUTING_FAILURE,
     TERMINATED_UNKNOWN_ALTERNATIVE,
 )
-from design_research_agents._contracts._tools import ToolRuntime, ToolSpec
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._contracts._workflow import (
     DelegateStep,
     DelegateTarget,
@@ -28,6 +28,13 @@ from design_research_agents._runtime._patterns import (
     build_pattern_execution_result,
     normalize_request_id_prefix,
     resolve_pattern_run_context,
+)
+from design_research_agents._skills import (
+    SkillsConfig,
+    SkillsContext,
+    SkillsToolRuntimeAdapter,
+    merge_skills_metadata,
+    resolve_skills_context,
 )
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
@@ -113,6 +120,9 @@ class _RoutingExecutionState:
 
     delegated_result: ExecutionResult | None = None
     """Result produced by the selected delegate step, if it ran."""
+
+    router_tool_results: list[ToolResult] = field(default_factory=list)
+    """Tool results produced by router selection, including optional skill activation."""
 
 
 class _AlternativeDelegateRunner:
@@ -203,6 +213,7 @@ class _RoutingWorkflowCallbacks:
         routing_failure_step_id: str,
         unknown_alternative_step_id: str,
         state: _RoutingExecutionState,
+        router_agent_after_activation: JsonActionStepRunner | None = None,
     ) -> None:
         """Store dependencies used by workflow callback methods.
 
@@ -216,6 +227,8 @@ class _RoutingWorkflowCallbacks:
             routing_failure_step_id: Fallback step id used when routing selection fails.
             unknown_alternative_step_id: Fallback step id used for unknown alternatives.
             state: Mutable callback state sink.
+            router_agent_after_activation: Optional second-pass router used after one
+                successful ``skills.activate`` call.
         """
         self._router_agent = router_agent
         self._prompt = prompt
@@ -226,6 +239,7 @@ class _RoutingWorkflowCallbacks:
         self._routing_failure_step_id = routing_failure_step_id
         self._unknown_alternative_step_id = unknown_alternative_step_id
         self._state = state
+        self._router_agent_after_activation = router_agent_after_activation
 
     def run_selection(self, context: Mapping[str, object]) -> Mapping[str, object]:
         """Execute router-model selection step.
@@ -237,13 +251,30 @@ class _RoutingWorkflowCallbacks:
             Step output describing routing status and selected delegate name.
         """
         del context
-        self._state.router_result = self._router_agent.run(
+        router_result = self._router_agent.run(
             self._prompt,
             request_id=f"{self._request_id}:agent_routing_router",
             dependencies=self._dependencies,
         )
-        router_result = self._state.router_result
+        router_tool_results = list(router_result.tool_results)
         self._budget_tracker.add_model_response(router_result.model_response)
+        if (
+            self._router_agent_after_activation is not None
+            and _selected_tool_name_from_result(router_result) == "skills.activate"
+        ):
+            activated_prompt = _append_activated_skill_context(
+                prompt=self._prompt,
+                tool_results=router_tool_results,
+            )
+            router_result = self._router_agent_after_activation.run(
+                activated_prompt,
+                request_id=f"{self._request_id}:agent_routing_router_after_skill",
+                dependencies=self._dependencies,
+            )
+            router_tool_results.extend(router_result.tool_results)
+            self._budget_tracker.add_model_response(router_result.model_response)
+        self._state.router_result = router_result
+        self._state.router_tool_results = router_tool_results
         if not router_result.success:
             return {
                 "status": TERMINATED_ROUTING_FAILURE,
@@ -326,6 +357,8 @@ def _build_routing_failure_result(
     available_alternatives: Sequence[str],
     workflow_payload: Mapping[str, object],
     workflow_artifacts: Sequence[object],
+    skills_context: SkillsContext | None,
+    tool_results: Sequence[ToolResult],
 ) -> ExecutionResult:
     """Build one attached routing failure result with stable metadata.
 
@@ -340,6 +373,8 @@ def _build_routing_failure_result(
         available_alternatives: Declared delegate names available to the router.
         workflow_payload: Serialized workflow payload for this routing run.
         workflow_artifacts: Normalized workflow artifact entries.
+        skills_context: Optional resolved Agent Skills context.
+        tool_results: Tool results already produced during routing selection.
 
     Returns:
         Execution result carrying normalized routing failure metadata.
@@ -359,7 +394,12 @@ def _build_routing_failure_result(
         request_id=request_id,
         dependencies=dependencies,
         mode=MODE_ROUTER_DELEGATE,
-        metadata={"stage": stage, "routing": router_result.metadata.get("routing", {})},
+        metadata=merge_skills_metadata(
+            metadata={"stage": stage, "routing": router_result.metadata.get("routing", {})},
+            skills_context=skills_context,
+            tool_results=tool_results,
+        ),
+        tool_results=list(tool_results),
         model_response=router_result.model_response,
         error=error,
     )
@@ -386,6 +426,7 @@ class RouterDelegatePattern(Delegate):
         router_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize workflow-native routing settings.
@@ -399,6 +440,7 @@ class RouterDelegatePattern(Delegate):
             router_user_prompt_template: Optional override for router user prompt.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
+            skills: Optional Agent Skills configuration.
             tracer: Optional tracer used for run-level instrumentation.
 
         Raises:
@@ -407,6 +449,7 @@ class RouterDelegatePattern(Delegate):
         self._llm_client = llm_client
         self._tool_runtime = tool_runtime
         self._tracer = tracer
+        self._skills_context = resolve_skills_context(skills)
         self.workflow: Workflow | None = None
         self._agent_routing_runtime: dict[str, object] | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
@@ -513,12 +556,35 @@ class RouterDelegatePattern(Delegate):
             alternatives=self._alternatives,
             descriptions=self._alternative_descriptions,
         )
+        automatic_activation_enabled = bool(
+            self._skills_context is not None
+            and self._skills_context.config.allow_automatic_activation
+            and self._skills_context.discovered_skill_names
+        )
+        router_skills_context = self._skills_context
+        router_agent_after_activation: JsonActionStepRunner | None = None
+        routed_tool_runtime: ToolRuntime = routing_tool_runtime
+        if automatic_activation_enabled and self._skills_context is not None:
+            routed_tool_runtime = SkillsToolRuntimeAdapter(
+                wrapped_runtime=routing_tool_runtime,
+                skills_context=self._skills_context,
+            )
+            router_agent_after_activation = JsonActionStepRunner(
+                llm_client=self._llm_client,
+                tool_runtime=routing_tool_runtime,
+                system_prompt=self._router_system_prompt,
+                user_prompt_template=self._router_user_prompt_template,
+                allowed_tools=tuple(sorted(self._alternatives)),
+                skills_context=_pinned_only_skills_context(self._skills_context),
+                tracer=self._tracer,
+            )
         router_agent = JsonActionStepRunner(
             llm_client=self._llm_client,
-            tool_runtime=routing_tool_runtime,
+            tool_runtime=routed_tool_runtime,
             system_prompt=self._router_system_prompt,
             user_prompt_template=self._router_user_prompt_template,
             allowed_tools=tuple(sorted(self._alternatives)),
+            skills_context=router_skills_context,
             tracer=self._tracer,
         )
         runtime_tool_specs: dict[str, ToolSpec] = {spec.name: spec for spec in self._tool_runtime.list_tools()}
@@ -533,6 +599,7 @@ class RouterDelegatePattern(Delegate):
             routing_failure_step_id=routing_failure_step_id,
             unknown_alternative_step_id=unknown_alternative_step_id,
             state=execution_state,
+            router_agent_after_activation=router_agent_after_activation,
         )
         routed_delegate_steps = [
             DelegateStep(
@@ -678,6 +745,8 @@ class RouterDelegatePattern(Delegate):
                 available_alternatives=sorted(self._alternatives.keys()),
                 workflow_payload=workflow_payload,
                 workflow_artifacts=workflow_artifacts,
+                skills_context=self._skills_context,
+                tool_results=execution_state.router_tool_results,
             )
 
         selected_name = str(selection_output.get("selected_name", "")).strip()
@@ -693,6 +762,8 @@ class RouterDelegatePattern(Delegate):
                 available_alternatives=sorted(self._alternatives.keys()),
                 workflow_payload=workflow_payload,
                 workflow_artifacts=workflow_artifacts,
+                skills_context=self._skills_context,
+                tool_results=execution_state.router_tool_results,
             )
 
         delegated_result = execution_state.delegated_result
@@ -708,6 +779,8 @@ class RouterDelegatePattern(Delegate):
                 available_alternatives=sorted(self._alternatives.keys()),
                 workflow_payload=workflow_payload,
                 workflow_artifacts=workflow_artifacts,
+                skills_context=self._skills_context,
+                tool_results=execution_state.router_tool_results,
             )
 
         router_delegate_metadata = {
@@ -715,6 +788,10 @@ class RouterDelegatePattern(Delegate):
             "selected_alternative": selected_name,
             "available_alternatives": sorted(self._alternatives.keys()),
         }
+        combined_tool_results = [
+            *execution_state.router_tool_results,
+            *list(delegated_result.tool_results),
+        ]
 
         delegated_output = dict(delegated_result.output)
         delegated_final_output = delegated_output.get("final_output")
@@ -736,11 +813,15 @@ class RouterDelegatePattern(Delegate):
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_ROUTER_DELEGATE,
-            metadata={
-                **dict(delegated_result.metadata),
-                "router_delegate": router_delegate_metadata,
-            },
-            tool_results=list(delegated_result.tool_results),
+            metadata=merge_skills_metadata(
+                metadata={
+                    **dict(delegated_result.metadata),
+                    "router_delegate": router_delegate_metadata,
+                },
+                skills_context=self._skills_context,
+                tool_results=combined_tool_results,
+            ),
+            tool_results=combined_tool_results,
             model_response=delegated_result.model_response,
             error=delegated_result.error,
         )
@@ -780,6 +861,66 @@ def _extract_selected_name_from_router_output(output: Mapping[str, object]) -> s
         if isinstance(tool_name, str) and tool_name.strip():
             return tool_name.strip()
     return ""
+
+
+def _selected_tool_name_from_result(result: ExecutionResult) -> str:
+    """Extract the selected tool name from one router-agent result."""
+    return _extract_selected_name_from_router_output(result.output)
+
+
+def _append_activated_skill_context(
+    *,
+    prompt: str,
+    tool_results: Sequence[ToolResult],
+) -> str:
+    """Append one activated skill block to the router prompt when available."""
+    for tool_result in tool_results:
+        if tool_result.tool_name != "skills.activate" or not tool_result.ok:
+            continue
+        payload = tool_result.result_dict()
+        name = str(payload.get("name", "")).strip()
+        description = str(payload.get("description", "")).strip()
+        instructions = str(payload.get("instructions", "")).strip()
+        skill_root = str(payload.get("skill_root", "")).strip()
+        compatibility_raw = payload.get("compatibility")
+        compatibility = (
+            ", ".join(str(item) for item in compatibility_raw)
+            if isinstance(
+                compatibility_raw,
+                list,
+            )
+            else "(none)"
+        )
+        skill_block = "\n".join(
+            [
+                "Activated routing skill:",
+                f'<active_skill name="{name}" root="{skill_root}">',
+                f"description: {description}",
+                f"compatibility: {compatibility}",
+                "instructions:",
+                instructions,
+                "</active_skill>",
+                "Use the activated routing skill when choosing the best alternative.",
+            ]
+        ).strip()
+        if skill_block:
+            return f"{prompt.rstrip()}\n\n{skill_block}"
+    return prompt
+
+
+def _pinned_only_skills_context(skills_context: SkillsContext) -> SkillsContext:
+    """Return one derived skills context that suppresses automatic activation."""
+    return SkillsContext(
+        config=SkillsConfig(
+            project_root=skills_context.config.project_root,
+            extra_paths=skills_context.config.extra_paths,
+            pinned_skills=skills_context.config.pinned_skills,
+            catalog_prompt_target=skills_context.config.catalog_prompt_target,
+            allow_automatic_activation=False,
+        ),
+        catalog=skills_context.catalog,
+        pinned_skills=skills_context.pinned_skills,
+    )
 
 
 __all__ = [
