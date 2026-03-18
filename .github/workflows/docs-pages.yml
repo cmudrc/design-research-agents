@@ -31,10 +31,11 @@ permissions:
   pages: write
   id-token: write
 
-# Prevent overlapping deployments from stepping on each other.
-# If two commits land close together, only the latest deploy should proceed.
+# Prevent overlapping runs for the same ref from stepping on each other.
+# This keeps main-branch Pages deploys serialized while avoiding cross-PR
+# cancellations that leave unrelated pull requests with red "cancelled" checks.
 concurrency:
-  group: pages
+  group: docs-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
