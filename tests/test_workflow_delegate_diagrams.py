@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+import pytest
+
 from design_research_agents._contracts import Delegate, ExecutionResult
 from design_research_agents.agent import DirectLLMCall
 from design_research_agents.patterns import RouterDelegatePattern
@@ -17,6 +19,7 @@ class _RecordingCompileDelegate(Delegate):
 
     def __init__(self) -> None:
         self.compile_calls: list[tuple[str, str | None, dict[str, object]]] = []
+        self.workflow: Workflow | None = None
 
     def compile(
         self,
@@ -27,15 +30,17 @@ class _RecordingCompileDelegate(Delegate):
     ) -> CompiledExecution:
         captured_dependencies = dict(dependencies or {})
         self.compile_calls.append((prompt, request_id, captured_dependencies))
+        workflow = Workflow(
+            steps=[
+                LogicStep(
+                    step_id="recorded",
+                    handler=lambda context: {"prompt": context["prompt"]},
+                )
+            ]
+        )
+        self.workflow = workflow
         return CompiledExecution(
-            workflow=Workflow(
-                steps=[
-                    LogicStep(
-                        step_id="recorded",
-                        handler=lambda context: {"prompt": context["prompt"]},
-                    )
-                ]
-            ),
+            workflow=workflow,
             input=prompt,
             request_id=request_id or "recorded-request",
             dependencies=captured_dependencies,
@@ -104,8 +109,9 @@ def test_compiled_execution_diagram_helpers_delegate_to_workflow() -> None:
 
 def test_delegate_default_diagram_helpers_compile_for_agents_and_patterns() -> None:
     agent = DirectLLMCall(llm_client=SequenceLLMClient(response_texts=["ignored"]))
-    agent_mermaid = agent.compile_to_mermaid("Describe a design.", direction="LR")
-    agent_svg = agent.compile_to_svg("Describe a design.", direction="LR")
+    compiled_agent = agent.compile("Describe a design.")
+    agent_mermaid = agent.compile_to_mermaid(direction="LR")
+    agent_svg = agent.compile_to_svg(direction="LR")
 
     assert "prepare_request" in agent_mermaid
     assert "call_model" in agent_mermaid
@@ -113,6 +119,8 @@ def test_delegate_default_diagram_helpers_compile_for_agents_and_patterns() -> N
     assert "prepare_request" in agent_svg
     assert "call_model" in agent_svg
     assert "finalize" in agent_svg
+    assert agent_mermaid == compiled_agent.workflow.to_mermaid(direction="LR")
+    assert agent_svg == compiled_agent.workflow.to_svg(direction="LR")
 
     workflow = RouterDelegatePattern(
         llm_client=SequenceLLMClient(response_texts=['{"tool_name":"alt_two","tool_input":{},"reason":"best fit"}']),
@@ -122,8 +130,9 @@ def test_delegate_default_diagram_helpers_compile_for_agents_and_patterns() -> N
             "alt_two": StaticMarkerAgent(marker="two"),
         },
     )
-    pattern_mermaid = workflow.compile_to_mermaid("Route this request.", direction="LR")
-    pattern_svg = workflow.compile_to_svg("Route this request.", direction="LR")
+    compiled_pattern = workflow.compile("Route this request.")
+    pattern_mermaid = workflow.compile_to_mermaid(direction="LR")
+    pattern_svg = workflow.compile_to_svg(direction="LR")
 
     assert "agent_routing_selection" in pattern_mermaid
     assert "agent_routing_delegate_alt_two" in pattern_mermaid
@@ -131,27 +140,33 @@ def test_delegate_default_diagram_helpers_compile_for_agents_and_patterns() -> N
     assert "agent_routing_selection" in pattern_svg
     assert "agent_routing_delegate_alt_two" in pattern_svg
     assert "route=alt_two" in pattern_svg
+    assert pattern_mermaid == compiled_pattern.workflow.to_mermaid(direction="LR")
+    assert pattern_svg == compiled_pattern.workflow.to_svg(direction="LR")
 
 
-def test_delegate_default_diagram_helpers_forward_compile_inputs() -> None:
+def test_delegate_default_diagram_helpers_require_prior_compile() -> None:
     delegate = _RecordingCompileDelegate()
 
-    mermaid = delegate.compile_to_mermaid(
-        "Map this workflow.",
-        request_id="req-diagram",
-        dependencies={"mode": "test"},
-        direction="LR",
-    )
-    svg = delegate.compile_to_svg(
-        "Map this workflow.",
-        request_id="req-diagram",
-        dependencies={"mode": "test"},
-        direction="LR",
-    )
+    with pytest.raises(RuntimeError, match="Compile the delegate once"):
+        delegate.compile_to_mermaid(direction="LR")
+    with pytest.raises(RuntimeError, match="Compile the delegate once"):
+        delegate.compile_to_svg(direction="LR")
 
-    assert "recorded" in mermaid
-    assert "recorded" in svg
+    assert delegate.compile_calls == []
+
+
+def test_delegate_default_diagram_helpers_use_existing_workflow_without_recompile() -> None:
+    delegate = _RecordingCompileDelegate()
+    compiled = delegate.compile(
+        "Map this workflow.",
+        request_id="req-diagram",
+        dependencies={"mode": "test"},
+    )
+    mermaid = delegate.compile_to_mermaid(direction="LR")
+    svg = delegate.compile_to_svg(direction="LR")
+
+    assert mermaid == compiled.workflow.to_mermaid(direction="LR")
+    assert svg == compiled.workflow.to_svg(direction="LR")
     assert delegate.compile_calls == [
-        ("Map this workflow.", "req-diagram", {"mode": "test"}),
         ("Map this workflow.", "req-diagram", {"mode": "test"}),
     ]

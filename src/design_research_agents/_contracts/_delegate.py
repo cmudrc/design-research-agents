@@ -8,7 +8,22 @@ from typing import TYPE_CHECKING, Protocol
 from ._execution import ExecutionResult
 
 if TYPE_CHECKING:
+    from design_research_agents.workflow import Workflow
     from design_research_agents.workflow._compiled import CompiledExecution
+
+
+def _require_compiled_workflow(delegate: object) -> Workflow:
+    """Return the most recently compiled workflow attached to a delegate."""
+    from design_research_agents.workflow import Workflow
+
+    workflow = getattr(delegate, "workflow", None)
+    if isinstance(workflow, Workflow):
+        return workflow
+    raise RuntimeError(
+        "No compiled workflow is available on this delegate. "
+        "Compile the delegate once before calling compile_to_mermaid() or compile_to_svg(), "
+        "or render from the returned CompiledExecution instead."
+    )
 
 
 class Delegate(Protocol):
@@ -29,35 +44,21 @@ class Delegate(Protocol):
 
     def compile_to_mermaid(
         self,
-        prompt: str,
         *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
         direction: str = "TD",
     ) -> str:
-        """Compile one delegate run and return a Mermaid workflow diagram."""
-        compiled = self.compile(
-            prompt,
-            request_id=request_id,
-            dependencies=dependencies,
-        )
-        return compiled.to_mermaid(direction=direction)
+        """Render Mermaid for the most recently compiled workflow on this delegate."""
+        workflow = _require_compiled_workflow(self)
+        return workflow.to_mermaid(direction=direction)
 
     def compile_to_svg(
         self,
-        prompt: str,
         *,
-        request_id: str | None = None,
-        dependencies: Mapping[str, object] | None = None,
         direction: str = "TD",
     ) -> str:
-        """Compile one delegate run and return an SVG workflow diagram."""
-        compiled = self.compile(
-            prompt,
-            request_id=request_id,
-            dependencies=dependencies,
-        )
-        return compiled.to_svg(direction=direction)
+        """Render SVG for the most recently compiled workflow on this delegate."""
+        workflow = _require_compiled_workflow(self)
+        return workflow.to_svg(direction=direction)
 
     def run(
         self,
