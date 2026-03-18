@@ -21,6 +21,7 @@ from design_research_agents._implementations._shared._agent_internal._prompt_alt
     format_raw_alternatives,
     resolve_alternatives_prompt_target,
 )
+from design_research_agents._skills import SkillsContext, inject_skills_into_messages
 
 
 def generate_response(llm_client: LLMClient, llm_request: LLMRequest) -> LLMResponse:
@@ -125,22 +126,31 @@ def extract_messages(
     *,
     input_payload: Mapping[str, object],
     default_system_prompt: str | None,
+    skills_context: SkillsContext | None = None,
+    include_skill_catalog: bool = False,
 ) -> tuple[list[LLMMessage], str]:
     """Extract normalized message list from explicit messages or prompt fallback.
 
     Args:
         input_payload: Raw run input payload.
         default_system_prompt: Optional default system prompt from agent configuration.
+        skills_context: Optional resolved Agent Skills context for prompt injection.
+        include_skill_catalog: Whether discoverable skills should be advertised in the prompt.
 
     Returns:
         Normalized messages plus a label describing their source.
     """
     normalized_input_messages = normalize_messages(input_payload.get("messages"))
     if normalized_input_messages:
+        messages_with_alternatives = inject_alternatives_into_messages(
+            messages=normalized_input_messages,
+            input_payload=input_payload,
+        )
         return (
-            inject_alternatives_into_messages(
-                messages=normalized_input_messages,
-                input_payload=input_payload,
+            inject_skills_into_messages(
+                messages=messages_with_alternatives,
+                skills_context=skills_context,
+                include_catalog=include_skill_catalog,
             ),
             "messages",
         )
@@ -153,8 +163,13 @@ def extract_messages(
     if system_prompt is not None:
         messages.append(LLMMessage(role="system", content=system_prompt))
     messages.append(LLMMessage(role="user", content=extract_prompt(input_payload)))
+    messages_with_alternatives = inject_alternatives_into_messages(messages=messages, input_payload=input_payload)
     return (
-        inject_alternatives_into_messages(messages=messages, input_payload=input_payload),
+        inject_skills_into_messages(
+            messages=messages_with_alternatives,
+            skills_context=skills_context,
+            include_catalog=include_skill_catalog,
+        ),
         "prompt",
     )
 

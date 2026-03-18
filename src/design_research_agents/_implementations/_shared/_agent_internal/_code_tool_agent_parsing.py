@@ -104,6 +104,16 @@ def compile_default_allowed_tools(
             raw_tools=default_tools,
             runtime_specs=runtime_specs,
         )
+        if "skills.activate" in runtime_specs and all(
+            allowed_tool.tool_name != "skills.activate" for allowed_tool in compiled_from_input
+        ):
+            compiled_from_input.append(
+                AllowedTool(
+                    tool_name="skills.activate",
+                    description=runtime_specs["skills.activate"].description,
+                    input_schema=dict(runtime_specs["skills.activate"].input_schema),
+                )
+            )
         return tuple(compiled_from_input)
 
     return tuple(

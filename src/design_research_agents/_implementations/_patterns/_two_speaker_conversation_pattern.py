@@ -46,6 +46,7 @@ from design_research_agents._runtime._patterns import (
 from design_research_agents._runtime._patterns import (
     is_call_success as _runtime_is_call_success,
 )
+from design_research_agents._skills import SkillsConfig, SkillsContext, merge_skills_metadata, resolve_skills_context
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
 
@@ -308,6 +309,7 @@ class TwoSpeakerConversationPattern(Delegate):
         speaker_b_user_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and prompt defaults for conversation orchestration.
@@ -327,6 +329,7 @@ class TwoSpeakerConversationPattern(Delegate):
             speaker_b_user_prompt_template: Optional speaker B user template override.
             default_request_id_prefix: Optional request-id prefix used for auto-generated ids.
             default_dependencies: Default dependency mapping merged into each run.
+            skills: Optional Agent Skills configuration.
             tracer: Optional tracer used for pattern and nested agent traces.
 
         Raises:
@@ -370,6 +373,8 @@ class TwoSpeakerConversationPattern(Delegate):
         self._speaker_b_delegate = speaker_b_delegate
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
+        self._skills_config = skills
+        self._skills_context = resolve_skills_context(skills)
         self._tracer = tracer
         self.workflow: Workflow | None = None
         self._conversation_runtime_state: dict[str, object] | None = None
@@ -431,6 +436,7 @@ class TwoSpeakerConversationPattern(Delegate):
                 max_turns=self._max_turns,
                 speaker_a_name=self._speaker_a_name,
                 speaker_b_name=self._speaker_b_name,
+                skills_context=self._skills_context,
             ),
         )
 
@@ -448,6 +454,7 @@ class TwoSpeakerConversationPattern(Delegate):
             speaker_a_delegate = DirectLLMCall(
                 llm_client=self._llm_client_a,
                 system_prompt=self._speaker_a_system_prompt,
+                skills=self._skills_config,
                 tracer=self._tracer,
             )
 
@@ -458,6 +465,7 @@ class TwoSpeakerConversationPattern(Delegate):
             speaker_b_delegate = DirectLLMCall(
                 llm_client=self._llm_client_b,
                 system_prompt=self._speaker_b_system_prompt,
+                skills=self._skills_config,
                 tracer=self._tracer,
             )
         runtime_state: dict[str, object] = {"last_model_response": None}
@@ -559,6 +567,7 @@ class TwoSpeakerConversationPattern(Delegate):
             max_turns=self._max_turns,
             speaker_a_name=self._speaker_a_name,
             speaker_b_name=self._speaker_b_name,
+            skills_context=self._skills_context,
         )
 
 
@@ -571,6 +580,7 @@ def _build_conversation_result(
     max_turns: int,
     speaker_a_name: str,
     speaker_b_name: str,
+    skills_context: SkillsContext | None,
 ) -> ExecutionResult:
     """Build final conversation result from workflow output.
 
@@ -582,6 +592,7 @@ def _build_conversation_result(
         max_turns: Configured turn limit.
         speaker_a_name: Display speaker name for A.
         speaker_b_name: Display speaker name for B.
+        skills_context: Optional resolved Agent Skills context.
 
     Returns:
         Final conversation execution result.
@@ -626,7 +637,10 @@ def _build_conversation_result(
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_TWO_SPEAKER_CONVERSATION,
-            metadata={"stage": "loop", "max_turns": max_turns, "turns_executed": turns_executed},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "loop", "max_turns": max_turns, "turns_executed": turns_executed},
+                skills_context=skills_context,
+            ),
             tool_results=[],
             model_response=model_response,
             error=failure_error or "Conversation loop failed.",
@@ -645,7 +659,10 @@ def _build_conversation_result(
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_TWO_SPEAKER_CONVERSATION,
-            metadata={"stage": "workflow", "max_turns": max_turns, "turns_executed": turns_executed},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "workflow", "max_turns": max_turns, "turns_executed": turns_executed},
+                skills_context=skills_context,
+            ),
             tool_results=[],
             model_response=model_response,
             error="Conversation workflow failed.",
@@ -663,7 +680,10 @@ def _build_conversation_result(
         request_id=request_id,
         dependencies=dependencies,
         mode=MODE_TWO_SPEAKER_CONVERSATION,
-        metadata={"max_turns": max_turns, "turns_executed": turns_executed},
+        metadata=merge_skills_metadata(
+            metadata={"max_turns": max_turns, "turns_executed": turns_executed},
+            skills_context=skills_context,
+        ),
         tool_results=[],
         model_response=model_response,
         requested_mode=MODE_TWO_SPEAKER_CONVERSATION,
