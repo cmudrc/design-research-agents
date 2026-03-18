@@ -33,7 +33,7 @@ Example output shape (values vary by run):
 ## References
 - `Agent Skills specification <https://agentskills.io/specification>`_
 - `Prompting Guide for deterministic system context <https://platform.openai.com/docs/guides/prompt-engineering>`_
-- `System prompting patterns for reliable instruction following <https://www.anthropic.com/engineering/prompt-engineering>`_
+- `System prompting patterns for reliable instruction following <https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/overview>`_
 """
 
 from __future__ import annotations
