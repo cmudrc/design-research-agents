@@ -10,7 +10,7 @@ Project maturity is pre-alpha; breaking changes are acceptable only with explici
 - Create and activate a virtual environment:
   - `python -m venv .venv`
   - `source .venv/bin/activate`
-- Reproducible release interpreter is pinned in `.python-version` (`3.12.12`).
+- Reproducible release interpreter is set in `.python-version` (`3.12`).
 - Install dependencies:
   - `make dev` for normal development (`editable + [dev]`, including release tooling)
   - `make repro REPRO_EXTRAS="dev full"` for frozen reproducible installs from `uv.lock`

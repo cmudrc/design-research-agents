@@ -43,7 +43,7 @@ print(result.final_output)
 ## Quickstart
 
 Requires Python 3.12+.
-Reproducible release installs are pinned to Python `3.12.12` (see `.python-version`).
+Reproducible release installs target Python `3.12` (see `.python-version`).
 
 ```bash
 python -m venv .venv

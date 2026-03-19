@@ -32,7 +32,7 @@ Maintainer release baseline
 
 Use this when preparing a tagged release:
 
-1. Use Python ``3.12.12`` (the pinned interpreter in ``.python-version``).
+1. Use Python ``3.12`` (from ``.python-version``).
 2. Regenerate lock data: ``make lock``.
 3. Verify the frozen install and full checks: ``make repro REPRO_EXTRAS="dev full"`` and ``make ci``.
 4. Build release artifacts and validate metadata: ``make release-check``.
