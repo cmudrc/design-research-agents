@@ -34,6 +34,8 @@ The public ``design_research_agents.memory`` facade also exposes deterministic
 built-in knowledge profiles for ``stem``, ``aerospace``, and ``mechanics``.
 Use ``seed_builtin_knowledge_profile(...)`` to preload a text/vector store,
 a graph store, or both.
+Each checked-in built-in profile now lives in its own source file, which makes
+local discovery and editing much easier than the previous single-module layout.
 
 For example, this seeds a mechanics baseline into a SQLite store:
 

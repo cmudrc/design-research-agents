@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import resources
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from design_research_agents._contracts._memory import (
     GraphSubgraphResult,
     MemorySearchQuery,
 )
+from design_research_agents._memory import _builtin_profiles as builtin_profiles
 from design_research_agents._memory import _graph_extraction as graph_extraction_impl
 from design_research_agents._memory._stores import _networkx_graph_store as graph_store_impl
 from design_research_agents.memory import (
@@ -297,3 +299,11 @@ def test_built_in_profile_helpers_validate_names(tmp_path: Path) -> None:
     with SQLiteMemoryStore(db_path=tmp_path / "stem.sqlite3") as store:
         seed_result = seed_builtin_knowledge_profile("stem", memory_store=store)
     assert seed_result.to_dict()["profile_name"] == "stem"
+
+
+def test_built_in_profiles_live_in_dedicated_modules() -> None:
+    profile_module_names = {
+        resource.name for resource in resources.files(builtin_profiles).iterdir() if resource.name.endswith(".py")
+    }
+
+    assert {"_aerospace.py", "_mechanics.py", "_stem.py"} <= profile_module_names
