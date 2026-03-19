@@ -43,6 +43,10 @@ Extras Matrix
      - Gemini hosted backend
    * - ``groq``
      - Groq hosted backend
+   * - ``memory_chroma``
+     - Optional ChromaDB-backed vector memory store
+   * - ``memory_graph``
+     - Optional NetworkX-backed graph memory store
    * - ``llama_cpp``
      - Managed llama.cpp backend
    * - ``transformers``
@@ -70,6 +74,8 @@ Recommended install profiles:
 
 - hosted OpenAI-family studies: ``pip install -e ".[dev,openai]"``
 - hosted provider comparisons: ``pip install -e ".[dev,providers]"``
+- Chroma-backed memory experiments: ``pip install -e ".[dev,memory_chroma]"``
+- graph-memory experiments: ``pip install -e ".[dev,memory_graph]"``
 - local-only studies: ``pip install -e ".[dev,local]"``
 - broad backend validation: ``pip install -e ".[dev,full]"``
 

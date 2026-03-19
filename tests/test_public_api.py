@@ -208,8 +208,13 @@ def test_llm_module_exports_request_and_message_contracts() -> None:
 
 
 def test_memory_module_exports_public_memory_facade() -> None:
+    assert "ChromaMemoryStore" in dra_memory.__all__
+    assert "NetworkXGraphMemoryStore" in dra_memory.__all__
+    assert "seed_builtin_knowledge_profile" in dra_memory.__all__
     assert dra_memory.SQLiteMemoryStore.__name__ == "SQLiteMemoryStore"
+    assert dra_memory.ChromaMemoryStore.__name__ == "ChromaMemoryStore"
     assert dra_memory.LLMEmbeddingProvider.__name__ == "LLMEmbeddingProvider"
+    assert dra_memory.NetworkXGraphMemoryStore.__name__ == "NetworkXGraphMemoryStore"
 
 
 def test_legacy_contracts_namespace_is_removed() -> None:

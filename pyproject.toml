@@ -71,6 +71,11 @@ gemini = ["google-genai>=1.0,<2"]
 
 groq = ["groq>=1.0,<2"]
 
+# Optional memory backends
+memory_chroma = ["chromadb>=1.0,<2"]
+
+memory_graph = ["networkx>=3.0,<4"]
+
 # Multi-OS backends
 llama_cpp = [
   "huggingface-hub>=0.24",

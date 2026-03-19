@@ -32,7 +32,17 @@ from ._llm import (
     ToolCallDelta,
     Usage,
 )
-from ._memory import MemoryRecord, MemorySearchQuery, MemoryStore, MemoryWriteRecord
+from ._memory import (
+    GraphEdgeRecord,
+    GraphMemoryStore,
+    GraphNodeRecord,
+    GraphSearchQuery,
+    GraphSubgraphResult,
+    MemoryRecord,
+    MemorySearchQuery,
+    MemoryStore,
+    MemoryWriteRecord,
+)
 from ._termination import (
     SOURCE_GUARDRAIL,
     SOURCE_INVALID_PAYLOAD,
@@ -123,6 +133,11 @@ __all__ = [
     "DelegateTarget",
     "EmbeddingResult",
     "ExecutionResult",
+    "GraphEdgeRecord",
+    "GraphMemoryStore",
+    "GraphNodeRecord",
+    "GraphSearchQuery",
+    "GraphSubgraphResult",
     "LLMAuthError",
     "LLMBadResponseError",
     "LLMCapabilityError",
