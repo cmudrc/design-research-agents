@@ -28,6 +28,7 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
+    "sphinx_copybutton",
     "sphinxcontrib.mermaid",
 ]
 if os.environ.get("DRA_DOCS_ENABLE_INTERSPHINX") == "1":
