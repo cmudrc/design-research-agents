@@ -31,3 +31,19 @@ html[data-theme="dark"] {
 .navbar-brand img {
   max-height: 2.7rem;
 }
+
+.drc-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 1rem;
+}
+
+.drc-badge-link {
+  line-height: 0;
+}
+
+.drc-badge-row img {
+  height: 20px;
+  vertical-align: middle;
+}

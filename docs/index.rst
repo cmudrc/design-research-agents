@@ -12,6 +12,26 @@ Interpretable traces, explicit tool boundaries, and documented workflow
 contracts are core features. They make agent studies easier to reproduce,
 compare, and audit across experiments.
 
+.. raw:: html
+
+   <div class="drc-badge-row">
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml">
+       <img alt="CI" src="https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml">
+       <img alt="Coverage" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/coverage.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml">
+       <img alt="Examples Passing" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-passing.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml">
+       <img alt="Public API In Examples" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml">
+       <img alt="Docs" src="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg">
+     </a>
+   </div>
+
 .. note::
 
    **Start with** :doc:`quickstart` to run a first agent workflow, inspect the
