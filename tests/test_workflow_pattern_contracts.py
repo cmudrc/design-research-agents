@@ -37,6 +37,7 @@ from design_research_agents._implementations._patterns._two_speaker_conversation
 )
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import CompiledExecution, Workflow
+from tests.helpers.problem_stubs import FakeProblem, FakeProblemMetadata
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
 
 
@@ -143,6 +144,38 @@ def test_exported_patterns_compile_contract(
     assert isinstance(compiled, CompiledExecution)
     assert isinstance(compiled.workflow, Workflow)
     assert pattern.workflow is compiled.workflow  # type: ignore[attr-defined]
+
+
+def test_prompt_pattern_compile_accepts_problem_like_input() -> None:
+    pattern = TwoSpeakerConversationPattern(
+        llm_client_a=SequenceLLMClient(response_texts=["speaker-a", "speaker-b"]),
+        max_turns=1,
+    )
+    problem = FakeProblem(
+        rendered_brief="Discuss whether the team should standardize service fasteners.",
+        metadata=FakeProblemMetadata(
+            problem_id="problem-pattern-001",
+            title="Fastener standardization",
+            kind="discussion",
+        ),
+        candidate_kind="conversation",
+        family="packaged-problems",
+    )
+
+    compiled = pattern.compile(problem, request_id="req-pattern-problem-like")
+    result = compiled.run()
+
+    assert compiled.trace_input["prompt"] == ("Discuss whether the team should standardize service fasteners.")
+    assert compiled.trace_input["problem"] is problem
+    assert compiled.trace_input["problem_metadata"] == {
+        "problem_id": "problem-pattern-001",
+        "title": "Fastener standardization",
+        "kind": "discussion",
+        "candidate_kind": "conversation",
+        "family": "packaged-problems",
+    }
+    assert result.success is True
+    assert result.output["final_output"] == {"speaker": "speaker_b", "message": "speaker-b"}
 
 
 @pytest.mark.parametrize(

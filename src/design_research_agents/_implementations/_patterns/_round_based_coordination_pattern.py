@@ -81,7 +81,7 @@ class RoundBasedCoordinationPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -95,13 +95,14 @@ class RoundBasedCoordinationPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile peer-only networked coordination rounds."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
@@ -109,12 +110,12 @@ class RoundBasedCoordinationPattern(Delegate):
         )
         mode = MODE_BLACKBOARD if isinstance(self, BlackboardPattern) else MODE_ROUND_BASED_COORDINATION
         input_payload = {
-            "prompt": prompt,
+            **run_context.normalized_input,
             "mode": mode,
             "max_rounds": self._max_rounds,
         }
         workflow = self._build_workflow(
-            prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
