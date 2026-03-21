@@ -23,6 +23,7 @@ workflow orchestration, tool execution, and traceable experimentation.
 This package centers on reproducible agent workflows with a compact public API:
 
 - Direct and multi-step agent entry points (`DirectLLMCall`, `MultiStepAgent`)
+- A seeded random control-condition agent for packaged-problem studies (`SeededRandomBaselineAgent`)
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A unified tool runtime (`Toolbox`) for callable, script, and MCP-backed tools
 - Hosted and local LLM clients, plus `ModelSelector` policy-driven backend selection
@@ -73,7 +74,7 @@ The supported public surface is whatever is exported from
 
 Top-level exports include:
 
-- Agent entry points: `DirectLLMCall`, `MultiStepAgent`
+- Agent entry points: `DirectLLMCall`, `MultiStepAgent`, `SeededRandomBaselineAgent`
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`

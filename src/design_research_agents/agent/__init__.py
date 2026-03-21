@@ -9,6 +9,7 @@ from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents._implementations._agents:DirectLLMCall",
     "MultiStepAgent": "design_research_agents._implementations._agents:MultiStepAgent",
+    "SeededRandomBaselineAgent": "design_research_agents._implementations._agents:SeededRandomBaselineAgent",
 }
 
 __all__ = list(_EXPORTS.keys())

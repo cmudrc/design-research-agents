@@ -10,6 +10,7 @@ from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
+    "SeededRandomBaselineAgent": "design_research_agents.agent:SeededRandomBaselineAgent",
     "Toolbox": "design_research_agents.tools:Toolbox",
     "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
     "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
@@ -108,6 +109,7 @@ if TYPE_CHECKING:
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
+    from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
