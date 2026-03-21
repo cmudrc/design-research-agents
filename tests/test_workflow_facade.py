@@ -25,6 +25,7 @@ from design_research_agents.agent import DirectLLMCall
 from design_research_agents.patterns import DebatePattern
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import Workflow, list_of, scalar, typed_dict
+from tests.helpers.problem_stubs import FakeProblem, FakeProblemMetadata
 from tests.helpers.workflow_stubs import CaptureDependenciesAgent, SequenceLLMClient, StaticJsonDraftAgent
 
 
@@ -568,7 +569,7 @@ def test_workflow_infers_prompt_mode_when_input_schema_is_omitted() -> None:
     assert result.success
     assert result.step_results["echo"].output["prompt"] == "hello"
 
-    with pytest.raises(ValueError, match="without input_schema"):
+    with pytest.raises(TypeError, match="problem-like object"):
         workflow.run({"not": "prompt"})
 
 
@@ -590,6 +591,68 @@ def test_workflow_infers_schema_mode_when_input_schema_is_provided() -> None:
 
     with pytest.raises(ValueError, match="with input_schema"):
         workflow.run("prompt input")
+
+    with pytest.raises(ValueError, match="mapping input"):
+        workflow.run(
+            FakeProblem(
+                rendered_brief="This problem-like object should still be rejected in schema mode.",
+                metadata=FakeProblemMetadata(
+                    problem_id="problem-schema-mode-001",
+                    title="Schema mode rejection",
+                    kind="validation",
+                ),
+            )
+        )
+
+
+def test_workflow_prompt_mode_accepts_problem_like_input_and_validates_final_output() -> None:
+    problem = FakeProblem(
+        rendered_brief="Draft a recommendation for the packaged design problem.",
+        metadata=FakeProblemMetadata(
+            problem_id="problem-workflow-001",
+            title="Packaged design problem",
+            kind="recommendation",
+        ),
+        candidate_kind="structured_answer",
+        family="packaged-problems",
+    )
+    workflow = Workflow(
+        tool_runtime=Toolbox(),
+        steps=[
+            LogicStep(
+                step_id="emit",
+                handler=lambda context: {
+                    "final_output": {
+                        "prompt": context["prompt"],
+                        "problem_id": context["problem_metadata"]["problem_id"],
+                        "candidate_kind": context["problem_metadata"]["candidate_kind"],
+                        "has_problem": context["problem"] is problem,
+                    }
+                },
+            )
+        ],
+        output_schema={
+            "type": "object",
+            "required": ["prompt", "problem_id", "candidate_kind", "has_problem"],
+            "properties": {
+                "prompt": {"type": "string"},
+                "problem_id": {"type": "string"},
+                "candidate_kind": {"type": "string"},
+                "has_problem": {"type": "boolean"},
+            },
+            "additionalProperties": False,
+        },
+    )
+
+    result = workflow.run(problem, request_id="test-problem-like-workflow")
+
+    assert result.success
+    assert result.output["final_output"] == {
+        "prompt": "Draft a recommendation for the packaged design problem.",
+        "problem_id": "problem-workflow-001",
+        "candidate_kind": "structured_answer",
+        "has_problem": True,
+    }
 
 
 def test_workflow_output_schema_validation_supports_helpers() -> None:

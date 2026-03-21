@@ -8,13 +8,15 @@ Introduction
 
 ReAct and Plan-and-Solve motivate explicit control over reasoning phases, and JSON Schema formalizes
 structured inputs/outputs when prompt-mode steps need predictable contracts. This example shows prompt-mode
-workflow composition with agent, logic, and tool steps under one runtime.
+workflow composition with agent, logic, and tool steps under one runtime, including one packaged-problem-like
+object passed directly to ``Workflow.run(...)``.
 
 Technical Implementation
 ------------------------
 
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``Workflow.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``Workflow.run(...)`` with a fixed ``request_id``,
+   once from a packaged-problem-like object and once from a plain fallback string prompt.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
@@ -39,7 +41,7 @@ The diagram below is generated from the example's configured ``Workflow``.
 
 .. literalinclude:: ../../../examples/workflow/workflow_prompt_mode.py
    :language: python
-   :lines: 53-
+   :lines: 55-
    :linenos:
 
 Expected Results
@@ -58,7 +60,7 @@ Example output shape (values vary by run):
    {
      "agent_branch_run": {
        "success": true,
-       "final_output": "<example-specific payload>",
+       "final_output": "<evaluation-ready final_output payload>",
        "terminated_reason": "<string-or-null>",
        "error": null,
        "trace": {

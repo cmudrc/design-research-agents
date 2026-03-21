@@ -67,7 +67,7 @@ class BeamSearchPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -81,27 +81,28 @@ class BeamSearchPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one tree-search workflow."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
             dependencies=dependencies,
         )
         input_payload = {
-            "prompt": prompt,
+            **run_context.normalized_input,
             "mode": MODE_BEAM_SEARCH,
             "max_depth": self._max_depth,
             "branch_factor": self._branch_factor,
             "beam_width": self._beam_width,
         }
         workflow = self._build_workflow(
-            prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
@@ -112,7 +113,7 @@ class BeamSearchPattern(Delegate):
             if isinstance(maybe_root_node, Mapping)
             else {
                 "node_id": "root",
-                "candidate": {"text": prompt, "depth": 0},
+                "candidate": {"text": run_context.prompt, "depth": 0},
                 "score": 0.0,
                 "depth": 0,
                 "parent_id": None,

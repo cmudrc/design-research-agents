@@ -3,12 +3,14 @@
 ## Introduction
 ReAct and Plan-and-Solve motivate explicit control over reasoning phases, and JSON Schema formalizes
 structured inputs/outputs when prompt-mode steps need predictable contracts. This example shows prompt-mode
-workflow composition with agent, logic, and tool steps under one runtime.
+workflow composition with agent, logic, and tool steps under one runtime, including one packaged-problem-like
+object passed directly to ``Workflow.run(...)``.
 
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``Workflow.run(...)`` with a fixed ``request_id``.
+2. Build the runtime surface (public APIs only) and execute ``Workflow.run(...)`` with a fixed ``request_id``,
+   once from a packaged-problem-like object and once from a plain fallback string prompt.
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
@@ -22,7 +24,7 @@ Example output shape (values vary by run):
    {
      "agent_branch_run": {
        "success": true,
-       "final_output": "<example-specific payload>",
+       "final_output": "<evaluation-ready final_output payload>",
        "terminated_reason": "<string-or-null>",
        "error": null,
        "trace": {
@@ -53,6 +55,7 @@ Example output shape (values vary by run):
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import design_research_agents as drag
@@ -68,8 +71,36 @@ class _DocDelegate:
         raise RuntimeError("Docs-only delegate stub should not be executed.")
 
 
+class _ExampleProblemMetadata:
+    def __init__(self, *, problem_id: str, title: str, kind: str) -> None:
+        self.problem_id = problem_id
+        self.title = title
+        self.kind = kind
+
+
+class _ExamplePackagedProblem:
+    """Tiny packaged-problem stand-in used to document prompt-like workflow inputs."""
+
+    def __init__(self) -> None:
+        self.metadata = _ExampleProblemMetadata(
+            problem_id="workflow-prompt-problem-001",
+            title="Reduce onboarding friction",
+            kind="design-brief",
+        )
+        self.candidate_kind = "json-brief"
+        self.family = "workflow-example"
+
+    def render_brief(self) -> str:
+        return "Draft a design brief for reducing onboarding friction in a medical-device setup flow."
+
+
 def _summarize_run(result: drag.ExecutionResult) -> dict[str, object]:
     return result.summary()
+
+
+def _problem_metadata_from_context(context: Mapping[str, object]) -> dict[str, object]:
+    metadata = context.get("problem_metadata", {})
+    return dict(metadata) if isinstance(metadata, dict) else {}
 
 
 def build_example_workflow(
@@ -117,6 +148,8 @@ def build_example_workflow(
                 dependencies=("parse_agent_json",),
                 handler=lambda context: {
                     "branch": "agent",
+                    "problem_id": _problem_metadata_from_context(context).get("problem_id", ""),
+                    "candidate_kind": _problem_metadata_from_context(context).get("candidate_kind", ""),
                     "title": context["dependency_results"]["parse_agent_json"]["output"]["result"]["json"].get(
                         "title", ""
                     ),
@@ -147,7 +180,7 @@ def build_example_workflow(
 
 
 def main() -> None:
-    """Run reusable prompt-mode workflow for two routed design requests."""
+    """Run reusable prompt-mode workflow for one packaged problem and one fallback prompt."""
     tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
@@ -168,8 +201,9 @@ def main() -> None:
         agent_request_id = "example-workflow-prompt-design-agent-001"
         # Keep per-branch request ids stable so prompt-mode variants are easy to compare.
         template_request_id = "example-workflow-prompt-design-template-001"
+        packaged_problem = _ExamplePackagedProblem()
         agent_result = workflow.run(
-            "Draft a design brief for reducing onboarding friction in a medical-device setup flow.",
+            packaged_problem,
             request_id=agent_request_id,
         )
         template_result = workflow.run(

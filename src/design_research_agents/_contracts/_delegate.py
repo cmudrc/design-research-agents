@@ -35,7 +35,7 @@ class Delegate(Protocol):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -62,19 +62,19 @@ class Delegate(Protocol):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
         """Execute one delegate run and return the final ``ExecutionResult`` payload.
 
-        Implementations should treat ``prompt`` as the prompt text for one run.
+        Implementations should treat ``prompt`` as one prompt-like run input.
         Use ``request_id`` and ``dependencies`` for run metadata and upstream
         dependency payloads.
 
         Args:
-            prompt: Prompt text for the run.
+            prompt: Prompt text or one problem-like object for the run.
             request_id: Optional caller-provided request id for tracing.
             dependencies: Optional dependency payload mapping.
 

@@ -22,6 +22,7 @@ from design_research_agents._implementations._shared._agent_internal._result_bui
 )
 from design_research_agents._implementations._shared._agent_internal._run_options import (
     normalize_dependencies,
+    normalize_input_payload,
     resolve_request_id,
 )
 from design_research_agents._runtime._common._run_defaults import (
@@ -103,10 +104,15 @@ class PatternRunContext:
     """Resolved request id used for tracing and nested invocations."""
     dependencies: dict[str, object]
     """Merged and normalized run dependency mapping."""
+    normalized_input: dict[str, object]
+    """Normalized run input payload mapping."""
+    prompt: str
+    """Resolved prompt extracted from normalized input."""
 
 
 def resolve_pattern_run_context(
     *,
+    prompt: str | object,
     default_request_id_prefix: str | None,
     default_dependencies: Mapping[str, object],
     request_id: str | None,
@@ -125,9 +131,12 @@ def resolve_pattern_run_context(
             run_dependencies=dependencies,
         )
     )
+    normalized_input = normalize_input_payload(prompt)
     return PatternRunContext(
         request_id=resolved_request_id,
         dependencies=resolved_dependencies,
+        normalized_input=normalized_input,
+        prompt=str(normalized_input.get("prompt", "")),
     )
 
 
