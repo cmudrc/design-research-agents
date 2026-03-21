@@ -1,18 +1,26 @@
 Agents
 ======
 
-The framework provides two core concrete agent entry points. Choose by
-execution pattern first, then by control requirements.
+The framework provides three core concrete agent entry points. All three use
+the same public delegate contract: ``compile(prompt, ...)`` for workflow
+construction and ``run(prompt, ...)`` for execution. Choose by execution
+pattern first, then by control requirements.
 
 Multi-agent orchestration patterns (``PlanExecutePattern``,
 ``ProposeCriticPattern``, ``RouterDelegatePattern``) live in the patterns module and are
 implemented with the same public workflow step primitives available to users.
+
+``SeededRandomBaselineAgent`` is a lightweight benchmarking/control-condition
+participant for packaged-problem studies. It follows the same workflow-backed
+runtime shape as the other public agents; supply packaged-problem objects
+through the run-time ``dependencies`` mapping.
 
 Overview
 --------
 
 - ``DirectLLMCall``
 - ``MultiStepAgent`` (``mode="direct" | "json" | "code"``)
+- ``SeededRandomBaselineAgent``
 
 Decision table
 --------------
@@ -35,6 +43,9 @@ Decision table
    * - Iterative code-action loops
      - ``MultiStepAgent(mode="code")``
      - ReAct-style loop with code actions
+   * - Packaged-problem control condition
+     - ``SeededRandomBaselineAgent``
+     - Thin seeded baseline over public problem contracts
 
 Background references
 ---------------------
