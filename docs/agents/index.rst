@@ -15,12 +15,18 @@ participant for packaged-problem studies. It follows the same workflow-backed
 runtime shape as the other public agents; supply packaged-problem objects
 through the run-time ``dependencies`` mapping.
 
+``WorkflowStudyDelegate`` wraps a prompt-mode ``Workflow`` for packaged-problem
+studies. Use it when the workflow is the real participant implementation but
+the experiment loop should own problem resolution, run ids, and condition
+selection.
+
 Overview
 --------
 
 - ``DirectLLMCall``
 - ``MultiStepAgent`` (``mode="direct" | "json" | "code"``)
 - ``SeededRandomBaselineAgent``
+- ``WorkflowStudyDelegate``
 
 Decision table
 --------------
@@ -46,6 +52,9 @@ Decision table
    * - Packaged-problem control condition
      - ``SeededRandomBaselineAgent``
      - Thin seeded baseline over public problem contracts
+   * - Packaged-problem prompt-mode workflow participant
+     - ``WorkflowStudyDelegate``
+     - Reuses a public ``Workflow`` while letting experiments own run metadata
 
 Background references
 ---------------------

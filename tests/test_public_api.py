@@ -22,6 +22,7 @@ EXPECTED_PUBLIC_API = [
     "DirectLLMCall",
     "MultiStepAgent",
     "SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate",
     "Toolbox",
     "CallableToolConfig",
     "ScriptToolConfig",
@@ -66,7 +67,12 @@ EXPECTED_PUBLIC_API = [
     "Tracer",
 ]
 
-EXPECTED_AGENT_API = ["DirectLLMCall", "MultiStepAgent", "SeededRandomBaselineAgent"]
+EXPECTED_AGENT_API = [
+    "DirectLLMCall",
+    "MultiStepAgent",
+    "SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate",
+]
 EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
 EXPECTED_WORKFLOW_API = [
     "CompiledExecution",
