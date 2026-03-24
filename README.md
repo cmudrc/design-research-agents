@@ -7,9 +7,9 @@
 
 <!-- release-callout:start -->
 > [!IMPORTANT]
-> Current monthly release: [The April Alignment](https://github.com/cmudrc/design-research-agents/milestone/1)  
-> Due: April 1, 2026  
-> Tracks: March 2026 work
+> Current monthly release: [The Lovelace Life](https://github.com/cmudrc/design-research-agents/milestone/3)  
+> Due: May 1, 2026  
+> Tracks: April 2026 work
 <!-- release-callout:end -->
 
 `design-research-agents` is the agent-execution layer in the cmudrc design
