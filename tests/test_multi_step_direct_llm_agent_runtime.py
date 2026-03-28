@@ -13,6 +13,7 @@ from design_research_agents._implementations._agents._multi_step_agent import (
     _parse_controller_decision,
 )
 from design_research_agents.agent import MultiStepAgent
+from tests.helpers.problem_stubs import FakeProblem, FakeProblemMetadata
 
 
 class _SequenceLLMClient:
@@ -115,6 +116,37 @@ def test_multi_step_direct_llm_agent_max_steps_reached_on_all_continue() -> None
     assert result.output["steps_executed"] == 2
     assert result.output["final_output"] == "second"
     assert result.output["terminated_reason"] == TERMINATED_MAX_STEPS_REACHED
+
+
+def test_multi_step_direct_llm_agent_accepts_problem_like_input() -> None:
+    llm_client = _SequenceLLMClient(
+        responses=[
+            json.dumps(
+                {
+                    "decision": "STOP",
+                    "content": "final answer",
+                    "final_output": "ship with safeguards",
+                    "reason": "done",
+                }
+            )
+        ]
+    )
+    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=2)
+    problem = FakeProblem(
+        rendered_brief="Recommend whether to ship the new service flow.",
+        metadata=FakeProblemMetadata(
+            problem_id="problem-multi-step-001",
+            title="Service flow ship decision",
+            kind="decision",
+        ),
+        candidate_kind="json-answer",
+    )
+
+    result = agent.run(problem, request_id="req-multi-step-problem-like")
+
+    assert result.success is True
+    assert result.output["final_output"] == "ship with safeguards"
+    assert llm_client.chat_calls == 1
 
 
 def test_multi_step_direct_llm_agent_parser_helpers_are_strict() -> None:

@@ -9,6 +9,7 @@ TWINE ?= $(PYTHON) -m twine
 UV ?= uv
 REPRO_PYTHON ?= $(shell cat .python-version 2>/dev/null || echo 3.12.12)
 REPRO_EXTRAS ?= dev full
+COVERAGE_MIN ?= 90
 
 DOCSTRING_CHANGED_FILES_FILE ?=
 DOCSTRING_CHANGED_FILES_DEFAULT := artifacts/docstrings_changed_files.txt
@@ -95,8 +96,8 @@ junk-check: check-python
 
 coverage: check-python
 	mkdir -p artifacts/coverage
-	PYTHONPATH=src $(PYTEST) --cov=src/design_research_agents --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
-	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json
+	PYTHONPATH=src $(PYTEST) --cov=src/design_research_agents --cov-fail-under=$(COVERAGE_MIN) --cov-report=term --cov-report=json:artifacts/coverage/coverage.json -q
+	$(PYTHON) scripts/check_coverage_thresholds.py --coverage-json artifacts/coverage/coverage.json --minimum $(COVERAGE_MIN)
 
 release-check: check-python
 	rm -rf dist

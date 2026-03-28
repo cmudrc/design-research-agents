@@ -47,6 +47,7 @@ Issues = "https://github.com/cmudrc/design-research-agents/issues"
 # Contributor batteries.
 dev = [
   "mypy>=1.10,<2",
+  "pydata-sphinx-theme>=0.16,<1",
   "pre-commit>=3.7,<5",
   "pytest>=8.2,<9",
   "pytest-asyncio>=0.23,<1",
@@ -55,7 +56,6 @@ dev = [
   "build>=1.2,<2",
   "sphinx>=7.4,<9",
   "sphinxcontrib-mermaid>=1.0,<2",
-  "sphinx-rtd-theme>=2.0,<4",
   "twine>=5,<7",
 ]
 

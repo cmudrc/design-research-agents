@@ -3,36 +3,75 @@ design-research-agents
 
 A modular framework for building and studying AI agents in engineering design workflows.
 
-What This Library Does
-----------------------
-
 ``design-research-agents`` provides reusable abstractions for agent behavior,
-tool use, workflow composition, and multi-step reasoning. We use it in research
-settings where traceability, reproducibility, and experimental control matter as
-much as raw model capability.
+tool use, workflow composition, and multi-step reasoning. It is built for
+research workflows where traceability, reproducibility, and controlled
+comparison matter as much as raw model capability.
 
-Highlights
-----------
+Interpretable traces, explicit tool boundaries, and documented workflow
+contracts are core features. They make agent studies easier to reproduce,
+compare, and audit across experiments.
 
-- Agent abstractions
-- Tool-use runtime
-- Workflow primitives
-- Orchestration patterns
-- Trace capture
-- Backend flexibility
+.. raw:: html
 
-This library is not only for deploying agents. It is designed to support agent
-**study**: reproducible runs, behavioral comparison, and interpretable execution
-artifacts that can be analyzed across controlled conditions.
+   <div class="drc-badge-row">
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml">
+       <img alt="CI" src="https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml">
+       <img alt="Coverage" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/coverage.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml">
+       <img alt="Examples Passing" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-passing.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml">
+       <img alt="Public API In Examples" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg">
+     </a>
+     <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml">
+       <img alt="Docs" src="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg">
+     </a>
+   </div>
 
-Typical Workflow
-----------------
+.. note::
 
-1. Choose an LLM client and execution setting.
-2. Define tools, prompts, and constraints.
-3. Select ``DirectLLMCall``, ``MultiStepAgent``, or a higher-order pattern.
-4. Execute runs and capture traces.
-5. Export outputs for downstream experiment orchestration and analysis.
+   **Start with** :doc:`quickstart` to run a first agent workflow, inspect the
+   public runtime surface, and get the package into a stable local loop before
+   diving into the broader patterns and reference material.
+
+Guides
+------
+
+Learn the base concepts, setup flow, and execution patterns that shape a stable
+agent-research pipeline.
+
+- :doc:`quickstart`
+- :doc:`installation`
+- :doc:`concepts`
+- :doc:`typical_workflow`
+- :doc:`philosophy`
+
+Examples
+--------
+
+Browse runnable examples and guided landing pages for the major public
+subsystems.
+
+- :doc:`examples/index`
+- :doc:`agents/index`
+- :doc:`llm_clients/index`
+- :doc:`tools/index`
+- :doc:`workflows/index`
+- :doc:`patterns/index`
+
+Reference
+---------
+
+Look up the stable import surface, package extras, and deeper API reference
+material for the runtime boundaries that matter in CI and downstream studies.
+
+- :doc:`api`
+- :doc:`reference/index`
+- :doc:`dependencies_and_extras`
 
 Integration With The Ecosystem
 ------------------------------
@@ -62,36 +101,43 @@ Start Here
 - :doc:`typical_workflow`
 - :doc:`examples/index`
 - :doc:`api`
+- `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>`_
 
 .. toctree::
    :maxdepth: 2
-   :caption: Documentation
+   :caption: Guides
    :hidden:
 
    quickstart
    installation
    concepts
    typical_workflow
+   philosophy
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Examples
+   :hidden:
+
    examples/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+   :hidden:
+
    api
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Development
-   :hidden:
-
-   dependencies_and_extras
-   Contributing <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Additional Guides
-   :hidden:
-
    llm_clients/index
    tools/index
    agents/index
    workflows/index
    patterns/index
    reference/index
-   philosophy
+   dependencies_and_extras
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Development
+   :hidden:
+
+   CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md>

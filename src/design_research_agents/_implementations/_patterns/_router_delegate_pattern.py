@@ -36,17 +36,11 @@ from design_research_agents.workflow.workflow import Workflow
 from .._shared._agent_internal._agent_routing_runtime_adapter import (
     AgentRoutingToolRuntimeAdapter,
 )
-from .._shared._agent_internal._input_parsing import (
-    extract_prompt as _extract_prompt,
-)
 from .._shared._agent_internal._json_action_step_runner import (
     JsonActionStepRunner,
 )
 from .._shared._agent_internal._prompt_overrides import (
     validate_prompt_text,
-)
-from .._shared._agent_internal._run_options import (
-    normalize_input_payload,
 )
 
 _ROUTING_FAILURE_ROUTE = "__routing_failure__"
@@ -447,7 +441,7 @@ class RouterDelegatePattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -461,22 +455,21 @@ class RouterDelegatePattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one intent-routing orchestration run."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        normalized_input = normalize_input_payload(prompt)
-        resolved_prompt = _extract_prompt(normalized_input)
         workflow = self._build_workflow(
-            resolved_prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
@@ -493,7 +486,7 @@ class RouterDelegatePattern(Delegate):
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_ROUTER_DELEGATE},
+            input_payload={**run_context.normalized_input, "mode": MODE_ROUTER_DELEGATE},
             workflow_request_id=f"{run_context.request_id}:router_delegate_workflow",
             finalize=lambda workflow_result: self._finalize_agent_routing_result(
                 workflow_result=workflow_result,

@@ -43,6 +43,14 @@ Agents
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.SeededRandomBaselineAgent
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.WorkflowStudyDelegate
+   :members:
+   :undoc-members:
+
 LLM Clients and Selection
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
