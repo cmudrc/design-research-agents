@@ -15,13 +15,17 @@ from design_research_agents._contracts._memory import (
     GraphSubgraphResult,
     MemorySearchQuery,
 )
-from design_research_agents._memory import _builtin_profiles as builtin_profiles
 from design_research_agents._memory import _graph_extraction as graph_extraction_impl
+from design_research_agents._memory import _knowledge_resource_loader as knowledge_loader_impl
+from design_research_agents._memory import _knowledge_resources as knowledge_resources
 from design_research_agents._memory._stores import _networkx_graph_store as graph_store_impl
 from design_research_agents.memory import (
+    KnowledgeDocument,
+    KnowledgeSource,
     NetworkXGraphMemoryStore,
     SQLiteMemoryStore,
     extract_graph_records_from_text,
+    ingest_knowledge_documents,
     iter_builtin_knowledge_profiles,
     list_builtin_knowledge_profiles,
     load_builtin_knowledge_profile,
@@ -145,10 +149,12 @@ def test_networkx_graph_memory_store_supports_nodes_edges_and_traversal() -> Non
 
 
 def test_extract_graph_records_from_text_produces_nodes_and_edges() -> None:
-    nodes, edges = extract_graph_records_from_text("Motor A drives Gearbox B. Gearbox B supports Shaft C.")
+    nodes, edges = extract_graph_records_from_text(
+        "Motor A drives Gearbox B. Gearbox B supports Shaft C. Hookes Law defines Spring Force."
+    )
 
-    assert {node.node_id for node in nodes} == {"motor-a", "gearbox-b", "shaft-c"}
-    assert [edge.relationship for edge in edges] == ["drives", "supports"]
+    assert {node.node_id for node in nodes} == {"motor-a", "gearbox-b", "shaft-c", "hookes-law", "spring-force"}
+    assert [edge.relationship for edge in edges] == ["drives", "supports", "defines"]
 
 
 def test_graph_contract_dataclasses_and_protocol_defaults() -> None:
@@ -301,9 +307,106 @@ def test_built_in_profile_helpers_validate_names(tmp_path: Path) -> None:
     assert seed_result.to_dict()["profile_name"] == "stem"
 
 
-def test_built_in_profiles_live_in_dedicated_modules() -> None:
-    profile_module_names = {
-        resource.name for resource in resources.files(builtin_profiles).iterdir() if resource.name.endswith(".py")
-    }
+def test_load_builtin_knowledge_profile_returns_isolated_mutable_metadata() -> None:
+    first_profile = load_builtin_knowledge_profile("stem")
+    second_profile = load_builtin_knowledge_profile("stem")
 
-    assert {"_aerospace.py", "_mechanics.py", "_stem.py"} <= profile_module_names
+    first_profile.records[0].metadata["poisoned"] = True
+
+    assert first_profile is not second_profile
+    assert "poisoned" not in second_profile.records[0].metadata
+
+
+def test_ingest_knowledge_documents_chunks_markdown_and_paragraph_documents() -> None:
+    profile = ingest_knowledge_documents(
+        "custom",
+        description="Custom deterministic profile",
+        documents=(
+            KnowledgeDocument(
+                document_id="sectioned",
+                title="Sectioned Notes",
+                content=(
+                    "# Sectioned Notes\n\n## Constraints\nAlpha depends on Beta.\n\n## Materials\nGamma uses Delta."
+                ),
+                sources=(
+                    KnowledgeSource(
+                        label="Sectioned note",
+                        uri="https://example.invalid/sectioned",
+                        kind="curated_note",
+                    ),
+                ),
+            ),
+            KnowledgeDocument(
+                document_id="paragraphs",
+                title="Paragraph Notes",
+                content="First paragraph.\n\nSecond paragraph.",
+                sources=(
+                    KnowledgeSource(
+                        label="Paragraph note",
+                        uri="https://example.invalid/paragraphs",
+                        kind="curated_note",
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    assert [record.metadata["section"] for record in profile.records] == ["Constraints", "Materials", "", ""]
+    assert [record.metadata["document_id"] for record in profile.records] == [
+        "sectioned",
+        "sectioned",
+        "paragraphs",
+        "paragraphs",
+    ]
+    assert profile.records[0].metadata["source_label"] == "Sectioned note"
+    assert profile.records[0].metadata["source_uri"] == "https://example.invalid/sectioned"
+    assert profile.sources == (
+        KnowledgeSource(label="Sectioned note", uri="https://example.invalid/sectioned", kind="curated_note"),
+        KnowledgeSource(label="Paragraph note", uri="https://example.invalid/paragraphs", kind="curated_note"),
+    )
+    assert any(edge.relationship == "depends_on" for edge in profile.graph_edges)
+    assert any(edge.relationship == "uses" for edge in profile.graph_edges)
+
+
+def test_source_manifest_validation_rejects_escape_paths(tmp_path: Path) -> None:
+    source_root = tmp_path / "knowledge"
+    profile_dir = source_root / "demo"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    (profile_dir / "profile.toml").write_text(
+        "\n".join(
+            [
+                'name = "demo"',
+                'description = "Demo profile"',
+                "",
+                "[[documents]]",
+                'id = "bad"',
+                'title = "Bad Pointer"',
+                'path = "../outside.md"',
+                'source_uri = "https://example.invalid/outside"',
+                'source_kind = "curated_note"',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (source_root / "outside.md").write_text("# Outside\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must stay within the profile directory"):
+        knowledge_loader_impl.load_source_manifest("demo", source_root=source_root)
+
+
+def test_packaged_knowledge_resources_are_discoverable() -> None:
+    packaged_profile_dirs = {
+        resource.name for resource in resources.files(knowledge_resources).iterdir() if resource.is_dir()
+    }
+    profile = knowledge_loader_impl.load_packaged_knowledge_profile("mechanics")
+
+    assert {"aerospace", "mechanics", "stem"} <= packaged_profile_dirs
+    assert {record.metadata["document_id"] for record in profile.records} == {
+        "hookes_law",
+        "beam_bending",
+        "steel",
+        "aluminum_6061_t6",
+    }
+    assert any(source.label == "Hooke's law reference" for source in profile.sources)
+    assert all(source.kind == "background_reference" for source in profile.sources)

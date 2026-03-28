@@ -34,10 +34,47 @@ The public ``design_research_agents.memory`` facade also exposes deterministic
 built-in knowledge profiles for ``stem``, ``aerospace``, and ``mechanics``.
 Use ``seed_builtin_knowledge_profile(...)`` to preload a text/vector store,
 a graph store, or both.
-Each checked-in built-in profile now lives in its own source file, which makes
-local discovery and editing much easier than the previous single-module layout.
+These built-ins are now backed by canonical Markdown documents and ingested
+through the same deterministic pipeline exposed publicly as
+``ingest_knowledge_documents(...)``.
+Repo-local source manifests live under ``knowledge/`` and are materialized into
+packaged runtime resources shipped with wheel installs.
 
-For example, this seeds a mechanics baseline into a SQLite store:
+For example, this ingests one custom knowledge document into an in-memory
+profile bundle before seeding a store:
+
+.. code-block:: python
+
+   from design_research_agents.memory import (
+       KnowledgeDocument,
+       KnowledgeSource,
+       SQLiteMemoryStore,
+       ingest_knowledge_documents,
+   )
+
+   profile = ingest_knowledge_documents(
+       "custom_mechanics",
+       description="Custom mechanics notes",
+       documents=[
+           KnowledgeDocument(
+               document_id="spring_notes",
+               title="Spring Notes",
+               content="## Hooke's Law\nHooke's law relates force and displacement.",
+               sources=(
+                   KnowledgeSource(
+                       label="Spring note",
+                       uri="https://example.invalid/spring_notes",
+                       kind="curated_note",
+                   ),
+               ),
+           )
+       ],
+   )
+
+   with SQLiteMemoryStore() as store:
+       store.write(list(profile.records), namespace="design")
+
+And this seeds the packaged mechanics baseline into a SQLite store:
 
 .. code-block:: python
 
@@ -46,8 +83,9 @@ For example, this seeds a mechanics baseline into a SQLite store:
    with SQLiteMemoryStore() as store:
        seed_builtin_knowledge_profile("mechanics", memory_store=store, namespace="design")
 
-The reproducible materialization helper script can write the checked-in profile
-data into local artifacts:
+The reproducible materialization helper script now resolves the repo-local
+canonical sources, refreshes the packaged resources, and can still write local
+inspection artifacts:
 
 .. code-block:: bash
 

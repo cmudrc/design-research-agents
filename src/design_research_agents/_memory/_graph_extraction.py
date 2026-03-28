@@ -9,45 +9,59 @@ from design_research_agents._contracts._memory import GraphEdgeRecord, GraphNode
 _RELATION_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
         re.compile(
-            r"(?P<left>[A-Za-z][A-Za-z0-9 _-]{0,80})\s+is connected to\s+(?P<right>[A-Za-z][A-Za-z0-9 _-]{0,80})",
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+is connected to\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
             re.IGNORECASE,
         ),
         "connected_to",
     ),
     (
         re.compile(
-            r"(?P<left>[A-Za-z][A-Za-z0-9 _-]{0,80})\s+connects to\s+(?P<right>[A-Za-z][A-Za-z0-9 _-]{0,80})",
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+connects to\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
             re.IGNORECASE,
         ),
         "connected_to",
     ),
     (
         re.compile(
-            r"(?P<left>[A-Za-z][A-Za-z0-9 _-]{0,80})\s+drives\s+(?P<right>[A-Za-z][A-Za-z0-9 _-]{0,80})",
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+drives\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
             re.IGNORECASE,
         ),
         "drives",
     ),
     (
         re.compile(
-            r"(?P<left>[A-Za-z][A-Za-z0-9 _-]{0,80})\s+powers\s+(?P<right>[A-Za-z][A-Za-z0-9 _-]{0,80})",
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+powers\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
             re.IGNORECASE,
         ),
         "powers",
     ),
     (
         re.compile(
-            r"(?P<left>[A-Za-z][A-Za-z0-9 _-]{0,80})\s+supports\s+(?P<right>[A-Za-z][A-Za-z0-9 _-]{0,80})",
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+supports\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
             re.IGNORECASE,
         ),
         "supports",
     ),
     (
         re.compile(
-            r"(?P<left>[A-Za-z][A-Za-z0-9 _-]{0,80})\s+uses\s+(?P<right>[A-Za-z][A-Za-z0-9 _-]{0,80})",
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+uses\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
             re.IGNORECASE,
         ),
         "uses",
+    ),
+    (
+        re.compile(
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+depends on\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
+            re.IGNORECASE,
+        ),
+        "depends_on",
+    ),
+    (
+        re.compile(
+            r"(?P<left>[A-Za-z][A-Za-z0-9 _'/-]{0,80})\s+defines\s+(?P<right>[A-Za-z][A-Za-z0-9 _'/-]{0,80})",
+            re.IGNORECASE,
+        ),
+        "defines",
     ),
 )
 

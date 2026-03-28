@@ -4,17 +4,29 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from design_research_agents._contracts._memory import GraphMemoryStore, MemoryStore
-from design_research_agents._memory._builtin_profiles import BUILTIN_KNOWLEDGE_PROFILES
+from design_research_agents._contracts._memory import (
+    GraphEdgeRecord,
+    GraphMemoryStore,
+    GraphNodeRecord,
+    MemoryStore,
+    MemoryWriteRecord,
+)
+from design_research_agents._memory._knowledge_ingestion import ingest_knowledge_documents
 from design_research_agents._memory._knowledge_profile_types import (
+    KnowledgeDocument,
     KnowledgeProfile,
     KnowledgeProfileSeedResult,
+    KnowledgeSource,
+)
+from design_research_agents._memory._knowledge_resource_loader import (
+    list_packaged_knowledge_profile_names,
+    load_packaged_knowledge_profile,
 )
 
 
 def list_builtin_knowledge_profiles() -> tuple[str, ...]:
     """Return available built-in knowledge profile names."""
-    return tuple(sorted(BUILTIN_KNOWLEDGE_PROFILES.keys()))
+    return list_packaged_knowledge_profile_names()
 
 
 def load_builtin_knowledge_profile(profile_name: str) -> KnowledgeProfile:
@@ -29,12 +41,7 @@ def load_builtin_knowledge_profile(profile_name: str) -> KnowledgeProfile:
     Raises:
         ValueError: If the requested profile is unknown.
     """
-    normalized_name = profile_name.strip().lower()
-    profile = BUILTIN_KNOWLEDGE_PROFILES.get(normalized_name)
-    if profile is None:
-        available = ", ".join(list_builtin_knowledge_profiles())
-        raise ValueError(f"Unknown knowledge profile '{profile_name}'. Available profiles: {available}.")
-    return profile
+    return _clone_knowledge_profile(load_packaged_knowledge_profile(profile_name))
 
 
 def seed_builtin_knowledge_profile(
@@ -83,12 +90,64 @@ def seed_builtin_knowledge_profile(
 
 def iter_builtin_knowledge_profiles() -> Sequence[KnowledgeProfile]:
     """Return built-in knowledge profiles in deterministic name order."""
-    return tuple(BUILTIN_KNOWLEDGE_PROFILES[name] for name in list_builtin_knowledge_profiles())
+    return tuple(load_builtin_knowledge_profile(name) for name in list_builtin_knowledge_profiles())
+
+
+def _clone_knowledge_profile(profile: KnowledgeProfile) -> KnowledgeProfile:
+    """Return a copy of one profile with isolated mutable nested metadata."""
+    return KnowledgeProfile(
+        name=profile.name,
+        description=profile.description,
+        records=tuple(
+            MemoryWriteRecord(
+                content=record.content,
+                metadata=dict(record.metadata),
+                item_id=record.item_id,
+            )
+            for record in profile.records
+        ),
+        graph_nodes=tuple(
+            GraphNodeRecord(
+                node_id=node.node_id,
+                name=node.name,
+                node_type=node.node_type,
+                description=node.description,
+                metadata=dict(node.metadata),
+                created_at=node.created_at,
+                updated_at=node.updated_at,
+                score=node.score,
+            )
+            for node in profile.graph_nodes
+        ),
+        graph_edges=tuple(
+            GraphEdgeRecord(
+                source_id=edge.source_id,
+                target_id=edge.target_id,
+                relationship=edge.relationship,
+                edge_id=edge.edge_id,
+                metadata=dict(edge.metadata),
+                created_at=edge.created_at,
+                updated_at=edge.updated_at,
+            )
+            for edge in profile.graph_edges
+        ),
+        sources=tuple(
+            KnowledgeSource(
+                label=source.label,
+                uri=source.uri,
+                kind=source.kind,
+            )
+            for source in profile.sources
+        ),
+    )
 
 
 __all__ = [
+    "KnowledgeDocument",
     "KnowledgeProfile",
     "KnowledgeProfileSeedResult",
+    "KnowledgeSource",
+    "ingest_knowledge_documents",
     "iter_builtin_knowledge_profiles",
     "list_builtin_knowledge_profiles",
     "load_builtin_knowledge_profile",

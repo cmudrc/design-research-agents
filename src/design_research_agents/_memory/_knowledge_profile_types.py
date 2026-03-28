@@ -1,4 +1,4 @@
-"""Shared types for built-in engineering knowledge profiles."""
+"""Shared types for deterministic engineering knowledge ingestion."""
 
 from __future__ import annotations
 
@@ -12,8 +12,42 @@ from design_research_agents._contracts._memory import (
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
+class KnowledgeSource:
+    """One structured provenance source for ingested knowledge."""
+
+    label: str = ""
+    """Human-readable source label."""
+    uri: str = ""
+    """Canonical source URI."""
+    kind: str = "unspecified"
+    """Coarse provenance kind such as ``background_reference``."""
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a JSON-serializable dictionary representation."""
+        return asdict(self)
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class KnowledgeDocument:
+    """One canonical knowledge document ready for ingestion."""
+
+    document_id: str
+    """Stable document identifier within one profile."""
+    title: str
+    """Human-readable document title."""
+    content: str
+    """Markdown document content to chunk and ingest."""
+    sources: tuple[KnowledgeSource, ...] = ()
+    """Structured provenance sources associated with the document."""
+
+    def to_dict(self) -> dict[str, object]:
+        """Return a JSON-serializable dictionary representation."""
+        return asdict(self)
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
 class KnowledgeProfile:
-    """Built-in deterministic knowledge profile."""
+    """Materialized deterministic knowledge profile."""
 
     name: str
     """Stable profile name."""
@@ -25,8 +59,8 @@ class KnowledgeProfile:
     """Graph nodes included in the profile."""
     graph_edges: tuple[GraphEdgeRecord, ...] = ()
     """Graph edges included in the profile."""
-    sources: tuple[str, ...] = ()
-    """Short source labels for profile provenance."""
+    sources: tuple[KnowledgeSource, ...] = ()
+    """Structured provenance sources for the profile."""
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-serializable dictionary representation."""
@@ -36,7 +70,7 @@ class KnowledgeProfile:
             "records": [record.to_dict() for record in self.records],
             "graph_nodes": [node.to_dict() for node in self.graph_nodes],
             "graph_edges": [edge.to_dict() for edge in self.graph_edges],
-            "sources": list(self.sources),
+            "sources": [source.to_dict() for source in self.sources],
         }
 
 
@@ -61,6 +95,8 @@ class KnowledgeProfileSeedResult:
 
 
 __all__ = [
+    "KnowledgeDocument",
     "KnowledgeProfile",
     "KnowledgeProfileSeedResult",
+    "KnowledgeSource",
 ]

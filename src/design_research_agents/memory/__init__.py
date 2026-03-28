@@ -9,9 +9,12 @@ from design_research_agents._contracts._memory import (
 )
 from design_research_agents._memory._embedding import EmbeddingProvider, LLMEmbeddingProvider
 from design_research_agents._memory._graph_extraction import extract_graph_records_from_text
+from design_research_agents._memory._knowledge_ingestion import ingest_knowledge_documents
 from design_research_agents._memory._knowledge_profiles import (
+    KnowledgeDocument,
     KnowledgeProfile,
     KnowledgeProfileSeedResult,
+    KnowledgeSource,
     iter_builtin_knowledge_profiles,
     list_builtin_knowledge_profiles,
     load_builtin_knowledge_profile,
@@ -29,12 +32,15 @@ __all__ = [
     "GraphNodeRecord",
     "GraphSearchQuery",
     "GraphSubgraphResult",
+    "KnowledgeDocument",
     "KnowledgeProfile",
     "KnowledgeProfileSeedResult",
+    "KnowledgeSource",
     "LLMEmbeddingProvider",
     "NetworkXGraphMemoryStore",
     "SQLiteMemoryStore",
     "extract_graph_records_from_text",
+    "ingest_knowledge_documents",
     "iter_builtin_knowledge_profiles",
     "list_builtin_knowledge_profiles",
     "load_builtin_knowledge_profile",

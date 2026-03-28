@@ -149,6 +149,7 @@ where = ["src"]
 # Ship marker file for typed package consumers + runtime assets.
 [tool.setuptools.package-data]
 design_research_agents = ["py.typed", "_schemas/*.schema.json", "_prompts/*.md"]
+"design_research_agents._memory._knowledge_resources" = ["*/*.toml", "*/*.md"]
 
 # Pytest defaults for local + CI test runs.
 [tool.pytest.ini_options]
