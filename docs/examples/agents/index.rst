@@ -13,3 +13,4 @@ Generated from canonical example docstrings/comments in ``examples/agents``.
    multi_step_json_tool_calling_agent
    multi_step_json_with_memory
    seeded_random_baseline_agent
+   workflow_study_delegate
