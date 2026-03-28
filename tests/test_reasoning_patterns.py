@@ -8,7 +8,11 @@ from collections.abc import Mapping
 import pytest
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
-from design_research_agents._contracts._memory import MemorySearchQuery, MemoryWriteRecord
+from design_research_agents._contracts._memory import (
+    GraphSubgraphResult,
+    MemorySearchQuery,
+    MemoryWriteRecord,
+)
 from design_research_agents._implementations._patterns import (
     _beam_search_pattern as beam_search_impl,
 )
@@ -92,6 +96,30 @@ class _StaticEvaluatorAgent(Delegate):
             model_response=None,
             metadata={"role": "evaluator"},
         )
+
+
+class _StaticGraphMemoryStore:
+    """Deterministic graph store used for prompt-injection tests."""
+
+    def query_subgraph(self, query) -> GraphSubgraphResult:
+        return GraphSubgraphResult(
+            namespace=query.namespace,
+            query_text=query.text,
+            matched_node_ids=("spring",),
+            nodes=(),
+            edges=(),
+        )
+
+    def upsert_nodes(self, nodes, *, namespace: str = "default"):
+        del namespace
+        return list(nodes)
+
+    def upsert_edges(self, edges, *, namespace: str = "default"):
+        del namespace
+        return list(edges)
+
+    def close(self) -> None:
+        return None
 
 
 def test_beam_search_pattern_pattern_expands_scores_and_returns_best_candidate() -> None:
@@ -254,6 +282,7 @@ def test_rag_pattern_pattern_injects_retrieved_context_and_writes_back(
     pattern = RAGPattern(
         reasoning_delegate=reasoning_agent,
         memory_store=store,
+        graph_memory_store=_StaticGraphMemoryStore(),
         memory_namespace="design",
         memory_top_k=3,
         write_back=True,
@@ -268,6 +297,7 @@ def test_rag_pattern_pattern_injects_retrieved_context_and_writes_back(
     assert result.output["details"]["write_back"]["written"] == 1
     assert reasoning_agent.last_prompt is not None
     assert "Retrieved context (JSON):" in reasoning_agent.last_prompt
+    assert "Retrieved graph context (JSON):" in reasoning_agent.last_prompt
     assert "fail-safe shutdown" in reasoning_agent.last_prompt
 
     write_back_matches = store.search(
@@ -316,11 +346,22 @@ def test_rag_pattern_helpers_cover_edge_cases(tmp_path) -> None:
                 "invalid",
             ],
         },
+        graph_read_step_output={
+            "namespace": "graph-ns",
+            "subgraph": {
+                "matched_node_ids": ["spring"],
+                "nodes": [{"node_id": "spring", "name": "Spring", "node_type": "component"}],
+                "edges": [{"source_id": "spring", "relationship": "supports", "target_id": "bracket"}],
+            },
+        },
     )
     assert "Retrieved context (JSON):" in prompt
+    assert "Retrieved graph context (JSON):" in prompt
     assert "Keep redundancy." in prompt
     assert "[a] score=0.9" in prompt
     assert "[b]" not in prompt
+    assert "node: Spring (component)" in prompt
+    assert "edge: spring -[supports]-> bracket" in prompt
 
     records = rag_reasoning_impl._build_write_back_records(
         task_prompt="Task",
@@ -333,12 +374,23 @@ def test_rag_pattern_helpers_cover_edge_cases(tmp_path) -> None:
     assert rag_reasoning_impl._safe_int(2.4) == 2
     assert rag_reasoning_impl._safe_int("5") == 5
     assert rag_reasoning_impl._safe_int("bad") == 0
+    graph_payload = rag_reasoning_impl._build_graph_read_output(
+        graph_memory_store=None,
+        query_text="Draft",
+        namespace="graph",
+        top_k=2,
+        max_hops=1,
+        min_score=None,
+    )
+    assert graph_payload["count_nodes"] == 0
+    assert graph_payload["count_edges"] == 0
 
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     store.write([MemoryWriteRecord(content="Context item")], namespace="ns")
     pattern = RAGPattern(
         reasoning_delegate=_CaptureReasoningAgent(),
         memory_store=store,
+        graph_memory_store=_StaticGraphMemoryStore(),
         memory_namespace="ns",
         write_back=False,
     )

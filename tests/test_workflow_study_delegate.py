@@ -18,9 +18,7 @@ class _Condition:
 
 
 def test_workflow_study_delegate_compile_exposes_wrapped_workflow() -> None:
-    workflow = Workflow(
-        steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),)
-    )
+    workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
     delegate = WorkflowStudyDelegate(
         workflow=workflow,
         prompt_builder=lambda _problem_packet, _run_spec, _condition: "Study prompt.",
@@ -41,9 +39,7 @@ def test_workflow_study_delegate_compile_exposes_wrapped_workflow() -> None:
 
 
 def test_workflow_study_delegate_run_uses_prompt_builder_and_preserves_request_metadata() -> None:
-    workflow = Workflow(
-        steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),)
-    )
+    workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
     captured: dict[str, object] = {}
 
     def _fake_run(
@@ -100,9 +96,7 @@ def test_workflow_study_delegate_run_uses_prompt_builder_and_preserves_request_m
 
 
 def test_workflow_study_delegate_accepts_direct_prompt_fallback() -> None:
-    workflow = Workflow(
-        steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),)
-    )
+    workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
     captured: dict[str, object] = {}
 
     def _fake_run(
