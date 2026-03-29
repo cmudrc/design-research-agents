@@ -4,8 +4,8 @@ Installation
 VS Code First
 -------------
 
-If you want a guided, editor-first path with extension recommendations, a
-one-click setup task, and an ``F5`` launch target, start with
+If you want a guided, editor-first path for creating a virtual environment,
+installing the published package, and running a first script, start with
 :doc:`vscode_setup`.
 
 Package Install

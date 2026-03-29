@@ -29,8 +29,8 @@ Reproducible release installs are pinned to Python `3.12.12` (`.python-version`)
 
 If you prefer a guided editor-first flow, use the
 [VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).
-The repository now includes recommended extensions, workspace tasks, and an
-`F5` hello-world launch configuration.
+It walks through creating a virtual environment, installing the published
+package, and running a first script in VS Code.
 
 ```bash
 python -m venv .venv

@@ -1,146 +1,143 @@
 VS Code Setup Guide
 ===================
 
-This guide is the easiest path for new contributors and non-technical
-researchers. It walks from zero to a working VS Code workspace without assuming
-shell fluency.
-
-What You Get
-------------
-
-After following this page, you will have:
-
-- recommended VS Code extensions installed
-- a local ``.venv`` created for this repository
-- an editable development install of ``design-research-agents``
-- a working ``F5`` launch target for a no-network hello-world example
-- ready-to-use VS Code tasks for setup, tests, and docs
+This guide covers the library-specific steps for using the published
+``design-research-agents`` package in VS Code.
 
 1. Install The Prerequisites
 ----------------------------
 
-Install these three tools first:
+Install VS Code, and make sure you have access to a Python 3.12 or newer
+interpreter.
 
 - `Visual Studio Code <https://code.visualstudio.com/download>`_
-- `Python 3.12 or newer <https://www.python.org/downloads/>`_
-- `Git <https://git-scm.com/downloads>`_
+- `Python 3.12 or newer <https://www.python.org/downloads/>`_ if you do not
+  already have a compatible interpreter
+
+For the editor setup itself, follow the official `Getting Started with Python in
+VS Code <https://code.visualstudio.com/docs/python/python-tutorial/>`_
+tutorial. It covers installing the Python and Pylance extensions, opening a
+folder, selecting an interpreter, and running a Python file in VS Code.
+
+After that, come back here for the package-specific steps below.
 
 Windows note:
 When installing Python, enable the option that adds ``python`` to your
-``PATH``. That makes the VS Code setup task work without extra manual steps.
+``PATH`` so the integrated terminal can find it.
 
-2. Clone And Open The Repository
+2. Create Or Open A Workspace Folder
+------------------------------------
+
+In VS Code, choose ``File > Open Folder...`` and open a folder for your own
+project, such as ``design-research-study``.
+
+You do not need to clone this repository to use the library.
+
+3. Create A Virtual Environment
+-------------------------------
+
+Open ``Terminal > New Terminal`` and create a virtual environment in your
+workspace folder.
+
+On macOS or Linux:
+
+.. code-block:: bash
+
+   python3 -m venv .venv
+   source .venv/bin/activate
+
+On Windows:
+
+.. code-block:: powershell
+
+   python -m venv .venv
+   .\.venv\Scripts\activate
+
+4. Install The Package
+----------------------
+
+With the virtual environment active, run:
+
+.. code-block:: bash
+
+   python -m pip install --upgrade pip
+   pip install design-research-agents
+
+If you want to connect to a specific model backend later, install only the
+extra you need. For example:
+
+.. code-block:: bash
+
+   pip install "design-research-agents[openai]"
+
+Use :doc:`dependencies_and_extras` for the full extras list.
+
+5. Select The Python Interpreter
 --------------------------------
 
-If you prefer a fully visual flow, clone the repository from inside VS Code:
-
-1. Open VS Code.
-2. Open the Command Palette with ``Ctrl+Shift+P`` or ``Cmd+Shift+P``.
-3. Run ``Git: Clone``.
-4. Paste ``https://github.com/cmudrc/design-research-agents.git``.
-5. Choose a local folder.
-6. Click ``Open`` when VS Code offers to open the cloned repository.
-
-If you already cloned the repository another way, use ``File > Open Folder`` and
-open the project root.
-
-3. Install The Recommended Extensions
--------------------------------------
-
-When the repository opens, VS Code should prompt you to install the recommended
-extensions from ``.vscode/extensions.json``.
-
-Accept that prompt. The workspace recommends:
-
-- Python
-- Pylance
-- Ruff
-
-If you dismiss the prompt by accident, open the Extensions panel and install the
-recommended extensions manually.
-
-4. Run The Setup Task
----------------------
-
-This repository includes a VS Code task named ``Setup Project``.
-
-To run it:
-
-1. Open ``Terminal > Run Task...``.
-2. Choose ``Setup Project``.
-3. Wait for the task to finish.
-
-The task will:
-
-- create ``.venv`` if it does not already exist
-- upgrade ``pip`` inside that environment
-- install the project in editable mode with development dependencies
-
-The first run may take a few minutes. Re-running the task is safe after pulling
-new changes or switching branches.
-
-5. Confirm The Python Interpreter
----------------------------------
-
-VS Code usually detects ``.venv`` automatically after setup. If it does not:
+VS Code usually detects ``.venv`` automatically. If it does not:
 
 1. Open the Command Palette.
 2. Run ``Python: Select Interpreter``.
-3. Choose the interpreter inside this repository's ``.venv``.
+3. Choose the interpreter inside this folder's ``.venv``.
 
-The workspace settings in ``.vscode/settings.json`` also tell VS Code to:
+6. Create A First Script
+------------------------
 
-- treat ``src`` as an analysis path for imports
-- auto-activate the environment in integrated terminals
-- use ``pytest`` for test discovery
+Create a file named ``hello_agents.py`` in your workspace with this example:
 
-6. Run The First Example With F5
---------------------------------
+.. code-block:: python
 
-This repository includes a dedicated onboarding launch configuration in
-``.vscode/launch.json``.
+   import json
 
-To use it:
+   import design_research_agents as drag
 
-1. Press ``F5``.
-2. Choose ``VS Code: Hello World Example`` if VS Code asks which launch target to run.
 
-That launch target runs ``examples/agents/vscode_hello_world.py``. It uses a
-small local stub client, so it does not require an external model server or API
-key. A successful run prints a JSON summary to the integrated terminal.
+   class HelloWorldLLMClient:
+       def generate(self, request: drag.LLMRequest) -> drag.LLMResponse:
+           del request
+           return drag.LLMResponse(
+               text="Hello from design-research-agents.",
+               model="local-demo",
+               provider="local-demo",
+           )
 
-7. Common VS Code Workflows
----------------------------
+       def default_model(self) -> str:
+           return "local-demo"
 
-Once setup is complete, these built-in tasks are the most useful starting
-points:
 
-- ``Setup Project``: refresh the editable install after branch changes
-- ``Run Tests``: run the pytest suite with the local virtual environment
-- ``Build Docs``: regenerate example docs and build the Sphinx site locally
+   agent = drag.DirectLLMCall(llm_client=HelloWorldLLMClient())
+   result = agent.run("Say hello to a new design research teammate.")
+   print(json.dumps(result.summary(), ensure_ascii=True, indent=2, sort_keys=True))
 
-You can run them anytime from ``Terminal > Run Task...``.
+This example uses only the published package API and does not require an API key
+or model server.
+
+7. Run The Script
+-----------------
+
+You can run the file in either of these ways:
+
+- Click ``Run Python File`` in the editor.
+- Press ``F5`` and choose ``Python Debugger: Current File`` if VS Code asks.
+
+A successful run prints a JSON summary in the integrated terminal.
 
 8. Troubleshooting
 ------------------
 
-If the setup task says ``python`` or ``python3`` cannot be found:
+If the terminal says ``python`` or ``python3`` cannot be found:
 
 - confirm Python finished installing
 - restart VS Code after installation
 - on Windows, reinstall Python and enable the PATH option
 
-If imports are underlined even after setup:
+If imports are underlined after installation:
 
-1. rerun ``Setup Project``
-2. run ``Python: Select Interpreter``
-3. pick the interpreter inside ``.venv``
+1. Run ``Python: Select Interpreter``.
+2. Pick the interpreter inside ``.venv``.
 
-If debugging fails after switching branches:
-
-- rerun ``Setup Project`` so the editable install matches the checked-out code
-
-If you prefer a terminal-first workflow instead of VS Code:
+If you want a terminal-first workflow instead of VS Code:
 
 - use :doc:`installation`
 - then continue with :doc:`quickstart`

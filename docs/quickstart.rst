@@ -6,9 +6,9 @@ This example shows the shortest meaningful path through
 
 .. note::
 
-   If you want a step-by-step editor workflow with installation, ``.venv``
-   setup, extension recommendations, and a built-in launch configuration, see
-   :doc:`vscode_setup`.
+   If you want a step-by-step editor workflow for creating a virtual
+   environment, installing the published package, and running a first script,
+   see :doc:`vscode_setup`.
 
 1. Install
 ----------
