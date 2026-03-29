@@ -1,6 +1,13 @@
 Installation
 ============
 
+VS Code First
+-------------
+
+If you want a guided, editor-first path for creating a virtual environment,
+installing the published package, and running a first script, start with
+:doc:`vscode_setup`.
+
 Package Install
 ---------------
 

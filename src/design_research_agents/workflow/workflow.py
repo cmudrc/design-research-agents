@@ -12,6 +12,9 @@ from design_research_agents._contracts._workflow import (
     WorkflowFailurePolicy,
     WorkflowStep,
 )
+from design_research_agents._runtime._common._prompt_inputs import (
+    normalize_prompt_like_input,
+)
 from design_research_agents._runtime._common._run_defaults import (
     merge_dependencies,
     normalize_request_id_prefix,
@@ -20,6 +23,8 @@ from design_research_agents._runtime._common._run_defaults import (
 from design_research_agents._runtime._workflow._engine import WorkflowRuntime
 from design_research_agents._schemas import validate_payload_against_schema
 from design_research_agents._tracing import Tracer
+
+from ._diagram import render_workflow_as_mermaid, render_workflow_as_svg
 
 
 def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
@@ -39,24 +44,23 @@ def _normalize_steps(steps: Sequence[WorkflowStep]) -> tuple[WorkflowStep, ...]:
     return tuple(steps)
 
 
-def _normalize_prompt(input_value: object) -> str:
+def _normalize_prompt_input(input_value: object) -> dict[str, object]:
     """Validate and normalize prompt-mode workflow input.
 
     Args:
         input_value: Raw workflow input value.
 
     Returns:
-        Trimmed prompt string.
-
-    Raises:
-        ValueError: If input is not a non-empty string.
+        Normalized prompt payload mapping.
     """
-    if not isinstance(input_value, str):
-        raise ValueError("Workflow configured without input_schema requires string input.")
-    normalized_prompt = input_value.strip()
+    normalized_prompt_input = normalize_prompt_like_input(input_value)
+    normalized_prompt = str(normalized_prompt_input.get("prompt", "")).strip()
     if not normalized_prompt:
         raise ValueError("Workflow prompt input must be a non-empty string.")
-    return normalized_prompt
+    return {
+        **normalized_prompt_input,
+        "prompt": normalized_prompt,
+    }
 
 
 def _normalize_inputs(input_value: object) -> dict[str, object]:
@@ -104,7 +108,7 @@ class Workflow:
             memory_store: Optional memory store used by memory step executions.
             steps: Static workflow step graph to execute for each run.
             input_schema: Optional schema used to infer input mode and validate mapped input.
-                When omitted, workflow expects prompt-string input.
+                When omitted, workflow expects prompt-like input.
             output_schema: Optional schema enforced against ``output.final_output`` when the run
                 succeeds.
             prompt_context_key: Context key used to store normalized prompt input.
@@ -137,9 +141,31 @@ class Workflow:
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
 
+    def to_mermaid(self, *, direction: str = "TD") -> str:
+        """Return a deterministic Mermaid diagram for the configured workflow.
+
+        Args:
+            direction: Mermaid flowchart direction (for example ``TD`` or ``LR``).
+
+        Returns:
+            Mermaid flowchart text that reflects the declared step topology.
+        """
+        return render_workflow_as_mermaid(self._steps, direction=direction)
+
+    def to_svg(self, *, direction: str = "TD") -> str:
+        """Return a deterministic SVG diagram for the configured workflow.
+
+        Args:
+            direction: Diagram direction (for example ``TD`` or ``LR``).
+
+        Returns:
+            Standalone SVG markup that reflects the declared step topology.
+        """
+        return render_workflow_as_svg(self._steps, direction=direction)
+
     def run(
         self,
-        input: str | Mapping[str, object] | None = None,
+        input: object | None = None,
         *,
         execution_mode: WorkflowExecutionMode | None = None,
         failure_policy: WorkflowFailurePolicy | None = None,
@@ -149,7 +175,8 @@ class Workflow:
         """Execute one workflow run with input mode inferred from ``input_schema``.
 
         Args:
-            input: Prompt string when ``input_schema`` is omitted; otherwise schema mapping.
+            input: Prompt string or problem-like object when ``input_schema`` is omitted;
+                otherwise schema mapping.
             execution_mode: Optional per-run execution mode override.
             failure_policy: Optional per-run failure policy override.
             request_id: Optional explicit request id for tracing/correlation.
@@ -164,8 +191,15 @@ class Workflow:
         )
         context = dict(self._base_context)
         if self._input_schema is None:
-            normalized_prompt = _normalize_prompt(input)
+            normalized_prompt_input = _normalize_prompt_input(input)
+            normalized_prompt = str(normalized_prompt_input["prompt"])
             context[self._prompt_context_key] = normalized_prompt
+            context["prompt"] = normalized_prompt
+            if "problem" in normalized_prompt_input:
+                context["problem"] = normalized_prompt_input["problem"]
+                problem_metadata = normalized_prompt_input.get("problem_metadata")
+                if isinstance(problem_metadata, Mapping):
+                    context["problem_metadata"] = dict(problem_metadata)
         else:
             normalized_inputs = _normalize_inputs(input)
             validate_payload_against_schema(

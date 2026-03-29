@@ -78,7 +78,7 @@ class TreeSearchPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -92,13 +92,14 @@ class TreeSearchPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one tree-search workflow."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
@@ -106,7 +107,7 @@ class TreeSearchPattern(Delegate):
         )
         resolved_simulation_budget = self._resolve_simulation_budget()
         input_payload = {
-            "prompt": prompt,
+            **run_context.normalized_input,
             "mode": MODE_TREE_SEARCH,
             "search_strategy": self._search_strategy,
             "max_depth": self._max_depth,
@@ -116,7 +117,7 @@ class TreeSearchPattern(Delegate):
             "simulation_budget": resolved_simulation_budget,
         }
         workflow = self._build_workflow(
-            prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
@@ -127,7 +128,7 @@ class TreeSearchPattern(Delegate):
             if isinstance(maybe_root_node, Mapping)
             else {
                 "node_id": "root",
-                "candidate": {"text": prompt, "depth": 0},
+                "candidate": {"text": run_context.prompt, "depth": 0},
                 "score": 0.0,
                 "depth": 0,
                 "parent_id": None,

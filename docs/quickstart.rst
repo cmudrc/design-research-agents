@@ -4,6 +4,12 @@ Quickstart
 This example shows the shortest meaningful path through
 ``design-research-agents``.
 
+.. note::
+
+   If you want a step-by-step editor workflow for creating a virtual
+   environment, installing the published package, and running a first script,
+   see :doc:`vscode_setup`.
+
 1. Install
 ----------
 

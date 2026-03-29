@@ -12,3 +12,6 @@ Generated from canonical example docstrings/comments in ``examples/agents``.
    multi_step_direct_llm_agent
    multi_step_json_tool_calling_agent
    multi_step_json_with_memory
+   seeded_random_baseline_agent
+   vscode_hello_world
+   workflow_study_delegate

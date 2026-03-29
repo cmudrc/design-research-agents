@@ -31,6 +31,22 @@ PROMPT_RESOURCES = (
     "design_research_agents/_prompts/tool_calling_user_select_tool.md",
 )
 
+KNOWLEDGE_RESOURCES = (
+    "design_research_agents/_memory/_knowledge_resources/stem/profile.toml",
+    "design_research_agents/_memory/_knowledge_resources/stem/density_relation.md",
+    "design_research_agents/_memory/_knowledge_resources/stem/ideal_gas_law.md",
+    "design_research_agents/_memory/_knowledge_resources/stem/quadratic_formula.md",
+    "design_research_agents/_memory/_knowledge_resources/aerospace/profile.toml",
+    "design_research_agents/_memory/_knowledge_resources/aerospace/lift_equation.md",
+    "design_research_agents/_memory/_knowledge_resources/aerospace/propulsion_intuition.md",
+    "design_research_agents/_memory/_knowledge_resources/aerospace/aluminum_2024_t3.md",
+    "design_research_agents/_memory/_knowledge_resources/mechanics/profile.toml",
+    "design_research_agents/_memory/_knowledge_resources/mechanics/hookes_law.md",
+    "design_research_agents/_memory/_knowledge_resources/mechanics/beam_bending.md",
+    "design_research_agents/_memory/_knowledge_resources/mechanics/steel.md",
+    "design_research_agents/_memory/_knowledge_resources/mechanics/aluminum_6061_t6.md",
+)
+
 
 def _subprocess_env() -> dict[str, str]:
     env = dict(os.environ)
@@ -120,7 +136,9 @@ def test_wheel_includes_prompt_and_schema_resources(tmp_path: Path) -> None:
     with zipfile.ZipFile(wheel_path) as archive:
         names = set(archive.namelist())
 
-    missing = sorted(resource for resource in (*SCHEMA_RESOURCES, *PROMPT_RESOURCES) if resource not in names)
+    missing = sorted(
+        resource for resource in (*SCHEMA_RESOURCES, *PROMPT_RESOURCES, *KNOWLEDGE_RESOURCES) if resource not in names
+    )
     assert not missing, f"Wheel is missing packaged resources: {missing}"
 
 
@@ -161,10 +179,17 @@ def test_installed_wheel_loads_prompt_and_schema_resources(tmp_path: Path) -> No
 import json
 from design_research_agents._prompts import PROMPT_NAMES, load_prompt
 from design_research_agents._schemas import load_schema
+from design_research_agents.memory import load_builtin_knowledge_profile
 
 schema = load_schema("tool_spec")
 prompt = load_prompt(PROMPT_NAMES[0])
-print(json.dumps({"schema_type": schema.get("type"), "prompt_len": len(prompt)}))
+profile = load_builtin_knowledge_profile("mechanics")
+print(json.dumps({
+    "schema_type": schema.get("type"),
+    "prompt_len": len(prompt),
+    "mechanics_records": len(profile.records),
+    "mechanics_sources": len(profile.sources),
+}))
 """
     probe = subprocess.run(
         [sys.executable, "-c", runner_code],
@@ -181,6 +206,8 @@ print(json.dumps({"schema_type": schema.get("type"), "prompt_len": len(prompt)})
     assert payload["schema_type"] == "object"
     assert isinstance(payload["prompt_len"], int)
     assert payload["prompt_len"] > 0
+    assert payload["mechanics_records"] >= 4
+    assert payload["mechanics_sources"] >= 1
 
 
 def test_wheel_metadata_uses_absolute_markdown_links(tmp_path: Path) -> None:

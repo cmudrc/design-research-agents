@@ -9,6 +9,7 @@ from design_research_agents._contracts._llm import LLMMessage, LLMRequest, LLMRe
 from design_research_agents._contracts._workflow import WorkflowStepResult
 from design_research_agents._implementations._agents import _direct_llm_call as direct_llm_impl
 from design_research_agents.agent import DirectLLMCall
+from tests.helpers.problem_stubs import FakeProblem, FakeProblemMetadata
 from tests.helpers.workflow_stubs import SequenceLLMClient
 
 
@@ -107,6 +108,31 @@ def test_direct_llm_call_builds_expected_llm_request_metadata() -> None:
     assert list(request.messages) == [
         LLMMessage(role="system", content="You are concise."),
         LLMMessage(role="user", content="Summarize this."),
+    ]
+
+
+def test_direct_llm_call_accepts_problem_like_input() -> None:
+    llm_client = _CaptureGenerateClient()
+    agent = DirectLLMCall(llm_client=llm_client)
+    problem = FakeProblem(
+        rendered_brief="Summarize the maintenance findings for the field trial.",
+        statement_markdown="This should not be used because render_brief wins.",
+        metadata=FakeProblemMetadata(
+            problem_id="problem-direct-001",
+            title="Field maintenance findings",
+            kind="summary",
+        ),
+    )
+
+    result = agent.run(problem, request_id="req-direct-problem-like")
+
+    assert result.success is True
+    assert len(llm_client.requests) == 1
+    assert list(llm_client.requests[0].messages) == [
+        LLMMessage(
+            role="user",
+            content="Summarize the maintenance findings for the field trial.",
+        )
     ]
 
 

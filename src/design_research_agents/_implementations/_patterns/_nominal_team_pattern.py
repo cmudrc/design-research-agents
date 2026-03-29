@@ -85,7 +85,7 @@ class NominalTeamPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -99,20 +99,21 @@ class NominalTeamPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one nominal-team workflow."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=None,
             default_dependencies={},
             request_id=request_id,
             dependencies=dependencies,
         )
         workflow = self._build_workflow(
-            prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
@@ -123,7 +124,7 @@ class NominalTeamPattern(Delegate):
             dependencies=run_context.dependencies,
             tracer=self._tracer,
             input_payload={
-                "prompt": prompt,
+                **run_context.normalized_input,
                 "mode": MODE_NOMINAL_TEAM,
                 "team_members": [member.member_id for member in self._team_members],
             },

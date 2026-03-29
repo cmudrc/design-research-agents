@@ -18,14 +18,8 @@ from design_research_agents._contracts._workflow import (
 from design_research_agents._implementations._agents._direct_llm_call import (
     DirectLLMCall,
 )
-from design_research_agents._implementations._shared._agent_internal._input_parsing import (
-    extract_prompt as _extract_prompt,
-)
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
-)
-from design_research_agents._implementations._shared._agent_internal._run_options import (
-    normalize_input_payload,
 )
 from design_research_agents._implementations._shared._workflow_internal._propose_critic_helpers import (
     DEFAULT_CRITIC_SYSTEM_PROMPT,
@@ -127,7 +121,7 @@ class ProposeCriticPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -141,22 +135,21 @@ class ProposeCriticPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one propose/critic workflow."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        normalized_input = normalize_input_payload(prompt)
-        resolved_prompt = _extract_prompt(normalized_input)
         workflow = self._build_workflow(
-            resolved_prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
@@ -173,7 +166,7 @@ class ProposeCriticPattern(Delegate):
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_PROPOSE_CRITIC},
+            input_payload={**run_context.normalized_input, "mode": MODE_PROPOSE_CRITIC},
             workflow_request_id=f"{run_context.request_id}:propose_critic_loop",
             finalize=lambda workflow_result: _finalize_propose_critic_result(
                 workflow_result=workflow_result,

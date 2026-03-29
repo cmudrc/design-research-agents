@@ -1,0 +1,110 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup Project",
+      "type": "shell",
+      "detail": "Create .venv when needed and install the editable development environment.",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "if [ ! -d .venv ]; then python3 -m venv .venv; fi; ./.venv/bin/python -m pip install --upgrade pip; ./.venv/bin/python -m pip install -e '.[dev]'"
+        ]
+      },
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "if [ ! -d .venv ]; then python3 -m venv .venv; fi; ./.venv/bin/python -m pip install --upgrade pip; ./.venv/bin/python -m pip install -e '.[dev]'"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-Command",
+          "if (-not (Test-Path .venv)) { python -m venv .venv }; .\\.venv\\Scripts\\python.exe -m pip install --upgrade pip; .\\.venv\\Scripts\\python.exe -m pip install -e '.[dev]'"
+        ]
+      }
+    },
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "detail": "Run the pytest suite with the local virtual environment.",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "src"
+        }
+      },
+      "linux": {
+        "command": "./.venv/bin/python",
+        "args": [
+          "-m",
+          "pytest",
+          "-q"
+        ]
+      },
+      "osx": {
+        "command": "./.venv/bin/python",
+        "args": [
+          "-m",
+          "pytest",
+          "-q"
+        ]
+      },
+      "windows": {
+        "command": ".\\.venv\\Scripts\\python.exe",
+        "args": [
+          "-m",
+          "pytest",
+          "-q"
+        ]
+      }
+    },
+    {
+      "label": "Build Docs",
+      "type": "shell",
+      "detail": "Regenerate example docs and build the Sphinx site locally.",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PYTHONPATH": "src"
+        }
+      },
+      "linux": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "./.venv/bin/python scripts/generate_example_docs.py && ./.venv/bin/python -m sphinx -b html docs docs/_build/html -n -W --keep-going -E"
+        ]
+      },
+      "osx": {
+        "command": "bash",
+        "args": [
+          "-lc",
+          "./.venv/bin/python scripts/generate_example_docs.py && ./.venv/bin/python -m sphinx -b html docs docs/_build/html -n -W --keep-going -E"
+        ]
+      },
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-Command",
+          ".\\.venv\\Scripts\\python.exe scripts\\generate_example_docs.py; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; .\\.venv\\Scripts\\python.exe -m sphinx -b html docs docs\\_build\\html -n -W --keep-going -E"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+name = "aerospace"
+description = "Aerodynamics and aerospace-material baseline references."
+
+[[sources]]
+label = "Lift reference"
+uri = "https://en.wikipedia.org/wiki/Lift_(force)"
+kind = "background_reference"
+
+[[sources]]
+label = "Thrust-to-weight ratio reference"
+uri = "https://en.wikipedia.org/wiki/Thrust-to-weight_ratio"
+kind = "background_reference"
+
+[[sources]]
+label = "2024 aluminum alloy reference"
+uri = "https://en.wikipedia.org/wiki/2024_aluminium_alloy"
+kind = "background_reference"
+
+[[documents]]
+id = "lift_equation"
+title = "Lift Equation"
+path = "lift_equation.md"
+source_uri = "https://en.wikipedia.org/wiki/Lift_(force)"
+source_kind = "background_reference"
+
+[[documents]]
+id = "propulsion_intuition"
+title = "Propulsion Intuition"
+path = "propulsion_intuition.md"
+source_uri = "https://en.wikipedia.org/wiki/Thrust-to-weight_ratio"
+source_kind = "background_reference"
+
+[[documents]]
+id = "aluminum_2024_t3"
+title = "Aluminum 2024-T3"
+path = "aluminum_2024_t3.md"
+source_uri = "https://en.wikipedia.org/wiki/2024_aluminium_alloy"
+source_kind = "background_reference"
