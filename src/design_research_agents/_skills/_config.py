@@ -60,11 +60,7 @@ def _normalize_path_sequence(*, raw_value: object, field_name: str) -> tuple[str
         raise TypeError(f"{field_name} must be a sequence of paths, not a single string/path.")
     if not isinstance(raw_value, Sequence):
         raise TypeError(f"{field_name} must be a sequence of paths.")
-    return tuple(
-        normalized_path
-        for item in raw_value
-        if (normalized_path := os.fspath(item).strip())
-    )
+    return tuple(normalized_path for item in raw_value if (normalized_path := os.fspath(item).strip()))
 
 
 def _normalize_string_sequence(*, raw_value: object, field_name: str) -> tuple[str, ...]:

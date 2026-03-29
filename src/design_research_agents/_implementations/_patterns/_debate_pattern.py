@@ -918,23 +918,8 @@ def _extract_model_response_from_model_step_output(
     return None
 
 
-def _extract_delegate_batch_call_result(
-    *,
-    context: Mapping[str, object],
-    dependency_step_id: str,
-    call_id: str,
-) -> Mapping[str, object] | None:
-    """Extract one call-result mapping from a batch-step dependency output."""
-    return _runtime_extract_delegate_batch_call_result_from_context(
-        context=context,
-        dependency_step_id=dependency_step_id,
-        call_id=call_id,
-    )
-
-
-def _extract_call_output(call_result: Mapping[str, object] | None) -> dict[str, object]:
-    """Extract normalized output payload from one batch call result."""
-    return _runtime_extract_call_output(call_result)
+_extract_delegate_batch_call_result = _runtime_extract_delegate_batch_call_result_from_context
+_extract_call_output = _runtime_extract_call_output
 
 
 def _extract_model_text_from_output(output: Mapping[str, object]) -> str:
@@ -952,23 +937,9 @@ def _extract_model_text_from_output(output: Mapping[str, object]) -> str:
     return ""
 
 
-def _extract_call_model_response(call_result: Mapping[str, object] | None) -> LLMResponse | None:
-    """Deserialize model response from one batch call result."""
-    return _runtime_extract_call_model_response(call_result)
-
-
-def _is_call_success(call_result: Mapping[str, object] | None) -> bool:
-    """Return whether one batch call result succeeded."""
-    return _runtime_is_call_success(call_result)
-
-
-def _extract_call_error(
-    call_result: Mapping[str, object] | None,
-    *,
-    fallback_message: str,
-) -> str:
-    """Extract one human-readable error from a batch call result."""
-    return _runtime_extract_call_error(call_result, fallback_message=fallback_message)
+_extract_call_model_response = _runtime_extract_call_model_response
+_is_call_success = _runtime_is_call_success
+_extract_call_error = _runtime_extract_call_error
 
 
 def _extract_delegate_verdict(output: Mapping[str, object]) -> dict[str, object] | None:

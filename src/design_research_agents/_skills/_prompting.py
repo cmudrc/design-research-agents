@@ -149,9 +149,7 @@ def inject_skills_into_messages(
 def build_available_skills_text(skills_context: SkillsContext) -> str:
     """Return a compact discoverable-skills catalog for prompt injection."""
     pinned_names = set(skills_context.pinned_skill_names)
-    available_skills = [
-        skill for skill in skills_context.catalog.skills if skill.name not in pinned_names
-    ]
+    available_skills = [skill for skill in skills_context.catalog.skills if skill.name not in pinned_names]
     if not available_skills:
         return ""
 
