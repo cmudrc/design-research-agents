@@ -249,16 +249,24 @@ class NominalTeamPattern(Delegate):
             sort_keys=True,
         )
 
-        evaluator_invocation = invoke_delegate(
-            delegate=self._evaluator_delegate,
-            prompt=evaluator_prompt,
-            step_context=context,
-            request_id=f"{request_id}:nominal_team:evaluator",
-            execution_mode="sequential",
-            failure_policy="skip_dependents",
-            dependencies=dependencies,
-        )
-        evaluator_result = evaluator_invocation.result
+        try:
+            evaluator_invocation = invoke_delegate(
+                delegate=self._evaluator_delegate,
+                prompt=evaluator_prompt,
+                step_context=context,
+                request_id=f"{request_id}:nominal_team:evaluator",
+                execution_mode="sequential",
+                failure_policy="skip_dependents",
+                dependencies=dependencies,
+            )
+            evaluator_result = evaluator_invocation.result
+        except Exception as exc:
+            return _build_selection_failure(
+                team_members=self._team_members,
+                candidate_results=member_results,
+                terminated_reason="evaluation_failure",
+                error=str(exc),
+            )
         evaluator_output = _normalize_evaluator_output(evaluator_result.output)
         if not evaluator_result.success:
             return _build_selection_failure(
@@ -514,6 +522,7 @@ def _extract_member_results(
     for team_index, member in enumerate(ordered_members):
         call_result = extract_delegate_batch_call_result(results=raw_results, call_id=member.member_id)
         output = extract_call_output(call_result)
+        compact_output = _compact_member_output(output)
         call_success = is_call_success(call_result)
         candidate = _extract_candidate(output)
         candidate_ready = call_success and bool(candidate)
@@ -531,7 +540,7 @@ def _extract_member_results(
             "candidate_ready": candidate_ready,
             "candidate_index": candidate_index if candidate_ready else None,
             "error": error,
-            "output": _json_ready(output),
+            "output": _json_ready(compact_output),
             "candidate": _json_ready(candidate if candidate_ready else {}),
         }
         normalized.append(normalized_result)
@@ -564,6 +573,30 @@ def _extract_candidate(output: Mapping[str, object]) -> dict[str, object]:
     if _has_meaningful_output(output):
         return {str(key): _json_ready(value) for key, value in output.items()}
     return {}
+
+
+def _compact_member_output(output: Mapping[str, object]) -> dict[str, object]:
+    """Return a prompt-safe member output mapping without workflow envelopes."""
+    candidate = _extract_candidate(output)
+    if candidate:
+        return candidate
+
+    compact: dict[str, object] = {}
+    for key, value in output.items():
+        if key in {"workflow", "artifacts"}:
+            continue
+        if isinstance(value, Mapping) and value:
+            compact[str(key)] = _json_ready(value)
+            continue
+        if isinstance(value, (list, tuple)) and value:
+            compact[str(key)] = _json_ready(value)
+            continue
+        if isinstance(value, str) and value.strip():
+            compact[str(key)] = value.strip()
+            continue
+        if isinstance(value, (int, float, bool)):
+            compact[str(key)] = value
+    return compact
 
 
 def _normalize_evaluator_output(output: Mapping[str, object]) -> dict[str, object]:

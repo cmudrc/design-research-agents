@@ -28,6 +28,23 @@ class _SequenceRoleAgent:
         return ExecutionResult(output=dict(output), success=True, tool_results=[], model_response=None)
 
 
+class _PromptRecordingRoleAgent:
+    def __init__(self, *, output: Mapping[str, object]) -> None:
+        self._output = dict(output)
+        self.prompts: list[str] = []
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        del request_id, dependencies
+        self.prompts.append(prompt)
+        return ExecutionResult(output=dict(self._output), success=True, tool_results=[], model_response=None)
+
+
 def test_ralph_loop_pattern_validates_role_and_config_inputs() -> None:
     with pytest.raises(ValueError, match="at least one role"):
         RalphLoopPattern(
@@ -190,3 +207,49 @@ def test_ralph_loop_pattern_requires_evaluator_score_payload() -> None:
     history = result.output["details"]["iteration_history"]
     assert len(history) == 1
     assert history[0]["failed_role"] == "evaluator"
+
+
+def test_ralph_loop_pattern_passes_current_round_outputs_to_later_roles() -> None:
+    proposer = _PromptRecordingRoleAgent(output={"proposal": "draft v1"})
+    critic = _PromptRecordingRoleAgent(output={"risks": ["needs sealing"]})
+    synthesizer = _PromptRecordingRoleAgent(output={"synthesis": "draft v1 with sealing"})
+    evaluator = _PromptRecordingRoleAgent(output={"score": 0.9})
+
+    pattern = RalphLoopPattern(
+        roles=(
+            RalphLoopPattern.RoleSpec(
+                role_id="proposer",
+                delegate=proposer,
+                prompt_template="Selected={selected_output_json} Prior={prior_role_outputs_json}",
+            ),
+            RalphLoopPattern.RoleSpec(
+                role_id="critic",
+                delegate=critic,
+                prompt_template="Prior={prior_role_outputs_json}",
+            ),
+            RalphLoopPattern.RoleSpec(
+                role_id="synthesizer",
+                delegate=synthesizer,
+                prompt_template="Prior={prior_role_outputs_json}",
+            ),
+            RalphLoopPattern.RoleSpec(
+                role_id="evaluator",
+                delegate=evaluator,
+                prompt_template="Selected={selected_output_json} Prior={prior_role_outputs_json}",
+            ),
+        ),
+        evaluator_role_id="evaluator",
+        loop_config=RalphLoopPattern.LoopConfig(max_iterations=1, consensus_threshold=0.8),
+    )
+
+    result = pattern.run("Refine this concept.")
+
+    assert result.success
+    assert proposer.prompts
+    assert critic.prompts
+    assert synthesizer.prompts
+    assert evaluator.prompts
+    assert '"proposal": "draft v1"' in critic.prompts[0]
+    assert '"proposal": "draft v1"' in synthesizer.prompts[0]
+    assert '"risks": [' in synthesizer.prompts[0]
+    assert '"synthesis": "draft v1 with sealing"' in evaluator.prompts[0]

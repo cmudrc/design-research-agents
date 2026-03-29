@@ -865,27 +865,103 @@ def _normalize_peer_contribution(
         "stop": False,
     }
 
-    raw_messages = peer_output.get("messages")
+    payload = _extract_peer_contribution_payload(peer_output)
+
+    raw_messages = payload.get("messages")
     if isinstance(raw_messages, list):
         contribution["messages"] = list(raw_messages)
-    elif isinstance(peer_output.get("message"), str):
-        contribution["messages"] = [str(peer_output["message"])]
+    elif isinstance(payload.get("message"), str):
+        contribution["messages"] = [str(payload["message"])]
+    elif payload:
+        contribution["messages"] = []
     else:
         contribution["messages"] = [json.dumps(_json_ready(peer_output), ensure_ascii=True)]
 
-    raw_proposals = peer_output.get("proposals")
+    raw_proposals = payload.get("proposals")
     if isinstance(raw_proposals, Mapping):
         contribution["proposals"] = dict(raw_proposals)
 
-    raw_decisions = peer_output.get("decisions")
+    raw_decisions = payload.get("decisions")
     if isinstance(raw_decisions, Mapping):
         contribution["decisions"] = dict(raw_decisions)
 
-    raw_stop = peer_output.get("stop")
+    raw_stop = payload.get("stop")
     if isinstance(raw_stop, bool):
         contribution["stop"] = raw_stop
 
     return contribution
+
+
+def _extract_peer_contribution_payload(peer_output: Mapping[str, object]) -> dict[str, object]:
+    """Extract contribution-like fields from raw peer output or workflow-first envelopes."""
+    candidates: list[object] = [peer_output]
+
+    final_output = peer_output.get("final_output")
+    candidates.append(final_output)
+    model_text = peer_output.get("model_text")
+    candidates.append(model_text)
+
+    for candidate in candidates:
+        mapping = _coerce_contribution_mapping(candidate)
+        if mapping:
+            return mapping
+
+    return {}
+
+
+def _coerce_contribution_mapping(value: object) -> dict[str, object]:
+    """Normalize contribution-like values into one mapping."""
+    mapping: dict[str, object] | None = None
+    if isinstance(value, Mapping):
+        mapping = {str(key): item for key, item in value.items()}
+    elif isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return {}
+        stripped = _strip_json_code_fence(stripped)
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            return {"message": stripped}
+        if isinstance(parsed, Mapping):
+            mapping = {str(key): item for key, item in parsed.items()}
+
+    if mapping is None:
+        return {}
+    if "proposal" in mapping and "proposals" not in mapping:
+        mapping["proposals"] = _normalize_singular_contribution(mapping["proposal"], fallback_key="proposal")
+    if "decision" in mapping and "decisions" not in mapping:
+        mapping["decisions"] = _normalize_singular_contribution(mapping["decision"], fallback_key="decision")
+    if any(key in mapping for key in ("messages", "message", "proposals", "decisions", "stop")):
+        return mapping
+    return {}
+
+
+def _strip_json_code_fence(value: str) -> str:
+    """Remove a surrounding fenced code block before JSON parsing."""
+    stripped = value.strip()
+    if not (stripped.startswith("```") and stripped.endswith("```")):
+        return stripped
+    lines = stripped.splitlines()
+    if len(lines) < 3:
+        return stripped
+    return "\n".join(lines[1:-1]).strip()
+
+
+def _normalize_singular_contribution(value: object, *, fallback_key: str) -> dict[str, object]:
+    """Normalize singular proposal/decision fields into mapping form."""
+    if isinstance(value, Mapping):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped:
+            return {fallback_key: stripped}
+        return {}
+    if isinstance(value, (int, float, bool)):
+        return {fallback_key: value}
+    if isinstance(value, (list, tuple)) and value:
+        return {fallback_key: _json_ready(value)}
+    return {}
 
 
 def _compute_state_hash(payload: Mapping[str, object]) -> str:

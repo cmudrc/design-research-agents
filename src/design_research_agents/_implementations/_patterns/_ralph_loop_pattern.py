@@ -9,21 +9,16 @@ from typing import Literal
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._workflow import (
-    DelegateBatchCall,
-    DelegateBatchStep,
     DelegateTarget,
     LogicStep,
     LoopStep,
 )
+from design_research_agents._runtime._common._delegate_invocation import invoke_delegate
 from design_research_agents._runtime._patterns import (
     MODE_RALPH_LOOP,
     build_compiled_pattern_execution,
     build_loop_callbacks,
     build_pattern_execution_result,
-    extract_call_error,
-    extract_call_output,
-    extract_delegate_batch_call_result,
-    is_call_success,
     resolve_pattern_run_context,
     wrap_iteration_handler,
 )
@@ -128,7 +123,11 @@ class RalphLoopPattern(Delegate):
             request_id=request_id,
             dependencies=dependencies,
         )
-        workflow = self._build_workflow(prompt)
+        workflow = self._build_workflow(
+            prompt,
+            request_id=run_context.request_id,
+            dependencies=run_context.dependencies,
+        )
         return build_compiled_pattern_execution(
             workflow=workflow,
             pattern_name="RalphLoopPattern",
@@ -152,7 +151,13 @@ class RalphLoopPattern(Delegate):
             ),
         )
 
-    def _build_workflow(self, prompt: str) -> Workflow:
+    def _build_workflow(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> Workflow:
         """Build workflow graph for one Ralph loop run."""
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
@@ -191,7 +196,57 @@ class RalphLoopPattern(Delegate):
                     "terminated_reason": "role_failure",
                 }
 
-            role_results = self._extract_role_results(context)
+            current_state = _as_dict(context.get("loop_state"))
+            previous_selected_output = _compact_role_output(_as_dict(current_state.get("selected_output")))
+            previous_role_outputs = _compact_role_results(_as_dict(current_state.get("role_outputs")))
+            role_results: dict[str, dict[str, object]] = {}
+            selected_output_for_prompt = dict(previous_selected_output)
+            iteration = self._resolve_iteration(context)
+
+            for role in self._roles:
+                prompt_role_outputs = {
+                    **previous_role_outputs,
+                    **role_results,
+                }
+                try:
+                    role_prompt = self._render_role_prompt(
+                        prompt=prompt,
+                        role=role,
+                        iteration=iteration,
+                        selected_output=selected_output_for_prompt,
+                        prior_role_outputs=prompt_role_outputs,
+                    )
+                    delegate_invocation = invoke_delegate(
+                        delegate=role.delegate,
+                        prompt=role_prompt,
+                        step_context=context,
+                        request_id=f"{request_id}:ralph_loop:loop:{iteration}:role:{role.role_id}",
+                        execution_mode="sequential",
+                        failure_policy="skip_dependents",
+                        dependencies=dependencies,
+                    )
+                    delegate_result = delegate_invocation.result
+                    compact_output = _compact_role_output(delegate_result.output)
+                    role_error = None
+                    if not delegate_result.success:
+                        role_error = _extract_execution_error(
+                            result=delegate_result,
+                            fallback="Role call failed.",
+                        )
+                    role_results[role.role_id] = {
+                        "success": delegate_result.success,
+                        "error": role_error,
+                        "output": compact_output,
+                    }
+                    if delegate_result.success and role.role_id != self._evaluator_role_id and compact_output:
+                        selected_output_for_prompt = dict(compact_output)
+                except Exception as exc:
+                    role_results[role.role_id] = {
+                        "success": False,
+                        "error": str(exc),
+                        "output": {},
+                    }
+
             failure_role, failure_error = self._find_role_failure(role_results)
             if failure_role is not None:
                 return _build_role_failure_state(
@@ -282,17 +337,8 @@ class RalphLoopPattern(Delegate):
                 LoopStep(
                     step_id="ralph_loop",
                     steps=(
-                        DelegateBatchStep(
-                            step_id="ralph_role_batch",
-                            calls_builder=lambda context: self._build_role_calls(
-                                prompt=prompt,
-                                context=context,
-                            ),
-                            fail_fast=False,
-                        ),
                         LogicStep(
                             step_id="ralph_iteration",
-                            dependencies=("ralph_role_batch",),
                             handler=loop_callbacks.iteration_handler,
                         ),
                     ),
@@ -320,120 +366,54 @@ class RalphLoopPattern(Delegate):
         self.workflow = workflow
         return workflow
 
+    def _render_role_prompt(
+        self,
+        *,
+        prompt: str,
+        role: RoleSpec,
+        iteration: int,
+        selected_output: Mapping[str, object],
+        prior_role_outputs: Mapping[str, object],
+    ) -> str:
+        """Render one role prompt from compact loop state."""
+        prompt_payload = {
+            "task": prompt,
+            "iteration": iteration,
+            "role_id": role.role_id,
+            "selected_output": _json_ready(selected_output),
+            "prior_role_outputs": _json_ready(prior_role_outputs),
+        }
+        default_prompt = json.dumps(prompt_payload, ensure_ascii=True, sort_keys=True)
+        if not isinstance(role.prompt_template, str) or not role.prompt_template.strip():
+            return default_prompt
+        try:
+            return role.prompt_template.format(
+                task=prompt,
+                iteration=iteration,
+                role_id=role.role_id,
+                selected_output_json=json.dumps(
+                    _json_ready(selected_output),
+                    ensure_ascii=True,
+                    sort_keys=True,
+                ),
+                prior_role_outputs_json=json.dumps(
+                    _json_ready(prior_role_outputs),
+                    ensure_ascii=True,
+                    sort_keys=True,
+                ),
+            )
+        except KeyError as exc:
+            missing = str(exc.args[0]) if exc.args else "unknown"
+            raise ValueError(
+                f"Role prompt template for '{role.role_id}' references unknown variable '{missing}'."
+            ) from exc
+
     def _resolve_iteration(self, context: Mapping[str, object]) -> int:
         """Resolve one-based loop iteration from context metadata."""
         loop_meta = context.get("_loop")
         if isinstance(loop_meta, Mapping):
             return max(1, _safe_int(loop_meta.get("iteration", 1)))
         return 1
-
-    def _build_role_calls(
-        self,
-        *,
-        prompt: str,
-        context: Mapping[str, object],
-    ) -> list[DelegateBatchCall]:
-        """Build one delegate call per configured role for current iteration."""
-        iteration = self._resolve_iteration(context)
-        loop_state = context.get("loop_state")
-        state = _as_dict(loop_state)
-        selected_output = _as_dict(state.get("selected_output"))
-        prior_outputs = _as_dict(state.get("role_outputs"))
-
-        calls: list[DelegateBatchCall] = []
-        for role in self._roles:
-            prompt_payload = {
-                "task": prompt,
-                "iteration": iteration,
-                "role_id": role.role_id,
-                "selected_output": _json_ready(selected_output),
-                "prior_role_outputs": _json_ready(prior_outputs),
-            }
-            default_prompt = json.dumps(prompt_payload, ensure_ascii=True, sort_keys=True)
-            if isinstance(role.prompt_template, str) and role.prompt_template.strip():
-                try:
-                    role_prompt = role.prompt_template.format(
-                        task=prompt,
-                        iteration=iteration,
-                        role_id=role.role_id,
-                        selected_output_json=json.dumps(
-                            _json_ready(selected_output),
-                            ensure_ascii=True,
-                            sort_keys=True,
-                        ),
-                        prior_role_outputs_json=json.dumps(
-                            _json_ready(prior_outputs),
-                            ensure_ascii=True,
-                            sort_keys=True,
-                        ),
-                    )
-                except KeyError as exc:
-                    missing = str(exc.args[0]) if exc.args else "unknown"
-                    raise ValueError(
-                        f"Role prompt template for '{role.role_id}' references unknown variable '{missing}'."
-                    ) from exc
-            else:
-                role_prompt = default_prompt
-            calls.append(
-                DelegateBatchCall(
-                    call_id=role.role_id,
-                    delegate=role.delegate,
-                    prompt=role_prompt,
-                    execution_mode="sequential",
-                    failure_policy="skip_dependents",
-                )
-            )
-        return calls
-
-    def _extract_role_results(self, context: Mapping[str, object]) -> dict[str, dict[str, object]]:
-        """Extract role outputs from delegate-batch step result."""
-        dependency_results = context.get("dependency_results")
-        if not isinstance(dependency_results, Mapping):
-            return {}
-        batch_payload = dependency_results.get("ralph_role_batch")
-        if not isinstance(batch_payload, Mapping):
-            return {}
-        batch_error = batch_payload.get("error")
-        error_text = str(batch_error) if isinstance(batch_error, str) and batch_error.strip() else None
-        batch_output = batch_payload.get("output")
-        if not isinstance(batch_output, Mapping):
-            return self._build_uniform_role_failures(error_text or "Role batch output is missing.")
-        batch_results = batch_output.get("results")
-        if not isinstance(batch_results, list):
-            return self._build_uniform_role_failures(error_text or "Role batch results are missing.")
-
-        normalized_results: dict[str, dict[str, object]] = {}
-        raw_result_entries = [entry for entry in batch_results if isinstance(entry, Mapping)]
-        for role in self._roles:
-            call_result = extract_delegate_batch_call_result(
-                results=raw_result_entries,
-                call_id=role.role_id,
-            )
-            if call_result is None:
-                normalized_results[role.role_id] = {
-                    "success": False,
-                    "error": error_text or "Role call result is missing.",
-                    "output": {},
-                }
-                continue
-            success = is_call_success(call_result)
-            normalized_results[role.role_id] = {
-                "success": success,
-                "error": (None if success else extract_call_error(call_result, fallback_message="Role call failed.")),
-                "output": extract_call_output(call_result),
-            }
-        return normalized_results
-
-    def _build_uniform_role_failures(self, error_message: str) -> dict[str, dict[str, object]]:
-        """Build one failure result for every configured role."""
-        return {
-            role.role_id: {
-                "success": False,
-                "error": error_message,
-                "output": {},
-            }
-            for role in self._roles
-        }
 
     def _find_role_failure(
         self,
@@ -559,6 +539,85 @@ def _resolve_synthesized_output(
         if isinstance(output, Mapping) and output:
             return dict(output)
     return {}
+
+
+def _compact_role_results(results: Mapping[str, object]) -> dict[str, dict[str, object]]:
+    """Compact stored role results into prompt-safe shapes."""
+    compact: dict[str, dict[str, object]] = {}
+    for role_id, raw_result in results.items():
+        if not isinstance(raw_result, Mapping):
+            continue
+        compact[str(role_id)] = {
+            "success": bool(raw_result.get("success", False)),
+            "error": raw_result.get("error"),
+            "output": _compact_role_output(_as_dict(raw_result.get("output"))),
+        }
+    return compact
+
+
+def _compact_role_output(output: Mapping[str, object]) -> dict[str, object]:
+    """Return a prompt-safe role output without workflow envelope bloat."""
+    if not output:
+        return {}
+
+    final_output = output.get("final_output")
+    compact_from_final = _mapping_from_compact_value(final_output)
+    if compact_from_final:
+        return compact_from_final
+
+    model_text = output.get("model_text")
+    compact_from_text = _mapping_from_compact_value(model_text)
+    if compact_from_text:
+        return compact_from_text
+
+    compact: dict[str, object] = {}
+    for key, value in output.items():
+        if key in {"workflow", "artifacts"}:
+            continue
+        if isinstance(value, Mapping) and value:
+            compact[str(key)] = _json_ready(value)
+            continue
+        if isinstance(value, (list, tuple)) and value:
+            compact[str(key)] = _json_ready(value)
+            continue
+        if isinstance(value, str) and value.strip():
+            compact[str(key)] = value.strip()
+            continue
+        if isinstance(value, (int, float, bool)):
+            compact[str(key)] = value
+    return compact
+
+
+def _mapping_from_compact_value(value: object) -> dict[str, object]:
+    """Normalize compact role values from mappings, JSON text, or scalars."""
+    if isinstance(value, Mapping):
+        return {str(key): _json_ready(item) for key, item in value.items()}
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return {}
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            return {"text": stripped}
+        if isinstance(parsed, Mapping):
+            return {str(key): _json_ready(item) for key, item in parsed.items()}
+        return {"text": stripped}
+    if isinstance(value, (int, float, bool)):
+        return {"value": value}
+    return {}
+
+
+def _extract_execution_error(*, result: ExecutionResult, fallback: str) -> str:
+    """Extract a deterministic error message from one execution result."""
+    error = result.error
+    if isinstance(error, str) and error.strip():
+        return error.strip()
+    if isinstance(result.output, Mapping):
+        output_error = result.output.get("error")
+        if isinstance(output_error, str) and output_error.strip():
+            return output_error.strip()
+    return fallback
 
 
 def _extract_score(output: Mapping[str, object]) -> float | None:

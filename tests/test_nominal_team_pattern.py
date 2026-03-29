@@ -55,6 +55,35 @@ class _StaticEvaluatorAgent(Delegate):
         )
 
 
+class _CapturingEvaluatorAgent(Delegate):
+    def __init__(self, *, output: Mapping[str, object] | None = None) -> None:
+        self.prompts: list[str] = []
+        self._output = dict(output or {"best_index": 0})
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        del request_id, dependencies
+        self.prompts.append(prompt)
+        return ExecutionResult(output=dict(self._output), success=True, tool_results=[], model_response=None)
+
+
+class _ExplodingEvaluatorAgent(Delegate):
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        del prompt, request_id, dependencies
+        raise RuntimeError("evaluator exploded")
+
+
 def test_nominal_team_pattern_validates_member_inputs() -> None:
     with pytest.raises(ValueError, match="at least one member"):
         NominalTeamPattern(team_members=(), evaluator_delegate=lambda _context: {"best_index": 0})
@@ -171,6 +200,50 @@ def test_nominal_team_pattern_reports_evaluation_failure() -> None:
     assert result.output["terminated_reason"] == "evaluation_failure"
     assert result.error == "rubric unavailable"
     assert result.output["details"]["candidate_count"] == 2
+
+
+def test_nominal_team_pattern_reports_evaluator_exceptions_as_evaluation_failures() -> None:
+    pattern = NominalTeamPattern(
+        team_members=(
+            NominalTeamPattern.MemberSpec(
+                member_id="designer_a",
+                delegate=_StaticTeamAgent(output={"concept": "concept-a"}),
+            ),
+        ),
+        evaluator_delegate=_ExplodingEvaluatorAgent(),
+    )
+
+    result = pattern.run("Select the best concept.")
+
+    assert not result.success
+    assert result.output["terminated_reason"] == "evaluation_failure"
+    assert result.error == "evaluator exploded"
+
+
+def test_nominal_team_pattern_compacts_evaluator_prompt_from_workflow_first_member_outputs() -> None:
+    evaluator = _CapturingEvaluatorAgent()
+    pattern = NominalTeamPattern(
+        team_members=(
+            NominalTeamPattern.MemberSpec(
+                member_id="designer_a",
+                delegate=_StaticTeamAgent(
+                    output={
+                        "model_text": '{"concept":"concept-a","risk":"extra fasteners"}',
+                        "workflow": {"raw": {"too_large": True}},
+                        "artifacts": [],
+                    }
+                ),
+            ),
+        ),
+        evaluator_delegate=evaluator,
+    )
+
+    result = pattern.run("Select the best concept.")
+
+    assert result.success
+    assert evaluator.prompts
+    assert '"concept": "concept-a"' in evaluator.prompts[0]
+    assert '"workflow"' not in evaluator.prompts[0]
 
 
 def test_nominal_team_pattern_reports_no_candidates() -> None:

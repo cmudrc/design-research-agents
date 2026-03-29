@@ -149,3 +149,80 @@ def test_networked_pattern_returns_peer_failure_termination() -> None:
     assert not result.success
     assert result.output["terminated_reason"] == "peer_failure"
     assert result.output["details"]["failed_peer"] == "peer_b"
+
+
+def test_blackboard_pattern_parses_workflow_first_peer_outputs_into_blackboard_channels() -> None:
+    pattern = BlackboardPattern(
+        peers={
+            "peer_a": _RecordingPeerAgent(
+                peer_id="peer_a",
+                recorder=[],
+                payload={
+                    "model_text": '{"messages":["hello"],"proposals":{"choice":"A"},"decisions":{"winner":"A"}}',
+                    "workflow": {"nested": True},
+                    "final_output": '{"messages":["hello"],"proposals":{"choice":"A"},"decisions":{"winner":"A"}}',
+                    "artifacts": [],
+                },
+            )
+        },
+        max_rounds=1,
+        stability_rounds=1,
+    )
+
+    result = pattern.run("Normalize one peer contribution.")
+
+    assert result.success
+    blackboard = result.output["details"]["blackboard"]
+    assert blackboard["messages"][0]["message"] == "hello"
+    assert blackboard["proposals"]["peer_a"]["choice"] == "A"
+    assert blackboard["decisions"]["peer_a"]["winner"] == "A"
+
+
+def test_blackboard_pattern_parses_fenced_json_and_singular_proposal_fields() -> None:
+    pattern = BlackboardPattern(
+        peers={
+            "peer_a": _RecordingPeerAgent(
+                peer_id="peer_a",
+                recorder=[],
+                payload={
+                    "model_text": (
+                        "```json\n"
+                        '{"messages":[{"user_id":"peer_a","message":"choose option A"}],'
+                        '"proposal":"Option A","decision":{"winner":"Option A"}}\n'
+                        "```"
+                    ),
+                },
+            )
+        },
+        max_rounds=1,
+        stability_rounds=1,
+    )
+
+    result = pattern.run("Normalize fenced contribution output.")
+
+    assert result.success
+    blackboard = result.output["details"]["blackboard"]
+    assert blackboard["messages"][0]["message"]["message"] == "choose option A"
+    assert blackboard["proposals"]["peer_a"]["proposal"] == "Option A"
+    assert blackboard["decisions"]["peer_a"]["winner"] == "Option A"
+
+
+def test_blackboard_pattern_does_not_emit_raw_message_when_only_proposal_exists() -> None:
+    pattern = BlackboardPattern(
+        peers={
+            "peer_a": _RecordingPeerAgent(
+                peer_id="peer_a",
+                recorder=[],
+                payload={"model_text": '{"proposal":"Option A"}'},
+            )
+        },
+        max_rounds=1,
+        stability_rounds=1,
+    )
+
+    result = pattern.run("Normalize proposal-only contribution output.")
+
+    assert result.success
+    blackboard = result.output["details"]["blackboard"]
+    assert blackboard["messages"] == []
+    assert blackboard["proposals"]["peer_a"]["proposal"] == "Option A"
