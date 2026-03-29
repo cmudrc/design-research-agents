@@ -192,6 +192,33 @@ def test_parse_skill_file_rejects_invalid_skill_definitions(
         parse_skill_file(skill_file=skill_file, source_label="project")
 
 
+def test_parse_skill_file_rejects_unknown_frontmatter_keys_with_hint(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "drafting"
+    skill_dir.mkdir()
+    skill_file = skill_dir / "SKILL.md"
+    skill_file.write_text(
+        "\n".join(
+            [
+                "---",
+                "name: drafting",
+                "description: Drafting helper.",
+                "allowed_tools:",
+                "  - sum",
+                "---",
+                "Use structured drafting notes.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"unsupported frontmatter key 'allowed_tools'.*Did you mean 'allowed-tools'",
+    ):
+        parse_skill_file(skill_file=skill_file, source_label="project")
+
+
 def test_discover_skills_parses_valid_skill_and_skips_docs_build(tmp_path: Path) -> None:
     skills_root = tmp_path / ".agents" / "skills"
     _write_skill(
@@ -268,6 +295,17 @@ def test_discover_skills_warns_on_shadowing_and_validates_extra_paths(tmp_path: 
                 extra_paths=("missing-path",),
             )
         )
+
+
+def test_skills_config_rejects_scalar_sequence_inputs_and_invalid_catalog_target(tmp_path: Path) -> None:
+    with pytest.raises(TypeError, match="pinned_skills must be a sequence"):
+        SkillsConfig(project_root=tmp_path, pinned_skills="analysis")
+
+    with pytest.raises(TypeError, match="extra_paths must be a sequence"):
+        SkillsConfig(project_root=tmp_path, extra_paths="shared-skills")
+
+    with pytest.raises(ValueError, match="catalog_prompt_target must be either 'system' or 'user'"):
+        SkillsConfig(project_root=tmp_path, catalog_prompt_target="sidebar")
 
 
 def test_skills_tool_runtime_adapter_exposes_activation_payload(tmp_path: Path) -> None:
@@ -450,6 +488,56 @@ def test_two_speaker_conversation_pattern_injects_pinned_skills(tmp_path: Path) 
         "pinned_skill_names": ["facilitator"],
         "activated_skill_names": ["facilitator"],
     }
+
+
+def test_multi_step_json_skips_pinned_skills_in_available_catalog(tmp_path: Path) -> None:
+    _write_skill(
+        tmp_path / ".agents" / "skills",
+        directory_name="tone",
+        name="tone",
+        description="Keep the response concise.",
+        body="Prefer short summaries with direct wording.",
+    )
+    _write_skill(
+        tmp_path / ".agents" / "skills",
+        directory_name="research",
+        name="research",
+        description="Gather context before responding.",
+        body="Review the references before using tools.",
+    )
+    llm_client = _CaptureSequenceLLMClient(
+        response_texts=[
+            json.dumps(
+                {
+                    "tool_name": "sum",
+                    "tool_input": {"a": 2, "b": 3},
+                    "reason": "compute the result",
+                }
+            ),
+            json.dumps(
+                {
+                    "tool_name": "final_answer",
+                    "tool_input": {"value": 5},
+                    "reason": "done",
+                }
+            ),
+        ]
+    )
+    agent = MultiStepAgent(
+        mode="json",
+        llm_client=llm_client,
+        tool_runtime=_MathToolRuntime(),
+        max_steps=2,
+        skills=SkillsConfig(project_root=tmp_path, pinned_skills=("tone",)),
+    )
+
+    result = agent.run("Compute 2 + 3.")
+
+    assert result.success is True
+    first_prompt = "\n".join(message.content for message in llm_client.requests[0].messages)
+    assert '<active_skill name="tone"' in first_prompt
+    assert "- skill_name: tone" not in first_prompt
+    assert "- skill_name: research" in first_prompt
 
 
 def test_router_delegate_pattern_can_activate_skill_then_route(tmp_path: Path) -> None:
