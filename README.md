@@ -48,7 +48,7 @@ print(result.final_output)
 ## Quickstart
 
 Requires Python 3.12+.
-Reproducible release installs are pinned to Python `3.12.12` (`.python-version`).
+Reproducible release installs target Python `3.12` (see `.python-version`).
 
 If you prefer a guided editor-first flow, use the
 [VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).

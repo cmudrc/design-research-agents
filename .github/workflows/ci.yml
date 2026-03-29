@@ -150,7 +150,7 @@ jobs:
         run: make test
 
   locked:
-    # Frozen reproducible installs from uv.lock, pinned to release Python patch.
+    # Frozen reproducible installs from uv.lock on the Python 3.12 series.
     #
     # Why:
     # - Ensures the lockfile actually works on clean machines.
@@ -164,9 +164,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Ubuntu: fully pinned patch version to maximize reproducibility.
+          # Ubuntu: use the current Python 3.12 patch from the runner toolchain.
           - os: ubuntu-latest
-            repro-python: "3.12.12"
+            repro-python: "3.12"
             repro-extras: "dev full"
           # macOS: use 3.12 (latest patch on runner) and avoid extras that trigger
           # slow/fragile source builds (e.g., llama-cpp-python) if wheels aren't available.

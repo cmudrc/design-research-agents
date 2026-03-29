@@ -25,7 +25,31 @@ Or use:
 
    make dev
 
-Extras Matrix
+Reproducible install
+--------------------
+
+.. code-block:: bash
+
+   make repro REPRO_EXTRAS="dev full"
+
+``REPRO_EXTRAS`` defaults to ``dev full``. The frozen install fails when
+``uv.lock`` is out of date.
+
+Maintainer release baseline
+---------------------------
+
+Use this when preparing a tagged release:
+
+1. Use Python ``3.12`` (from ``.python-version``).
+2. Regenerate lock data: ``make lock``.
+3. Verify the frozen install and full checks: ``make repro REPRO_EXTRAS="dev full"`` and ``make ci``.
+4. Build release artifacts and validate metadata: ``make release-check``.
+5. Commit ``uv.lock`` (and any dependency spec changes), then tag and publish.
+
+``make release-check`` builds both the source distribution and wheel into ``dist/``
+and runs ``twine check`` against the generated artifacts.
+
+Extras matrix
 -------------
 
 .. list-table::
