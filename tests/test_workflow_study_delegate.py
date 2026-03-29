@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from design_research_agents import WorkflowStudyDelegate
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents.workflow import LogicStep, Workflow
@@ -119,3 +121,24 @@ def test_workflow_study_delegate_accepts_direct_prompt_fallback() -> None:
     delegate.run("Fallback direct prompt.")
 
     assert captured["input"] == "Fallback direct prompt."
+
+
+def test_workflow_study_delegate_rejects_empty_prompt_sources() -> None:
+    workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
+    delegate = WorkflowStudyDelegate(
+        workflow=workflow,
+        prompt_builder=lambda _problem_packet, _run_spec, _condition: "   ",
+    )
+
+    with pytest.raises(ValueError, match="empty prompt"):
+        delegate.compile(
+            prompt="ignored",
+            dependencies={
+                "problem_packet": object(),
+                "run_spec": _RunSpec(run_id="run-1"),
+                "condition": _Condition(condition_id="cond-1"),
+            },
+        )
+
+    with pytest.raises(ValueError, match="non-empty prompt"):
+        delegate.run(prompt="   ")

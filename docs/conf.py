@@ -126,9 +126,10 @@ html_sidebars = (
 )
 
 # Linkcheck tuning for stable CI behavior.
-linkcheck_retries = 2
-linkcheck_timeout = 10
-linkcheck_workers = 10
+# Keep concurrency conservative so external docs hosts are less likely to rate-limit CI runners.
+linkcheck_retries = 3
+linkcheck_timeout = 20
+linkcheck_workers = 5
 linkcheck_anchors = False
 linkcheck_ignore = [
     r"https://api\.example\.com/.*",

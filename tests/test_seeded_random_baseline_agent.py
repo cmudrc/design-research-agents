@@ -11,6 +11,9 @@ from design_research_agents._contracts._termination import (
     TERMINATED_MAX_STEPS_REACHED,
     TERMINATED_STEP_FAILURE,
 )
+from design_research_agents._implementations._agents import (
+    _seeded_random_baseline_agent as seeded_random_impl,
+)
 
 
 @dataclass(frozen=True)
@@ -117,6 +120,27 @@ class _OptimizationProblem:
             is_feasible=True,
             higher_is_better=False,
         )
+
+
+class _NoTransitionGrammarProblem(_GrammarProblem):
+    def initial_state(self) -> dict[str, object]:
+        return {"depth": 3, "history": ["done"]}
+
+
+class _OptimizationProblemWithFailingPreview(_OptimizationProblem):
+    def evaluate(self, candidate: list[float]) -> _OptimizationEvaluation:
+        del candidate
+        raise RuntimeError("preview failed")
+
+
+class _PositionalSeedOptimizationProblem:
+    def generate_initial_solution(self, seed: int) -> list[int]:
+        return [seed]
+
+
+class _NoArgOptimizationProblem:
+    def generate_initial_solution(self) -> list[int]:
+        return [42]
 
 
 def test_seeded_random_baseline_matches_standard_delegate_signature() -> None:
@@ -257,6 +281,23 @@ def test_grammar_rollout_respects_max_steps_and_records_transitions() -> None:
     assert result.metadata["condition_id"] == "cond-1"
 
 
+def test_grammar_rollout_reports_when_no_transitions_are_available() -> None:
+    agent = SeededRandomBaselineAgent(seed=5, grammar_max_steps=2)
+    problem = _NoTransitionGrammarProblem()
+
+    result = agent.run(
+        "Sample a grammar rollout.",
+        dependencies={"problem": problem},
+    )
+
+    assert result.success is True
+    assert result.metadata["family"] == "grammar"
+    assert result.metadata["steps_executed"] == 0
+    assert result.metadata["transitions"] == []
+    assert result.output["terminated_reason"] == "no_transitions_available"
+    assert result.output["events"][0]["event_type"] == "baseline_transition_skipped"
+
+
 def test_optimization_preview_evaluation_is_preserved() -> None:
     agent = SeededRandomBaselineAgent(seed=11)
     problem = _OptimizationProblem()
@@ -271,6 +312,21 @@ def test_optimization_preview_evaluation_is_preserved() -> None:
     assert result.output["final_output"]["candidate"] == [0.1, 0.0]
     assert result.output["metrics"]["objective_value"] == 0.1
     assert result.metadata["preview_evaluation"]["is_feasible"] is True
+
+
+def test_optimization_preview_evaluation_errors_are_recorded_without_failing() -> None:
+    agent = SeededRandomBaselineAgent(seed=11)
+    problem = _OptimizationProblemWithFailingPreview()
+
+    result = agent.run(
+        "Sample an optimization candidate.",
+        dependencies={"problem": problem},
+    )
+
+    assert result.success is True
+    assert result.metadata["family"] == "optimization"
+    assert result.output["metrics"] == {}
+    assert result.metadata["preview_evaluation_error"] == "preview failed"
 
 
 def test_missing_problem_dependency_returns_structured_failure_result() -> None:
@@ -299,3 +355,18 @@ def test_optional_real_problem_integration_path_for_decision_problem() -> None:
 
     assert isinstance(result.output["final_output"], dict)
     assert evaluation.objective_value >= 0.0
+
+
+def test_seeded_random_helper_branches_cover_fallbacks_and_payload_helpers() -> None:
+    assert seeded_random_impl._generate_initial_solution(
+        problem=_PositionalSeedOptimizationProblem(),
+        seed=7,
+    ) == [7]
+    assert seeded_random_impl._generate_initial_solution(
+        problem=_NoArgOptimizationProblem(),
+        seed=7,
+    ) == [42]
+    assert seeded_random_impl._decision_output_payload("choice-a") == {"choice_key": "choice-a"}
+    assert seeded_random_impl._decision_output_payload({"x": 1}) == {"x": 1}
+    assert seeded_random_impl._coerce_seed_like(3.9) == 3
+    assert seeded_random_impl._coerce_seed_like("8") == 8

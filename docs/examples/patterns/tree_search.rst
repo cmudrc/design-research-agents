@@ -1,35 +1,35 @@
-Beam Search
+Tree Search
 ===========
 
-Source: ``examples/patterns/beam_search.py``
+Source: ``examples/patterns/tree_search.py``
 
 Introduction
 ------------
 
-Tree of Thoughts motivates branching deliberation over single-chain prompting, while Plan-and-Solve and
-ReAct provide complementary stepwise control principles. This example instantiates tree-search reasoning as
-an inspectable pattern for comparing branch quality under fixed runtime controls.
+Tree of Thoughts motivates explicit branching and ranking instead of single-pass revision.
+This example uses dedicated generator/evaluator delegates and a bounded beam search to show
+search-policy behavior (expand, score, prune) in a traceable way.
 
 Technical Implementation
 ------------------------
 
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``BeamSearchPattern.run(...)`` with a fixed ``request_id``.
-3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
+2. Build generator and evaluator delegates with ``DirectLLMCall`` and a managed ``LlamaCppServerLLMClient``.
+3. Execute ``TreeSearchPattern.run(...)`` with explicit search controls and preserve frontier diagnostics.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 .. mermaid::
 
    flowchart LR
        A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-       B --> C["BeamSearchPattern.run(...)"]
-       C --> D["generator/evaluator loop expands and prunes candidate tree"]
+       B --> C["TreeSearchPattern.run(...)"]
+       C --> D["generator/evaluator delegates expand and score candidate nodes"]
        C --> E["Tracer JSONL + console events"]
        D --> F["ExecutionResult/payload"]
        E --> F
        F --> G["Printed JSON output"]
 
-.. literalinclude:: ../../../examples/patterns/beam_search.py
+.. literalinclude:: ../../../examples/patterns/tree_search.py
    :language: python
    :lines: 51-
    :linenos:
@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/beam_search.py
+   PYTHONPATH=src python3 examples/patterns/tree_search.py
 
 Example output shape (values vary by run):
 

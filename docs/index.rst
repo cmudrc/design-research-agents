@@ -12,6 +12,21 @@ Interpretable traces, explicit tool boundaries, and documented workflow
 contracts are core features. They make agent studies easier to reproduce,
 compare, and audit across experiments.
 
+Highlights
+----------
+
+- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``.
+- ``MultiStepAgent`` supports explicit modes: ``direct``, ``json``, and ``code``.
+- JSON mode uses structured ``tool_name``/``tool_input`` selection for
+  iterative tool-call loops.
+- Workflow primitives for model, tool, delegate, loop, and memory steps.
+- Model selection policies with local/remote catalogs.
+- Tool contracts and schemas for safe, structured I/O.
+- Tracing hooks and emitters for debugging and evaluation.
+- Runnable examples for deterministic validation and experimentation.
+- Workflow-native memory, networked blackboard coordination, and reusable
+  reasoning patterns (tree search, Ralph loops, nominal teams, and RAG).
+
 .. raw:: html
 
    <div class="drc-badge-row">

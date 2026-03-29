@@ -22,14 +22,28 @@ workflow orchestration, tool execution, and traceable experimentation.
 
 This package centers on reproducible agent workflows with a compact public API:
 
-- Direct and multi-step agent entry points (`DirectLLMCall`, `MultiStepAgent`)
+- Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
 - A seeded random control-condition agent for packaged-problem studies (`SeededRandomBaselineAgent`)
 - A thin workflow adapter for packaged-problem studies (`WorkflowStudyDelegate`)
 - Workflow primitives for model, tool, delegate, loop, and memory steps
-- A unified tool runtime (`Toolbox`) for callable, script, and MCP-backed tools
-- Hosted and local LLM clients, plus `ModelSelector` policy-driven backend selection
-- Prebuilt coordination patterns for plan/execute, propose/critic, debate, routing, beam search, RAG, blackboard, and conversation
-- Tracing hooks and structured execution outputs for deterministic evaluation
+- A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
+- Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
+- Prebuilt coordination and reasoning patterns for plan/execute, propose/critic, debate, routing, round-based coordination, blackboard, tree search, Ralph loops, nominal teams, RAG, and conversation
+- Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
+
+## A Super Basic Agent
+
+```python
+from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent
+
+with LlamaCppServerLLMClient() as llm_client:
+    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=3)
+    result = agent.run(
+        prompt="Suggest two design goals for a field-repairable drone battery latch.",
+    )
+
+print(result.final_output)
+```
 
 ## Quickstart
 
@@ -84,7 +98,7 @@ Top-level exports include:
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
-- Patterns: conversation, debate, plan/execute, propose/critic, routing, round-based coordination, blackboard, beam search, and RAG
+- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, and RAG
 - LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
 - Runtime services: `ModelSelector` and `Tracer`
 

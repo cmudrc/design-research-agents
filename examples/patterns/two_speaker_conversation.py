@@ -57,6 +57,12 @@ from pathlib import Path
 
 import design_research_agents as drag
 
+_EXAMPLE_LLAMA_CLIENT_KWARGS = {
+    "context_window": 8192,
+    "startup_timeout_seconds": 180.0,
+    "request_timeout_seconds": 180.0,
+}
+
 
 def main() -> None:
     """Run two-speaker brainstorming loop for a serviceable device enclosure."""
@@ -70,10 +76,10 @@ def main() -> None:
     )
     # Run the two-speaker conversation using the managed local client. Using this with statement will
     # automatically shut down the client when the example is done.
-    with drag.LlamaCppServerLLMClient() as llm_client:
+    with drag.LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client:
         pattern = drag.TwoSpeakerConversationPattern(
             llm_client_a=llm_client,
-            max_turns=5,
+            max_turns=2,
             speaker_a_name="Concept Designer",
             speaker_b_name="Validation Engineer",
             speaker_a_system_prompt=(
