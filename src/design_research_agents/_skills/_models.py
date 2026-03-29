@@ -33,6 +33,14 @@ class SkillCatalog:
     """Immutable ordered collection of discovered skills."""
 
     skills: tuple[DiscoveredSkill, ...]
+    _by_name: dict[str, DiscoveredSkill] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Build an indexed view and reject duplicate skill names."""
+        by_name = {skill.name: skill for skill in self.skills}
+        if len(by_name) != len(self.skills):
+            raise ValueError("SkillCatalog skill names must be unique.")
+        object.__setattr__(self, "_by_name", by_name)
 
     def names(self) -> tuple[str, ...]:
         """Return discovered skill names in deterministic order."""
@@ -40,15 +48,12 @@ class SkillCatalog:
 
     def by_name(self) -> dict[str, DiscoveredSkill]:
         """Return discovered skills keyed by name."""
-        return {skill.name: skill for skill in self.skills}
+        return dict(self._by_name)
 
     def get(self, skill_name: str) -> DiscoveredSkill | None:
         """Return one skill by name when present."""
         normalized_name = skill_name.strip()
-        for skill in self.skills:
-            if skill.name == normalized_name:
-                return skill
-        return None
+        return self._by_name.get(normalized_name)
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
