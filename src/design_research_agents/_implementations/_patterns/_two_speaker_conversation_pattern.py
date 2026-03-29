@@ -376,7 +376,7 @@ class TwoSpeakerConversationPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -390,27 +390,28 @@ class TwoSpeakerConversationPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one two-speaker conversation workflow."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
         input_payload = {
-            "prompt": prompt,
+            **run_context.normalized_input,
             "mode": MODE_TWO_SPEAKER_CONVERSATION,
             "max_turns": self._max_turns,
             "speaker_a_name": self._speaker_a_name,
             "speaker_b_name": self._speaker_b_name,
         }
         workflow = self._build_workflow(
-            prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )

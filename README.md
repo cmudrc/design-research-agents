@@ -1,9 +1,16 @@
 # design-research-agents
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Coverage](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Examples Passing](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Examples Passing](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
+[![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
+
+<!-- release-callout:start -->
+> [!IMPORTANT]
+> Current monthly release: [The April Alignment](https://github.com/cmudrc/design-research-agents/milestone/1)  
+> Due: April 1, 2026  
+> Tracks: March 2026 work
+<!-- release-callout:end -->
 
 `design-research-agents` is the agent-execution layer in the cmudrc design
 research ecosystem.
@@ -16,6 +23,8 @@ workflow orchestration, tool execution, and traceable experimentation.
 This package centers on reproducible agent workflows with a compact public API:
 
 - Direct and multi-step agent entry points (`DirectLLMCall`, `MultiStepAgent`)
+- A seeded random control-condition agent for packaged-problem studies (`SeededRandomBaselineAgent`)
+- A thin workflow adapter for packaged-problem studies (`WorkflowStudyDelegate`)
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A unified tool runtime (`Toolbox`) for callable, script, and MCP-backed tools
 - Hosted and local LLM clients, plus `ModelSelector` policy-driven backend selection
@@ -71,7 +80,7 @@ The supported public surface is whatever is exported from
 
 Top-level exports include:
 
-- Agent entry points: `DirectLLMCall`, `MultiStepAgent`
+- Agent entry points: `DirectLLMCall`, `MultiStepAgent`, `SeededRandomBaselineAgent`, `WorkflowStudyDelegate`
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`

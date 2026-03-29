@@ -9,6 +9,7 @@ from design_research_agents._implementations._shared._agent_internal import (
     _prompt_overrides,
     _run_options,
 )
+from tests.helpers.problem_stubs import FakeProblem, FakeProblemMetadata
 
 
 def test_input_parsing_helpers_cover_fallback_and_embedded_mapping_paths() -> None:
@@ -61,5 +62,31 @@ def test_loop_state_coercion_rejects_invalid_container_types() -> None:
 
 
 def test_normalize_input_payload_rejects_non_string_inputs() -> None:
-    with pytest.raises(TypeError, match="input must be a string prompt"):
+    with pytest.raises(TypeError, match="input must be a string prompt or a problem-like object"):
         _run_options.normalize_input_payload(123)  # type: ignore[arg-type]
+
+
+def test_normalize_input_payload_accepts_problem_like_objects() -> None:
+    problem = FakeProblem(
+        rendered_brief="Rendered packaged problem brief.",
+        statement_markdown="Statement markdown that should not win priority.",
+        metadata=FakeProblemMetadata(
+            problem_id="problem-001",
+            title="Serviceability packaging tradeoff",
+            kind="design-choice",
+        ),
+        candidate_kind="structured_answer",
+        family="packaged-problems",
+    )
+
+    normalized_input = _run_options.normalize_input_payload(problem)
+
+    assert normalized_input["prompt"] == "Rendered packaged problem brief."
+    assert normalized_input["problem"] is problem
+    assert normalized_input["problem_metadata"] == {
+        "problem_id": "problem-001",
+        "title": "Serviceability packaging tradeoff",
+        "kind": "design-choice",
+        "candidate_kind": "structured_answer",
+        "family": "packaged-problems",
+    }

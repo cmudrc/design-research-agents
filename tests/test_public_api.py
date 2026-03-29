@@ -8,6 +8,7 @@ import inspect
 import pytest
 
 import design_research_agents as dra
+import design_research_agents.agent as dra_agent
 import design_research_agents.llm as dra_llm
 import design_research_agents.memory as dra_memory
 import design_research_agents.patterns as dra_patterns
@@ -20,6 +21,8 @@ EXPECTED_PUBLIC_API = [
     "__version__",
     "DirectLLMCall",
     "MultiStepAgent",
+    "SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate",
     "Toolbox",
     "CallableToolConfig",
     "ScriptToolConfig",
@@ -64,6 +67,12 @@ EXPECTED_PUBLIC_API = [
     "Tracer",
 ]
 
+EXPECTED_AGENT_API = [
+    "DirectLLMCall",
+    "MultiStepAgent",
+    "SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate",
+]
 EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
 EXPECTED_WORKFLOW_API = [
     "CompiledExecution",
@@ -115,6 +124,12 @@ LEGACY_PUBLIC_SYMBOLS = [
 
 def test_top_level_exports_match_curated_contract() -> None:
     assert dra.__all__ == EXPECTED_PUBLIC_API
+
+
+def test_agent_module_exports_match_curated_contract() -> None:
+    assert dra_agent.__all__ == EXPECTED_AGENT_API
+    for symbol_name in dra_agent.__all__:
+        assert getattr(dra_agent, symbol_name) is not None
 
 
 def test_top_level_exports_resolve() -> None:
@@ -169,6 +184,19 @@ def test_public_entrypoint_signatures_use_prompt_or_input_only() -> None:
     toolbox_invoke_dict_params = inspect.signature(dra_tools.Toolbox.invoke_dict).parameters
     assert "input" in toolbox_invoke_dict_params
     assert "input_dict" not in toolbox_invoke_dict_params
+
+    for agent_name in EXPECTED_AGENT_API:
+        agent_cls = getattr(dra_agent, agent_name)
+        agent_run_params = inspect.signature(agent_cls.run).parameters
+        agent_compile_params = inspect.signature(agent_cls.compile).parameters
+        assert "prompt" in agent_run_params
+        assert "input" not in agent_run_params
+        assert "input_data" not in agent_run_params
+        assert "problem_packet" not in agent_run_params
+        assert "problem" not in agent_run_params
+        assert "prompt" in agent_compile_params
+        assert "input" not in agent_compile_params
+        assert "input_data" not in agent_compile_params
 
     for pattern_name in EXPECTED_PATTERNS_API:
         pattern_cls = getattr(dra_patterns, pattern_name)

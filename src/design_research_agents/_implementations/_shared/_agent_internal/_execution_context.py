@@ -39,7 +39,7 @@ class AgentExecutionContext:
 
 def prepare_agent_execution(
     *,
-    prompt: str,
+    prompt: str | object,
     request_id: str | None,
     dependencies: Mapping[str, object] | None,
     agent_name: str,
@@ -80,7 +80,7 @@ def prepare_agent_execution(
 
 def resolve_agent_execution_context(
     *,
-    prompt: str,
+    prompt: str | object,
     request_id: str | None,
     dependencies: Mapping[str, object] | None,
 ) -> AgentExecutionContext:

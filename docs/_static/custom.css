@@ -1,0 +1,49 @@
+:root {
+  --drc-docs-accent: #57b7ba;
+}
+
+html[data-theme="light"] {
+  --pst-color-primary: var(--drc-docs-accent);
+  --pst-color-accent: var(--drc-docs-accent);
+  --pst-color-link: #318f94;
+  --pst-color-link-hover: #226f74;
+}
+
+html[data-theme="dark"] {
+  --pst-color-primary: #7ad8db;
+  --pst-color-accent: #7ad8db;
+  --pst-color-link: #7ad8db;
+  --pst-color-link-hover: #a5e9eb;
+  --pst-color-secondary: #a5afb8;
+  --pst-color-background: #111318;
+  --pst-color-on-background: #171b21;
+  --pst-color-surface: #1d222a;
+  --pst-color-border: #353d48;
+  --pst-color-text-base: #e6ebef;
+  --pst-color-text-muted: #acb5be;
+}
+
+.bd-header {
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--drc-docs-accent) 30%, var(--pst-color-border));
+}
+
+.navbar-brand img {
+  max-height: 2.7rem;
+}
+
+.drc-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 1rem;
+}
+
+.drc-badge-link {
+  line-height: 0;
+}
+
+.drc-badge-row img {
+  height: 20px;
+  vertical-align: middle;
+}
