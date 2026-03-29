@@ -71,6 +71,11 @@ gemini = ["google-genai>=1.0,<2"]
 
 groq = ["groq>=1.0,<2"]
 
+# Optional memory backends
+memory_chroma = ["chromadb>=1.0,<2"]
+
+memory_graph = ["networkx>=3.0,<4"]
+
 # Multi-OS backends
 llama_cpp = [
   "huggingface-hub>=0.24",
@@ -144,6 +149,7 @@ where = ["src"]
 # Ship marker file for typed package consumers + runtime assets.
 [tool.setuptools.package-data]
 design_research_agents = ["py.typed", "_schemas/*.schema.json", "_prompts/*.md"]
+"design_research_agents._memory._knowledge_resources" = ["*/*.toml", "*/*.md"]
 
 # Pytest defaults for local + CI test runs.
 [tool.pytest.ini_options]
