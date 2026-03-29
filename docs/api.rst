@@ -44,6 +44,14 @@ Agents
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.SeededRandomBaselineAgent
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.WorkflowStudyDelegate
+   :members:
+   :undoc-members:
+
 Skills
 ^^^^^^
 
@@ -156,7 +164,10 @@ Workflow Steps and Facade
 workflow and applies delegate-specific finalization. Accessing
 ``compiled.workflow`` gives the raw workflow graph for inspection and testing.
 Calling ``compiled.workflow.run(...)`` directly bypasses that finalization
-layer and returns the raw workflow result.
+layer and returns the raw workflow result. Use ``compiled.to_mermaid()`` /
+``compiled.to_svg()`` for direct compiled-workflow diagrams, or
+``delegate.compile_to_mermaid()`` / ``delegate.compile_to_svg()`` to render
+the most recently compiled workflow stored on a delegate instance.
 
 Workflow step executions surface ``WorkflowStepResult`` payloads through
 ``ExecutionResult.step_results``. These step results mirror the top-level
@@ -225,6 +236,14 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.RalphLoopPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.NominalTeamPattern
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.RouterDelegatePattern
    :members:
    :undoc-members:
@@ -237,7 +256,7 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.BeamSearchPattern
+.. autoclass:: design_research_agents.TreeSearchPattern
    :members:
    :undoc-members:
 

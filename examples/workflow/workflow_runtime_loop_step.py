@@ -12,17 +12,6 @@ execution in the workflow runtime, including bounded iteration behavior and trac
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
-```mermaid
-flowchart LR
-    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (LogicStep, LoopStep)"]
-    C --> E["Tracer JSONL + console events"]
-    D --> F["ExecutionResult/payload"]
-    E --> F
-    F --> G["Printed JSON output"]
-```
-
 
 ## Expected Results
 
@@ -54,7 +43,9 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import LogicStep, LoopStep, Tracer, Workflow
+import design_research_agents as drag
+
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
 
 
 def _increment_handler(context: Mapping[str, object]) -> Mapping[str, object]:
@@ -98,27 +89,18 @@ def _state_reducer(
     }
 
 
-def main() -> None:
-    """Run a small loop and print compact JSON summary."""
-    # Fixed request id keeps traces and docs output deterministic across runs.
-    request_id = "example-workflow-loop-design-001"
-    tracer = Tracer(
-        enabled=True,
-        trace_dir=Path("artifacts/examples/traces"),
-        enable_jsonl=True,
-        enable_console=True,
-    )
-    # Build and run the loop workflow using public runtime APIs.
-    workflow = Workflow(
+def build_example_workflow(*, tracer: drag.Tracer | None = None) -> drag.Workflow:
+    """Build the bounded loop workflow used for runtime illustration and docs diagrams."""
+    return drag.Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
         tracer=tracer,
         steps=[
-            LoopStep(
+            drag.LoopStep(
                 step_id="design_counter_loop",
                 steps=(
-                    LogicStep(step_id="increment", handler=_increment_handler),
-                    LogicStep(
+                    drag.LogicStep(step_id="increment", handler=_increment_handler),
+                    drag.LogicStep(
                         step_id="snapshot",
                         dependencies=("increment",),
                         handler=_snapshot_handler,
@@ -133,6 +115,20 @@ def main() -> None:
             )
         ],
     )
+
+
+def main() -> None:
+    """Run a small loop and print compact JSON summary."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
+    request_id = "example-workflow-loop-design-001"
+    tracer = drag.Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    # Build and run the loop workflow using public runtime APIs.
+    workflow = build_example_workflow(tracer=tracer)
 
     result = workflow.run({}, execution_mode="sequential", request_id=request_id)
     # Print the results

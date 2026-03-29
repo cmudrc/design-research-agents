@@ -28,6 +28,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
+- Install extra: ``pip install -e ".[openai]"`` (or ``pip install "design-research-agents[openai]"``)
 - ``OPENAI_API_KEY`` (or pass ``api_key`` directly)
 - Network access to OpenAI API
 

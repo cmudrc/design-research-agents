@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Release-blocking line coverage targets.
-GLOBAL_THRESHOLD = 90.0
+DEFAULT_GLOBAL_THRESHOLD = 90.0
 PACKAGE_THRESHOLDS = {
     "_contracts": 98.0,
     "_implementations": 90.0,
@@ -131,6 +131,12 @@ def main() -> int:
         default="artifacts/coverage/coverage.json",
         help="Path to pytest-cov JSON report.",
     )
+    parser.add_argument(
+        "--minimum",
+        type=float,
+        default=DEFAULT_GLOBAL_THRESHOLD,
+        help="Minimum required global line coverage percentage.",
+    )
     args = parser.parse_args()
 
     coverage_path = Path(args.coverage_json)
@@ -142,9 +148,10 @@ def main() -> int:
 
     global_summary = _extract_global_summary(payload)
     global_percent = global_summary.percent
-    print(f"Global line coverage: {global_percent:.2f}% (threshold {GLOBAL_THRESHOLD:.2f}%)")
-    if global_percent < GLOBAL_THRESHOLD:
-        failures.append(f"global coverage {global_percent:.2f}% is below {GLOBAL_THRESHOLD:.2f}%")
+    global_threshold = args.minimum
+    print(f"Global line coverage: {global_percent:.2f}% (threshold {global_threshold:.2f}%)")
+    if global_percent < global_threshold:
+        failures.append(f"global coverage {global_percent:.2f}% is below {global_threshold:.2f}%")
 
     for package_name, threshold in PACKAGE_THRESHOLDS.items():
         summary = _extract_package_summary(payload, package_name)

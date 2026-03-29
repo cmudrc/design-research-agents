@@ -23,6 +23,7 @@ from design_research_agents._contracts._llm import (
 from design_research_agents._contracts._tools import ToolSpec
 from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm._backends._errors import map_backend_exception
+from design_research_agents.llm._backends._optional_deps import raise_missing_optional_dependency
 from design_research_agents.llm._backends._utils import (
     parse_tool_calls,
     parse_usage,
@@ -278,10 +279,12 @@ class OpenAIServiceBackend(BaseLLMBackend):
         api_key = self._resolve_api_key()
         try:
             from openai import OpenAI
-        except ImportError as exc:
-            raise RuntimeError(
-                "The 'openai' package is required for openai_service backends. Install with: pip install -e ."
-            ) from exc
+        except ImportError:
+            raise_missing_optional_dependency(
+                package_name="openai",
+                extra_name="openai",
+                feature_name="OpenAIServiceLLMClient",
+            )
         kwargs: dict[str, Any] = {"api_key": api_key}
         if self.base_url:
             kwargs["base_url"] = self.base_url

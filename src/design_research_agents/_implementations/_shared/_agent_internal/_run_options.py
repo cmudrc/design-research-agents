@@ -5,24 +5,25 @@ from __future__ import annotations
 from collections.abc import Mapping
 from uuid import uuid4
 
+from design_research_agents._runtime._common._prompt_inputs import (
+    normalize_prompt_like_input,
+)
 
-def normalize_input_payload(input_payload: str) -> dict[str, object]:
+
+def normalize_input_payload(input_payload: str | object) -> dict[str, object]:
     """Normalize one run input payload into a plain dictionary.
 
-    Prompts are stored as ``{"prompt": <value>}`` for downstream helpers.
+    String prompts preserve the historical ``{"prompt": <value>}`` shape. When
+    callers supply one problem-like object, the payload also carries ``problem``
+    and ``problem_metadata`` fields for downstream prompt builders.
 
     Args:
-        input_payload: Raw input prompt text.
+        input_payload: Raw prompt text or problem-like object.
 
     Returns:
         Normalized input payload mapping.
-
-    Raises:
-        TypeError: If ``input_payload`` is not a string.
     """
-    if not isinstance(input_payload, str):
-        raise TypeError("input must be a string prompt.")
-    return {"prompt": input_payload}
+    return normalize_prompt_like_input(input_payload)
 
 
 def resolve_request_id(request_id: str | None) -> str:

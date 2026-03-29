@@ -18,20 +18,27 @@ Technical Implementation
 3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
+The diagram below is generated from the example's configured ``Workflow``.
+
 .. mermaid::
 
    flowchart LR
-       A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-       B --> C["Workflow.run(...)"]
-       C --> D["WorkflowRuntime schedules step graph (LogicStep, ToolStep)"]
-       C --> E["Tracer JSONL + console events"]
-       D --> F["ExecutionResult/payload"]
-       E --> F
-       F --> G["Printed JSON output"]
+       workflow_entry["Workflow Entrypoint"]
+       step_1["describe_dataset<br/>ToolStep<br/>tool=data.describe"]
+       step_2["load_sample<br/>ToolStep<br/>tool=data.load_csv"]
+       step_3["quality_gate<br/>LogicStep"]
+       step_4["persist_report<br/>ToolStep<br/>tool=fs.write_text"]
+       step_5["finalize<br/>LogicStep"]
+       workflow_entry --> step_1
+       step_1 --> step_2
+       step_1 --> step_3
+       step_2 --> step_3
+       step_3 --> step_4
+       step_4 --> step_5
 
 .. literalinclude:: ../../../examples/workflow/workflow_schema_mode.py
    :language: python
-   :lines: 64-
+   :lines: 53-
    :linenos:
 
 Expected Results

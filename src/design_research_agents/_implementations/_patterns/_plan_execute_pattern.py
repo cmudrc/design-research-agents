@@ -47,13 +47,9 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
 
 from .._shared._agent_internal._input_parsing import (
-    extract_prompt as _extract_prompt,
-)
-from .._shared._agent_internal._input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
 from .._shared._agent_internal._model_resolution import resolve_agent_model
-from .._shared._agent_internal._run_options import normalize_input_payload
 from .._shared._workflow_internal._plan_execute_helpers import (
     DEFAULT_EXECUTOR_STEP_PROMPT_TEMPLATE,
     DEFAULT_PLANNER_SYSTEM_PROMPT,
@@ -139,7 +135,7 @@ class PlanExecutePattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -153,19 +149,20 @@ class PlanExecutePattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one bound plan-execute orchestration."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        resolved_prompt = _extract_prompt(normalize_input_payload(prompt))
+        resolved_prompt = run_context.prompt
         budget_tracker = WorkflowBudgetTracker()
         runtime_state: dict[str, object] = {
             "planner_response": None,
@@ -190,7 +187,7 @@ class PlanExecutePattern(Delegate):
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_PLAN_EXECUTE},
+            input_payload={**run_context.normalized_input, "mode": MODE_PLAN_EXECUTE},
             workflow_request_id=f"{run_context.request_id}:plan_execute_workflow",
             failure_policy="propagate_failed_state",
             finalize=lambda workflow_result: self._build_plan_execute_result(

@@ -12,17 +12,6 @@ This example is the minimal workflow-runtime build for observing step execution 
 3. Capture structured outputs from runtime execution and preserve termination metadata for analysis.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
-```mermaid
-flowchart LR
-    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (LogicStep)"]
-    C --> E["Tracer JSONL + console events"]
-    D --> F["ExecutionResult/payload"]
-    E --> F
-    F --> G["Printed JSON output"]
-```
-
 
 ## Expected Results
 
@@ -53,26 +42,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LogicStep, Tracer, Workflow
+import design_research_agents as drag
+
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
 
 
-def main() -> None:
-    """Run a minimal logic workflow and print literal payload."""
-    # Fixed request id keeps traces and docs output deterministic across runs.
-    request_id = "example-workflow-runtime-design-001"
-    tracer = Tracer(
-        enabled=True,
-        trace_dir=Path("artifacts/examples/traces"),
-        enable_jsonl=True,
-        enable_console=True,
-    )
-    # Build and run the minimal workflow using public runtime APIs.
-    workflow = Workflow(
+def build_example_workflow(*, tracer: drag.Tracer | None = None) -> drag.Workflow:
+    """Build the minimal workflow used for runtime illustration and docs diagrams."""
+    return drag.Workflow(
         tool_runtime=None,
         input_schema={"type": "object"},
         tracer=tracer,
         steps=[
-            LogicStep(
+            drag.LogicStep(
                 step_id="design_runtime_ready",
                 handler=lambda _context: {
                     "message": "Design runtime orchestration validated.",
@@ -81,6 +63,20 @@ def main() -> None:
             )
         ],
     )
+
+
+def main() -> None:
+    """Run a minimal logic workflow and print literal payload."""
+    # Fixed request id keeps traces and docs output deterministic across runs.
+    request_id = "example-workflow-runtime-design-001"
+    tracer = drag.Tracer(
+        enabled=True,
+        trace_dir=Path("artifacts/examples/traces"),
+        enable_jsonl=True,
+        enable_console=True,
+    )
+    # Build and run the minimal workflow using public runtime APIs.
+    workflow = build_example_workflow(tracer=tracer)
     result = workflow.run({}, execution_mode="sequential", request_id=request_id)
     # Print the results
     summary = result.summary()

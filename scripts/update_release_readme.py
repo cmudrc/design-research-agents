@@ -27,7 +27,11 @@ class Milestone:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments for README callout updates."""
+    """Parse command-line arguments for README callout updates.
+
+    Returns:
+        Parsed CLI arguments.
+    """
     parser = argparse.ArgumentParser(description="Refresh the monthly release callout in README.md.")
     parser.add_argument(
         "--readme",
@@ -46,7 +50,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_gh_api(route: str) -> list[dict[str, object]]:
-    """Return the list payload from a `gh api` request."""
+    """Return the list payload from a ``gh api`` request.
+
+    Args:
+        route: GitHub REST route.
+
+    Returns:
+        Decoded JSON payload as a list.
+    """
     output = subprocess.check_output(
         ["gh", "api", route],
         text=True,
@@ -58,7 +69,14 @@ def run_gh_api(route: str) -> list[dict[str, object]]:
 
 
 def resolve_repo(explicit_repo: str | None) -> str:
-    """Resolve the repository slug from args, env, or git remote."""
+    """Resolve the repository slug from args, env, or git remote.
+
+    Args:
+        explicit_repo: Optional CLI-provided repository slug.
+
+    Returns:
+        Repository slug in ``owner/name`` form.
+    """
     if explicit_repo:
         return explicit_repo
     env_repo = os.environ.get("GITHUB_REPOSITORY")
@@ -78,7 +96,14 @@ def resolve_repo(explicit_repo: str | None) -> str:
 
 
 def resolve_today(raw_today: str | None) -> date:
-    """Resolve the effective date in America/New_York unless overridden."""
+    """Resolve the effective date in America/New_York unless overridden.
+
+    Args:
+        raw_today: Optional CLI-provided ISO date string.
+
+    Returns:
+        Effective current date for milestone selection.
+    """
     env_today = raw_today or os.environ.get("RELEASE_README_TODAY")
     if env_today:
         return date.fromisoformat(env_today)
@@ -86,7 +111,14 @@ def resolve_today(raw_today: str | None) -> date:
 
 
 def load_open_milestones(repo: str) -> list[Milestone]:
-    """Load open milestones that have due dates, sorted by due date."""
+    """Load open milestones that have due dates, sorted by due date.
+
+    Args:
+        repo: Repository slug in ``owner/name`` form.
+
+    Returns:
+        Sorted milestone metadata list.
+    """
     route = f"repos/{repo}/milestones?state=open&per_page=100"
     raw_items = run_gh_api(route)
     milestones: list[Milestone] = []
@@ -110,7 +142,15 @@ def load_open_milestones(repo: str) -> list[Milestone]:
 
 
 def select_current_milestone(milestones: list[Milestone], today: date) -> Milestone:
-    """Choose the first milestone whose due date is still current."""
+    """Choose the first milestone whose due date is still current.
+
+    Args:
+        milestones: Sorted milestone metadata.
+        today: Effective current date.
+
+    Returns:
+        Current milestone.
+    """
     for milestone in milestones:
         if milestone.due_on.date() >= today:
             return milestone
@@ -118,13 +158,27 @@ def select_current_milestone(milestones: list[Milestone], today: date) -> Milest
 
 
 def tracked_work_month(due_date: date) -> str:
-    """Return the work month tracked by a milestone due date."""
+    """Return the work month tracked by a milestone due date.
+
+    Args:
+        due_date: Milestone due date.
+
+    Returns:
+        Human-readable month and year for the tracked work period.
+    """
     previous_month_last_day = due_date.replace(day=1) - timedelta(days=1)
     return previous_month_last_day.strftime("%B %Y")
 
 
 def format_callout(milestone: Milestone) -> str:
-    """Render the README callout block for a milestone."""
+    """Render the README callout block for a milestone.
+
+    Args:
+        milestone: Milestone metadata.
+
+    Returns:
+        Formatted markdown callout block.
+    """
     due_date = milestone.due_on.date()
     return "\n".join(
         [
@@ -139,7 +193,15 @@ def format_callout(milestone: Milestone) -> str:
 
 
 def update_readme(readme_path: Path, callout: str) -> bool:
-    """Insert or replace the release callout block in the README."""
+    """Insert or replace the release callout block in the README.
+
+    Args:
+        readme_path: README path to update.
+        callout: Formatted callout block.
+
+    Returns:
+        ``True`` when the README changed and ``False`` otherwise.
+    """
     original_text = readme_path.read_text()
     block_pattern = re.compile(
         rf"{re.escape(CALLOUT_START)}.*?{re.escape(CALLOUT_END)}",
@@ -162,7 +224,11 @@ def update_readme(readme_path: Path, callout: str) -> bool:
 
 
 def main() -> int:
-    """Refresh the README callout from the repo's open milestones."""
+    """Refresh the README callout from the repo's open milestones.
+
+    Returns:
+        Process exit code.
+    """
     args = parse_args()
     repo = resolve_repo(args.repo)
     today = resolve_today(args.today)

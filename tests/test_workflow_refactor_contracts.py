@@ -13,7 +13,7 @@ from design_research_agents._contracts._workflow import (
     WorkflowArtifact,
     WorkflowArtifactSource,
 )
-from design_research_agents._implementations._patterns._beam_search_pattern import BeamSearchPattern
+from design_research_agents._implementations._patterns._tree_search_pattern import TreeSearchPattern
 from design_research_agents.workflow import Workflow
 
 
@@ -64,7 +64,7 @@ def test_workflow_rejects_agents_registry_constructor_kwarg() -> None:
 
 
 def test_workflow_accepts_pattern_delegate_on_agent_step() -> None:
-    pattern = BeamSearchPattern(
+    pattern = TreeSearchPattern(
         generator_delegate=lambda context: [{"candidate": context.get("task", "")}],
         evaluator_delegate=lambda context: 1.0,
         max_depth=1,
@@ -144,7 +144,7 @@ def test_workflow_artifact_contract_serializes_and_tracks_provenance() -> None:
 
 
 def test_pattern_outputs_include_workflow_first_envelope_fields() -> None:
-    pattern = BeamSearchPattern(
+    pattern = TreeSearchPattern(
         generator_delegate=lambda _context: [{"name": "alpha", "score_hint": 0.5}],
         evaluator_delegate=lambda context: float(dict(context.get("candidate", {})).get("score_hint", 0.0)),
         max_depth=1,

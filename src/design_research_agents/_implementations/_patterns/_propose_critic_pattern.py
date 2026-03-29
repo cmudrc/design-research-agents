@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient
@@ -18,14 +18,8 @@ from design_research_agents._contracts._workflow import (
 from design_research_agents._implementations._agents._direct_llm_call import (
     DirectLLMCall,
 )
-from design_research_agents._implementations._shared._agent_internal._input_parsing import (
-    extract_prompt as _extract_prompt,
-)
 from design_research_agents._implementations._shared._agent_internal._model_resolution import (
     resolve_agent_model,
-)
-from design_research_agents._implementations._shared._agent_internal._run_options import (
-    normalize_input_payload,
 )
 from design_research_agents._implementations._shared._workflow_internal._propose_critic_helpers import (
     DEFAULT_CRITIC_SYSTEM_PROMPT,
@@ -39,12 +33,14 @@ from design_research_agents._runtime._patterns import (
     WorkflowBudgetTracker,
     attach_runtime_metadata,
     build_compiled_pattern_execution,
+    build_loop_callbacks,
     build_pattern_execution_result,
     normalize_mapping,
     normalize_mapping_records,
     normalize_request_id_prefix,
     resolve_pattern_run_context,
     resolve_prompt_override,
+    wrap_iteration_handler,
 )
 from design_research_agents._skills import (
     SkillsConfig,
@@ -135,7 +131,7 @@ class ProposeCriticPattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -149,22 +145,21 @@ class ProposeCriticPattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one propose/critic workflow."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        normalized_input = normalize_input_payload(prompt)
-        resolved_prompt = _extract_prompt(normalized_input)
         workflow = self._build_workflow(
-            resolved_prompt,
+            run_context.prompt,
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
         )
@@ -181,7 +176,7 @@ class ProposeCriticPattern(Delegate):
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_PROPOSE_CRITIC},
+            input_payload={**run_context.normalized_input, "mode": MODE_PROPOSE_CRITIC},
             workflow_request_id=f"{run_context.request_id}:propose_critic_loop",
             finalize=lambda workflow_result: _finalize_propose_critic_result(
                 workflow_result=workflow_result,
@@ -224,7 +219,12 @@ class ProposeCriticPattern(Delegate):
             skills_context=self._skills_context,
         )
         loop_steps: tuple[WorkflowStep, ...]
+        iteration_handler: Callable[[Mapping[str, object]], Mapping[str, object]]
         if self._critic_delegate is None:
+            iteration_handler = wrap_iteration_handler(
+                callbacks.build_iteration_from_model,
+                error_prefix="ProposeCriticPattern iteration",
+            )
             loop_steps = (
                 DelegateStep(
                     step_id="propose_critic_proposer",
@@ -244,10 +244,14 @@ class ProposeCriticPattern(Delegate):
                         "propose_critic_proposer",
                         "propose_critic_critic_model",
                     ),
-                    handler=callbacks.build_iteration_from_model,
+                    handler=iteration_handler,
                 ),
             )
         else:
+            iteration_handler = wrap_iteration_handler(
+                callbacks.build_iteration_from_delegate,
+                error_prefix="ProposeCriticPattern iteration",
+            )
             loop_steps = (
                 DelegateStep(
                     step_id="propose_critic_proposer",
@@ -266,9 +270,16 @@ class ProposeCriticPattern(Delegate):
                         "propose_critic_proposer",
                         "propose_critic_critic_delegate",
                     ),
-                    handler=callbacks.build_iteration_from_delegate,
+                    handler=iteration_handler,
                 ),
             )
+
+        loop_callbacks = build_loop_callbacks(
+            iteration_step_id="propose_critic_iteration",
+            iteration_handler=iteration_handler,
+            continue_predicate=callbacks.continue_predicate,
+            state_reducer=callbacks.state_reducer,
+        )
 
         workflow = Workflow(
             tool_runtime=self._tool_runtime,
@@ -289,8 +300,8 @@ class ProposeCriticPattern(Delegate):
                         "failure_error": None,
                         "critique_iterations": [],
                     },
-                    continue_predicate=callbacks.continue_predicate,
-                    state_reducer=callbacks.state_reducer,
+                    continue_predicate=loop_callbacks.continue_predicate,
+                    state_reducer=loop_callbacks.state_reducer,
                     execution_mode="sequential",
                     failure_policy="propagate_failed_state",
                 )

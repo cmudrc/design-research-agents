@@ -126,6 +126,42 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         "Peer contribution: document final maintenance SOP candidates.",
         "Peer contribution: finalize blackboard recommendation summary.",
     ),
+    "examples/patterns/tree_search.py": (
+        (
+            '{"candidates":[{"concept":"lightweight frame","tradeoff":"low mass"},'
+            '{"concept":"modular frame","tradeoff":"serviceability"}]}'
+        ),
+        '{"score":0.44}',
+        '{"score":0.73}',
+        (
+            '{"candidates":[{"concept":"modular frame + keyed hatch","tradeoff":"maintainability"},'
+            '{"concept":"modular frame + fail-safe latch","tradeoff":"reliability"}]}'
+        ),
+        '{"score":0.79}',
+        '{"score":0.91}',
+    ),
+    "examples/patterns/ralph_loop.py": (
+        '{"proposal":"Draft v1 with modular panels","changes":["add service hatch"]}',
+        '{"risks":["hatch alignment unclear"],"advice":["add keyed guides"]}',
+        '{"synthesis":"Draft v1 + keyed guides","actions":["spec hatch alignment"]}',
+        '{"score":0.62,"rationale":"initial draft still missing service procedure details"}',
+        ('{"proposal":"Draft v2 with keyed guides and service sequence","changes":["add torque notes"]}'),
+        '{"risks":["tooling variation"],"advice":["standardize fastener heads"]}',
+        ('{"synthesis":"Draft v2 standardized fasteners and service sequence","actions":["freeze fastener standard"]}'),
+        '{"score":0.88,"rationale":"consensus threshold met"}',
+    ),
+    "examples/patterns/nominal_team.py": (
+        ('{"concept":"split enclosure with captive screws","strengths":["fast field access"],"risks":["gasket wear"]}'),
+        (
+            '{"concept":"sealed cartridge bay with keyed latch","strengths":["weather sealing"],'
+            '"risks":["latch tolerance stack"]}'
+        ),
+        ('{"concept":"sheet-metal drawer module","strengths":["simple fabrication"],"risks":["larger envelope size"]}'),
+        (
+            '{"best_member_id":"repairability","scores":{"repairability":0.91,"reliability":0.74,'
+            '"manufacturability":0.68},"rationale":"Best maintenance turnaround under the active task."}'
+        ),
+    ),
     "examples/patterns/rag.py": (
         "Prioritize maintainability checks and explicit testability criteria in the recommended architecture.",
     ),
@@ -193,7 +229,7 @@ _PATH_ALIASES: dict[str, str] = {
     "examples/workflow/debate_pattern.py": "examples/patterns/debate_pattern.py",
     "examples/workflow/conversation_pattern.py": "examples/patterns/two_speaker_conversation.py",
     "examples/workflow/networked_blackboard.py": "examples/patterns/coordination_patterns.py",
-    "examples/workflow/tree_search.py": "examples/patterns/beam_search.py",
+    "examples/workflow/tree_search.py": "examples/patterns/tree_search.py",
     "examples/workflow/rag.py": "examples/patterns/rag.py",
 }
 

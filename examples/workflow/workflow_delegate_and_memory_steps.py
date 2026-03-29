@@ -13,17 +13,6 @@ single workflow so context propagation and role handoff remain explicit.
 4. Persist and query context via ``SQLiteMemoryStore`` to demonstrate memory-backed workflow behavior.
 5. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
-```mermaid
-flowchart LR
-    A["Input prompt or scenario"] --> B["main(): runtime wiring"]
-    B --> C["Workflow.run(...)"]
-    C --> D["WorkflowRuntime schedules step graph (DelegateBatchStep, LogicStep, MemoryReadStep, MemoryWriteStep)"]
-    C --> E["Tracer JSONL + console events"]
-    D --> F["ExecutionResult/payload"]
-    E --> F
-    F --> G["Printed JSON output"]
-```
-
 
 ## Expected Results
 
@@ -54,24 +43,101 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    DelegateBatchStep,
-    DirectLLMCall,
-    LlamaCppServerLLMClient,
-    LogicStep,
-    MemoryReadStep,
-    MemoryWriteStep,
-    Tracer,
-    Workflow,
-)
+import design_research_agents as drag
 from design_research_agents.memory import SQLiteMemoryStore
+
+WORKFLOW_DIAGRAM_DIRECTION = "LR"
+
+
+class _DocDelegate:
+    """Minimal delegate stub used only for docs-diagram workflow construction."""
+
+    def run(self, prompt: str, *, request_id: str | None = None, dependencies: object | None = None) -> object:
+        del prompt, request_id, dependencies
+        raise RuntimeError("Docs-only delegate stub should not be executed.")
+
+
+def build_example_workflow(
+    *,
+    tracer: drag.Tracer | None = None,
+    memory_store: object | None = None,
+    manufacturing_peer: object | None = None,
+    reliability_peer: object | None = None,
+) -> drag.Workflow:
+    """Build the delegate-memory workflow used for docs diagrams and runtime execution."""
+    resolved_manufacturing_peer = manufacturing_peer or _DocDelegate()
+    resolved_reliability_peer = reliability_peer or _DocDelegate()
+    return drag.Workflow(
+        tool_runtime=None,
+        memory_store=memory_store,
+        tracer=tracer,
+        input_schema={"type": "object"},
+        steps=[
+            drag.MemoryWriteStep(
+                step_id="seed_constraints",
+                namespace="design_constraints",
+                records_builder=lambda _context: [
+                    {
+                        "content": "Constraint: reduce service time by at least 20 percent.",
+                        "metadata": {"kind": "constraint"},
+                    },
+                    {
+                        "content": "Constraint: preserve ingress protection sealing.",
+                        "metadata": {"kind": "constraint"},
+                    },
+                ],
+            ),
+            drag.MemoryReadStep(
+                step_id="read_constraints",
+                namespace="design_constraints",
+                dependencies=("seed_constraints",),
+                top_k=5,
+                query_builder=lambda _context: {
+                    "text": "service time constraint",
+                    "metadata_filters": {"kind": "constraint"},
+                },
+            ),
+            drag.DelegateBatchStep(
+                step_id="peer_batch",
+                dependencies=("read_constraints",),
+                fail_fast=False,
+                calls_builder=lambda context: [
+                    {
+                        "call_id": "manufacturing_peer",
+                        "delegate": resolved_manufacturing_peer,
+                        "prompt": (
+                            "Propose manufacturing-friendly maintenance improvements using "
+                            "retrieved constraints count="
+                            f"{context['dependency_results']['read_constraints']['output']['count']}."
+                        ),
+                    },
+                    {
+                        "call_id": "reliability_peer",
+                        "delegate": resolved_reliability_peer,
+                        "prompt": "Propose reliability-focused maintenance improvements.",
+                    },
+                ],
+            ),
+            drag.LogicStep(
+                step_id="finalize",
+                dependencies=("read_constraints", "peer_batch"),
+                handler=lambda context: {
+                    "constraints_found": (context["dependency_results"]["read_constraints"]["output"]["count"]),
+                    "delegate_calls": len(context["dependency_results"]["peer_batch"]["output"].get("results", [])),
+                    "final_delegate_output": (
+                        context["dependency_results"]["peer_batch"]["output"].get("final_output")
+                    ),
+                },
+            ),
+        ],
+    )
 
 
 def main() -> None:
     """Execute memory and delegate-batch primitives in one traced workflow."""
     # Stable request ids keep workflow trace artifacts deterministic for docs snapshots.
     request_id = "example-workflow-delegate-memory-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -87,76 +153,17 @@ def main() -> None:
     # memory store and managed client when the example is done.
     with (
         SQLiteMemoryStore(db_path=db_path) as store,
-        LlamaCppServerLLMClient() as llm_client,
+        drag.LlamaCppServerLLMClient() as llm_client,
     ):
         # Two delegates share the same backend client to model role-specific prompts over one transport.
-        manufacturing_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
-        reliability_peer = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        manufacturing_peer = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
+        reliability_peer = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
 
-        workflow = Workflow(
-            tool_runtime=None,
-            memory_store=store,
+        workflow = build_example_workflow(
             tracer=tracer,
-            input_schema={"type": "object"},
-            steps=[
-                MemoryWriteStep(
-                    step_id="seed_constraints",
-                    namespace="design_constraints",
-                    # Seed memory first so downstream reads/delegates operate on explicit constraints.
-                    records_builder=lambda _context: [
-                        {
-                            "content": "Constraint: reduce service time by at least 20 percent.",
-                            "metadata": {"kind": "constraint"},
-                        },
-                        {
-                            "content": "Constraint: preserve ingress protection sealing.",
-                            "metadata": {"kind": "constraint"},
-                        },
-                    ],
-                ),
-                MemoryReadStep(
-                    step_id="read_constraints",
-                    namespace="design_constraints",
-                    dependencies=("seed_constraints",),
-                    top_k=5,
-                    query_builder=lambda _context: {
-                        "text": "service time constraint",
-                        "metadata_filters": {"kind": "constraint"},
-                    },
-                ),
-                DelegateBatchStep(
-                    step_id="peer_batch",
-                    dependencies=("read_constraints",),
-                    fail_fast=False,
-                    calls_builder=lambda context: [
-                        {
-                            "call_id": "manufacturing_peer",
-                            "delegate": manufacturing_peer,
-                            "prompt": (
-                                "Propose manufacturing-friendly maintenance improvements using "
-                                "retrieved constraints count="
-                                f"{context['dependency_results']['read_constraints']['output']['count']}."
-                            ),
-                        },
-                        {
-                            "call_id": "reliability_peer",
-                            "delegate": reliability_peer,
-                            "prompt": "Propose reliability-focused maintenance improvements.",
-                        },
-                    ],
-                ),
-                LogicStep(
-                    step_id="finalize",
-                    dependencies=("read_constraints", "peer_batch"),
-                    handler=lambda context: {
-                        "constraints_found": (context["dependency_results"]["read_constraints"]["output"]["count"]),
-                        "delegate_calls": len(context["dependency_results"]["peer_batch"]["output"].get("results", [])),
-                        "final_delegate_output": (
-                            context["dependency_results"]["peer_batch"]["output"].get("final_output")
-                        ),
-                    },
-                ),
-            ],
+            memory_store=store,
+            manufacturing_peer=manufacturing_peer,
+            reliability_peer=reliability_peer,
         )
         result = workflow.run({}, request_id=request_id)
 

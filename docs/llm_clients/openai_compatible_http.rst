@@ -29,6 +29,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
+- No extra required; this client is included in the base install.
 - Reachable OpenAI-compatible HTTP endpoint
 - Optional API key env variable depending on upstream server behavior
 

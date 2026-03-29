@@ -1,6 +1,7 @@
 """Sphinx configuration for the project documentation."""
 
-import os
+from __future__ import annotations
+
 import re
 import sys
 from pathlib import Path
@@ -26,12 +27,11 @@ author = "design-research-agents contributors"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "sphinxcontrib.mermaid",
 ]
-if os.environ.get("DRA_DOCS_ENABLE_INTERSPHINX") == "1":
-    extensions.append("sphinx.ext.intersphinx")
 
 # Docstring style: prefer Google-style (works well with type hints).
 napoleon_google_docstring = True
@@ -48,13 +48,9 @@ autosummary_imported_members = True
 
 # Treat unresolved cross references as errors.
 nitpicky = True
-intersphinx_mapping = (
-    {
-        "python": ("https://docs.python.org/3", None),
-    }
-    if "sphinx.ext.intersphinx" in extensions
-    else {}
-)
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+}
 nitpick_ignore = [
     ("py:class", "ExecutionResult"),
     ("py:class", "LlamaCppServerBackend"),
@@ -91,31 +87,53 @@ nitpick_ignore_regex = [
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
-# HTML output theme.
-# Prefer the Read the Docs theme, with a local fallback when it is unavailable.
-if os.environ.get("READTHEDOCS") == "True":
-    html_theme = "sphinx_rtd_theme"
+try:
+    import pydata_sphinx_theme  # noqa: F401
+except ImportError:
+    html_theme = "alabaster"
+    html_theme_options: dict[str, object] = {}
 else:
-    try:
-        import sphinx_rtd_theme  # noqa: F401
-
-        html_theme = "sphinx_rtd_theme"
-    except ImportError:
-        html_theme = "alabaster"
+    html_theme = "pydata_sphinx_theme"
+    html_theme_options = {
+        "logo": {
+            "text": project,
+            "image_light": "_static/drc-light.png",
+            "image_dark": "_static/drc-dark.png",
+        },
+        "icon_links": [
+            {
+                "name": "GitHub",
+                "url": "https://github.com/cmudrc/design-research-agents",
+                "icon": "fa-brands fa-github",
+            },
+        ],
+        "navbar_align": "content",
+        "header_links_before_dropdown": 4,
+        "show_nav_level": 2,
+        "navigation_with_keys": True,
+        "show_prev_next": False,
+        "secondary_sidebar_items": ["page-toc"],
+    }
 
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
-html_logo = "drc.png"
+html_logo = "_static/drc-light.png"
 html_favicon = "_static/favicon.ico"
 html_title = project
-html_theme_options = {
-    "logo_only": False,
-}
+html_sidebars = (
+    {
+        "index": [],
+        "examples/index": [],
+    }
+    if html_theme == "pydata_sphinx_theme"
+    else {}
+)
 
 # Linkcheck tuning for stable CI behavior.
-linkcheck_retries = 2
-linkcheck_timeout = 10
-linkcheck_workers = 10
+# Keep concurrency conservative so external docs hosts are less likely to rate-limit CI runners.
+linkcheck_retries = 3
+linkcheck_timeout = 20
+linkcheck_workers = 5
 linkcheck_anchors = False
 linkcheck_ignore = [
     r"https://api\.example\.com/.*",

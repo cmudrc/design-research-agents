@@ -87,5 +87,5 @@ def test__azure_openai_service_backend_missing_settings_and_import_error(monkeyp
         return real_import(name, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "__import__", _fake_import)
-    with pytest.raises(RuntimeError, match="openai"):
+    with pytest.raises(RuntimeError, match="design-research-agents\\[openai\\]"):
         backend._create_client()

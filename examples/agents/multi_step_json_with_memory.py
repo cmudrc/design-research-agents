@@ -54,7 +54,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent, Toolbox, Tracer
+import design_research_agents as drag
 from design_research_agents.memory import SQLiteMemoryStore
 
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
@@ -71,7 +71,7 @@ def main() -> None:
     """Run one multi-step JSON tool call with memory retrieval and write-back."""
     # Keep the request id stable so trace filenames and test snapshots stay comparable.
     request_id = "example-multi-step-json-memory-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -86,9 +86,9 @@ def main() -> None:
     # Run the memory-backed JSON example using public runtime surfaces. Using this with statement will
     # automatically close the tool runtime, memory store, and managed client when the example is done.
     with (
-        Toolbox() as tool_runtime,
+        drag.Toolbox() as tool_runtime,
         SQLiteMemoryStore(db_path=db_path) as store,
-        LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client,
+        drag.LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
         # Seed one memory item so the agent can demonstrate retrieval-conditioned behavior.
         tool_runtime.invoke_dict(
@@ -108,7 +108,7 @@ def main() -> None:
             request_id=f"{request_id}:seed_memory",
             dependencies={},
         )
-        memory_agent = MultiStepAgent(
+        memory_agent = drag.MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tool_runtime,
