@@ -10,7 +10,7 @@ run-spec, and condition formatting into one explicit prompt builder.
 2. Build a prompt-mode ``Workflow`` with logic steps that capture the resolved study prompt and emit one final
    summary payload.
 3. Wrap that workflow in ``PromptWorkflowAgent`` with a prompt builder that converts study metadata into one
-canonical prompt string.
+   canonical prompt string.
 4. Run the delegate with a fixed ``request_id`` and print a compact JSON payload for docs and regression tests.
 
 ```mermaid

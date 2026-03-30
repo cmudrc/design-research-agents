@@ -52,14 +52,14 @@ Example output shape:
      "summary": {
        "success": true,
        "final_output": {
-         "request_id": "example-prompt-workflow-agent-001",
+        "request_id": "example-prompt-workflow-agent-001",
          "study_prompt": "Problem: cooling_plate_redesign...",
          "workflow_step": "emit_summary"
        },
        "terminated_reason": null,
        "error": null,
        "trace": {
-         "request_id": "example-prompt-workflow-agent-001"
+         "request_id": "example-workflow-study-delegate-001"
        }
      }
    }
