@@ -87,14 +87,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import OllamaLLMClient, Tracer
-from design_research_agents.llm import LLMMessage, LLMRequest
+import design_research_agents as drag
 
 
 def _build_payload() -> dict[str, object]:
     # Run the managed Ollama client using public runtime APIs. Using this with statement will automatically
     # shut down the managed local server when the example is done.
-    with OllamaLLMClient(
+    with drag.OllamaLLMClient(
         name="ollama-local-dev",
         default_model="qwen2.5:1.5b-instruct",
         host="127.0.0.1",
@@ -111,10 +110,10 @@ def _build_payload() -> dict[str, object]:
         description = client.describe()
         prompt = "Give one sentence on when to use local model pull automation."
         response = client.generate(
-            LLMRequest(
+            drag.LLMRequest(
                 messages=(
-                    LLMMessage(role="system", content="You are a concise engineering design assistant."),
-                    LLMMessage(role="user", content=prompt),
+                    drag.LLMMessage(role="system", content="You are a concise engineering design assistant."),
+                    drag.LLMMessage(role="user", content=prompt),
                 ),
                 model=client.default_model(),
                 temperature=0.0,
@@ -142,7 +141,7 @@ def main() -> None:
     """Run traced Ollama client call payload."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-clients-ollama-local-call-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,

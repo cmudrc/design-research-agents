@@ -10,6 +10,9 @@ from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
+    "SkillsConfig": "design_research_agents.skills:SkillsConfig",
+    "SeededRandomBaselineAgent": "design_research_agents.agent:SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate": "design_research_agents.agent:WorkflowStudyDelegate",
     "Toolbox": "design_research_agents.tools:Toolbox",
     "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
     "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
@@ -33,10 +36,12 @@ _EXPORTS: Final[dict[str, str]] = {
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
     "ProposeCriticPattern": "design_research_agents.patterns:ProposeCriticPattern",
+    "RalphLoopPattern": "design_research_agents.patterns:RalphLoopPattern",
+    "NominalTeamPattern": "design_research_agents.patterns:NominalTeamPattern",
     "RouterDelegatePattern": "design_research_agents.patterns:RouterDelegatePattern",
     "RoundBasedCoordinationPattern": "design_research_agents.patterns:RoundBasedCoordinationPattern",
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
-    "BeamSearchPattern": "design_research_agents.patterns:BeamSearchPattern",
+    "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
@@ -108,6 +113,8 @@ if TYPE_CHECKING:
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
+    from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
+    from .agent import WorkflowStudyDelegate as WorkflowStudyDelegate
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
@@ -120,15 +127,18 @@ if TYPE_CHECKING:
     from .llm import SGLangServerLLMClient as SGLangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
     from .llm import VLLMServerLLMClient as VLLMServerLLMClient
-    from .patterns import BeamSearchPattern as BeamSearchPattern
     from .patterns import BlackboardPattern as BlackboardPattern
     from .patterns import DebatePattern as DebatePattern
+    from .patterns import NominalTeamPattern as NominalTeamPattern
     from .patterns import PlanExecutePattern as PlanExecutePattern
     from .patterns import ProposeCriticPattern as ProposeCriticPattern
     from .patterns import RAGPattern as RAGPattern
+    from .patterns import RalphLoopPattern as RalphLoopPattern
     from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
     from .patterns import RouterDelegatePattern as RouterDelegatePattern
+    from .patterns import TreeSearchPattern as TreeSearchPattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
+    from .skills import SkillsConfig as SkillsConfig
     from .tools import CallableToolConfig as CallableToolConfig
     from .tools import MCPServerConfig as MCPServerConfig
     from .tools import ScriptToolConfig as ScriptToolConfig

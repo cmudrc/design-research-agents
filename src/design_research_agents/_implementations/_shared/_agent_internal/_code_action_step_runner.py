@@ -55,6 +55,7 @@ from design_research_agents._implementations._shared._agent_internal._tool_input
 from design_research_agents._implementations._shared._agent_internal._workflow_first_envelope import (
     build_workflow_first_output,
 )
+from design_research_agents._skills import SkillsContext, inject_skills_into_prompt_pair, merge_skills_metadata
 from design_research_agents._tracing import (
     Tracer,
     emit_guardrail_decision,
@@ -92,6 +93,7 @@ class CodeActionStepRunner(Delegate):
         system_prompt: str | None = None,
         user_prompt_template: str | None = None,
         alternatives_prompt_target: AlternativesPromptTarget = "user",
+        skills_context: SkillsContext | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a code action-step runner.
@@ -107,6 +109,7 @@ class CodeActionStepRunner(Delegate):
             system_prompt: Optional system prompt override.
             user_prompt_template: Optional user prompt template override.
             alternatives_prompt_target: Prompt target for allowed tools block.
+            skills_context: Optional resolved Agent Skills context.
             tracer: Optional explicit tracer dependency.
 
         Raises:
@@ -135,6 +138,7 @@ class CodeActionStepRunner(Delegate):
             field_name="user_prompt_template",
         )
         self._alternatives_prompt_target = normalize_alternatives_prompt_target(alternatives_prompt_target)
+        self._skills_context = skills_context
         self._runtime_specs = {spec.name: spec for spec in self._tool_runtime.list_tools()}
         if _FINAL_ANSWER_TOOL_NAME in self._runtime_specs:
             raise ValueError(f"ToolRuntime cannot expose reserved tool name '{_FINAL_ANSWER_TOOL_NAME}'.")
@@ -146,7 +150,7 @@ class CodeActionStepRunner(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -160,7 +164,7 @@ class CodeActionStepRunner(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -819,30 +823,34 @@ class CodeActionStepRunner(Delegate):
             success=all(tool_result.ok for tool_result in tool_results),
             tool_results=tool_results,
             model_response=llm_response,
-            metadata={
-                "request_id": request_id,
-                "dependency_keys": sorted(dependencies.keys()),
-                "code_execution": {
-                    "allowed_tools": allowed_tool_names,
-                    "allowed_tools_source": str(resolved.get("allowed_tools_source", "init_default")),
-                    "tool_call_count": len(tool_results),
-                    "max_tool_calls": int_or_default(
-                        resolved.get("max_tool_calls"),
-                        default=self._max_tool_calls,
-                    ),
-                    "execution_timeout_seconds": int_or_default(
-                        resolved.get("execution_timeout_seconds"),
-                        default=self._execution_timeout_seconds,
-                    ),
-                    "validate_tool_input_schema": bool(
-                        resolved.get("validate_tool_input_schema", self._validate_tool_input_schema)
-                    ),
-                    "normalize_generated_code": bool(
-                        resolved.get("normalize_generated_code", self._normalize_generated_code)
-                    ),
+            metadata=merge_skills_metadata(
+                metadata={
+                    "request_id": request_id,
+                    "dependency_keys": sorted(dependencies.keys()),
+                    "code_execution": {
+                        "allowed_tools": allowed_tool_names,
+                        "allowed_tools_source": str(resolved.get("allowed_tools_source", "init_default")),
+                        "tool_call_count": len(tool_results),
+                        "max_tool_calls": int_or_default(
+                            resolved.get("max_tool_calls"),
+                            default=self._max_tool_calls,
+                        ),
+                        "execution_timeout_seconds": int_or_default(
+                            resolved.get("execution_timeout_seconds"),
+                            default=self._execution_timeout_seconds,
+                        ),
+                        "validate_tool_input_schema": bool(
+                            resolved.get("validate_tool_input_schema", self._validate_tool_input_schema)
+                        ),
+                        "normalize_generated_code": bool(
+                            resolved.get("normalize_generated_code", self._normalize_generated_code)
+                        ),
+                    },
+                    "code_normalization": mapping_or_empty(generated.get("code_normalization")),
                 },
-                "code_normalization": mapping_or_empty(generated.get("code_normalization")),
-            },
+                skills_context=self._skills_context,
+                tool_results=tool_results,
+            ),
         )
         return {
             "agent_result": result,
@@ -900,6 +908,12 @@ class CodeActionStepRunner(Delegate):
                 section_label="Allowed tools",
                 alternatives_text=tools_text,
             )
+        system_prompt, user_prompt = inject_skills_into_prompt_pair(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            skills_context=self._skills_context,
+            include_catalog=True,
+        )
         llm_params = LLMChatParams(
             provider_options={"agent": "CodeActionStepRunner"},
         )

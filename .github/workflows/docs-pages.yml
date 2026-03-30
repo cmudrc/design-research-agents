@@ -31,10 +31,11 @@ permissions:
   pages: write
   id-token: write
 
-# Prevent overlapping deployments from stepping on each other.
-# If two commits land close together, only the latest deploy should proceed.
+# Prevent overlapping runs for the same ref from stepping on each other.
+# This keeps main-branch Pages deploys serialized while avoiding cross-PR
+# cancellations that leave unrelated pull requests with red "cancelled" checks.
 concurrency:
-  group: pages
+  group: docs-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -71,7 +72,19 @@ jobs:
       # Check outbound links (can be flaky if external sites rate-limit).
       # If this gets noisy, consider running it on a schedule or allowing retries.
       - name: Validate links
-        run: make docs-linkcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2; do
+            if make docs-linkcheck; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 2 ]; then
+              echo "Linkcheck attempt $attempt failed; retrying once after backoff..."
+              sleep 20
+            fi
+          done
+          exit 1
 
       # Pages setup is only required for deployment runs (pushes to main).
       # On PRs we skip it to reduce permissions usage and keep the pipeline simple.

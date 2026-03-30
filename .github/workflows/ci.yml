@@ -23,6 +23,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
+  workflow_dispatch:
 
 # Permissions:
 # NOTE: This is currently broader than needed for most jobs.
@@ -33,6 +34,29 @@ permissions:
   contents: write
 
 jobs:
+  core-offline:
+    # Validate the base-install quickstart path without provider SDK extras.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install base package only
+        run: python -m pip install .
+
+      - name: Run base quickstart example with deterministic harness
+        run: |
+          DRA_EXAMPLE_LLM_MODE=deterministic \
+          DRA_EXAMPLE_ID=examples/agents/direct_llm_call.py \
+          PYTHONPATH=tests/example_monkeypatch \
+          python examples/agents/direct_llm_call.py
+
   latest:
     # Primary quality gates on broadly current dependencies.
     #
@@ -69,6 +93,9 @@ jobs:
       - name: Run checks
         # Lint/format/type checks, fast unit suite, coverage, and examples smoke.
         run: make ci
+
+      - name: Build docs
+        run: make docs-build
 
   lowest:
     # Validate that minimum direct dependency bounds are viable.
@@ -187,7 +214,7 @@ jobs:
     # Dependency posture:
     # - Depends on successful completion of all gate jobs to avoid advertising stale/invalid metrics.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [latest, lowest, locked]
+    needs: [core-offline, latest, lowest, locked]
 
     # Prevent parallel main pushes from racing to update badges and creating commit conflicts.
     concurrency:

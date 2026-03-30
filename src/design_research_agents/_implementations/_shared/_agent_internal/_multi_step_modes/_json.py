@@ -13,6 +13,7 @@ from design_research_agents._contracts._termination import (
     TERMINATED_STEP_FAILURE,
 )
 from design_research_agents._contracts._tools import ToolRuntime
+from design_research_agents._skills import SkillsContext, merge_skills_metadata
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
 
@@ -99,6 +100,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
         memory_read_top_k: int = 4,
         memory_write_observations: bool = True,
         allowed_tools: Sequence[str] | None = None,
+        skills_context: SkillsContext | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize a multi-step JSON tool-calling agent.
@@ -121,6 +123,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
             memory_read_top_k: Number of memory matches retrieved per step.
             memory_write_observations: Whether to persist per-step observations.
             allowed_tools: Optional tool allowlist used by action steps.
+            skills_context: Optional resolved Agent Skills context.
             tracer: Optional explicit tracer dependency.
 
         Raises:
@@ -155,10 +158,11 @@ class MultiStepJsonToolCallingAgent(Delegate):
         self._memory_read_top_k = memory_read_top_k
         self._memory_write_observations = memory_write_observations
         self._allowed_tools = tuple(allowed_tools) if allowed_tools is not None else None
+        self._skills_context = skills_context
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -172,7 +176,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -205,6 +209,7 @@ class MultiStepJsonToolCallingAgent(Delegate):
             user_prompt_template=self._tool_calling_user_prompt_template,
             alternatives_prompt_target=alternatives_prompt_target,
             allowed_tools=self._allowed_tools,
+            skills_context=self._skills_context,
             tracer=self._tracer,
         )
 
@@ -254,7 +259,11 @@ class MultiStepJsonToolCallingAgent(Delegate):
                 success=result.success,
                 tool_results=list(result.tool_results),
                 model_response=result.model_response,
-                metadata=dict(result.metadata),
+                metadata=merge_skills_metadata(
+                    metadata=result.metadata,
+                    skills_context=self._skills_context,
+                    tool_results=result.tool_results,
+                ),
                 step_results=dict(result.step_results),
                 execution_order=list(result.execution_order),
             )

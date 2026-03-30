@@ -37,17 +37,19 @@ from design_research_agents._schemas import (
     SchemaValidationError,
     validate_payload_against_schema,
 )
+from design_research_agents._skills import (
+    SkillsConfig,
+    inject_skills_into_prompt_pair,
+    merge_skills_metadata,
+    resolve_skills_context,
+)
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
 
 from .._shared._agent_internal._input_parsing import (
-    extract_prompt as _extract_prompt,
-)
-from .._shared._agent_internal._input_parsing import (
     parse_json_mapping as _parse_json_mapping,
 )
 from .._shared._agent_internal._model_resolution import resolve_agent_model
-from .._shared._agent_internal._run_options import normalize_input_payload
 from .._shared._workflow_internal._plan_execute_helpers import (
     DEFAULT_EXECUTOR_STEP_PROMPT_TEMPLATE,
     DEFAULT_PLANNER_SYSTEM_PROMPT,
@@ -75,6 +77,7 @@ class PlanExecutePattern(Delegate):
         executor_step_prompt_template: str | None = None,
         default_request_id_prefix: str | None = None,
         default_dependencies: Mapping[str, object] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and initialize workflow-native orchestration settings.
@@ -91,6 +94,7 @@ class PlanExecutePattern(Delegate):
             executor_step_prompt_template: Optional override for executor step prompt.
             default_request_id_prefix: Optional prefix used to derive request ids.
             default_dependencies: Dependency defaults merged into each run.
+            skills: Optional Agent Skills configuration.
             tracer: Optional tracer used for run-level instrumentation.
 
         Raises:
@@ -108,6 +112,8 @@ class PlanExecutePattern(Delegate):
         self._max_iterations = max_iterations
         self._max_tool_calls_per_step = max_tool_calls_per_step
         self._tracer = tracer
+        self._skills_config = skills
+        self._skills_context = resolve_skills_context(skills)
         self.workflow: Workflow | None = None
         self._default_request_id_prefix = normalize_request_id_prefix(default_request_id_prefix)
         self._default_dependencies = dict(default_dependencies or {})
@@ -129,7 +135,7 @@ class PlanExecutePattern(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -143,19 +149,20 @@ class PlanExecutePattern(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
         """Compile one bound plan-execute orchestration."""
         run_context = resolve_pattern_run_context(
+            prompt=prompt,
             default_request_id_prefix=self._default_request_id_prefix,
             default_dependencies=self._default_dependencies,
             request_id=request_id,
             dependencies=dependencies,
         )
-        resolved_prompt = _extract_prompt(normalize_input_payload(prompt))
+        resolved_prompt = run_context.prompt
         budget_tracker = WorkflowBudgetTracker()
         runtime_state: dict[str, object] = {
             "planner_response": None,
@@ -180,7 +187,7 @@ class PlanExecutePattern(Delegate):
             request_id=run_context.request_id,
             dependencies=run_context.dependencies,
             tracer=self._tracer,
-            input_payload={"prompt": resolved_prompt, "mode": MODE_PLAN_EXECUTE},
+            input_payload={**run_context.normalized_input, "mode": MODE_PLAN_EXECUTE},
             workflow_request_id=f"{run_context.request_id}:plan_execute_workflow",
             failure_policy="propagate_failed_state",
             finalize=lambda workflow_result: self._build_plan_execute_result(
@@ -264,6 +271,7 @@ class PlanExecutePattern(Delegate):
             tool_runtime=self._tool_runtime,
             max_steps=1,
             max_tool_calls_per_step=self._max_tool_calls_per_step,
+            skills=self._skills_config,
             tracer=self._tracer,
         )
 
@@ -564,7 +572,10 @@ class PlanExecutePattern(Delegate):
                 request_id=request_id,
                 dependencies=dependencies,
                 mode=MODE_PLAN_EXECUTE,
-                metadata={"stage": "planner"},
+                metadata=merge_skills_metadata(
+                    metadata={"stage": "planner"},
+                    skills_context=self._skills_context,
+                ),
                 tool_results=[],
                 model_response=model_response,
                 error=(
@@ -623,7 +634,11 @@ class PlanExecutePattern(Delegate):
             request_id=request_id,
             dependencies=dependencies,
             mode=MODE_PLAN_EXECUTE,
-            metadata={"stage": "execution"},
+            metadata=merge_skills_metadata(
+                metadata={"stage": "execution"},
+                skills_context=self._skills_context,
+                tool_results=callbacks.all_tool_results,
+            ),
             tool_results=callbacks.all_tool_results,
             model_response=callbacks.last_model_response,
         )
@@ -719,12 +734,17 @@ class PlanExecutePattern(Delegate):
             "mode": MODE_PLAN_EXECUTE,
             "phase": "planner",
         }
-        planner_messages = [
-            LLMMessage(role="system", content=self._planner_system_prompt),
-            LLMMessage(role="user", content=planner_prompt),
-        ]
+        system_prompt, user_prompt = inject_skills_into_prompt_pair(
+            system_prompt=self._planner_system_prompt,
+            user_prompt=planner_prompt,
+            skills_context=self._skills_context,
+            include_catalog=False,
+        )
         return LLMRequest(
-            messages=planner_messages,
+            messages=[
+                LLMMessage(role="system", content=system_prompt),
+                LLMMessage(role="user", content=user_prompt),
+            ],
             model=resolved_model,
             response_schema=dict(PLAN_SCHEMA),
             metadata=dict(planner_metadata),

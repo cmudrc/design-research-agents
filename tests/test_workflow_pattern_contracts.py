@@ -10,11 +10,11 @@ from collections.abc import Callable
 import pytest
 
 from design_research_agents._contracts import ExecutionResult
-from design_research_agents._implementations._patterns._beam_search_pattern import (
-    BeamSearchPattern,
-)
 from design_research_agents._implementations._patterns._debate_pattern import (
     DebatePattern,
+)
+from design_research_agents._implementations._patterns._nominal_team_pattern import (
+    NominalTeamPattern,
 )
 from design_research_agents._implementations._patterns._plan_execute_pattern import (
     PlanExecutePattern,
@@ -25,6 +25,9 @@ from design_research_agents._implementations._patterns._propose_critic_pattern i
 from design_research_agents._implementations._patterns._rag_pattern import (
     RAGPattern,
 )
+from design_research_agents._implementations._patterns._ralph_loop_pattern import (
+    RalphLoopPattern,
+)
 from design_research_agents._implementations._patterns._round_based_coordination_pattern import (
     BlackboardPattern,
     RoundBasedCoordinationPattern,
@@ -32,12 +35,31 @@ from design_research_agents._implementations._patterns._round_based_coordination
 from design_research_agents._implementations._patterns._router_delegate_pattern import (
     RouterDelegatePattern,
 )
+from design_research_agents._implementations._patterns._tree_search_pattern import (
+    TreeSearchPattern,
+)
 from design_research_agents._implementations._patterns._two_speaker_conversation_pattern import (
     TwoSpeakerConversationPattern,
 )
 from design_research_agents.tools import Toolbox
 from design_research_agents.workflow import CompiledExecution, Workflow
+from tests.helpers.problem_stubs import FakeProblem, FakeProblemMetadata
 from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
+
+
+class _StaticScoreAgent:
+    def __init__(self, score: float) -> None:
+        self._score = score
+
+    def run(
+        self,
+        prompt: str,
+        *,
+        request_id: str | None = None,
+        dependencies: dict[str, object] | None = None,
+    ) -> ExecutionResult:
+        del prompt, request_id, dependencies
+        return ExecutionResult(output={"score": self._score}, success=True, tool_results=[], model_response=None)
 
 
 @pytest.mark.parametrize(
@@ -65,6 +87,22 @@ from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
             "Debate local model hosting tradeoffs.",
         ),
         (
+            NominalTeamPattern(
+                team_members=(
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_a",
+                        delegate=StaticMarkerAgent(marker="draft-a"),
+                    ),
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_b",
+                        delegate=StaticMarkerAgent(marker="draft-b"),
+                    ),
+                ),
+                evaluator_delegate=lambda _context: {"best_index": 0, "scores": [1.0, 0.5]},
+            ),
+            "Compare two independent drafts.",
+        ),
+        (
             PlanExecutePattern(
                 llm_client=SequenceLLMClient(
                     response_texts=[
@@ -85,6 +123,23 @@ from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
                 max_iterations=1,
             ),
             "Refine this sentence.",
+        ),
+        (
+            RalphLoopPattern(
+                roles=(
+                    RalphLoopPattern.RoleSpec(
+                        role_id="proposer",
+                        delegate=StaticMarkerAgent(marker="draft"),
+                    ),
+                    RalphLoopPattern.RoleSpec(
+                        role_id="evaluator",
+                        delegate=_StaticScoreAgent(0.9),
+                    ),
+                ),
+                evaluator_role_id="evaluator",
+                loop_config=RalphLoopPattern.LoopConfig(max_iterations=2, consensus_threshold=0.8),
+            ),
+            "Refine with dynamic roles.",
         ),
         (
             RouterDelegatePattern(
@@ -112,7 +167,7 @@ from tests.helpers.workflow_stubs import SequenceLLMClient, StaticMarkerAgent
             "Coordinate one blackboard round.",
         ),
         (
-            BeamSearchPattern(
+            TreeSearchPattern(
                 generator_delegate=lambda _context: [{"candidate": "x"}],
                 evaluator_delegate=lambda _context: 1.0,
                 max_depth=1,
@@ -145,6 +200,38 @@ def test_exported_patterns_compile_contract(
     assert pattern.workflow is compiled.workflow  # type: ignore[attr-defined]
 
 
+def test_prompt_pattern_compile_accepts_problem_like_input() -> None:
+    pattern = TwoSpeakerConversationPattern(
+        llm_client_a=SequenceLLMClient(response_texts=["speaker-a", "speaker-b"]),
+        max_turns=1,
+    )
+    problem = FakeProblem(
+        rendered_brief="Discuss whether the team should standardize service fasteners.",
+        metadata=FakeProblemMetadata(
+            problem_id="problem-pattern-001",
+            title="Fastener standardization",
+            kind="discussion",
+        ),
+        candidate_kind="conversation",
+        family="packaged-problems",
+    )
+
+    compiled = pattern.compile(problem, request_id="req-pattern-problem-like")
+    result = compiled.run()
+
+    assert compiled.trace_input["prompt"] == ("Discuss whether the team should standardize service fasteners.")
+    assert compiled.trace_input["problem"] is problem
+    assert compiled.trace_input["problem_metadata"] == {
+        "problem_id": "problem-pattern-001",
+        "title": "Fastener standardization",
+        "kind": "discussion",
+        "candidate_kind": "conversation",
+        "family": "packaged-problems",
+    }
+    assert result.success is True
+    assert result.output["final_output"] == {"speaker": "speaker_b", "message": "speaker-b"}
+
+
 @pytest.mark.parametrize(
     ("pattern_factory", "prompt", "expected_output_keys"),
     [
@@ -169,6 +256,23 @@ def test_exported_patterns_compile_contract(
                 max_rounds=1,
             ),
             "Debate local model hosting tradeoffs.",
+            {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
+        ),
+        (
+            lambda: NominalTeamPattern(
+                team_members=(
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_a",
+                        delegate=StaticMarkerAgent(marker="draft-a"),
+                    ),
+                    NominalTeamPattern.MemberSpec(
+                        member_id="member_b",
+                        delegate=StaticMarkerAgent(marker="draft-b"),
+                    ),
+                ),
+                evaluator_delegate=lambda _context: {"best_member_id": "member_b", "scores": [0.4, 0.9]},
+            ),
+            "Compare two independent drafts.",
             {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
         ),
         (
@@ -221,6 +325,24 @@ def test_exported_patterns_compile_contract(
             {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
         ),
         (
+            lambda: RalphLoopPattern(
+                roles=(
+                    RalphLoopPattern.RoleSpec(
+                        role_id="proposer",
+                        delegate=StaticMarkerAgent(marker="draft"),
+                    ),
+                    RalphLoopPattern.RoleSpec(
+                        role_id="evaluator",
+                        delegate=_StaticScoreAgent(0.9),
+                    ),
+                ),
+                evaluator_role_id="evaluator",
+                loop_config=RalphLoopPattern.LoopConfig(max_iterations=2, consensus_threshold=0.8),
+            ),
+            "Refine with dynamic roles.",
+            {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
+        ),
+        (
             lambda: RouterDelegatePattern(
                 llm_client=SequenceLLMClient(
                     response_texts=['{"tool_name":"alt_two","tool_input":{},"reason":"best fit"}']
@@ -252,7 +374,7 @@ def test_exported_patterns_compile_contract(
             {"final_output", "terminated_reason", "details", "workflow", "artifacts"},
         ),
         (
-            lambda: BeamSearchPattern(
+            lambda: TreeSearchPattern(
                 generator_delegate=lambda _context: [{"candidate": "x"}],
                 evaluator_delegate=lambda _context: 1.0,
                 max_depth=1,
@@ -407,16 +529,19 @@ def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
     assert "planner_system_prompt" in plan_params
     assert "planner_delegate" in plan_params
     assert "executor_delegate" in plan_params
+    assert "skills" in plan_params
 
     propose_params = inspect.signature(ProposeCriticPattern.__init__).parameters
     assert "proposer_user_prompt_template" in propose_params
     assert "default_dependencies" in propose_params
     assert "proposer_delegate" in propose_params
     assert "critic_delegate" in propose_params
+    assert "skills" in propose_params
 
     routing_params = inspect.signature(RouterDelegatePattern.__init__).parameters
     assert "router_system_prompt" in routing_params
     assert "default_request_id_prefix" in routing_params
+    assert "skills" in routing_params
 
     workflow_params = inspect.signature(Workflow.__init__).parameters
     assert "input_schema" in workflow_params
@@ -439,6 +564,7 @@ def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
     assert "speaker_b_delegate" in conversation_params
     assert "max_turns" in conversation_params
     assert "speaker_a_user_prompt_template" in conversation_params
+    assert "skills" in conversation_params
 
     networked_params = inspect.signature(RoundBasedCoordinationPattern.__init__).parameters
     assert "peers" in networked_params
@@ -447,10 +573,22 @@ def test_new_reasoning_and_networked_pattern_signatures_are_exposed() -> None:
     blackboard_params = inspect.signature(BlackboardPattern.__init__).parameters
     assert "stability_rounds" in blackboard_params
 
-    tree_params = inspect.signature(BeamSearchPattern.__init__).parameters
+    tree_params = inspect.signature(TreeSearchPattern.__init__).parameters
     assert "generator_delegate" in tree_params
     assert "evaluator_delegate" in tree_params
     assert "beam_width" in tree_params
+    assert "search_strategy" in tree_params
+    assert "mcts_exploration_weight" in tree_params
+    assert "simulation_budget" in tree_params
+
+    ralph_params = inspect.signature(RalphLoopPattern.__init__).parameters
+    assert "roles" in ralph_params
+    assert "evaluator_role_id" in ralph_params
+    assert "loop_config" in ralph_params
+
+    nominal_team_params = inspect.signature(NominalTeamPattern.__init__).parameters
+    assert "team_members" in nominal_team_params
+    assert "evaluator_delegate" in nominal_team_params
 
     rag_params = inspect.signature(RAGPattern.__init__).parameters
     assert "reasoning_delegate" in rag_params

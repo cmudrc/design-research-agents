@@ -1,86 +1,69 @@
 Quickstart
 ==========
 
-Requires Python 3.12+ and assumes you are working from the repository root.
+This example shows the shortest meaningful path through
+``design-research-agents``.
 
-Create and activate a virtual environment:
+.. note::
+
+   If you want a step-by-step editor workflow for creating a virtual
+   environment, installing the published package, and running a first script,
+   see :doc:`vscode_setup`.
+
+1. Install
+----------
 
 .. code-block:: bash
 
+   pip install design-research-agents
+
+Or install from source:
+
+.. code-block:: bash
+
+   git clone https://github.com/cmudrc/design-research-agents.git
+   cd design-research-agents
    python -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
+   pip install -e .
 
-Path A: Hosted (fastest)
-------------------------
+2. Minimal Runnable Example
+---------------------------
 
-Use this when you want the shortest path to a working run.
-
-1. Install the default development toolchain:
-
-.. code-block:: bash
-
-   make dev
-
-2. Set API key:
-
-.. code-block:: bash
-
-   export OPENAI_API_KEY="<your-key>"
-
-3. Run one agent call:
+This snippet requires an OpenAI-compatible endpoint (local or remote).
 
 .. code-block:: python
 
-   from design_research_agents import DirectLLMCall, OpenAIServiceLLMClient
+   from design_research_agents import DirectLLMCall, OpenAICompatibleHTTPLLMClient
 
-   with OpenAIServiceLLMClient() as llm_client:
+   with OpenAICompatibleHTTPLLMClient(
+       base_url="http://127.0.0.1:8001/v1",
+       default_model="qwen2-1.5b-q4",
+   ) as llm_client:
        agent = DirectLLMCall(llm_client=llm_client)
        result = agent.run("List three interview themes about onboarding friction.")
        print(result.output)
 
-Path B: Local (privacy-first)
------------------------------
+3. What Happened
+----------------
 
-Use this when you want local execution and are willing to manage local runtime/model setup.
+You instantiated a concrete participant (``DirectLLMCall``), executed one run
+through a configured backend client, and received structured output that can be
+traced and compared in later studies.
 
-1. Install backend-specific extras for local inference:
+4. Where To Go Next
+-------------------
 
-.. code-block:: bash
+- :doc:`concepts`
+- :doc:`typical_workflow`
+- :doc:`examples/index`
+- :doc:`api`
 
-   pip install -e ".[dev,llama_cpp]"      # managed llama.cpp server client
-   # or: pip install -e ".[dev,transformers]"  # in-process transformers backend
-   # or: pip install -e ".[dev,mlx]"           # Apple MLX backend
-   # or: pip install -e ".[dev,full]"          # all optional backend extras
+Ecosystem Note
+--------------
 
-2. Run one agent call with the managed llama.cpp server client:
-
-.. code-block:: python
-
-   from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient
-
-   with LlamaCppServerLLMClient() as llm_client:
-       agent = DirectLLMCall(llm_client=llm_client)
-       result = agent.run("Summarize this study brief in five bullets.")
-       print(result.output)
-
-Checks and Docs
----------------
-
-.. code-block:: bash
-
-   make test
-   make docs-check
-   make docs-build
-
-Next Steps
-----------
-
-- Optional dependency profiles and platform notes: :doc:`dependencies_and_extras`
-- Scenario-driven examples and expected outputs: :doc:`examples/index`
-- Explore runnable examples: ``examples/README.md``
-- LLM client setup details: :doc:`llm_clients/index`
-- Agent behavior tradeoffs: :doc:`agents/index`
-- Workflow builder primitives: :doc:`workflows/index`
-- Prebuilt workflow implementations: :doc:`patterns/index`
-- Tool runtime and integrations: :doc:`tools/index`
+In a typical study, ``design-research-agents`` provides executable
+participants, ``design-research-problems`` supplies the task,
+``design-research-experiments`` defines the study structure, and
+``design-research-analysis`` interprets the resulting records.

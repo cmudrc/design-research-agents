@@ -8,9 +8,11 @@ import inspect
 import pytest
 
 import design_research_agents as dra
+import design_research_agents.agent as dra_agent
 import design_research_agents.llm as dra_llm
 import design_research_agents.memory as dra_memory
 import design_research_agents.patterns as dra_patterns
+import design_research_agents.skills as dra_skills
 import design_research_agents.tools as dra_tools
 import design_research_agents.workflow as dra_workflow
 from design_research_agents import _contracts as dra_contracts
@@ -20,6 +22,9 @@ EXPECTED_PUBLIC_API = [
     "__version__",
     "DirectLLMCall",
     "MultiStepAgent",
+    "SkillsConfig",
+    "SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate",
     "Toolbox",
     "CallableToolConfig",
     "ScriptToolConfig",
@@ -43,10 +48,12 @@ EXPECTED_PUBLIC_API = [
     "DebatePattern",
     "PlanExecutePattern",
     "ProposeCriticPattern",
+    "RalphLoopPattern",
+    "NominalTeamPattern",
     "RouterDelegatePattern",
     "RoundBasedCoordinationPattern",
     "BlackboardPattern",
-    "BeamSearchPattern",
+    "TreeSearchPattern",
     "RAGPattern",
     "AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient",
@@ -64,7 +71,14 @@ EXPECTED_PUBLIC_API = [
     "Tracer",
 ]
 
+EXPECTED_AGENT_API = [
+    "DirectLLMCall",
+    "MultiStepAgent",
+    "SeededRandomBaselineAgent",
+    "WorkflowStudyDelegate",
+]
 EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
+EXPECTED_SKILLS_API = ["SkillsConfig"]
 EXPECTED_WORKFLOW_API = [
     "CompiledExecution",
     "DelegateBatchCall",
@@ -92,8 +106,10 @@ EXPECTED_PATTERNS_API = [
     "PlanExecutePattern",
     "RAGPattern",
     "ProposeCriticPattern",
+    "RalphLoopPattern",
+    "NominalTeamPattern",
     "RouterDelegatePattern",
-    "BeamSearchPattern",
+    "TreeSearchPattern",
 ]
 LEGACY_PUBLIC_SYMBOLS = [
     "CallableTool",
@@ -106,7 +122,7 @@ LEGACY_PUBLIC_SYMBOLS = [
     "ReflexionPattern",
     "AgentRoutingPattern",
     "NetworkedPattern",
-    "TreeSearchPattern",
+    "BeamSearchPattern",
     "MlxLocalLLMClient",
     "VllmServerLLMClient",
     "SglangServerLLMClient",
@@ -115,6 +131,12 @@ LEGACY_PUBLIC_SYMBOLS = [
 
 def test_top_level_exports_match_curated_contract() -> None:
     assert dra.__all__ == EXPECTED_PUBLIC_API
+
+
+def test_agent_module_exports_match_curated_contract() -> None:
+    assert dra_agent.__all__ == EXPECTED_AGENT_API
+    for symbol_name in dra_agent.__all__:
+        assert getattr(dra_agent, symbol_name) is not None
 
 
 def test_top_level_exports_resolve() -> None:
@@ -127,6 +149,12 @@ def test_tools_module_exports_match_curated_contract() -> None:
     assert dra_tools.__all__ == EXPECTED_TOOLS_API
     for symbol_name in dra_tools.__all__:
         assert getattr(dra_tools, symbol_name) is not None
+
+
+def test_skills_module_exports_match_curated_contract() -> None:
+    assert dra_skills.__all__ == EXPECTED_SKILLS_API
+    for symbol_name in dra_skills.__all__:
+        assert getattr(dra_skills, symbol_name) is not None
 
 
 def test_workflow_module_exports_builder_surface_contract() -> None:
@@ -170,6 +198,19 @@ def test_public_entrypoint_signatures_use_prompt_or_input_only() -> None:
     assert "input" in toolbox_invoke_dict_params
     assert "input_dict" not in toolbox_invoke_dict_params
 
+    for agent_name in EXPECTED_AGENT_API:
+        agent_cls = getattr(dra_agent, agent_name)
+        agent_run_params = inspect.signature(agent_cls.run).parameters
+        agent_compile_params = inspect.signature(agent_cls.compile).parameters
+        assert "prompt" in agent_run_params
+        assert "input" not in agent_run_params
+        assert "input_data" not in agent_run_params
+        assert "problem_packet" not in agent_run_params
+        assert "problem" not in agent_run_params
+        assert "prompt" in agent_compile_params
+        assert "input" not in agent_compile_params
+        assert "input_data" not in agent_compile_params
+
     for pattern_name in EXPECTED_PATTERNS_API:
         pattern_cls = getattr(dra_patterns, pattern_name)
         pattern_run_params = inspect.signature(pattern_cls.run).parameters
@@ -208,8 +249,18 @@ def test_llm_module_exports_request_and_message_contracts() -> None:
 
 
 def test_memory_module_exports_public_memory_facade() -> None:
+    assert "ChromaMemoryStore" in dra_memory.__all__
+    assert "KnowledgeDocument" in dra_memory.__all__
+    assert "KnowledgeSource" in dra_memory.__all__
+    assert "NetworkXGraphMemoryStore" in dra_memory.__all__
+    assert "ingest_knowledge_documents" in dra_memory.__all__
+    assert "seed_builtin_knowledge_profile" in dra_memory.__all__
     assert dra_memory.SQLiteMemoryStore.__name__ == "SQLiteMemoryStore"
+    assert dra_memory.ChromaMemoryStore.__name__ == "ChromaMemoryStore"
+    assert dra_memory.KnowledgeDocument.__name__ == "KnowledgeDocument"
+    assert dra_memory.KnowledgeSource.__name__ == "KnowledgeSource"
     assert dra_memory.LLMEmbeddingProvider.__name__ == "LLMEmbeddingProvider"
+    assert dra_memory.NetworkXGraphMemoryStore.__name__ == "NetworkXGraphMemoryStore"
 
 
 def test_legacy_contracts_namespace_is_removed() -> None:

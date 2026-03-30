@@ -6,11 +6,13 @@ Available reusable pattern implementations:
 - ``TwoSpeakerConversationPattern``: two-speaker LLM conversation loops with per-speaker prompts and clients.
 - ``DebatePattern``: multi-round affirmative/negative debate with a judging pass.
 - ``PlanExecutePattern``: planner + executor decomposition for complex tasks.
-- ``ProposeCriticPattern``: iterative proposal/revision loops.
+- ``ProposeCriticPattern``: fixed two-role proposal/critique loops with approval gating.
 - ``RouterDelegatePattern``: intent-based delegation to selected agents.
 - ``RoundBasedCoordinationPattern``: round-based peer coordination with no central orchestrator.
 - ``BlackboardPattern``: networked coordination with explicit shared board semantics.
-- ``BeamSearchPattern``: generator/evaluator reasoning over beam-searched candidates.
+- ``TreeSearchPattern``: generator/evaluator reasoning over configurable tree-search strategies.
+- ``RalphLoopPattern``: ordered multi-role refinement with dedicated evaluator-score threshold stopping.
+- ``NominalTeamPattern``: independent fan-out generation with evaluator-driven best-of-N selection.
 - ``RAGPattern``: retrieval-augmented reasoning via memory workflow steps.
 
 Patterns are concrete workflow implementations, not construction primitives.
@@ -28,5 +30,7 @@ Examples
 - ``examples/patterns/debate_pattern.py``
 - ``examples/patterns/two_speaker_conversation.py``
 - ``examples/patterns/coordination_patterns.py``
-- ``examples/patterns/beam_search.py``
+- ``examples/patterns/tree_search.py``
+- ``examples/patterns/ralph_loop.py``
+- ``examples/patterns/nominal_team.py``
 - ``examples/patterns/rag.py``

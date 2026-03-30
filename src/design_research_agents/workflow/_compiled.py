@@ -50,6 +50,14 @@ class CompiledExecution:
     workflow_request_id: str | None = None
     """Optional nested workflow request id override."""
 
+    def to_mermaid(self, *, direction: str = "TD") -> str:
+        """Return a Mermaid diagram for the bound compiled workflow."""
+        return self.workflow.to_mermaid(direction=direction)
+
+    def to_svg(self, *, direction: str = "TD") -> str:
+        """Return an SVG diagram for the bound compiled workflow."""
+        return self.workflow.to_svg(direction=direction)
+
     def run(self) -> ExecutionResult:
         """Execute the compiled workflow and finalize the result."""
         trace_scope = start_trace_run(

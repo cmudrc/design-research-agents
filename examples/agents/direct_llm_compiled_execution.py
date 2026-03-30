@@ -55,19 +55,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from design_research_agents import (
-    CompiledExecution,
-    DirectLLMCall,
-    LlamaCppServerLLMClient,
-    Tracer,
-)
+import design_research_agents as drag
 
 
 def main() -> None:
     """Compile one direct model call, then run the compiled execution."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-direct-llm-compiled-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -75,13 +70,13 @@ def main() -> None:
     )
     # Run the compiled direct LLM example using public runtime APIs. Using this with statement will automatically
     # shut down the managed client when the example is done.
-    with LlamaCppServerLLMClient() as llm_client:
-        llm = DirectLLMCall(llm_client=llm_client, tracer=tracer)
+    with drag.LlamaCppServerLLMClient() as llm_client:
+        llm = drag.DirectLLMCall(llm_client=llm_client, tracer=tracer)
         prompt = (
             "Write one sentence describing the one primary engineering specification for a "
             "field-repairable wearable sensor enclosure."
         )
-        compiled: CompiledExecution = llm.compile(
+        compiled: drag.CompiledExecution = llm.compile(
             prompt=prompt,
             request_id=request_id,
         )

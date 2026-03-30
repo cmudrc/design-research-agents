@@ -25,6 +25,7 @@ from design_research_agents._implementations._shared._agent_internal._multi_step
 from design_research_agents._implementations._shared._agent_internal._prompt_alternatives import (
     AlternativesPromptTarget,
 )
+from design_research_agents._skills import SkillsConfig, SkillsToolRuntimeAdapter, resolve_skills_context
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution
 
@@ -75,6 +76,7 @@ class MultiStepAgent(Delegate):
         normalize_generated_code_per_step: bool = False,
         default_tools_per_step: Sequence[Mapping[str, object]] | None = None,
         allowed_tools: Sequence[str] | None = None,
+        skills: SkillsConfig | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Initialize one mode-specific multi-step strategy.
@@ -105,6 +107,7 @@ class MultiStepAgent(Delegate):
             normalize_generated_code_per_step: Code-mode code normalization toggle.
             default_tools_per_step: Code-mode default tool allowlist.
             allowed_tools: Optional json-mode tool allowlist.
+            skills: Optional Agent Skills configuration.
             tracer: Optional tracer dependency.
 
         Raises:
@@ -112,12 +115,25 @@ class MultiStepAgent(Delegate):
         """
         # Coerce and validate mode argument
         normalized_mode = _normalize_mode(mode)
+        skills_context = resolve_skills_context(skills)
+        effective_tool_runtime = tool_runtime
+        if (
+            skills_context is not None
+            and tool_runtime is not None
+            and skills_context.config.allow_automatic_activation
+            and skills_context.discovered_skill_names
+            and normalized_mode in {"json", "code"}
+        ):
+            effective_tool_runtime = SkillsToolRuntimeAdapter(
+                wrapped_runtime=tool_runtime,
+                skills_context=skills_context,
+            )
 
         # Validate tool runtime presence for json/code modes
         if normalized_mode in {"json", "code"}:
-            if tool_runtime is None:
+            if effective_tool_runtime is None:
                 raise ValueError("tool_runtime is required when mode is 'json' or 'code'.")
-            runtime_tools = tuple(tool_runtime.list_tools())
+            runtime_tools = tuple(effective_tool_runtime.list_tools())
             if not runtime_tools:
                 raise ValueError("tool_runtime must expose at least one tool when mode is 'json' or 'code'.")
             if any(tool.name == _FINAL_ANSWER_TOOL_NAME for tool in runtime_tools):
@@ -133,17 +149,18 @@ class MultiStepAgent(Delegate):
                 controller_system_prompt=controller_system_prompt,
                 controller_user_prompt_template=controller_user_prompt_template,
                 step_memory_tail_items=step_memory_tail_items,
+                skills_context=skills_context,
                 tracer=tracer,
             )
             return
 
         # Tool runtime presence and basic tool availability have already been validated at this point,
         # so we can safely assert here for type checking purposes.
-        assert tool_runtime is not None
+        assert effective_tool_runtime is not None
         if self._mode == "code":
             self._strategy = _CodeModeStrategy(
                 llm_client=llm_client,
-                tool_runtime=tool_runtime,
+                tool_runtime=effective_tool_runtime,
                 max_steps=max_steps,
                 max_tool_calls_per_step=max_tool_calls_per_step,
                 execution_timeout_seconds=execution_timeout_seconds,
@@ -161,6 +178,7 @@ class MultiStepAgent(Delegate):
                 memory_namespace=memory_namespace,
                 memory_read_top_k=memory_read_top_k,
                 memory_write_observations=memory_write_observations,
+                skills_context=skills_context,
                 tracer=tracer,
             )
             return
@@ -169,7 +187,7 @@ class MultiStepAgent(Delegate):
         # so we can safely assert here for type checking purposes.
         self._strategy = _JsonModeStrategy(
             llm_client=llm_client,
-            tool_runtime=tool_runtime,
+            tool_runtime=effective_tool_runtime,
             max_steps=max_steps,
             stop_on_step_failure=stop_on_step_failure,
             continuation_system_prompt=continuation_system_prompt,
@@ -185,6 +203,7 @@ class MultiStepAgent(Delegate):
             memory_read_top_k=memory_read_top_k,
             memory_write_observations=memory_write_observations,
             allowed_tools=allowed_tools,
+            skills_context=skills_context,
             tracer=tracer,
         )
 
@@ -195,7 +214,7 @@ class MultiStepAgent(Delegate):
 
     def compile(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
@@ -215,7 +234,7 @@ class MultiStepAgent(Delegate):
 
     def run(
         self,
-        prompt: str,
+        prompt: str | object,
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,

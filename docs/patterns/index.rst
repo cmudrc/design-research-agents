@@ -9,13 +9,15 @@ Quick chooser
 -------------
 
 - Need planner + executor decomposition: ``PlanExecutePattern``.
-- Need iterative proposal/critique refinement: ``ProposeCriticPattern``.
+- Need fixed two-role proposal/critique with approval gating: ``ProposeCriticPattern``.
 - Need intent-based delegate routing: ``RouterDelegatePattern``.
 - Need multi-round adversarial synthesis: ``DebatePattern``.
 - Need two-speaker conversational iteration: ``TwoSpeakerConversationPattern``.
 - Need decentralized peer rounds: ``RoundBasedCoordinationPattern``.
 - Need shared-state convergence rounds: ``BlackboardPattern``.
-- Need candidate expansion + scoring search: ``BeamSearchPattern``.
+- Need branch-and-score candidate search (beam or MCTS): ``TreeSearchPattern``.
+- Need ordered multi-role refinement with evaluator score threshold: ``RalphLoopPattern``.
+- Need independent fan-out drafts with evaluator-based best-of-N selection: ``NominalTeamPattern``.
 - Need retrieval-augmented reasoning with write-back: ``RAGPattern``.
 - Need to author a new implementation from scratch: :doc:`/workflows/index`.
 

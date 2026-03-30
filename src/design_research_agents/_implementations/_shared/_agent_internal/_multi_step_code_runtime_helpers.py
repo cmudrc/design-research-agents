@@ -37,6 +37,7 @@ from design_research_agents._implementations._shared._agent_internal._prompt_alt
 from design_research_agents._implementations._shared._agent_internal._result_builders import (
     build_failure_result,
 )
+from design_research_agents._skills import SkillsContext
 from design_research_agents._tracing import Tracer
 
 
@@ -109,6 +110,7 @@ def build_code_step_agent(
     normalize_generated_code_per_step: bool,
     default_tools_per_step: Sequence[Mapping[str, object]] | None,
     alternatives_prompt_target: AlternativesPromptTarget,
+    skills_context: SkillsContext | None,
     tracer: Tracer | None,
 ) -> CodeActionStepRunner:
     """Build one configured step agent used by the multi-step code loop.
@@ -122,6 +124,7 @@ def build_code_step_agent(
         normalize_generated_code_per_step: Whether to normalize generated code each step.
         default_tools_per_step: Optional per-step allowed tools.
         alternatives_prompt_target: Alternatives prompt insertion target.
+        skills_context: Optional resolved Agent Skills context.
         tracer: Optional tracer dependency.
 
     Returns:
@@ -136,6 +139,7 @@ def build_code_step_agent(
         normalize_generated_code=normalize_generated_code_per_step,
         default_tools=default_tools_per_step,
         alternatives_prompt_target=alternatives_prompt_target,
+        skills_context=skills_context,
         tracer=tracer,
     )
 

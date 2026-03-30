@@ -14,8 +14,10 @@ _EXPORTS: Final[dict[str, str]] = {
     "PlanExecutePattern": "design_research_agents._implementations._patterns:PlanExecutePattern",
     "RAGPattern": "design_research_agents._implementations._patterns:RAGPattern",
     "ProposeCriticPattern": "design_research_agents._implementations._patterns:ProposeCriticPattern",
+    "RalphLoopPattern": "design_research_agents._implementations._patterns:RalphLoopPattern",
+    "NominalTeamPattern": "design_research_agents._implementations._patterns:NominalTeamPattern",
     "RouterDelegatePattern": "design_research_agents._implementations._patterns:RouterDelegatePattern",
-    "BeamSearchPattern": "design_research_agents._implementations._patterns:BeamSearchPattern",
+    "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }
 
 __all__ = list(_EXPORTS.keys())

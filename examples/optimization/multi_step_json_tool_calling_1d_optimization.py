@@ -55,13 +55,7 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from design_research_agents import (
-    CallableToolConfig,
-    LlamaCppServerLLMClient,
-    MultiStepAgent,
-    Toolbox,
-    Tracer,
-)
+import design_research_agents as drag
 
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
@@ -81,7 +75,7 @@ def main() -> None:
     """Optimize ``x^2`` from ``x=3`` by letting the LLM choose each tool step."""
     # Fixed request id keeps traces and docs output deterministic across runs.
     request_id = "example-optimization-json-tool-calling-design-001"
-    tracer = Tracer(
+    tracer = drag.Tracer(
         enabled=True,
         trace_dir=Path("artifacts/examples/traces"),
         enable_jsonl=True,
@@ -113,10 +107,10 @@ def main() -> None:
     # Run the optimization example using public runtime surfaces. Using this with statement will automatically
     # shut down the managed client and tool runtime when the example is done.
     with (
-        Toolbox(
+        drag.Toolbox(
             enable_core_tools=False,
             callable_tools=(
-                CallableToolConfig(
+                drag.CallableToolConfig(
                     name="optimizer.evaluate",
                     description="Evaluate f(x) = x^2 at a proposed x and return the best observation so far.",
                     handler=_evaluate,
@@ -129,9 +123,9 @@ def main() -> None:
                 ),
             ),
         ) as tools,
-        LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client,
+        drag.LlamaCppServerLLMClient(**_EXAMPLE_LLAMA_CLIENT_KWARGS) as llm_client,
     ):
-        optimization_agent = MultiStepAgent(
+        optimization_agent = drag.MultiStepAgent(
             mode="json",
             llm_client=llm_client,
             tool_runtime=tools,

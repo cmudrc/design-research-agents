@@ -17,6 +17,7 @@ Guaranteed Public Modules
    patterns
    llm
    memory
+   skills
    tools
 
 Internal Modules (Underscored, Unstable)
