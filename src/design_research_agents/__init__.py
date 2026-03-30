@@ -113,8 +113,8 @@ if TYPE_CHECKING:
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
-    from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
     from .agent import PromptWorkflowAgent as PromptWorkflowAgent
+    from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
