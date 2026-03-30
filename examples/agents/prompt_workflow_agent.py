@@ -1,21 +1,21 @@
-"""# Agents / Workflow Study Delegate.
+"""# Agents / Prompt Workflow Agent.
 
 ## Introduction
-This example shows how to package a prompt-mode ``Workflow`` as a reusable study delegate for deterministic
-design experiments. ``WorkflowStudyDelegate`` keeps the workflow itself simple while moving packaged-problem,
+This example shows how to package a prompt-mode ``Workflow`` as a reusable study agent for deterministic
+design experiments. ``PromptWorkflowAgent`` keeps the workflow itself simple while moving packaged-problem,
 run-spec, and condition formatting into one explicit prompt builder.
 
 ## Technical Implementation
 1. Define tiny local study packet dataclasses so the example stays dependency-light and deterministic.
 2. Build a prompt-mode ``Workflow`` with logic steps that capture the resolved study prompt and emit one final
    summary payload.
-3. Wrap that workflow in ``WorkflowStudyDelegate`` with a prompt builder that converts study metadata into one
-   canonical prompt string.
+3. Wrap that workflow in ``PromptWorkflowAgent`` with a prompt builder that converts study metadata into one
+canonical prompt string.
 4. Run the delegate with a fixed ``request_id`` and print a compact JSON payload for docs and regression tests.
 
 ```mermaid
 flowchart LR
-    A["Problem packet + run spec + condition"] --> B["WorkflowStudyDelegate(prompt_builder)"]
+    A["Problem packet + run spec + condition"] --> B["PromptWorkflowAgent(prompt_builder)"]
     B --> C["Prompt-mode Workflow"]
     C --> D["capture_study_prompt"]
     D --> E["emit_summary"]
@@ -33,7 +33,7 @@ Example output shape:
      "summary": {
        "success": true,
        "final_output": {
-         "request_id": "example-workflow-study-delegate-001",
+        "request_id": "example-prompt-workflow-agent-001",
          "study_prompt": "Problem: cooling_plate_redesign...",
          "workflow_step": "emit_summary"
        },
@@ -107,7 +107,7 @@ def _emit_summary(context: dict[str, Any]) -> dict[str, object]:
 
 
 def build_example_workflow() -> drag.Workflow:
-    """Build the prompt-mode workflow wrapped by the study delegate."""
+    """Build the prompt-mode workflow wrapped by the prompt workflow agent."""
     return drag.Workflow(
         steps=[
             drag.LogicStep(
@@ -139,8 +139,8 @@ def _build_study_prompt(problem_packet: object, run_spec: object, condition: obj
 
 
 def main() -> None:
-    """Run the workflow-backed study delegate and print a deterministic summary payload."""
-    delegate = drag.WorkflowStudyDelegate(
+    """Run the workflow-backed study agent and print a deterministic summary payload."""
+    agent = drag.PromptWorkflowAgent(
         workflow=build_example_workflow(),
         prompt_builder=_build_study_prompt,
     )
@@ -156,9 +156,9 @@ def main() -> None:
         condition_id="control_workflow",
         budget_label="single-pass",
     )
-    result = delegate.run(
+    result = agent.run(
         "Fallback prompts are also supported, but this example uses study dependencies.",
-        request_id="example-workflow-study-delegate-001",
+        request_id="example-prompt-workflow-agent-001",
         dependencies={
             "problem_packet": problem_packet,
             "run_spec": run_spec,
@@ -166,7 +166,7 @@ def main() -> None:
         },
     )
     payload = {
-        "workflow_mermaid": delegate.workflow.to_mermaid(direction=WORKFLOW_DIAGRAM_DIRECTION),
+        "workflow_mermaid": agent.workflow.to_mermaid(direction=WORKFLOW_DIAGRAM_DIRECTION),
         "summary": result.summary(),
     }
     print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))

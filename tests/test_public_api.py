@@ -24,7 +24,7 @@ EXPECTED_PUBLIC_API = [
     "MultiStepAgent",
     "SkillsConfig",
     "SeededRandomBaselineAgent",
-    "WorkflowStudyDelegate",
+    "PromptWorkflowAgent",
     "Toolbox",
     "CallableToolConfig",
     "ScriptToolConfig",
@@ -75,7 +75,7 @@ EXPECTED_AGENT_API = [
     "DirectLLMCall",
     "MultiStepAgent",
     "SeededRandomBaselineAgent",
-    "WorkflowStudyDelegate",
+    "PromptWorkflowAgent",
 ]
 EXPECTED_TOOLS_API = ["CallableToolConfig", "MCPServerConfig", "ScriptToolConfig", "ToolResult", "Toolbox"]
 EXPECTED_SKILLS_API = ["SkillsConfig"]
@@ -123,6 +123,7 @@ LEGACY_PUBLIC_SYMBOLS = [
     "AgentRoutingPattern",
     "NetworkedPattern",
     "BeamSearchPattern",
+    "WorkflowStudyDelegate",
     "MlxLocalLLMClient",
     "VllmServerLLMClient",
     "SglangServerLLMClient",

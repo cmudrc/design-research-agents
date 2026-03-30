@@ -48,7 +48,7 @@ Agents
    :members:
    :undoc-members:
 
-.. autoclass:: design_research_agents.WorkflowStudyDelegate
+.. autoclass:: design_research_agents.PromptWorkflowAgent
    :members:
    :undoc-members:
 

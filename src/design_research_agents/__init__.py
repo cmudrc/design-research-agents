@@ -12,7 +12,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
     "SkillsConfig": "design_research_agents.skills:SkillsConfig",
     "SeededRandomBaselineAgent": "design_research_agents.agent:SeededRandomBaselineAgent",
-    "WorkflowStudyDelegate": "design_research_agents.agent:WorkflowStudyDelegate",
+    "PromptWorkflowAgent": "design_research_agents.agent:PromptWorkflowAgent",
     "Toolbox": "design_research_agents.tools:Toolbox",
     "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
     "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
@@ -114,7 +114,7 @@ if TYPE_CHECKING:
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
     from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
-    from .agent import WorkflowStudyDelegate as WorkflowStudyDelegate
+    from .agent import PromptWorkflowAgent as PromptWorkflowAgent
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from design_research_agents import WorkflowStudyDelegate
+from design_research_agents import PromptWorkflowAgent
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents.workflow import LogicStep, Workflow
 
@@ -19,9 +19,9 @@ class _Condition:
     condition_id: str
 
 
-def test_workflow_study_delegate_compile_exposes_wrapped_workflow() -> None:
+def test_prompt_workflow_agent_compile_exposes_wrapped_workflow() -> None:
     workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
-    delegate = WorkflowStudyDelegate(
+    delegate = PromptWorkflowAgent(
         workflow=workflow,
         prompt_builder=lambda _problem_packet, _run_spec, _condition: "Study prompt.",
     )
@@ -40,7 +40,7 @@ def test_workflow_study_delegate_compile_exposes_wrapped_workflow() -> None:
     assert "emit" in compiled.to_mermaid(direction="LR")
 
 
-def test_workflow_study_delegate_run_uses_prompt_builder_and_preserves_request_metadata() -> None:
+def test_prompt_workflow_agent_run_uses_prompt_builder_and_preserves_request_metadata() -> None:
     workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
     captured: dict[str, object] = {}
 
@@ -65,7 +65,7 @@ def test_workflow_study_delegate_run_uses_prompt_builder_and_preserves_request_m
 
     workflow.run = _fake_run  # type: ignore[method-assign]
 
-    delegate = WorkflowStudyDelegate(
+    delegate = PromptWorkflowAgent(
         workflow=workflow,
         prompt_builder=lambda problem_packet, run_spec, condition: (
             f"{getattr(problem_packet, 'brief', 'brief')}::{run_spec.run_id}::{condition.condition_id}"
@@ -97,7 +97,7 @@ def test_workflow_study_delegate_run_uses_prompt_builder_and_preserves_request_m
     }
 
 
-def test_workflow_study_delegate_accepts_direct_prompt_fallback() -> None:
+def test_prompt_workflow_agent_accepts_direct_prompt_fallback() -> None:
     workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
     captured: dict[str, object] = {}
 
@@ -113,7 +113,7 @@ def test_workflow_study_delegate_accepts_direct_prompt_fallback() -> None:
         return ExecutionResult(success=True, output={"final_output": {"prompt": input}})
 
     workflow.run = _fake_run  # type: ignore[method-assign]
-    delegate = WorkflowStudyDelegate(
+    delegate = PromptWorkflowAgent(
         workflow=workflow,
         prompt_builder=lambda _problem_packet, _run_spec, _condition: "ignored",
     )
@@ -123,9 +123,9 @@ def test_workflow_study_delegate_accepts_direct_prompt_fallback() -> None:
     assert captured["input"] == "Fallback direct prompt."
 
 
-def test_workflow_study_delegate_rejects_empty_prompt_sources() -> None:
+def test_prompt_workflow_agent_rejects_empty_prompt_sources() -> None:
     workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
-    delegate = WorkflowStudyDelegate(
+    delegate = PromptWorkflowAgent(
         workflow=workflow,
         prompt_builder=lambda _problem_packet, _run_spec, _condition: "   ",
     )

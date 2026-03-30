@@ -1,4 +1,4 @@
-"""Workflow adapter for packaged-problem experiment studies."""
+"""Prompt-driven workflow agent for packaged-problem experiment studies."""
 
 from __future__ import annotations
 
@@ -8,11 +8,11 @@ from design_research_agents._contracts._delegate import Delegate
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents.workflow import CompiledExecution, Workflow
 
-_DEFAULT_REQUEST_ID = "workflow-study-delegate"
+_DEFAULT_REQUEST_ID = "prompt-workflow-agent"
 
 
-class WorkflowStudyDelegate(Delegate):
-    """Wrap one prompt-mode workflow for packaged-problem experiment studies."""
+class PromptWorkflowAgent(Delegate):
+    """Wrap one prompt-mode workflow as a first-class executable agent."""
 
     def __init__(
         self,
@@ -20,7 +20,7 @@ class WorkflowStudyDelegate(Delegate):
         workflow: Workflow,
         prompt_builder: Callable[[object, object, object], str],
     ) -> None:
-        """Store the wrapped workflow and canonical study prompt builder."""
+        """Store the wrapped workflow and study-aware prompt builder."""
         self.workflow = workflow
         self._prompt_builder = prompt_builder
 
@@ -42,7 +42,7 @@ class WorkflowStudyDelegate(Delegate):
             request_id=resolved_request_id,
             workflow_request_id=resolved_request_id,
             dependencies=resolved_dependencies,
-            delegate_name="WorkflowStudyDelegate",
+            delegate_name="PromptWorkflowAgent",
             trace_input={"prompt": resolved_prompt},
         )
 
@@ -75,7 +75,7 @@ class WorkflowStudyDelegate(Delegate):
                 built_prompt = self._prompt_builder(problem_packet, run_spec, condition)
                 normalized_prompt = built_prompt.strip()
                 if not normalized_prompt:
-                    raise ValueError("WorkflowStudyDelegate prompt_builder returned an empty prompt.")
+                    raise ValueError("PromptWorkflowAgent prompt_builder returned an empty prompt.")
                 return normalized_prompt
 
         if isinstance(prompt, str):
@@ -84,9 +84,9 @@ class WorkflowStudyDelegate(Delegate):
                 return normalized_prompt
 
         raise ValueError(
-            "WorkflowStudyDelegate requires study dependencies "
+            "PromptWorkflowAgent requires study dependencies "
             "(`problem_packet`, `run_spec`, `condition`) or a non-empty prompt."
         )
 
 
-__all__ = ["WorkflowStudyDelegate"]
+__all__ = ["PromptWorkflowAgent"]

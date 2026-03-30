@@ -16,4 +16,4 @@ Generated from canonical example docstrings/comments in ``examples/agents``.
    multi_step_json_with_skills
    seeded_random_baseline_agent
    vscode_hello_world
-   workflow_study_delegate
+   prompt_workflow_agent
