@@ -118,8 +118,9 @@ else:
 
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+html_js_files = ["color_mode_favicon.js"]
 html_logo = "_static/drc-light.png"
-html_favicon = "_static/favicon.ico"
+html_favicon = "_static/favicon-light.ico"
 html_title = project
 html_sidebars = (
     {
