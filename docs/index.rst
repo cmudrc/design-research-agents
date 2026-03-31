@@ -3,6 +3,9 @@ design-research-agents
 
 A modular framework for building and studying AI agents in engineering design workflows.
 
+What This Library Does
+----------------------
+
 ``design-research-agents`` provides reusable abstractions for agent behavior,
 tool use, workflow composition, and multi-step reasoning. It is built for
 research workflows where traceability, reproducibility, and controlled
@@ -11,21 +14,6 @@ comparison matter as much as raw model capability.
 Interpretable traces, explicit tool boundaries, and documented workflow
 contracts are core features. They make agent studies easier to reproduce,
 compare, and audit across experiments.
-
-Highlights
-----------
-
-- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``.
-- ``MultiStepAgent`` supports explicit modes: ``direct``, ``json``, and ``code``.
-- JSON mode uses structured ``tool_name``/``tool_input`` selection for
-  iterative tool-call loops.
-- Workflow primitives for model, tool, delegate, loop, and memory steps.
-- Model selection policies with local/remote catalogs.
-- Tool contracts and schemas for safe, structured I/O.
-- Tracing hooks and emitters for debugging and evaluation.
-- Runnable examples for deterministic validation and experimentation.
-- Workflow-native memory, networked blackboard coordination, and reusable
-  reasoning patterns (tree search, Ralph loops, nominal teams, and RAG).
 
 .. container:: drc-home-badges
 
@@ -49,6 +37,29 @@ Highlights
         </a>
       </div>
 
+Highlights
+----------
+
+- Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``
+- Explicit multi-step modes for ``direct``, ``json``, and ``code`` execution
+- Workflow primitives for model, tool, delegate, loop, and memory steps
+- Model-selection policies with local and remote catalogs
+- Tool contracts and schemas for safe, structured I/O
+- Tracing hooks and emitters for debugging, evaluation, and reproducibility
+- Workflow-native memory and reusable reasoning patterns including tree search,
+  Ralph loops, nominal teams, debate, and RAG
+- Runnable examples for deterministic validation and experimentation
+
+Typical Workflow
+----------------
+
+1. Start from ``DirectLLMCall`` or ``MultiStepAgent`` depending on the level of
+   control you need.
+2. Configure runtime mode, tools, models, and any workflow or memory helpers.
+3. Run a deterministic example or local quickstart to validate the environment.
+4. Inspect traces, tool boundaries, and structured outputs for debugging and evaluation.
+5. Reuse the same runtime contracts inside broader experiments and downstream analysis.
+
 .. container:: drc-home-callout
 
    .. note::
@@ -65,6 +76,7 @@ agent-research pipeline.
 
 - :doc:`quickstart`
 - :doc:`installation`
+- :doc:`vscode_setup`
 - :doc:`concepts`
 - :doc:`typical_workflow`
 - :doc:`philosophy`
