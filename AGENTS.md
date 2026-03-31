@@ -13,9 +13,6 @@ Project maturity is pre-alpha; breaking changes are acceptable only with explici
 - Reproducible release interpreter is set in `.python-version` (`3.12`).
 - Install dependencies:
   - `make dev` for normal development (`editable + [dev]`, including release tooling)
-  - `make repro REPRO_EXTRAS="dev full"` for frozen reproducible installs from `uv.lock`
-- Regenerate lock data (maintainers, release flow):
-  - `make lock`
 - Use `PYTHONPATH=src` when running scripts/examples directly.
 
 ## Testing And Validation

@@ -8,13 +8,6 @@ source .venv/bin/activate
 make dev
 ```
 
-For a reproducible install based on `uv.lock`:
-
-```bash
-make lock
-make repro REPRO_EXTRAS="dev full"
-```
-
 ## Local Quality Checks
 
 Run these before opening a pull request:

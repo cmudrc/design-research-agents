@@ -25,26 +25,16 @@ Or use:
 
    make dev
 
-Reproducible install
---------------------
-
-.. code-block:: bash
-
-   make repro REPRO_EXTRAS="dev full"
-
-``REPRO_EXTRAS`` defaults to ``dev full``. The frozen install fails when
-``uv.lock`` is out of date.
-
 Maintainer release baseline
 ---------------------------
 
 Use this when preparing a tagged release:
 
 1. Use Python ``3.12`` (from ``.python-version``).
-2. Regenerate lock data: ``make lock``.
-3. Verify the frozen install and full checks: ``make repro REPRO_EXTRAS="dev full"`` and ``make ci``.
+2. Install maintainer dependencies: ``make dev``.
+3. Verify full checks: ``make ci``.
 4. Build release artifacts and validate metadata: ``make release-check``.
-5. Commit ``uv.lock`` (and any dependency spec changes), then tag and publish.
+5. Commit dependency spec changes, then tag and publish.
 
 ``make release-check`` builds both the source distribution and wheel into ``dist/``
 and runs ``twine check`` against the generated artifacts.
@@ -103,5 +93,4 @@ Recommended install profiles:
 - local-only studies: ``pip install -e ".[dev,local]"``
 - broad backend validation: ``pip install -e ".[dev,full]"``
 
-Reproducible and release flows are exposed via ``make repro``, ``make lock``,
-and ``make release-check``.
+Release validation is exposed via ``make release-check``.

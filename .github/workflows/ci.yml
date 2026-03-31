@@ -5,13 +5,12 @@
 # - Continuously validate two dependency regimes:
 #   - "latest": broadly current deps (what most contributors run)
 #   - "lowest": minimum direct bounds (guards against over-constraining pins / silent breakage)
-# - Validate reproducibility from a lockfile across OSes ("locked"), catching platform-specific issues.
 # - Keep badges (coverage + example metrics) updated on main without letting PRs write to the repo.
 #
 # Conventions:
 # - Delegate project-specific logic to `make` targets (keeps YAML thin and auditable).
 # - Prefer least-privilege permissions; only elevate where a job must push (badges).
-# - Use uv for lock/lowest workflows to ensure consistent resolution behavior.
+# - Use uv for lowest-bound workflows to ensure consistent resolution behavior.
 # - Use concurrency where jobs can collide on shared outputs (badge commits).
 
 name: CI
@@ -149,61 +148,6 @@ jobs:
       - name: Run tests
         run: make test
 
-  locked:
-    # Frozen reproducible installs from uv.lock on the Python 3.12 series.
-    #
-    # Why:
-    # - Ensures the lockfile actually works on clean machines.
-    # - Catches OS-specific dependency issues and wheel availability problems.
-    #
-    # Strategy:
-    # - Run across OS matrix, but don't fail-fast so you get full signal in one run.
-    # - Allow different extras per OS to avoid known build hazards.
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # Ubuntu: use the current Python 3.12 patch from the runner toolchain.
-          - os: ubuntu-latest
-            repro-python: "3.12"
-            repro-extras: "dev full"
-          # macOS: use 3.12 (latest patch on runner) and avoid extras that trigger
-          # slow/fragile source builds (e.g., llama-cpp-python) if wheels aren't available.
-          - os: macos-latest
-            repro-python: "3.12"
-            # Avoid llama-cpp-python source builds on macOS CI (no official macOS wheels on PyPI).
-            repro-extras: "dev mlx transformers"
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Install the requested Python; on macOS this may select the newest patch available.
-      # If you need strict patch pinning on macOS too, consider `actions/setup-python` support
-      # and runner availability, or use a toolcache strategy.
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.repro-python }}
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      # `make repro` should:
-      # - install from uv.lock
-      # - enforce frozen resolution (no lock updates)
-      # - install the requested extras set
-      #
-      # Passing python/extras through env keeps Makefile reusable locally.
-      - name: Reproducible frozen install
-        run: make repro REPRO_PYTHON="${{ matrix.repro-python }}" REPRO_EXTRAS="${{ matrix.repro-extras }}"
-
-      # Validate behavior under the locked environment.
-      - name: Run tests
-        run: make test
-
   coverage-badge:
     # Keep a coverage badge on main in sync with the stable unit-suite baseline.
     #
@@ -214,7 +158,7 @@ jobs:
     # Dependency posture:
     # - Depends on successful completion of all gate jobs to avoid advertising stale/invalid metrics.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [core-offline, latest, lowest, locked]
+    needs: [core-offline, latest, lowest]
 
     # Prevent parallel main pushes from racing to update badges and creating commit conflicts.
     concurrency:
