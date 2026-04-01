@@ -1,8 +1,8 @@
 # design-research-agents
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Coverage](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
-[![Examples Passing](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
-[![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/main/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
+[![Coverage](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
+[![Examples Passing](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
+[![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
 <!-- release-callout:start -->
@@ -72,7 +72,7 @@ For frozen installs, extras, and release maintenance, see
 
 ## Examples
 
-Start with [examples/README.md](https://github.com/cmudrc/design-research-agents/blob/main/examples/README.md)
+Start with [examples/README.md](https://github.com/cmudrc/design-research-agents/blob/HEAD/examples/README.md)
 for runnable examples grouped by agents, clients, workflows, patterns, model
 selection, and tools.
 
@@ -105,4 +105,4 @@ Top-level exports include:
 ## Contributing
 
 Contribution workflow and quality gates are documented in
-[CONTRIBUTING.md](https://github.com/cmudrc/design-research-agents/blob/main/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/cmudrc/design-research-agents/blob/HEAD/CONTRIBUTING.md).
