@@ -21,6 +21,7 @@ MODE_ROUND_BASED_COORDINATION = "round_based_coordination"
 MODE_BLACKBOARD = "blackboard"
 MODE_TREE_SEARCH = "tree_search"
 MODE_RAG = "rag"
+MODE_SIMULATED_ANNEALING = "simulated_annealing"
 
 
 def build_pattern_output(
@@ -115,6 +116,7 @@ __all__ = [
     "MODE_RALPH_LOOP",
     "MODE_ROUND_BASED_COORDINATION",
     "MODE_ROUTER_DELEGATE",
+    "MODE_SIMULATED_ANNEALING",
     "MODE_TREE_SEARCH",
     "MODE_TWO_SPEAKER_CONVERSATION",
     "OUTPUT_CONTRACT_VERSION",
