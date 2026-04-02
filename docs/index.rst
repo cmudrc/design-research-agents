@@ -50,6 +50,12 @@ Highlights
   Ralph loops, nominal teams, debate, and RAG
 - Runnable examples for deterministic validation and experimentation
 
+The public surface is intentionally layered: start with ``DirectLLMCall`` for
+one-shot execution, move to ``MultiStepAgent`` for managed loops, use
+``Workflow`` when you need to author reusable graphs, reach for
+``design_research_agents.patterns`` when a prebuilt orchestration strategy fits,
+and use runnable examples as exemplars rather than as the primary abstraction.
+
 Typical Workflow
 ----------------
 
@@ -64,9 +70,8 @@ Typical Workflow
 
    .. note::
 
-      **Start with** :doc:`quickstart` to run a first agent workflow, inspect the
-      public runtime surface, and get the package into a stable local loop before
-      diving into the broader patterns and reference material.
+      **New here?** Start with :doc:`where_to_start` to choose the right layer,
+      then use :doc:`quickstart` to run the smallest end-to-end example.
 
 Guides
 ------
@@ -75,6 +80,7 @@ Learn the base concepts, setup flow, and execution patterns that shape a stable
 agent-research pipeline.
 
 - :doc:`quickstart`
+- :doc:`where_to_start`
 - :doc:`installation`
 - :doc:`vscode_setup`
 - :doc:`concepts`
@@ -130,6 +136,7 @@ Start Here
 ----------
 
 - :doc:`quickstart`
+- :doc:`where_to_start`
 - :doc:`installation`
 - :doc:`vscode_setup`
 - :doc:`concepts`
@@ -144,6 +151,7 @@ Start Here
    :hidden:
 
    quickstart
+   where_to_start
    installation
    vscode_setup
    concepts
@@ -176,4 +184,5 @@ Start Here
    :caption: Development
    :hidden:
 
+   documentation_automation
    CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/HEAD/CONTRIBUTING.md>

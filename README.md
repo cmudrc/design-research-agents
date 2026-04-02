@@ -18,6 +18,11 @@ research ecosystem.
 It provides typed, composable contracts for direct calls, multi-step runs,
 workflow orchestration, tool execution, and traceable experimentation.
 
+If you are deciding between primitives, workflow authoring, prebuilt patterns,
+and runnable exemplars, start with the
+[Where To Start](https://cmudrc.github.io/design-research-agents/where_to_start.html)
+guide in the published docs.
+
 ## Overview
 
 This package centers on reproducible agent workflows with a compact public API:

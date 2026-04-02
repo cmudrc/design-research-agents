@@ -34,6 +34,9 @@ extensions = [
     "sphinxcontrib.mermaid",
 ]
 
+copybutton_prompt_text = r">>> |\.\.\. |\$ "
+copybutton_prompt_is_regexp = True
+
 # Docstring style: prefer Google-style (works well with type hints).
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False

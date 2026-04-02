@@ -38,6 +38,13 @@ INTERNAL_MODULE_PATTERN = re.compile(
     r")\b"
 )
 STALE_SOURCE_PATH_PATTERN = re.compile(r"\bsrc/design_research_agents/[A-Za-z0-9_./-]*")
+README_BADGE_PATTERN = re.compile(r"^\[!\[(?P<alt>[^\]]+)\]\((?P<src>[^)]+)\)\]\((?P<href>[^)]+)\)$")
+DOCS_HOME_BADGE_PATTERN = re.compile(
+    r'<a class="drc-badge-link" href="(?P<href>[^"]+)">\s*'
+    r'<img alt="(?P<alt>[^"]+)" src="(?P<src>[^"]+)">\s*'
+    r"</a>",
+    re.DOTALL,
+)
 INTERNAL_REFERENCE_DOC_PATHS = {
     "docs/reference/contracts.rst",
     "docs/reference/memory.rst",
@@ -51,6 +58,91 @@ INTERNAL_REFERENCE_DOC_PATHS = {
 ALLOWED_USER_DOC_INTERNAL_REFERENCES = {
     "docs/api.rst": ("design_research_agents._contracts",),
 }
+EXPECTED_BADGES = (
+    (
+        "CI",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml",
+    ),
+    (
+        "Coverage",
+        "https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/coverage.svg",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml",
+    ),
+    (
+        "Examples Passing",
+        "https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-passing.svg",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml",
+    ),
+    (
+        "Public API In Examples",
+        "https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml",
+    ),
+    (
+        "Docs",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg",
+        "https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml",
+    ),
+)
+DOCS_AUTOMATION_REQUIRED_FILES = (
+    "scripts/generate_example_docs.py",
+    "scripts/generate_coverage_badge.py",
+    "scripts/generate_examples_metrics.py",
+    "scripts/generate_examples_badges.py",
+    "scripts/update_release_readme.py",
+    ".github/workflows/ci.yml",
+    ".github/workflows/docs-pages.yml",
+    ".github/workflows/examples.yml",
+    ".github/workflows/update-release-readme.yml",
+    ".github/badges/coverage.svg",
+    ".github/badges/examples-passing.svg",
+    ".github/badges/examples-api-coverage.svg",
+    "docs/documentation_automation.rst",
+)
+DOCS_AUTOMATION_REQUIRED_MARKERS = {
+    "docs/conf.py": (
+        '"sphinx_copybutton"',
+        "copybutton_prompt_text",
+        "copybutton_prompt_is_regexp = True",
+    ),
+    "Makefile": (
+        "docs-check:",
+        "docs-build:",
+        "docs-linkcheck:",
+        "examples-smoke:",
+        "examples-metrics:",
+    ),
+    ".github/workflows/ci.yml": (
+        "make ci",
+        "make docs-build",
+        "make examples-metrics",
+    ),
+    ".github/workflows/docs-pages.yml": (
+        "make docs-check",
+        "make docs-build",
+        "make docs-linkcheck",
+    ),
+    ".github/workflows/examples.yml": ("make examples-test",),
+    ".github/workflows/update-release-readme.yml": ("python scripts/update_release_readme.py",),
+    "docs/documentation_automation.rst": (
+        "make docs-check",
+        "make docs-build",
+        "make docs-linkcheck",
+        "examples-metrics",
+        "update_release_readme.py",
+        "repo-specific exception",
+    ),
+}
+ENTRY_POINT_GUIDE_PATH = "docs/where_to_start.rst"
+ENTRY_POINT_GUIDE_REQUIRED_MARKERS = (
+    "``DirectLLMCall``",
+    "``MultiStepAgent``",
+    "``Workflow``",
+    "patterns",
+    "examples",
+)
+ENTRY_POINT_HOME_LINK_MARKER = ":doc:`where_to_start`"
 
 
 @dataclass(slots=True, frozen=True)
@@ -319,6 +411,177 @@ def _find_stale_source_path_violations(repo_root: Path, files: list[Path]) -> li
     return violations
 
 
+def _format_badges(badges: tuple[tuple[str, str, str], ...]) -> str:
+    """Render badge tuples for deterministic violation messages.
+
+    Args:
+        badges: Ordered ``(alt, src, href)`` badge tuples.
+
+    Returns:
+        Compact human-readable badge description.
+    """
+    return "; ".join(f"{alt} -> {src} -> {href}" for alt, src, href in badges)
+
+
+def _parse_readme_badges(readme_text: str) -> tuple[tuple[str, str, str], ...]:
+    """Parse the contiguous top-of-file badge block from ``README.md``.
+
+    Args:
+        readme_text: Full README markdown text.
+
+    Returns:
+        Ordered badge tuples in ``(alt, src, href)`` form.
+    """
+    badges: list[tuple[str, str, str]] = []
+    collecting = False
+    for raw_line in readme_text.splitlines()[1:]:
+        stripped = raw_line.strip()
+        match = README_BADGE_PATTERN.fullmatch(stripped)
+        if match is not None:
+            badges.append((match.group("alt"), match.group("src"), match.group("href")))
+            collecting = True
+            continue
+        if collecting:
+            break
+    return tuple(badges)
+
+
+def _parse_docs_home_badges(index_text: str) -> tuple[tuple[str, str, str], ...]:
+    """Parse the badge row rendered on the docs home page.
+
+    Args:
+        index_text: ``docs/index.rst`` source text.
+
+    Returns:
+        Ordered badge tuples in ``(alt, src, href)`` form.
+    """
+    badges = [
+        (match.group("alt"), match.group("src"), match.group("href"))
+        for match in DOCS_HOME_BADGE_PATTERN.finditer(index_text)
+    ]
+    return tuple(badges)
+
+
+def _find_badge_surface_violations(repo_root: Path) -> list[Violation]:
+    """Validate README and docs-home badge surfaces against the shared baseline.
+
+    Args:
+        repo_root: Repository root directory.
+
+    Returns:
+        Badge-surface violations.
+    """
+    violations: list[Violation] = []
+
+    readme_path = repo_root / "README.md"
+    readme_badges = _parse_readme_badges(readme_path.read_text(encoding="utf-8"))
+    if readme_badges != EXPECTED_BADGES:
+        violations.append(
+            Violation(
+                category="badge-surface",
+                detail=(
+                    "README.md badge block does not match the shared baseline. "
+                    f"expected [{_format_badges(EXPECTED_BADGES)}], got [{_format_badges(readme_badges)}]"
+                ),
+            )
+        )
+
+    docs_index_path = repo_root / "docs" / "index.rst"
+    docs_badges = _parse_docs_home_badges(docs_index_path.read_text(encoding="utf-8"))
+    if docs_badges != EXPECTED_BADGES:
+        violations.append(
+            Violation(
+                category="badge-surface",
+                detail=(
+                    "docs/index.rst badge row does not match the shared baseline. "
+                    f"expected [{_format_badges(EXPECTED_BADGES)}], got [{_format_badges(docs_badges)}]"
+                ),
+            )
+        )
+
+    return violations
+
+
+def _find_docs_automation_baseline_violations(repo_root: Path) -> list[Violation]:
+    """Validate the checked docs/CI automation baseline for this repository.
+
+    Args:
+        repo_root: Repository root directory.
+
+    Returns:
+        Docs-automation baseline violations.
+    """
+    violations: list[Violation] = []
+
+    for relative_path in DOCS_AUTOMATION_REQUIRED_FILES:
+        if not (repo_root / relative_path).exists():
+            violations.append(
+                Violation(
+                    category="docs-automation-baseline",
+                    detail=f"required automation file is missing: '{relative_path}'.",
+                )
+            )
+
+    for relative_path, markers in DOCS_AUTOMATION_REQUIRED_MARKERS.items():
+        path = repo_root / relative_path
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        for marker in markers:
+            if marker not in text:
+                violations.append(
+                    Violation(
+                        category="docs-automation-baseline",
+                        detail=f"{relative_path}: missing required baseline marker '{marker}'.",
+                    )
+                )
+
+    return violations
+
+
+def _find_entry_point_guide_violations(repo_root: Path) -> list[Violation]:
+    """Validate the newcomer entry-point guide and its home-page link.
+
+    Args:
+        repo_root: Repository root directory.
+
+    Returns:
+        Entry-point guide violations.
+    """
+    violations: list[Violation] = []
+
+    docs_index_path = repo_root / "docs" / "index.rst"
+    docs_index_text = docs_index_path.read_text(encoding="utf-8")
+    if ENTRY_POINT_HOME_LINK_MARKER not in docs_index_text:
+        violations.append(
+            Violation(
+                category="entry-point-guide",
+                detail=f"docs/index.rst must link to '{ENTRY_POINT_GUIDE_PATH}'.",
+            )
+        )
+
+    guide_path = repo_root / ENTRY_POINT_GUIDE_PATH
+    if not guide_path.exists():
+        violations.append(
+            Violation(
+                category="entry-point-guide",
+                detail=f"missing required entry-point guide '{ENTRY_POINT_GUIDE_PATH}'.",
+            )
+        )
+        return violations
+
+    guide_text = guide_path.read_text(encoding="utf-8")
+    for marker in ENTRY_POINT_GUIDE_REQUIRED_MARKERS:
+        if marker not in guide_text:
+            violations.append(
+                Violation(
+                    category="entry-point-guide",
+                    detail=f"{ENTRY_POINT_GUIDE_PATH}: missing required marker '{marker}'.",
+                )
+            )
+    return violations
+
+
 def main() -> int:
     """Run docs consistency checks and return process status.
 
@@ -333,6 +596,9 @@ def main() -> int:
     violations.extend(_find_export_mismatch_violations(repo_root))
     violations.extend(_find_internal_module_boundary_violations(repo_root, files))
     violations.extend(_find_stale_source_path_violations(repo_root, files))
+    violations.extend(_find_badge_surface_violations(repo_root))
+    violations.extend(_find_docs_automation_baseline_violations(repo_root))
+    violations.extend(_find_entry_point_guide_violations(repo_root))
 
     if not violations:
         print("Documentation consistency checks passed.")
