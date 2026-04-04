@@ -5,13 +5,6 @@
 [![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 
-<!-- release-callout:start -->
-> [!IMPORTANT]
-> Current monthly release: [Lovelace Lift - May 2026](https://github.com/cmudrc/design-research-agents/milestone/3)  
-> Due: May 1, 2026  
-> Tracks: April 2026 work
-<!-- release-callout:end -->
-
 `design-research-agents` is the agent-execution layer in the cmudrc design
 research ecosystem.
 
