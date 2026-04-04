@@ -5,6 +5,12 @@ Nominal teams explore one task independently, then hand all candidate outputs to
 evaluator for best-of-N selection. This example fans out a design prompt to three focused
 contributors and selects the strongest result with a structured evaluator response.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
@@ -54,6 +60,9 @@ from pathlib import Path
 from design_research_agents import DirectLLMCall, LlamaCppServerLLMClient, Tracer
 from design_research_agents.patterns import NominalTeamPattern
 
+# This checked-in local config uses a Qwen3-4B GGUF model to exercise a richer
+# multi-step path. On lower-RAM machines, swap in a smaller local model or
+# start with the lighter Ollama local client example first.
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",

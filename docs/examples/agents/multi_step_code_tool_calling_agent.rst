@@ -10,6 +10,12 @@ ReAct and Toolformer motivate external action for model reasoning, while AutoGen
 multi-agent/tool ecosystems depend on explicit execution boundaries. This example focuses on code-tool
 calling so you can study how executable outputs are requested, validated, and traced in a controlled loop.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -31,7 +37,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/multi_step_code_tool_calling_agent.py
    :language: python
-   :lines: 51-
+   :lines: 57-
    :linenos:
 
 Expected Results

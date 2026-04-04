@@ -10,6 +10,12 @@ Nominal teams explore one task independently, then hand all candidate outputs to
 evaluator for best-of-N selection. This example fans out a design prompt to three focused
 contributors and selects the strongest result with a structured evaluator response.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -29,7 +35,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/nominal_team.py
    :language: python
-   :lines: 49-
+   :lines: 55-
    :linenos:
 
 Expected Results

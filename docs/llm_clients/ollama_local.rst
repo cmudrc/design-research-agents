@@ -10,6 +10,11 @@ Default behavior
 - Default model: ``qwen2.5:1.5b-instruct``
 - Default managed endpoint: ``http://127.0.0.1:11434``
 
+RAM note:
+These defaults are intentionally lighter than the ``Qwen3-4B`` GGUF configs
+used in some checked-in multi-step examples, so they are a better starting
+point on smaller machines.
+
 Constructor-first usage
 -----------------------
 

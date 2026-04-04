@@ -1,6 +1,8 @@
 Installation
 ============
 
+Requires Python 3.12+.
+
 VS Code First
 -------------
 
@@ -11,9 +13,16 @@ installing the published package, and running a first script, start with
 Package Install
 ---------------
 
+Install the published package with a Python 3.12+ interpreter:
+
 .. code-block:: bash
 
-   pip install design-research-agents
+   python3 -m pip install design-research-agents
+
+Windows note:
+If ``python`` or ``pip`` resolve to an older interpreter, use
+``py -3.12 -m pip install design-research-agents`` and
+``py -3.12 -m venv .venv`` for virtual-environment setup.
 
 Editable Install
 ----------------
@@ -22,10 +31,10 @@ Editable Install
 
    git clone https://github.com/cmudrc/design-research-agents.git
    cd design-research-agents
-   python -m venv .venv
+   python3 -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-   pip install -e ".[dev]"
+   python -m pip install -e ".[dev]"
 
 Maintainer Shortcut
 -------------------

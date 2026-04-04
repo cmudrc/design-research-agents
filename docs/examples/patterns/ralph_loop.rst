@@ -10,6 +10,12 @@ Ralph loops are role-programmed, not fixed two-role propose/critic cycles: each 
 an ordered role lineup, then a dedicated evaluator decides whether consensus quality is high enough.
 This example demonstrates a four-role configuration with synthesis selection and threshold stopping.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -31,7 +37,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/ralph_loop.py
    :language: python
-   :lines: 51-
+   :lines: 57-
    :linenos:
 
 Expected Results
