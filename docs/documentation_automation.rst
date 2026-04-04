@@ -15,7 +15,6 @@ Shared Baseline
 - ``.github/workflows/docs-pages.yml`` owns docs checks, strict docs builds, and Pages deployment.
 - ``.github/workflows/ci.yml`` owns the main CI gate plus coverage and examples badge refresh on trusted ``main`` pushes.
 - ``.github/workflows/examples.yml`` owns the full deterministic examples suite.
-- ``.github/workflows/update-release-readme.yml`` runs ``scripts/update_release_readme.py`` to keep the monthly release callout in ``README.md`` current.
 
 Copyable Snippets
 -----------------

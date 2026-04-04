@@ -58,29 +58,31 @@ Use the smallest useful check while iterating, then run full gates before merge.
 
 ## Release Naming
 - Theme: famous folks in STEM, with a bias toward women and historically underrepresented figures when possible.
-- Monthly release names are shared across milestone titles, release PR titles, and release branches.
-  - Milestone title / PR title: `{base name} - {Month YYYY}`
-  - Release branch: slugified full title, for example `lovelace-lift-may-2026`
+- Monthly work-cycle names are shared across milestone titles, release PR titles, and release branches.
+- Name the cycle for the month the work is done, not the later drop month.
+  - Milestone title / PR title: `{base name} - {Work month YYYY}`
+  - Release branch: slugified full title, for example `lovelace-lift-april-2026`
+- Milestone due dates should land in the first week of the following month.
 - Milestone descriptions must use:
-  - `Tracks {previous month YYYY} work.`
+  - `Work month: {Month YYYY}.`
   - `Theme source: <url>`
-- Release PR bodies must repeat the same `Theme source:` link used on the milestone.
-- Never reuse an exact base name or the same primary subject across any month or any of the four design-research module repos unless all four `AGENTS.md` files are intentionally updated together.
+- Release PR bodies must repeat the same `Theme source:` link used on the milestone and refer to the same work month named in the title.
+- Never reuse an exact base name or the same primary subject across any work month or any of the four design-research module repos unless all four `AGENTS.md` files are intentionally updated together.
 - Before adding a new release name, check the `Release Naming` tables in all four repos to avoid repeats.
 - `The April Alignment` is a carry-forward exception for the April 1, 2026 milestone and remains unchanged.
 
-| Due date | Base name | Source subject |
-| --- | --- | --- |
-| April 1, 2026 | The April Alignment | Carry-forward exception (existing April 2026 milestone) |
-| May 1, 2026 | Lovelace Lift | Ada Lovelace |
-| June 1, 2026 | Mayer Momentum | Maria Goeppert Mayer |
-| July 1, 2026 | Johnson Jumpstart | Katherine Johnson |
-| August 1, 2026 | Jemison Journey | Mae Jemison |
-| September 1, 2026 | Noether Nexus | Emmy Noether |
-| October 1, 2026 | Ochoa Orbit | Ellen Ochoa |
-| November 1, 2026 | Ride Relay | Sally Ride |
-| December 1, 2026 | Doudna Drive | Jennifer Doudna |
-| January 1, 2027 | Jackson Junction | Shirley Ann Jackson |
+| Work month | Target drop | Base name | Source subject |
+| --- | --- | --- | --- |
+| March 2026 | April 1, 2026 | The April Alignment | Carry-forward exception (existing April 2026 milestone) |
+| April 2026 | May 1, 2026 | Lovelace Lift | Ada Lovelace |
+| May 2026 | June 1, 2026 | Mayer Momentum | Maria Goeppert Mayer |
+| June 2026 | July 1, 2026 | Johnson Jumpstart | Katherine Johnson |
+| July 2026 | August 1, 2026 | Jemison Journey | Mae Jemison |
+| August 2026 | September 1, 2026 | Noether Nexus | Emmy Noether |
+| September 2026 | October 1, 2026 | Ochoa Orbit | Ellen Ochoa |
+| October 2026 | November 1, 2026 | Ride Relay | Sally Ride |
+| November 2026 | December 1, 2026 | Doudna Drive | Jennifer Doudna |
+| December 2026 | January 1, 2027 | Jackson Junction | Shirley Ann Jackson |
 
 ## Keep This File Up To Date
 Update this file when contributor-facing workflow changes. In particular:
