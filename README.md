@@ -7,7 +7,7 @@
 
 <!-- release-callout:start -->
 > [!IMPORTANT]
-> Current monthly release: [Lovelace Lift - May 2026](https://github.com/cmudrc/design-research-agents/milestone/3)  
+> Current monthly release: [Lovelace Lift - April 2026](https://github.com/cmudrc/design-research-agents/milestone/3)  
 > Due: May 1, 2026  
 > Tracks: April 2026 work
 <!-- release-callout:end -->
