@@ -42,6 +42,7 @@ Highlights
 
 - Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``
 - Explicit multi-step modes for ``direct``, ``json``, and ``code`` execution
+- A study-facing integration seam in ``design_research_agents.integration``
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - Model-selection policies with local and remote catalogs
 - Tool contracts and schemas for safe, structured I/O
@@ -58,7 +59,9 @@ Typical Workflow
 2. Configure runtime mode, tools, models, and any workflow or memory helpers.
 3. Run a deterministic example or local quickstart to validate the environment.
 4. Inspect traces, tool boundaries, and structured outputs for debugging and evaluation.
-5. Reuse the same runtime contracts inside broader experiments and downstream analysis.
+5. Reuse the same runtime contracts inside broader experiments through
+   ``design_research_agents.integration.execute_agent_run(...)`` and in
+   downstream analysis.
 
 .. container:: drc-home-callout
 

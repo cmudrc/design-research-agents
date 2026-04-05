@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Final
 
 from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 
+from . import integration
+
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
     "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
@@ -60,6 +62,7 @@ _EXPORTS: Final[dict[str, str]] = {
 }
 
 __all__ = ["__version__", *_EXPORTS.keys()]
+__all__.append("integration")
 
 try:
     __version__ = version("design-research-agents")
@@ -115,6 +118,7 @@ if TYPE_CHECKING:
     from .agent import MultiStepAgent as MultiStepAgent
     from .agent import PromptWorkflowAgent as PromptWorkflowAgent
     from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
+    from .integration import execute_agent_run as execute_agent_run
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
