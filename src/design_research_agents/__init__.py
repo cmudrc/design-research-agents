@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Final
 
 from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
-
-from . import integration
 
 _EXPORTS: Final[dict[str, str]] = {
     "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
@@ -82,6 +81,11 @@ def __getattr__(name: str) -> object:
     Raises:
         AttributeError: If ``name`` is not part of the public export map.
     """
+    if name == "integration":
+        module = import_module("design_research_agents.integration")
+        globals()[name] = module
+        return module
+
     return resolve_lazy_export(
         module_name=__name__,
         exports=_EXPORTS,

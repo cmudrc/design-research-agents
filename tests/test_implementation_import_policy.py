@@ -43,6 +43,7 @@ def test_internal_modules_and_packages_use_underscore_naming() -> None:
     }
     public_module_paths = {
         "__init__.py",
+        "integration.py",
         "workflow/workflow.py",
     }
 

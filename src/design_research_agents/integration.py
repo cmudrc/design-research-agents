@@ -7,7 +7,7 @@ import inspect
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib import import_module
 from typing import Any
 
@@ -411,7 +411,7 @@ def _normalize_events(
 
 def _utc_now_iso() -> str:
     """Return the current UTC timestamp in ISO-8601 format."""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _hash_identifier(prefix: str, payload: Mapping[str, Any]) -> str:
