@@ -74,9 +74,7 @@ def _resolve_agent_ref(
 
     exported = getattr(import_module("design_research_agents"), agent_ref, None)
     if exported is None:
-        raise ValueError(
-            f"Unknown agent reference '{agent_ref}'. Register an agent binding or use a public export."
-        )
+        raise ValueError(f"Unknown agent reference '{agent_ref}'. Register an agent binding or use a public export.")
 
     if inspect.isclass(exported):
         return exported()
@@ -263,9 +261,7 @@ def _normalize_execution_result(
     trace_refs = _extract_trace_refs(metadata)
     raw_events = output_mapping.get("events", [])
     normalized_raw_events = (
-        raw_events
-        if isinstance(raw_events, Sequence) and not isinstance(raw_events, (str, bytes))
-        else []
+        raw_events if isinstance(raw_events, Sequence) and not isinstance(raw_events, (str, bytes)) else []
     )
     events = _normalize_events(
         raw_events=normalized_raw_events,

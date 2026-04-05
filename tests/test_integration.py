@@ -65,9 +65,7 @@ def test_seeded_random_and_prompt_workflow_normalize_to_same_envelope_shape() ->
     run_spec = _RunSpec(run_id="run-2", seed=11)
     condition = _Condition(condition_id="cond-b")
 
-    workflow = Workflow(
-        steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),)
-    )
+    workflow = Workflow(steps=(LogicStep(step_id="emit", handler=lambda _context: {"final_output": {"ok": True}}),))
 
     def _fake_run(
         input: str | dict[str, object] | None = None,
