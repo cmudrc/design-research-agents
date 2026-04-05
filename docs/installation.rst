@@ -46,5 +46,9 @@ For example:
    pip install -e ".[anthropic]"
    pip install -e ".[local]"
    pip install -e ".[full]"
+   pip install -e ".[all]"
+
+``full`` covers hosted + local backends. ``all`` adds the optional ChromaDB and
+graph-memory extras on top of that backend bundle.
 
 Use :doc:`dependencies_and_extras` for the complete matrix and platform caveats.

@@ -63,7 +63,10 @@ PYTHONPATH=src python examples/agents/direct_llm_call.py
 
 The base-install path uses `OpenAICompatibleHTTPLLMClient` and expects a running
 OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
-tooling only; backend runtimes are explicit extras.
+tooling only; backend runtimes are explicit extras. Use
+`design-research-agents[full]` for the hosted + local backend bundle and
+`design-research-agents[all]` when you also want the optional ChromaDB and
+graph-memory backends.
 
 For frozen installs, extras, and release maintenance, see
 [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
