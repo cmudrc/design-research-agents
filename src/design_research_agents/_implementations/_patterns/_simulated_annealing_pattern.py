@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import random
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._workflow import DelegateTarget, LogicStep, LoopStep
@@ -192,6 +192,7 @@ class SimulatedAnnealingPattern(Delegate):
                 initial_temperature=self._initial_temperature,
                 max_iterations=self._max_iterations,
                 temperature_schedule_name=type(self._temperature_schedule).__name__,
+                random_seed=self._random_seed,
             ),
         )
 
@@ -204,7 +205,6 @@ class SimulatedAnnealingPattern(Delegate):
     ) -> Workflow:
         """Build the workflow wrapper for one simulated annealing run."""
 
-        # Evaluate initial state energy
         initial_energy = self._energy_delegate(self._initial_state)
 
         loop_initial_state: dict[str, object] = {
@@ -217,8 +217,8 @@ class SimulatedAnnealingPattern(Delegate):
         }
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
-            loop_state = context.get("loop_state")
-            iteration = loop_state.get("iteration")
+            loop_state = dict(context.get("loop_state"))
+            iteration = int(loop_state.get("iteration"))
 
             temperature = self._temperature_schedule.get_temperature(
                 self._initial_temperature, iteration
@@ -292,32 +292,31 @@ def _build_simulated_annealing_result(
     initial_temperature: float,
     max_iterations: int,
     temperature_schedule_name: str,
+    random_seed: int | None,
 ) -> ExecutionResult:
-    """Build the final scaffold result from one workflow execution."""
-    step_result = workflow_result.step_results.get("simulated_annealing")
+    """Build the final result from one simulated annealing workflow execution."""
+    step_result = workflow_result.step_results.get("simulated_annealing_loop")
     step_output = dict(step_result.output) if step_result is not None else {}
     workflow_artifacts = workflow_result.output.get("artifacts", [])
-    terminated_reason = "not_implemented" if workflow_result.success else "workflow_failure"
-    error = (
-        str(step_output.get("message"))
-        if workflow_result.success
-        else str(workflow_result.error or _NOT_IMPLEMENTED_MESSAGE)
-    )
+    terminated_reason = "max_iterations_reached" if workflow_result.success else "workflow_failure"
     return build_pattern_execution_result(
-        success=False,
-        final_output={},
+        success=workflow_result.success,
+        final_output={
+            "best_state": step_output.get("best_state"),
+            "best_energy": step_output.get("best_energy"),
+            "iterations": step_output.get("iteration"),
+        },
         terminated_reason=terminated_reason,
         details={
-            "status": step_output.get("status", "not_implemented"),
-            "message": step_output.get("message", _NOT_IMPLEMENTED_MESSAGE),
             "initial_state": dict(initial_state),
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "temperature_schedule": temperature_schedule_name,
+            "current_state": step_output.get("current_state"),
+            "current_energy": step_output.get("current_energy"),
         },
         workflow_payload=workflow_result.to_dict(),
         artifacts=workflow_artifacts,
-        error=error,
         request_id=request_id,
         dependencies=dependencies,
         mode=MODE_SIMULATED_ANNEALING,
@@ -325,6 +324,7 @@ def _build_simulated_annealing_result(
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "temperature_schedule": temperature_schedule_name,
+            "random_seed": random_seed,
         },
         requested_mode=MODE_SIMULATED_ANNEALING,
         resolved_mode=MODE_SIMULATED_ANNEALING,
