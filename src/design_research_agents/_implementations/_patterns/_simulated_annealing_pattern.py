@@ -283,27 +283,6 @@ class SimulatedAnnealingPattern(Delegate):
         self.workflow = workflow
         return workflow
 
-    def _run_simulated_annealing(
-        self,
-        *,
-        prompt: str,
-        request_id: str,
-        dependencies: Mapping[str, object],
-        context: Mapping[str, object],
-    ) -> dict[str, object]:
-        """Return a normalized scaffold payload for the pending annealing implementation."""
-        del request_id, dependencies, context
-        return {
-            "status": "not_implemented",
-            "message": _NOT_IMPLEMENTED_MESSAGE,
-            "prompt": prompt,
-            "initial_state": dict(self._initial_state),
-            "initial_temperature": self._initial_temperature,
-            "max_iterations": self._max_iterations,
-            "temperature_schedule": type(self._temperature_schedule).__name__,
-        }
-
-
 def _build_simulated_annealing_result(
     *,
     workflow_result: ExecutionResult,
