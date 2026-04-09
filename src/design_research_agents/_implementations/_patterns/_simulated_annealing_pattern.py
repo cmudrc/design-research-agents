@@ -22,8 +22,6 @@ from design_research_agents.workflow import CompiledExecution, Workflow
 NeighborDelegate = Callable[[Mapping[str, object]], Mapping[str, object]]
 EnergyDelegate = Callable[[Mapping[str, object]], float]
 
-_NOT_IMPLEMENTED_MESSAGE = "Simulated annealing pattern is scaffolded but not implemented yet."
-
 
 class TemperatureSchedule:
     """Base class for temperature decay schedules."""
