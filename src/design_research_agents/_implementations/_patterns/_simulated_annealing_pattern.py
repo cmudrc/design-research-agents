@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping
+import random
+from collections.abc import Callable, Mapping, Sequence
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
-from design_research_agents._contracts._workflow import DelegateTarget, LogicStep
+from design_research_agents._contracts._workflow import DelegateTarget, LogicStep, LoopStep
 from design_research_agents._runtime._patterns import (
     MODE_SIMULATED_ANNEALING,
     build_compiled_pattern_execution,
+    build_loop_callbacks,
     build_pattern_execution_result,
     resolve_pattern_run_context,
+    wrap_iteration_handler
 )
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
@@ -66,6 +69,38 @@ class LogarithmicSchedule(TemperatureSchedule):
         del initial_temperature
         return self.c / math.log(iteration + self.d)
 
+
+def _metropolis_acceptance(
+        current_energy: float,
+        neighbor_energy: float,
+        temperature: float, 
+        rng: random.Random,
+) -> tuple[bool, float]:
+    """Metropolis-Hastings acceptance criterion that returns whether to accept the neighbor 
+    and the acceptance probability.
+    
+    Args:
+        current_energy: Energy of the current state.
+        neighbor_energy: Energy of the proposed neighbor state.
+        temperature: Current temperature controlling acceptance probability.
+        rng: Random number generator for stochastic acceptance.
+        
+    Returns:
+        Tuple of (accepted, accepteance_probability) where accepted is a boolean indicating
+        whether the neighbor state is accepted, and acceptance_probability is the computed 
+        probability of acceptance."""
+    
+    if neighbor_energy < current_energy:
+        return True, 1.0  # Always accept better states
+    if temperature <= 0:
+        return False, 0.0  # Never accept worse states if temperature is zero or negative
+    # If neighbor is worse, accept with probabilty exp(-delta / temperature)
+    delta = neighbor_energy - current_energy
+    acceptance_probability = math.exp(-delta / temperature)
+    # Use seeded instance rather than global random for testability and reproducibility
+    accepted = rng.random() < acceptance_probability
+    return accepted, acceptance_probability
+    
 
 class SimulatedAnnealingPattern(Delegate):
     """Work-in-progress scaffold for simulated annealing orchestration."""
