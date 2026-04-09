@@ -76,7 +76,8 @@ def _metropolis_acceptance(
         temperature: float, 
         rng: random.Random,
 ) -> tuple[bool, float]:
-    """Metropolis-Hastings acceptance criterion that returns whether to accept the neighbor 
+    """
+    Metropolis-Hastings acceptance criterion that returns whether to accept the neighbor 
     and the acceptance probability.
     
     Args:
@@ -88,7 +89,8 @@ def _metropolis_acceptance(
     Returns:
         Tuple of (accepted, accepteance_probability) where accepted is a boolean indicating
         whether the neighbor state is accepted, and acceptance_probability is the computed 
-        probability of acceptance."""
+        probability of acceptance.
+    """
     
     if neighbor_energy < current_energy:
         return True, 1.0  # Always accept better states
@@ -103,7 +105,7 @@ def _metropolis_acceptance(
     
 
 class SimulatedAnnealingPattern(Delegate):
-    """Work-in-progress scaffold for simulated annealing orchestration."""
+    """General simulated annealing optimization pattern."""
 
     def __init__(
         self,
@@ -114,6 +116,7 @@ class SimulatedAnnealingPattern(Delegate):
         initial_temperature: float = 100.0,
         max_iterations: int = 100,
         temperature_schedule: TemperatureSchedule | None = None,
+        random_seed: int | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and validate baseline simulated annealing settings."""
@@ -128,6 +131,8 @@ class SimulatedAnnealingPattern(Delegate):
         self._initial_temperature = initial_temperature
         self._max_iterations = max_iterations
         self._temperature_schedule = temperature_schedule or ExponentialSchedule(alpha=0.95)
+        self._random_seed = random_seed
+        self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
         self._tracer = tracer
         self.workflow: Workflow | None = None
 
@@ -138,7 +143,7 @@ class SimulatedAnnealingPattern(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> ExecutionResult:
-        """Execute the compiled simulated annealing scaffold."""
+        """Execute the simulated annealing pattern."""
         return self.compile(
             prompt=prompt,
             request_id=request_id,
@@ -152,7 +157,7 @@ class SimulatedAnnealingPattern(Delegate):
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
     ) -> CompiledExecution:
-        """Compile one simulated annealing scaffold workflow."""
+        """Compile one simulated annealing workflow."""
         run_context = resolve_pattern_run_context(
             prompt=prompt,
             default_request_id_prefix=None,
@@ -198,20 +203,81 @@ class SimulatedAnnealingPattern(Delegate):
         dependencies: Mapping[str, object],
     ) -> Workflow:
         """Build the workflow wrapper for one simulated annealing run."""
+
+        # Evaluate initial state energy
+        initial_energy = self._energy_delegate(self._initial_state)
+
+        loop_initial_state: dict[str, object] = {
+            "current_state": dict(self._initial_state),
+            "current_energy": initial_energy,
+            "best_state": dict(self._initial_state),
+            "best_energy": initial_energy,
+            "iteration": 0,
+            "should_continue": True,
+        }
+
+        def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
+            loop_state = context.get("loop_state")
+            iteration = loop_state.get("iteration")
+
+            temperature = self._temperature_schedule.get_temperature(
+                self._initial_temperature, iteration
+            )
+
+            neighbor = self._neighbor_delegate(loop_state["current_state"])
+            neighbor_energy = self._energy_delegate(neighbor)
+
+            accepted, _acceptance_probability = _metropolis_acceptance(
+                current_energy=loop_state["current_energy"],
+                neighbor_energy=neighbor_energy,
+                temperature=temperature,
+                rng=self._rng,
+            )
+
+            current_state = neighbor if accepted else loop_state["current_state"]
+            current_energy = neighbor_energy if accepted else loop_state["current_energy"]
+
+            best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
+            best_energy = min(current_energy, loop_state["best_energy"])
+
+            return {
+                "current_state": current_state,
+                "current_energy": current_energy,
+                "best_state": best_state,
+                "best_energy": best_energy,
+                "iteration": iteration + 1,
+                "should_continue": (iteration + 1) < self._max_iterations,
+            }
+
+        wrapped_handler = wrap_iteration_handler(
+            _run_iteration,
+            error_prefix="SimulatedAnnealingPattern iteration",
+        )
+        loop_callbacks = build_loop_callbacks(
+            iteration_step_id="simulated_annealing_iteration",
+            iteration_handler=wrapped_handler,
+        )
+
         workflow = Workflow(
             tool_runtime=None,
             tracer=self._tracer,
             input_schema={"type": "object"},
             steps=[
-                LogicStep(
+                LoopStep(
                     step_id="simulated_annealing",
-                    handler=lambda context: self._run_simulated_annealing(
-                        prompt=prompt,
-                        request_id=request_id,
-                        dependencies=dependencies,
-                        context=context,
+                    steps=(
+                        LogicStep(
+                            step_id="simulated_annealing_iteration",
+                            handler=loop_callbacks.iteration_handler,
+                        )
                     ),
-                ),
+                    max_iterations=self._max_iterations,
+                    initial_state=loop_initial_state,
+                    continue_predicate=loop_callbacks.continue_predicate,
+                    state_reducer=loop_callbacks.state_reducer,
+                    execution_mode="sequential",
+                    failure_policy="propagate_failed_state",
+                )
             ],
         )
         self.workflow = workflow
