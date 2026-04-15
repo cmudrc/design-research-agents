@@ -246,6 +246,9 @@ class SimulatedAnnealingPattern(Delegate):
                 "best_energy": best_energy,
                 "iteration": iteration + 1,
                 "should_continue": (iteration + 1) < self._max_iterations,
+                "terminated_reason": (
+                    "max_iterations_reached" if (iteration + 1) >= self._max_iterations else None
+                ),
             }
 
         wrapped_handler = wrap_iteration_handler(
@@ -297,7 +300,10 @@ def _build_simulated_annealing_result(
     step_result = workflow_result.step_results.get("simulated_annealing_loop")
     step_output = dict(step_result.output) if step_result is not None else {}
     workflow_artifacts = workflow_result.output.get("artifacts", [])
-    terminated_reason = "max_iterations_reached" if workflow_result.success else "workflow_failure"
+    terminated_reason = (
+        step_output.get("terminated_reason")
+        or ("workflow_failure" if not workflow_result.success else "unknown")
+    )
     return build_pattern_execution_result(
         success=workflow_result.success,
         final_output={
