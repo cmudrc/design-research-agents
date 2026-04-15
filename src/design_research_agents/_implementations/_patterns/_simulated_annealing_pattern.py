@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import math
 import random
 from collections.abc import Callable, Mapping
@@ -24,7 +24,7 @@ NeighborDelegate = Callable[[Mapping[str, object]], Mapping[str, object]]
 EnergyDelegate = Callable[[Mapping[str, object]], float]
 
 
-class TemperatureSchedule:
+class TemperatureSchedule(ABC):
     """Base class for temperature decay schedules."""
 
     @abstractmethod
@@ -86,7 +86,7 @@ def _metropolis_acceptance(
         rng: Random number generator for stochastic acceptance.
         
     Returns:
-        Tuple of (accepted, accepteance_probability) where accepted is a boolean indicating
+        Tuple of (accepted, acceptance_probability) where accepted is a boolean indicating
         whether the neighbor state is accepted, and acceptance_probability is the computed 
         probability of acceptance.
     """
