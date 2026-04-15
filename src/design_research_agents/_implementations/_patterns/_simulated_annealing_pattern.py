@@ -204,16 +204,16 @@ class SimulatedAnnealingPattern(Delegate):
     ) -> Workflow:
         """Build the workflow wrapper for one simulated annealing run."""
 
-        initial_energy = self._energy_delegate(self._initial_state)
-
-        loop_initial_state: dict[str, object] = {
-            "current_state": dict(self._initial_state),
-            "current_energy": initial_energy,
-            "best_state": dict(self._initial_state),
-            "best_energy": initial_energy,
-            "iteration": 0,
-            "should_continue": True,
-        }
+        def _get_initial_loop_state() -> dict[str, object]:
+            initial_energy = self._energy_delegate(self._initial_state)
+            return {
+                "current_state": dict(self._initial_state),
+                "current_energy": initial_energy,
+                "best_state": dict(self._initial_state),
+                "best_energy": initial_energy,
+                "iteration": 0,
+                "should_continue": True,
+            }
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
             loop_state = dict(context.get("loop_state"))
@@ -226,7 +226,7 @@ class SimulatedAnnealingPattern(Delegate):
             neighbor = self._neighbor_delegate(loop_state["current_state"])
             neighbor_energy = self._energy_delegate(neighbor)
 
-            accepted, _acceptance_probability = _metropolis_acceptance(
+            accepted, _ = _metropolis_acceptance(
                 current_energy=loop_state["current_energy"],
                 neighbor_energy=neighbor_energy,
                 temperature=temperature,
@@ -271,7 +271,7 @@ class SimulatedAnnealingPattern(Delegate):
                         )
                     ),
                     max_iterations=self._max_iterations,
-                    initial_state=loop_initial_state,
+                    initial_state=_get_initial_loop_state(),
                     continue_predicate=loop_callbacks.continue_predicate,
                     state_reducer=loop_callbacks.state_reducer,
                     execution_mode="sequential",
