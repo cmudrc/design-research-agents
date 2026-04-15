@@ -65,7 +65,7 @@ class LogarithmicSchedule(TemperatureSchedule):
 
     def get_temperature(self, initial_temperature: float, iteration: int) -> float:
         """Decrease temperature according to a logarithmic schedule."""
-        del initial_temperature
+        _ = initial_temperature  # log schedule depends only on c, d, and iteration
         return self.c / math.log(iteration + self.d)
 
 
