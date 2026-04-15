@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod
 import math
 import random
 from collections.abc import Callable, Mapping
@@ -26,9 +27,9 @@ EnergyDelegate = Callable[[Mapping[str, object]], float]
 class TemperatureSchedule:
     """Base class for temperature decay schedules."""
 
+    @abstractmethod
     def get_temperature(self, initial_temperature: float, iteration: int) -> float:
         """Return the temperature for one iteration."""
-        raise NotImplementedError("TemperatureSchedule subclasses must implement get_temperature().")
 
 
 class LinearSchedule(TemperatureSchedule):
