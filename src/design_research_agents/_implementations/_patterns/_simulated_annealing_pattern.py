@@ -65,7 +65,8 @@ class LogarithmicSchedule(TemperatureSchedule):
 
     def get_temperature(self, initial_temperature: float, iteration: int) -> float:
         """Decrease temperature according to a logarithmic schedule."""
-        _ = initial_temperature  # log schedule depends only on c, d, and iteration
+        # Log schedule depends only on c, d, and iteration, not on initial_temperature
+        _ = initial_temperature 
         return self.c / math.log(iteration + self.d)
 
 
@@ -86,22 +87,21 @@ def _metropolis_acceptance(
         rng: Random number generator for stochastic acceptance.
         
     Returns:
-        Tuple of (accepted, acceptance_probability) where accepted is a boolean indicating
-        whether the neighbor state is accepted, and acceptance_probability is the computed 
-        probability of acceptance.
+        accepted: whether the neighbor state is accepted.
     """
     
     # Always accept better states
     if neighbor_energy < current_energy:
-        return True, 1.0
+        return True
+    # Never accept worse states if temperature is zero or negative
     if temperature <= 0:
-        return False, 0.0  # Never accept worse states if temperature is zero or negative
+        return False
     # If neighbor is worse, accept with probabilty exp(-delta / temperature)
     delta = neighbor_energy - current_energy
     acceptance_probability = math.exp(-delta / temperature)
     # Use seeded instance rather than global random for testability and reproducibility
     accepted = rng.random() < acceptance_probability
-    return accepted, acceptance_probability
+    return accepted
     
 
 class SimulatedAnnealingPattern(Delegate):
@@ -249,9 +249,11 @@ class SimulatedAnnealingPattern(Delegate):
             temperature = self._temperature_schedule.get_temperature(
                 self._initial_temperature, iteration
             )
+            
+            # Generate neighbor, compute energy, and determine if we should accept the neighbor state
             neighbor = self._neighbor_delegate(loop_state["current_state"])
             neighbor_energy = self._energy_delegate(neighbor)
-            accepted, _ = _metropolis_acceptance(
+            accepted = _metropolis_acceptance(
                 current_energy=loop_state["current_energy"],
                 neighbor_energy=neighbor_energy,
                 temperature=temperature,
@@ -261,6 +263,8 @@ class SimulatedAnnealingPattern(Delegate):
             current_energy = neighbor_energy if accepted else loop_state["current_energy"]
             best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
             best_energy = min(current_energy, loop_state["best_energy"])
+
+            # Check for termination conditions
             terminated_reason = None
             should_continue = True
 
