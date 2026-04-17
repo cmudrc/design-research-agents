@@ -91,8 +91,9 @@ def _metropolis_acceptance(
         probability of acceptance.
     """
     
+    # Always accept better states
     if neighbor_energy < current_energy:
-        return True, 1.0  # Always accept better states
+        return True, 1.0
     if temperature <= 0:
         return False, 0.0  # Never accept worse states if temperature is zero or negative
     # If neighbor is worse, accept with probabilty exp(-delta / temperature)
@@ -114,10 +115,10 @@ class SimulatedAnnealingPattern(Delegate):
         initial_state: Mapping[str, object],
         initial_temperature: float = 100.0,
         max_iterations: int = 100,
-        temperature_schedule: TemperatureSchedule | None = None,
-        random_seed: int | None = None,
         convergence_threshold: float = 1e-6,
         convergence_steps: int = 5,
+        temperature_schedule: TemperatureSchedule | None = None,
+        random_seed: int | None = None,
         tracer: Tracer | None = None,
     ) -> None:
         """Store dependencies and validate baseline simulated annealing settings.
@@ -128,19 +129,19 @@ class SimulatedAnnealingPattern(Delegate):
             initial_state: The initial state for the optimization.
             initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
             max_iterations: The maximum number of iterations to perform. (Default: 100)
+            convergence_threshold: Minimum absolute change in energy to consider as non-converged. If the energy change is below this threshold for `convergence_steps` consecutive steps, the algorithm will terminate with convergence. (Default: 1e-6)
+            convergence_steps: Number of consecutive steps with energy change below threshold required to trigger convergence termination. (Default: 5)
             temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
             random_seed: Seed for random number generation. (Default: None)
-            convergence_threshold: Minimum absolute change in energy to consider as non-converged. If the energy change is below this threshold for `convergence_steps` consecutive steps, the algorithm will terminate with convergence. Set to None or 0 to disable convergence termination. (Default: 1e-6)
-            convergence_steps: Number of consecutive steps with energy change below threshold required to trigger convergence termination. Set to None or 0 to disable convergence termination. (Default: 5)
         """
         if max_iterations < 1:
             raise ValueError("max_iterations must be >= 1.")
         if initial_temperature < 1:
             raise ValueError("initial_temperature must be >= 1.")
-        if convergence_threshold < 0:
-            raise ValueError("convergence_threshold must be a non-negative number.")
-        if convergence_steps < 0:
-            raise ValueError("convergence_steps must be a non-negative number.")
+        if convergence_threshold <= 0:
+            raise ValueError("convergence_threshold must be > 0.")
+        if convergence_steps < 1:
+            raise ValueError("convergence_steps must be >= 1.")
 
         self._neighbor_delegate = neighbor_delegate
         self._energy_delegate = energy_delegate
@@ -149,10 +150,10 @@ class SimulatedAnnealingPattern(Delegate):
         self._max_iterations = max_iterations
         self._temperature_schedule = temperature_schedule or ExponentialSchedule(alpha=0.95)
         self._random_seed = random_seed
-        self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
-        self._tracer = tracer
         self.convergence_threshold = convergence_threshold
         self.convergence_steps = convergence_steps
+        self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
+        self._tracer = tracer
         self.workflow: Workflow | None = None
 
     def run(
@@ -200,6 +201,8 @@ class SimulatedAnnealingPattern(Delegate):
                 "mode": MODE_SIMULATED_ANNEALING,
                 "initial_temperature": self._initial_temperature,
                 "max_iterations": self._max_iterations,
+                "convergence_threshold": self.convergence_threshold,
+                "convergence_steps": self.convergence_steps,
                 "temperature_schedule": type(self._temperature_schedule).__name__,
             },
             workflow_request_id=f"{run_context.request_id}:simulated_annealing_workflow",
@@ -210,6 +213,8 @@ class SimulatedAnnealingPattern(Delegate):
                 initial_state=self._initial_state,
                 initial_temperature=self._initial_temperature,
                 max_iterations=self._max_iterations,
+                convergence_threshold=self.convergence_threshold,
+                convergence_steps=self.convergence_steps,
                 temperature_schedule_name=type(self._temperature_schedule).__name__,
                 random_seed=self._random_seed,
             ),
@@ -256,23 +261,25 @@ class SimulatedAnnealingPattern(Delegate):
             current_energy = neighbor_energy if accepted else loop_state["current_energy"]
             best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
             best_energy = min(current_energy, loop_state["best_energy"])
+            terminated_reason = None
+            should_continue = True
 
             # Determine if max iterations reached
             max_iterations_reached = (iteration + 1) >= self._max_iterations
             if max_iterations_reached:
                 terminated_reason = "max_iterations_reached"
+                should_continue = False
 
             # Determine if convergence reached
             convergence_counter = int(loop_state.get("convergence_counter", 0))
             last_energy = loop_state.get("last_energy", current_energy)
-            terminated_reason = None
-            if self.convergence_threshold and self.convergence_steps:
-                if abs(current_energy - last_energy) < self.convergence_threshold:
-                    convergence_counter += 1
-                    if convergence_counter >= self.convergence_steps:
-                        terminated_reason = "converged"
-                else:
-                    convergence_counter = 0
+            if abs(current_energy - last_energy) < self.convergence_threshold:
+                convergence_counter += 1
+                if convergence_counter >= self.convergence_steps:
+                    terminated_reason = "converged"
+                    should_continue = False
+            else:
+                convergence_counter = 0
 
             return {
                 "current_state": current_state,
@@ -280,7 +287,7 @@ class SimulatedAnnealingPattern(Delegate):
                 "best_state": best_state,
                 "best_energy": best_energy,
                 "iteration": iteration + 1,
-                "should_continue": terminated_reason is None,
+                "should_continue": should_continue,
                 "convergence_counter": convergence_counter,
                 "last_energy": current_energy,
                 "terminated_reason": terminated_reason,
@@ -328,6 +335,8 @@ def _build_simulated_annealing_result(
     initial_state: Mapping[str, object],
     initial_temperature: float,
     max_iterations: int,
+    convergence_threshold: float,
+    convergence_steps: int,
     temperature_schedule_name: str,
     random_seed: int | None,
 ) -> ExecutionResult:
@@ -348,6 +357,8 @@ def _build_simulated_annealing_result(
             "initial_state": dict(initial_state),
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
+            "convergence_threshold": convergence_threshold,
+            "convergence_steps": convergence_steps,
             "temperature_schedule": temperature_schedule_name,
             "current_state": step_output.get("current_state"),
             "current_energy": step_output.get("current_energy"),
@@ -361,6 +372,8 @@ def _build_simulated_annealing_result(
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "temperature_schedule": temperature_schedule_name,
+            "convergence_threshold": convergence_threshold,
+            "convergence_steps": convergence_steps,
             "random_seed": random_seed,
         },
         requested_mode=MODE_SIMULATED_ANNEALING,
