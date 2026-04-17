@@ -116,13 +116,31 @@ class SimulatedAnnealingPattern(Delegate):
         max_iterations: int = 100,
         temperature_schedule: TemperatureSchedule | None = None,
         random_seed: int | None = None,
+        convergence_threshold: float = 1e-6,
+        convergence_steps: int = 5,
         tracer: Tracer | None = None,
     ) -> None:
-        """Store dependencies and validate baseline simulated annealing settings."""
+        """Store dependencies and validate baseline simulated annealing settings.
+
+        Args:
+            neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
+            energy_delegate: A delegate that calculates the energy of a given solution.
+            initial_state: The initial state for the optimization.
+            initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
+            max_iterations: The maximum number of iterations to perform. (Default: 100)
+            temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
+            random_seed: Seed for random number generation. (Default: None)
+            convergence_threshold: Minimum absolute change in energy to consider as non-converged. If the energy change is below this threshold for `convergence_steps` consecutive steps, the algorithm will terminate with convergence. Set to None or 0 to disable convergence termination. (Default: 1e-6)
+            convergence_steps: Number of consecutive steps with energy change below threshold required to trigger convergence termination. Set to None or 0 to disable convergence termination. (Default: 5)
+        """
         if max_iterations < 1:
             raise ValueError("max_iterations must be >= 1.")
         if initial_temperature < 1:
             raise ValueError("initial_temperature must be >= 1.")
+        if convergence_threshold < 0:
+            raise ValueError("convergence_threshold must be a non-negative number.")
+        if convergence_steps < 0:
+            raise ValueError("convergence_steps must be a non-negative number.")
 
         self._neighbor_delegate = neighbor_delegate
         self._energy_delegate = energy_delegate
@@ -133,6 +151,8 @@ class SimulatedAnnealingPattern(Delegate):
         self._random_seed = random_seed
         self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
         self._tracer = tracer
+        self.convergence_threshold = convergence_threshold
+        self.convergence_steps = convergence_steps
         self.workflow: Workflow | None = None
 
     def run(
@@ -213,31 +233,46 @@ class SimulatedAnnealingPattern(Delegate):
                 "best_energy": initial_energy,
                 "iteration": 0,
                 "should_continue": True,
+                "convergence_counter": 0,
+                "last_energy": initial_energy,
+                "terminated_reason": None,
             }
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
             loop_state = dict(context.get("loop_state"))
             iteration = int(loop_state.get("iteration"))
-
             temperature = self._temperature_schedule.get_temperature(
                 self._initial_temperature, iteration
             )
-
             neighbor = self._neighbor_delegate(loop_state["current_state"])
             neighbor_energy = self._energy_delegate(neighbor)
-
             accepted, _ = _metropolis_acceptance(
                 current_energy=loop_state["current_energy"],
                 neighbor_energy=neighbor_energy,
                 temperature=temperature,
                 rng=self._rng,
             )
-
             current_state = neighbor if accepted else loop_state["current_state"]
             current_energy = neighbor_energy if accepted else loop_state["current_energy"]
-
             best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
             best_energy = min(current_energy, loop_state["best_energy"])
+
+            # Determine if max iterations reached
+            max_iterations_reached = (iteration + 1) >= self._max_iterations
+            if max_iterations_reached:
+                terminated_reason = "max_iterations_reached"
+
+            # Determine if convergence reached
+            convergence_counter = int(loop_state.get("convergence_counter", 0))
+            last_energy = loop_state.get("last_energy", current_energy)
+            terminated_reason = None
+            if self.convergence_threshold and self.convergence_steps:
+                if abs(current_energy - last_energy) < self.convergence_threshold:
+                    convergence_counter += 1
+                    if convergence_counter >= self.convergence_steps:
+                        terminated_reason = "converged"
+                else:
+                    convergence_counter = 0
 
             return {
                 "current_state": current_state,
@@ -245,10 +280,10 @@ class SimulatedAnnealingPattern(Delegate):
                 "best_state": best_state,
                 "best_energy": best_energy,
                 "iteration": iteration + 1,
-                "should_continue": (iteration + 1) < self._max_iterations,
-                "terminated_reason": (
-                    "max_iterations_reached" if (iteration + 1) >= self._max_iterations else None
-                ),
+                "should_continue": terminated_reason is None,
+                "convergence_counter": convergence_counter,
+                "last_energy": current_energy,
+                "terminated_reason": terminated_reason,
             }
 
         wrapped_handler = wrap_iteration_handler(
@@ -300,10 +335,7 @@ def _build_simulated_annealing_result(
     step_result = workflow_result.step_results.get("simulated_annealing_loop")
     step_output = dict(step_result.output) if step_result is not None else {}
     workflow_artifacts = workflow_result.output.get("artifacts", [])
-    terminated_reason = (
-        step_output.get("terminated_reason")
-        or ("workflow_failure" if not workflow_result.success else "unknown")
-    )
+    terminated_reason = str(step_output.get("terminated_reason") if workflow_result.success else "workflow_failure")
     return build_pattern_execution_result(
         success=workflow_result.success,
         final_output={
