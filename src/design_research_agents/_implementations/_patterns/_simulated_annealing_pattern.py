@@ -90,16 +90,18 @@ def _metropolis_acceptance(
     Returns:
         accepted: whether the neighbor state is accepted.
     """
-    
     # Always accept better states
     if neighbor_energy < current_energy:
         return True
+    
     # Never accept worse states if temperature is zero or negative
     if temperature <= 0:
         return False
+    
     # If neighbor is worse, accept with probabilty exp(-delta / temperature)
     delta = neighbor_energy - current_energy
     acceptance_probability = math.exp(-delta / temperature)
+
     # Use seeded instance rather than global random for testability and reproducibility
     accepted = rng.random() < acceptance_probability
     return accepted
@@ -119,6 +121,7 @@ class SimulatedAnnealingPattern(Delegate):
         max_iterations: int = 100,
         convergence_threshold: float = 1e-6,
         convergence_steps: int = 5,
+        # TODO: do we want to support user-defined temperature schedules?
         temperature_schedule: TemperatureSchedule | None = None,
         random_seed: int | None = None,
         tracer: Tracer | None = None,
@@ -137,6 +140,8 @@ class SimulatedAnnealingPattern(Delegate):
             temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
             random_seed: Seed for random number generation. (Default: None)
         """
+        # Validate inputs
+        # TODO: do we add structure validation for initial_state?
         if max_iterations < 1:
             raise ValueError("max_iterations must be >= 1.")
         if initial_temperature < 1:
@@ -145,6 +150,13 @@ class SimulatedAnnealingPattern(Delegate):
             raise ValueError("convergence_threshold must be > 0.")
         if convergence_steps < 1:
             raise ValueError("convergence_steps must be >= 1.")
+        if constraints:
+            violations = [
+                i for i, c in enumerate(constraints)
+                if not c(initial_state)
+            ]
+            if violations:
+                raise ValueError("initial_state must not violate constraints.")
 
         self._neighbor_delegate = neighbor_delegate
         self._energy_delegate = energy_delegate
@@ -159,14 +171,6 @@ class SimulatedAnnealingPattern(Delegate):
         self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
         self._tracer = tracer
         self.workflow: Workflow | None = None
-
-        if self._constraints:
-            violations = [
-                c(self._initial_state) for c in self._constraints
-                if not c(self._initial_state)
-            ]
-            if violations:
-                raise ValueError("initial_state must not violate constraints.")
 
     def run(
         self,
@@ -258,6 +262,8 @@ class SimulatedAnnealingPattern(Delegate):
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
             loop_state = dict(context.get("loop_state"))
             iteration = int(loop_state.get("iteration"))
+
+            # Generate temperature for this iteration
             temperature = self._temperature_schedule.get_temperature(
                 self._initial_temperature, iteration
             )
@@ -272,7 +278,7 @@ class SimulatedAnnealingPattern(Delegate):
                     "iteration": iteration + 1,
                 }
 
-            # Compute energy
+            # Compute neighbor energy
             neighbor_energy = self._energy_delegate(neighbor)
 
             # Determine whether to accept neighbor
