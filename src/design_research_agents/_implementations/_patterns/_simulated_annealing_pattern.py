@@ -75,7 +75,7 @@ def _metropolis_acceptance(
         neighbor_energy: float,
         temperature: float, 
         rng: random.Random,
-) -> tuple[bool, float]:
+) -> bool:
     """
     Metropolis-Hastings acceptance criterion that returns whether to accept the neighbor 
     and the acceptance probability.
