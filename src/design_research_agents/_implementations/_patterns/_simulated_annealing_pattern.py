@@ -110,6 +110,8 @@ def _metropolis_acceptance(
 class SimulatedAnnealingPattern(Delegate):
     """General simulated annealing optimization pattern."""
 
+    # TODO: should energy delegate just be an objective function?
+    # TODO: should neighbor delegate just be a list of possible modifications from current state, rather than a function that generates one neighbor?
     def __init__(
         self,
         *,
