@@ -69,8 +69,59 @@ def test_simulated_annealing_pattern_run_returns_structured_scaffold_result() ->
 #          Neighbor delegate: propose a new x by adding a random value from [-1, 1] to current x
 #          Energy delegate: compute f(x) for the proposed x
 #          Constraints: x must be between [-2, 2]
+"""
+        def polynomial(x: float) -> float:
+            return x**4 - 4*x**3 - 2*x**2 + 12*x + 1
+
+        pattern_1 = SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: {
+                "x": state["x"] + random.uniform(-1, 1)
+            },
+            energy_delegate=lambda state: -polynomial(state["x"]),  # negate to maximize
+            constraints=[
+                lambda state: -2 <= state["x"] <= 2,
+            ],
+            initial_state={"x": 2.0},
+            initial_temperature=100.0,
+            max_iterations=1000,
+            random_seed=42,
+        )
+"""
+
 #     Objective: minimize the volume of a beam with length L, width w, and height h
 #          Initial state: L=5m, w=2m, h=1m
 #          Neighbor delegate: propose new dimensions by adding a random value from [-0.5, 0.5] to each dimension
 #          Energy delegate: compute the volume V = L * w * h
-#          Constraints: dimensions must be positive, max stress in beam must be below 600 MPa
+#          Constraints: dimensions must be positive, max stress in beam must be below 250 MPa under a load of 10000 N
+"""
+        P = 10000   # applied load in Newtons
+        MAX_STRESS = 250e6  # 250 MPa in Pascals
+
+        def max_bending_stress(state: dict) -> float:
+            L, w, h = state["L"], state["w"], state["h"]
+            return (6 * P * L) / (w * h**2)
+
+        def max_shear_stress(state: dict) -> float:
+            L, w, h = state["L"], state["w"], state["h"]
+            return (3 * P) / (2 * w * h)
+
+        pattern_2 = SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: {
+                "L": state["L"] + random.uniform(-0.5, 0.5),
+                "w": state["w"] + random.uniform(-0.5, 0.5),
+                "h": state["h"] + random.uniform(-0.5, 0.5),
+            },
+            energy_delegate=lambda state: state["L"] * state["w"] * state["h"],
+            constraints=[
+                lambda state: state["L"] > 0,
+                lambda state: state["w"] > 0,
+                lambda state: state["h"] > 0,
+                lambda state: max_bending_stress(state) < MAX_STRESS,
+                lambda state: max_shear_stress(state) < MAX_STRESS,
+            ],
+            initial_state={"L": 5.0, "w": 2.0, "h": 1.0},
+            initial_temperature=100.0,
+            max_iterations=1000,
+            random_seed=42,
+        )
+"""
