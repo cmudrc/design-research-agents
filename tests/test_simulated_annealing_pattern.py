@@ -62,3 +62,15 @@ def test_simulated_annealing_pattern_run_returns_structured_scaffold_result() ->
     assert result.output["details"]["initial_state"] == {"design": "baseline"}
     assert result.output["details"]["temperature_schedule"] == "ExponentialSchedule"
     assert result.metadata["mode"] == MODE_SIMULATED_ANNEALING
+
+# Optimization test ideas to begin with:
+#     Objective: maximize a polynomial function: f(x) = x^4-4x^3-2x^2+12x+1
+#          Initial state: x = 2
+#          Neighbor delegate: propose a new x by adding a random value from [-1, 1] to current x
+#          Energy delegate: compute f(x) for the proposed x
+#          Constraints: x must be between [-2, 2]
+#     Objective: minimize the volume of a beam with length L, width w, and height h
+#          Initial state: L=5m, w=2m, h=1m
+#          Neighbor delegate: propose new dimensions by adding a random value from [-0.5, 0.5] to each dimension
+#          Energy delegate: compute the volume V = L * w * h
+#          Constraints: dimensions must be positive, max stress in beam must be below 600 MPa
