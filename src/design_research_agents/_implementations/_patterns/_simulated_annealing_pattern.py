@@ -22,6 +22,7 @@ from design_research_agents.workflow import CompiledExecution, Workflow
 
 NeighborDelegate = Callable[[Mapping[str, object]], Mapping[str, object]]
 EnergyDelegate = Callable[[Mapping[str, object]], float]
+ConstraintDelegate = Callable[[Mapping[str, object]], bool]
 
 
 class TemperatureSchedule(ABC):
@@ -112,6 +113,7 @@ class SimulatedAnnealingPattern(Delegate):
         *,
         neighbor_delegate: NeighborDelegate | DelegateTarget,
         energy_delegate: EnergyDelegate | DelegateTarget,
+        constraints: list[ConstraintDelegate] | None = None,
         initial_state: Mapping[str, object],
         initial_temperature: float = 100.0,
         max_iterations: int = 100,
@@ -126,6 +128,7 @@ class SimulatedAnnealingPattern(Delegate):
         Args:
             neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
             energy_delegate: A delegate that calculates the energy of a given solution.
+            constraints: Optional list of delegates that define constraints for the optimization. Each delegate should return True if the solution satisfies the constraint and False otherwise. (Default: None)
             initial_state: The initial state for the optimization.
             initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
             max_iterations: The maximum number of iterations to perform. (Default: 100)
@@ -145,6 +148,7 @@ class SimulatedAnnealingPattern(Delegate):
 
         self._neighbor_delegate = neighbor_delegate
         self._energy_delegate = energy_delegate
+        self._constraints = constraints or []
         self._initial_state = dict(initial_state)
         self._initial_temperature = initial_temperature
         self._max_iterations = max_iterations
@@ -155,6 +159,14 @@ class SimulatedAnnealingPattern(Delegate):
         self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
         self._tracer = tracer
         self.workflow: Workflow | None = None
+
+        if self._constraints:
+            violations = [
+                c(self._initial_state) for c in self._constraints
+                if not c(self._initial_state)
+            ]
+            if violations:
+                raise ValueError("initial_state must not violate constraints.")
 
     def run(
         self,
@@ -250,15 +262,28 @@ class SimulatedAnnealingPattern(Delegate):
                 self._initial_temperature, iteration
             )
             
-            # Generate neighbor, compute energy, and determine if we should accept the neighbor state
+            # Generate neighbor
             neighbor = self._neighbor_delegate(loop_state["current_state"])
+
+            # TODO: do we increment iteration whenever we generate a neighbor, or do we only increment if neighbor doesn't violate constraints?
+            if self._constraints and not all(c(neighbor) for c in self._constraints):
+                return {
+                    **loop_state,
+                    "iteration": iteration + 1,
+                }
+
+            # Compute energy
             neighbor_energy = self._energy_delegate(neighbor)
+
+            # Determine whether to accept neighbor
             accepted = _metropolis_acceptance(
                 current_energy=loop_state["current_energy"],
                 neighbor_energy=neighbor_energy,
                 temperature=temperature,
                 rng=self._rng,
             )
+
+            # Update state and energy based on acceptance
             current_state = neighbor if accepted else loop_state["current_state"]
             current_energy = neighbor_energy if accepted else loop_state["current_energy"]
             best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
@@ -386,6 +411,7 @@ def _build_simulated_annealing_result(
 
 
 __all__ = [
+    "ConstraintDelegate",
     "EnergyDelegate",
     "ExponentialSchedule",
     "LinearSchedule",
