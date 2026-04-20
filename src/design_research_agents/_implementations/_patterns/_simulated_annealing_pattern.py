@@ -353,7 +353,7 @@ class SimulatedAnnealingPattern(Delegate):
                         LogicStep(
                             step_id="simulated_annealing_iteration",
                             handler=loop_callbacks.iteration_handler,
-                        )
+                        ),
                     ),
                     max_iterations=self._max_iterations,
                     initial_state=_get_initial_loop_state(),
