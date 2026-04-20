@@ -133,14 +133,15 @@ class SimulatedAnnealingPattern(Delegate):
         Args:
             neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
             energy_delegate: A delegate that calculates the energy of a given solution.
-            constraints: Optional list of delegates that define constraints for the optimization. Each delegate should return True if the solution satisfies the constraint and False otherwise. (Default: None)
+            constraints: Optional list of delegates that define constraints for the optimization. (Default: None)
             initial_state: The initial state for the optimization.
             initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
             max_iterations: The maximum number of iterations to perform. (Default: 100)
-            convergence_threshold: Minimum absolute change in energy to consider as non-converged. If the energy change is below this threshold for `convergence_steps` consecutive steps, the algorithm will terminate with convergence. (Default: 1e-6)
-            convergence_steps: Number of consecutive steps with energy change below threshold required to trigger convergence termination. (Default: 5)
+            convergence_threshold: Minimum absolute change in energy to consider as non-converged. (Default: 1e-6)
+            convergence_steps: Number of consecutive steps with energy change below threshold required to trigger termination. (Default: 5)
             temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
             random_seed: Seed for random number generation. (Default: None)
+            tracer: 
         """
         # Validate inputs
         # TODO: do we add structure validation for initial_state?
@@ -273,7 +274,8 @@ class SimulatedAnnealingPattern(Delegate):
             # Generate neighbor
             neighbor = self._neighbor_delegate(loop_state["current_state"])
 
-            # TODO: do we increment iteration whenever we generate a neighbor, or do we only increment if neighbor doesn't violate constraints?
+            # TODO: do we increment iteration whenever we generate a neighbor, 
+            # or do we only increment if neighbor doesn't violate constraints?
             if self._constraints and not all(c(neighbor) for c in self._constraints):
                 return {
                     **loop_state,

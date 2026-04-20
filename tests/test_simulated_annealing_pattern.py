@@ -63,6 +63,7 @@ def test_simulated_annealing_pattern_run_returns_structured_scaffold_result() ->
     assert result.output["details"]["temperature_schedule"] == "ExponentialSchedule"
     assert result.metadata["mode"] == MODE_SIMULATED_ANNEALING
 
+
 # Optimization test ideas to begin with:
 #     Objective: maximize a polynomial function: f(x) = x^4-4x^3-2x^2+12x+1
 #          Initial state: x = 2
