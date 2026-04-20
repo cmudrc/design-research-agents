@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import math
 import random
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
@@ -15,7 +15,7 @@ from design_research_agents._runtime._patterns import (
     build_loop_callbacks,
     build_pattern_execution_result,
     resolve_pattern_run_context,
-    wrap_iteration_handler
+    wrap_iteration_handler,
 )
 from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
@@ -77,9 +77,9 @@ def _metropolis_acceptance(
         temperature: float, 
         rng: random.Random,
 ) -> bool:
-    """
-    Metropolis-Hastings acceptance criterion that returns whether to accept the neighbor 
-    and the acceptance probability.
+    """Metropolis-Hastings acceptance criterion.
+    
+    Returns whether to accept the neighbor state.
     
     Args:
         current_energy: Energy of the current state.
@@ -111,7 +111,8 @@ class SimulatedAnnealingPattern(Delegate):
     """General simulated annealing optimization pattern."""
 
     # TODO: should energy delegate just be an objective function?
-    # TODO: should neighbor delegate just be a list of possible modifications from current state, rather than a function that generates one neighbor?
+    # TODO: should neighbor delegate just be a list of possible modifications
+    # from current state, rather than a function that generates one neighbor?
     def __init__(
         self,
         *,
@@ -138,10 +139,10 @@ class SimulatedAnnealingPattern(Delegate):
             initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
             max_iterations: The maximum number of iterations to perform. (Default: 100)
             convergence_threshold: Minimum absolute change in energy to consider as non-converged. (Default: 1e-6)
-            convergence_steps: Number of consecutive steps with energy change below threshold required to trigger termination. (Default: 5)
+            convergence_steps: Number of consecutive steps with energy change below threshold to trigger termination. (Default: 5)
             temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
             random_seed: Seed for random number generation. (Default: None)
-            tracer: 
+            tracer: Optional tracer for workflow and debugging.
         """
         # Validate inputs
         # TODO: do we add structure validation for initial_state?
