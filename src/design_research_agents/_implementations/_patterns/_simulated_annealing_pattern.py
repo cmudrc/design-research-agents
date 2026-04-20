@@ -356,7 +356,7 @@ class SimulatedAnnealingPattern(Delegate):
                         )
                     ),
                     max_iterations=self._max_iterations,
-                    initial_state=_get_initial_loop_state,
+                    initial_state=_get_initial_loop_state(),
                     continue_predicate=loop_callbacks.continue_predicate,
                     state_reducer=loop_callbacks.state_reducer,
                     execution_mode="sequential",
