@@ -35,6 +35,49 @@ def _rubric_script_tool() -> ScriptToolConfig:
     )
 
 
+def test_mcp_server_config_python_module_uses_current_interpreter_by_default() -> None:
+    config = MCPServerConfig.python_module(
+        id="drp_problem",
+        module="design_research_problems.mcp",
+        args=("pill_capsule_min_area", "--no-citation"),
+        env={"PYTHONPATH": "src"},
+    )
+
+    assert config.command == (
+        sys.executable,
+        "-m",
+        "design_research_problems.mcp",
+        "pill_capsule_min_area",
+        "--no-citation",
+    )
+    assert config.env == {"PYTHONPATH": "src"}
+    assert config.timeout_s == 20
+
+
+def test_mcp_server_config_python_module_normalizes_overrides() -> None:
+    config = MCPServerConfig.python_module(
+        id="local",
+        module=" example.server ",
+        args=(Path("server-data"),),
+        python=Path("/opt/python"),
+        timeout_s=5,
+        env_allowlist=("PATH",),
+    )
+
+    assert config.command == ("/opt/python", "-m", "example.server", "server-data")
+    assert config.timeout_s == 5
+    assert config.env_allowlist == ("PATH",)
+
+
+def test_mcp_server_config_python_module_rejects_empty_module() -> None:
+    try:
+        MCPServerConfig.python_module(id="empty", module=" ")
+    except ValueError as exc:
+        assert "module" in str(exc)
+    else:
+        raise AssertionError("empty module should fail")
+
+
 def test_default_constructor_lists_core_tools() -> None:
     runtime = Toolbox()
 
