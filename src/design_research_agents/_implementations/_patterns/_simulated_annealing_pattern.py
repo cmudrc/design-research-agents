@@ -110,7 +110,59 @@ class LogarithmicSchedule(TemperatureSchedule):
         """Decrease temperature according to a logarithmic schedule."""
         _ = initial_temperature, current_temperature, energy_history  # Not used in logarithmic schedule
         return self.c / math.log(iteration + self.d)
+    
 
+class AdaptiveSchedule(TemperatureSchedule):
+    """Triki adaptive temperature schedule.
+    
+    Uses formula ``T_{k+1} = T_k * (1 - T_k * delta / sigma_sq)`` where
+    ``sigma_sq`` is the variance of all objective values sampled so far and
+    ``delta`` is a constant target decrease in cost per Metropolis chain.
+
+    When ``delta`` is not provided, it is derived automatically on the first
+    call that has sufficient energy history as ``stdev(energy_history) / mu``,
+    then held constant for the rest of the run.
+    
+    Falls back to current temperature when ``energy_history`` has fewer
+    than 2 entries, when variance is zero, or when the factor
+    ``T_k * delta / sigma_sq >= 1``.
+    """
+
+    def __init__(self, delta: float | None = None, mu: float = 5.0) -> None:
+        self.delta = delta
+        self.mu = mu
+    
+    def get_temperature(
+            self,
+            initial_temperature: float,
+            iteration: int,
+            *,
+            current_temperature: float | None = None,
+            energy_history: list[float] | None = None,
+        ) -> float:
+        """Decrease temperature adaptively based on spread of sampled objective values."""
+        _ = iteration # Not used in adaptive schedule
+        t_k = current_temperature if current_temperature is not None else initial_temperature
+
+        # Not enough data to adapt, return current temperature
+        if energy_history is None or len(energy_history) < 2:
+            return t_k
+        
+        sigma_sq = statistics.variance(energy_history)
+        # No variation in energy, keep temperature the same
+        if sigma_sq == 0.0:
+            return t_k
+        
+        # Derive delta from spread of energy values, scaled by mu, if not provided
+        if self.delta is None:
+            self.delta = statistics.stdev(energy_history) / self.mu
+
+        factor = t_k * self.delta / sigma_sq
+        # Avoid negative or zero temperature, keep the same
+        if factor >= 1.0:
+            return t_k
+        
+        return t_k * (1 - factor)
 
 def _metropolis_acceptance(
         current_energy: float,
@@ -469,6 +521,7 @@ def _build_simulated_annealing_result(
 
 
 __all__ = [
+    "AdaptiveSchedule",
     "ConstraintDelegate",
     "ExponentialSchedule",
     "LinearSchedule",
