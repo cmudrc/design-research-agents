@@ -7,9 +7,9 @@
 
 <!-- release-callout:start -->
 > [!IMPORTANT]
-> Current monthly release: [Lovelace Lift - April 2026](https://github.com/cmudrc/design-research-agents/milestone/3)  
-> Due: May 1, 2026  
-> Tracks: April 2026 work
+> Current monthly release: [Mayer Momentum - May 2026](https://github.com/cmudrc/design-research-agents/milestone/4)  
+> Due: June 1, 2026  
+> Tracks: May 2026 work
 <!-- release-callout:end -->
 
 `design-research-agents` is the agent-execution layer in the cmudrc design
