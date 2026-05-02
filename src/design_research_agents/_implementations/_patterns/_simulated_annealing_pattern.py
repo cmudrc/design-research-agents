@@ -153,10 +153,9 @@ class AdaptiveSchedule(TemperatureSchedule):
             return t_k
 
         # Derive delta from spread of energy values, scaled by mu, if not provided
-        if self.delta is None:
-            self.delta = statistics.stdev(energy_history) / self.mu
+        delta = self.delta if self.delta is not None else statistics.stdev(energy_history) / self.mu
 
-        factor = t_k * self.delta / sigma_sq
+        factor = t_k * delta / sigma_sq
         # Avoid negative or zero temperature, keep the same
         if factor >= 1.0:
             return t_k
