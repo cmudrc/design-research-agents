@@ -237,7 +237,8 @@ class SimulatedAnnealingPattern(Delegate):
             tracer: Optional tracer for workflow and debugging.
         """
         # Validate inputs
-        # TODO: do we add structure validation for initial_state?
+        if not all(isinstance(k, str) for k in initial_state.keys()):
+            raise ValueError("All keys in initial_state must be strings.")
         if max_iterations < 1:
             raise ValueError("max_iterations must be >= 1.")
         if initial_temperature < 1:
