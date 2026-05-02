@@ -17,13 +17,14 @@ from design_research_agents._implementations._patterns._simulated_annealing_patt
 
 # ---------------------- Temperature schedule tests ----------------------
 
+
 def test_temperature_schedules_apply_expected_decay() -> None:
     assert LinearSchedule(alpha=2.5).get_temperature(10.0, 3) == 2.5
     assert math.isclose(ExponentialSchedule(alpha=0.5).get_temperature(8.0, 2), 2.0)
     assert math.isclose(LogarithmicSchedule(c=10.0, d=2.0).get_temperature(100.0, 1), 10.0 / math.log(3.0))
     assert math.isclose(
         AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, current_temperature=5.0, energy_history=[0.0, 10.0]),
-        5.0 * (1.0 - 5.0 * 0.5 / statistics.variance([0.0, 10.0]))
+        5.0 * (1.0 - 5.0 * 0.5 / statistics.variance([0.0, 10.0])),
     )
 
 
@@ -60,10 +61,12 @@ def test_adaptive_schedule_falls_back_when_variance_is_zero() -> None:
 
 
 def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
-    sched = AdaptiveSchedule(delta=100.0) # Large delta to force factor > 1
+    sched = AdaptiveSchedule(delta=100.0)  # Large delta to force factor > 1
     assert sched.get_temperature(100.0, 0, current_temperature=50.0, energy_history=[0.0, 1.0]) == 50.0
 
+
 # ---------------------- Input validation tests ----------------------
+
 
 def test_pattern_validates_max_iterations() -> None:
     with pytest.raises(ValueError, match="max_iterations"):
@@ -71,7 +74,7 @@ def test_pattern_validates_max_iterations() -> None:
             neighbor_delegate=lambda state: state,
             objective_delegate=lambda state: 0.0,
             initial_state={"x": 0.0},
-            max_iterations=0
+            max_iterations=0,
         )
 
 
@@ -81,7 +84,7 @@ def test_pattern_validates_initial_temperature() -> None:
             neighbor_delegate=lambda state: state,
             objective_delegate=lambda state: 0.0,
             initial_state={"x": 0.0},
-            initial_temperature=-10.0
+            initial_temperature=-10.0,
         )
 
 
@@ -91,7 +94,7 @@ def test_pattern_validates_convergence_threshold() -> None:
             neighbor_delegate=lambda state: state,
             objective_delegate=lambda state: 0.0,
             initial_state={"x": 0.0},
-            convergence_threshold=-1e-6
+            convergence_threshold=-1e-6,
         )
 
 
@@ -101,8 +104,8 @@ def test_pattern_validates_convergence_steps() -> None:
             neighbor_delegate=lambda state: state,
             objective_delegate=lambda state: 0.0,
             initial_state={"x": 0.0},
-            convergence_steps=0
-        ) 
+            convergence_steps=0,
+        )
 
 
 def test_pattern_rejects_initial_state_violating_constraints() -> None:
@@ -121,8 +124,7 @@ def test_pattern_rejects_non_string_keys_in_initial_state() -> None:
             neighbor_delegate=lambda state: state,
             objective_delegate=lambda state: 0.0,
             initial_state={0: 1.0},
-        )  
-
+        )
 
 
 # Optimization test ideas to begin with:
