@@ -1,13 +1,15 @@
-"""Tests for the simulated annealing pattern scaffold."""
+"""Tests for the simulated annealing pattern."""
 
 from __future__ import annotations
 
 import math
+import statistics
 
 import pytest
 
 from design_research_agents._implementations import SimulatedAnnealingPattern
 from design_research_agents._implementations._patterns._simulated_annealing_pattern import (
+    AdaptiveSchedule,
     ExponentialSchedule,
     LinearSchedule,
     LogarithmicSchedule,
@@ -15,10 +17,16 @@ from design_research_agents._implementations._patterns._simulated_annealing_patt
 from design_research_agents._runtime._patterns import MODE_SIMULATED_ANNEALING
 
 
+# ---------------------- Temperature schedule tests ----------------------
+
 def test_temperature_schedules_apply_expected_decay() -> None:
     assert LinearSchedule(alpha=2.5).get_temperature(10.0, 3) == 2.5
     assert math.isclose(ExponentialSchedule(alpha=0.5).get_temperature(8.0, 2), 2.0)
     assert math.isclose(LogarithmicSchedule(c=10.0, d=2.0).get_temperature(100.0, 1), 10.0 / math.log(3.0))
+    assert math.isclose(
+        AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, 5.0, [0.0, 10.0]),
+        5.0 * (1.0 - 5.0 * 0.5 / statistics.variance([0.0, 10.0]))
+    )
 
 
 def test_exponential_schedule_validates_alpha_range() -> None:
@@ -62,6 +70,35 @@ def test_simulated_annealing_pattern_run_returns_structured_scaffold_result() ->
     assert result.output["details"]["initial_state"] == {"design": "baseline"}
     assert result.output["details"]["temperature_schedule"] == "ExponentialSchedule"
     assert result.metadata["mode"] == MODE_SIMULATED_ANNEALING
+
+
+def test_adaptive_schedule_derives_delta_from_energy_history() -> None:
+    energy_history = [0.0, 20.0, 10.0]
+    t_k = 5.0
+    sched = AdaptiveSchedule(mu=5.0)
+    result = sched.get_temperature(100.0, 0, current_temperature=t_k, energy_history=energy_history)
+    expected_delta = statistics.stdev(energy_history) / 5.0
+    sigma_sq = statistics.variance(energy_history)
+    expected = t_k * (1 - t_k * expected_delta / sigma_sq)
+    assert math.isclose(result, expected)
+    assert math.isclose(sched.delta, expected_delta)
+
+
+def test_adaptive_schedule_falls_back_when_history_too_short() -> None:
+    sched = AdaptiveSchedule(delta=1.5)
+    assert sched.get_temperature(100.0, 0, current_temperature=80.0, energy_history=[]) == 80.0
+    assert sched.get_temperature(100.0, 0, current_temperature=80.0, energy_history=[90.0]) == 80.0
+    assert sched.get_temperature(100.0, 0) == 100.0
+
+
+def test_adaptive_schedule_falls_back_when_variance_is_zero() -> None:
+    sched = AdaptiveSchedule(delta=1.5)
+    assert sched.get_temperature(100.0, 0, current_temperature=80.0, energy_history=[50.0, 50.0, 50.0]) == 80.0
+
+
+def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
+    sched = AdaptiveSchedule(delta=100.0) # Large delta to force factor > 1
+    result = sched.get_temperature(100.0, 0, current_temperature=50.0, energy_history=[0.0, 1.0]) == 50.0
 
 
 # Optimization test ideas to begin with:
