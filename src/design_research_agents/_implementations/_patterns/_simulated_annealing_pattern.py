@@ -237,7 +237,7 @@ class SimulatedAnnealingPattern(Delegate):
             tracer: Optional tracer for workflow and debugging.
         """
         # Validate inputs
-        if not all(isinstance(k, str) for k in initial_state.keys()):
+        if not all(isinstance(k, str) for k in initial_state):
             raise ValueError("All keys in initial_state must be strings.")
         if max_iterations < 1:
             raise ValueError("max_iterations must be >= 1.")
