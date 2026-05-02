@@ -38,8 +38,7 @@ class TemperatureSchedule(ABC):
         current_temperature: float | None = None,
         energy_history: list[float] | None = None,
     ) -> float:
-        """
-        Return the temperature for one iteration.
+        """Return the temperature for one iteration.
 
         Args:
             initial_temperature: The initial temperature configured for the SA run.
