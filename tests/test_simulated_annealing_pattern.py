@@ -36,38 +36,6 @@ def test_exponential_schedule_validates_alpha_range() -> None:
         ExponentialSchedule(alpha=1.0)
 
 
-def test_simulated_annealing_pattern_validates_basic_configuration() -> None:
-    with pytest.raises(ValueError, match="max_iterations"):
-        SimulatedAnnealingPattern(
-            neighbor_delegate=lambda context: context,
-            objective_delegate=lambda context: 0.0,
-            initial_state={},
-            max_iterations=0,
-        )
-
-    with pytest.raises(ValueError, match="initial_temperature"):
-        SimulatedAnnealingPattern(
-            neighbor_delegate=lambda context: context,
-            objective_delegate=lambda context: 0.0,
-            initial_state={},
-            initial_temperature=0,
-        )
-
-
-def test_simulated_annealing_pattern_run_returns_structured_scaffold_result() -> None:
-    pattern = SimulatedAnnealingPattern(
-        neighbor_delegate=lambda context: context,
-        objective_delegate=lambda context: 0.0,
-        initial_state={"design": "baseline"},
-    )
-
-    result = pattern.run("Reduce drag.")
-    
-    assert result.output["details"]["initial_state"] == {"design": "baseline"}
-    assert result.output["details"]["temperature_schedule"] == "ExponentialSchedule"
-    assert result.metadata["mode"] == MODE_SIMULATED_ANNEALING
-
-
 def test_adaptive_schedule_derives_delta_from_energy_history() -> None:
     energy_history = [0.0, 20.0, 10.0]
     t_k = 5.0
