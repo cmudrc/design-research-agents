@@ -16,7 +16,6 @@ from design_research_agents._implementations._patterns._simulated_annealing_patt
 )
 from design_research_agents._runtime._patterns import MODE_SIMULATED_ANNEALING
 
-
 # ---------------------- Temperature schedule tests ----------------------
 
 def test_temperature_schedules_apply_expected_decay() -> None:
