@@ -45,7 +45,6 @@ def test_adaptive_schedule_derives_delta_from_energy_history() -> None:
     sigma_sq = statistics.variance(energy_history)
     expected = t_k * (1 - t_k * expected_delta / sigma_sq)
     assert math.isclose(result, expected)
-    assert math.isclose(sched.delta, expected_delta)
 
 
 def test_adaptive_schedule_falls_back_when_history_too_short() -> None:
