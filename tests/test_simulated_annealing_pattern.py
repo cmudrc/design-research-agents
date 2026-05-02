@@ -98,7 +98,7 @@ def test_adaptive_schedule_falls_back_when_variance_is_zero() -> None:
 
 def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
     sched = AdaptiveSchedule(delta=100.0) # Large delta to force factor > 1
-    result = sched.get_temperature(100.0, 0, current_temperature=50.0, energy_history=[0.0, 1.0]) == 50.0
+    assert sched.get_temperature(100.0, 0, current_temperature=50.0, energy_history=[0.0, 1.0]) == 50.0
 
 
 # Optimization test ideas to begin with:
