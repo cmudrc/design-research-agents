@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
-from design_research_agents._contracts._workflow import DelegateTarget, LogicStep, LoopStep
+from design_research_agents._contracts._workflow import LogicStep, LoopStep
 from design_research_agents._runtime._patterns import (
     MODE_SIMULATED_ANNEALING,
     build_compiled_pattern_execution,
@@ -208,8 +208,8 @@ class SimulatedAnnealingPattern(Delegate):
     def __init__(
         self,
         *,
-        neighbor_delegate: NeighborDelegate | DelegateTarget,
-        objective_delegate: ObjectiveDelegate | DelegateTarget,
+        neighbor_delegate: NeighborDelegate,
+        objective_delegate: ObjectiveDelegate,
         constraints: list[ConstraintDelegate] | None = None,
         initial_state: Mapping[str, object],
         initial_temperature: float = 100.0,
@@ -356,8 +356,9 @@ class SimulatedAnnealingPattern(Delegate):
             }
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
-            loop_state = dict(context.get("loop_state"))
-            iteration = int(loop_state.get("iteration"))
+            raw_loop_state = context.get("loop_state")
+            loop_state = dict(raw_loop_state) if isinstance(raw_loop_state, Mapping) else {}
+            iteration = int(loop_state.get("iteration") or 0)
             current_temperature = float(loop_state.get("current_temperature", self._initial_temperature))
             energy_history = list(loop_state.get("energy_history", []))
 
