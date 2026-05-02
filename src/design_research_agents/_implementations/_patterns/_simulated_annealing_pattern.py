@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+import statistics
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 
@@ -29,8 +30,26 @@ class TemperatureSchedule(ABC):
     """Base class for temperature decay schedules."""
 
     @abstractmethod
-    def get_temperature(self, initial_temperature: float, iteration: int) -> float:
-        """Return the temperature for one iteration."""
+    def get_temperature(
+        self,
+        initial_temperature: float,
+        iteration: int,
+        *,
+        current_temperature: float | None = None,
+        energy_history: list[float] | None = None,
+    ) -> float:
+        """
+        Return the temperature for one iteration.
+
+        Args:
+            initial_temperature: The initial temperature configured for the SA run.
+            iteration: The current iteration number (starting from 0).
+            current_temperature: The temperature from the previous iteration, if applicable.
+            energy_history: List of objective values from previous iterations, if applicable.
+
+        Returns:
+            Temperature value for current iteration.
+        """
 
 
 class LinearSchedule(TemperatureSchedule):
@@ -39,8 +58,16 @@ class LinearSchedule(TemperatureSchedule):
     def __init__(self, alpha: float) -> None:
         self.alpha = alpha
 
-    def get_temperature(self, initial_temperature: float, iteration: int) -> float:
+    def get_temperature(
+            self,
+            initial_temperature: float,
+            iteration: int,
+            *,
+            current_temperature: float | None = None,
+            energy_history: list[float] | None = None,
+        ) -> float:
         """Decrease temperature by a constant amount each iteration."""
+        _ = current_temperature, energy_history  # Not used in linear schedule
         return max(0.0, initial_temperature - self.alpha * iteration)
 
 
@@ -52,8 +79,16 @@ class ExponentialSchedule(TemperatureSchedule):
             raise ValueError("alpha must be in the range (0, 1) for exponential schedule.")
         self.alpha = alpha
 
-    def get_temperature(self, initial_temperature: float, iteration: int) -> float:
+    def get_temperature(
+            self,
+            initial_temperature: float,
+            iteration: int,
+            *,
+            current_temperature: float | None = None,
+            energy_history: list[float] | None = None,
+        ) -> float:
         """Decrease temperature by a constant multiplicative factor."""
+        _ = current_temperature, energy_history  # Not used in exponential schedule
         return initial_temperature * (self.alpha**iteration)
 
 
@@ -64,10 +99,16 @@ class LogarithmicSchedule(TemperatureSchedule):
         self.c = c
         self.d = d
 
-    def get_temperature(self, initial_temperature: float, iteration: int) -> float:
+    def get_temperature(
+            self,
+            initial_temperature: float,
+            iteration: int,
+            *,
+            current_temperature: float | None = None,
+            energy_history: list[float] | None = None,
+        ) -> float:
         """Decrease temperature according to a logarithmic schedule."""
-        # Log schedule depends only on c, d, and iteration, not on initial_temperature
-        _ = initial_temperature 
+        _ = initial_temperature, current_temperature, energy_history  # Not used in logarithmic schedule
         return self.c / math.log(iteration + self.d)
 
 
