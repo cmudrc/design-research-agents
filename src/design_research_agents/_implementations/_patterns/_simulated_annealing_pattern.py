@@ -349,6 +349,8 @@ class SimulatedAnnealingPattern(Delegate):
                 "current_energy": initial_energy,
                 "best_state": dict(self._initial_state),
                 "best_energy": initial_energy,
+                "current_temperature": self._initial_temperature,
+                "energy_history": [initial_energy],
                 "iteration": 0,
                 "should_continue": True,
                 "convergence_counter": 0,
@@ -359,21 +361,29 @@ class SimulatedAnnealingPattern(Delegate):
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
             loop_state = dict(context.get("loop_state"))
             iteration = int(loop_state.get("iteration"))
+            current_temperature = float(
+                loop_state.get("current_temperature", self._initial_temperature)
+            )
+            energy_history = list(loop_state.get("energy_history", [])) 
 
             # Generate temperature for this iteration
             temperature = self._temperature_schedule.get_temperature(
-                self._initial_temperature, iteration
+                self._initial_temperature,
+                iteration,
+                current_temperature=current_temperature,
+                energy_history=energy_history,
             )
             
             # Generate neighbor
             neighbor = self._neighbor_delegate(loop_state["current_state"])
 
-            # TODO: do we increment iteration whenever we generate a neighbor, 
-            # or do we only increment if neighbor doesn't violate constraints?
+            # Invalid neighbors count as iterations, but do not update state
             if self._constraints and not all(c(neighbor) for c in self._constraints):
                 return {
                     **loop_state,
                     "iteration": iteration + 1,
+                    "current_temperature": temperature,
+                    "energy_history": energy_history,
                 }
 
             # Compute neighbor energy
@@ -392,7 +402,8 @@ class SimulatedAnnealingPattern(Delegate):
             current_energy = neighbor_energy if accepted else loop_state["current_energy"]
             best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
             best_energy = min(current_energy, loop_state["best_energy"])
-
+            energy_history = [*energy_history, current_energy]
+            
             # Check for termination conditions
             terminated_reason = None
             should_continue = True
@@ -419,6 +430,8 @@ class SimulatedAnnealingPattern(Delegate):
                 "current_energy": current_energy,
                 "best_state": best_state,
                 "best_energy": best_energy,
+                "current_temperature": temperature,
+                "energy_history": energy_history,
                 "iteration": iteration + 1,
                 "should_continue": should_continue,
                 "convergence_counter": convergence_counter,
