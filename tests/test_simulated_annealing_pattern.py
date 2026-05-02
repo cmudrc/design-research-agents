@@ -23,7 +23,7 @@ def test_temperature_schedules_apply_expected_decay() -> None:
     assert math.isclose(ExponentialSchedule(alpha=0.5).get_temperature(8.0, 2), 2.0)
     assert math.isclose(LogarithmicSchedule(c=10.0, d=2.0).get_temperature(100.0, 1), 10.0 / math.log(3.0))
     assert math.isclose(
-        AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, 5.0, [0.0, 10.0]),
+        AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, current_temperature=5.0, energy_history=[0.0, 10.0]),
         5.0 * (1.0 - 5.0 * 0.5 / statistics.variance([0.0, 10.0]))
     )
 
@@ -40,7 +40,7 @@ def test_simulated_annealing_pattern_validates_basic_configuration() -> None:
     with pytest.raises(ValueError, match="max_iterations"):
         SimulatedAnnealingPattern(
             neighbor_delegate=lambda context: context,
-            energy_delegate=lambda context: 0.0,
+            objective_delegate=lambda context: 0.0,
             initial_state={},
             max_iterations=0,
         )
@@ -48,7 +48,7 @@ def test_simulated_annealing_pattern_validates_basic_configuration() -> None:
     with pytest.raises(ValueError, match="initial_temperature"):
         SimulatedAnnealingPattern(
             neighbor_delegate=lambda context: context,
-            energy_delegate=lambda context: 0.0,
+            objective_delegate=lambda context: 0.0,
             initial_state={},
             initial_temperature=0,
         )
@@ -57,15 +57,12 @@ def test_simulated_annealing_pattern_validates_basic_configuration() -> None:
 def test_simulated_annealing_pattern_run_returns_structured_scaffold_result() -> None:
     pattern = SimulatedAnnealingPattern(
         neighbor_delegate=lambda context: context,
-        energy_delegate=lambda context: 0.0,
+        objective_delegate=lambda context: 0.0,
         initial_state={"design": "baseline"},
     )
 
     result = pattern.run("Reduce drag.")
-
-    assert not result.success
-    assert result.output["terminated_reason"] == "not_implemented"
-    assert result.output["error"] == "Simulated annealing pattern is scaffolded but not implemented yet."
+    
     assert result.output["details"]["initial_state"] == {"design": "baseline"}
     assert result.output["details"]["temperature_schedule"] == "ExponentialSchedule"
     assert result.metadata["mode"] == MODE_SIMULATED_ANNEALING
@@ -114,7 +111,7 @@ def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
             neighbor_delegate=lambda state: {
                 "x": state["x"] + random.uniform(-1, 1)
             },
-            energy_delegate=lambda state: -polynomial(state["x"]),  # negate to maximize
+            objective_delegate=lambda state: -polynomial(state["x"]),  # negate to maximize
             constraints=[
                 lambda state: -2 <= state["x"] <= 2,
             ],
@@ -148,7 +145,7 @@ def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
                 "w": state["w"] + random.uniform(-0.5, 0.5),
                 "h": state["h"] + random.uniform(-0.5, 0.5),
             },
-            energy_delegate=lambda state: state["L"] * state["w"] * state["h"],
+            objective_delegate=lambda state: state["L"] * state["w"] * state["h"],
             constraints=[
                 lambda state: state["L"] > 0,
                 lambda state: state["w"] > 0,
