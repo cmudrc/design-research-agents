@@ -21,7 +21,7 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
 
 NeighborDelegate = Callable[[Mapping[str, object]], Mapping[str, object]]
-EnergyDelegate = Callable[[Mapping[str, object]], float]
+ObjectiveDelegate = Callable[[Mapping[str, object]], float]
 ConstraintDelegate = Callable[[Mapping[str, object]], bool]
 
 
@@ -117,7 +117,7 @@ class SimulatedAnnealingPattern(Delegate):
         self,
         *,
         neighbor_delegate: NeighborDelegate | DelegateTarget,
-        energy_delegate: EnergyDelegate | DelegateTarget,
+        objective_delegate: ObjectiveDelegate | DelegateTarget,
         constraints: list[ConstraintDelegate] | None = None,
         initial_state: Mapping[str, object],
         initial_temperature: float = 100.0,
@@ -133,13 +133,13 @@ class SimulatedAnnealingPattern(Delegate):
 
         Args:
             neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
-            energy_delegate: A delegate that calculates the energy of a given solution.
+            objective_delegate: A delegate that computes the objective function value for a given solution.
             constraints: Optional list of delegates that define constraints for the optimization. (Default: None)
             initial_state: The initial state for the optimization.
             initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
             max_iterations: The maximum number of iterations to perform. (Default: 100)
-            convergence_threshold: Minimum absolute change in energy to consider as non-converged. (Default: 1e-6)
-            convergence_steps: Number of consecutive steps with energy change below threshold. (Default: 5)
+            convergence_threshold: Minimum absolute change in objective value to consider as non-converged. (Default: 1e-6)
+            convergence_steps: Number of consecutive steps with objective value change below threshold. (Default: 5)
             temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
             random_seed: Seed for random number generation. (Default: None)
             tracer: Optional tracer for workflow and debugging.
@@ -163,7 +163,7 @@ class SimulatedAnnealingPattern(Delegate):
                 raise ValueError("initial_state must not violate constraints.")
 
         self._neighbor_delegate = neighbor_delegate
-        self._energy_delegate = energy_delegate
+        self._objective_delegate = objective_delegate
         self._constraints = constraints or []
         self._initial_state = dict(initial_state)
         self._initial_temperature = initial_temperature
@@ -250,7 +250,7 @@ class SimulatedAnnealingPattern(Delegate):
         """Build the workflow wrapper for one simulated annealing run."""
 
         def _get_initial_loop_state() -> dict[str, object]:
-            initial_energy = self._energy_delegate(self._initial_state)
+            initial_energy = self._objective_delegate(self._initial_state)
             return {
                 "current_state": dict(self._initial_state),
                 "current_energy": initial_energy,
@@ -284,7 +284,7 @@ class SimulatedAnnealingPattern(Delegate):
                 }
 
             # Compute neighbor energy
-            neighbor_energy = self._energy_delegate(neighbor)
+            neighbor_energy = self._objective_delegate(neighbor)
 
             # Determine whether to accept neighbor
             accepted = _metropolis_acceptance(
@@ -394,9 +394,9 @@ def _build_simulated_annealing_result(
     return build_pattern_execution_result(
         success=workflow_result.success,
         final_output={
-            "best_state": step_output.get("best_state"),
-            "best_energy": step_output.get("best_energy"),
-            "iterations": step_output.get("iteration"),
+            "best_state": final_state.get("best_state"),
+            "best_energy": final_state.get("best_energy"),
+            "iterations": final_state.get("iteration"),
         },
         terminated_reason=terminated_reason,
         details={
@@ -406,8 +406,8 @@ def _build_simulated_annealing_result(
             "convergence_threshold": convergence_threshold,
             "convergence_steps": convergence_steps,
             "temperature_schedule": temperature_schedule_name,
-            "current_state": step_output.get("current_state"),
-            "current_energy": step_output.get("current_energy"),
+            "current_state": final_state.get("current_state"),
+            "current_energy": final_state.get("current_energy"),
         },
         workflow_payload=workflow_result.to_dict(),
         artifacts=workflow_artifacts,
@@ -429,11 +429,11 @@ def _build_simulated_annealing_result(
 
 __all__ = [
     "ConstraintDelegate",
-    "EnergyDelegate",
     "ExponentialSchedule",
     "LinearSchedule",
     "LogarithmicSchedule",
     "NeighborDelegate",
+    "ObjectiveDelegate",
     "SimulatedAnnealingPattern",
     "TemperatureSchedule",
 ]
