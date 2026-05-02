@@ -225,14 +225,14 @@ class SimulatedAnnealingPattern(Delegate):
 
         Args:
             neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
-            objective_delegate: A delegate that computes the objective function value for a given solution.
+            objective_delegate: Delegate that computes the objective function value for a given solution.
             constraints: Optional list of delegates that define constraints for the optimization. (Default: None)
-            initial_state: The initial state for the optimization.
-            initial_temperature: The starting temperature for the annealing process. (Default: 100.0)
-            max_iterations: The maximum number of iterations to perform. (Default: 100)
-            convergence_threshold: Minimum absolute change in objective value to consider as non-converged. (Default: 1e-6)
+            initial_state: Initial state for the optimization.
+            initial_temperature: Starting temperature for the annealing process. (Default: 100.0)
+            max_iterations: Maximum number of iterations to perform. (Default: 100)
+            convergence_threshold: Minimum absolute change in objective value to consider non-converged. (Default: 1e-6)
             convergence_steps: Number of consecutive steps with objective value change below threshold. (Default: 5)
-            temperature_schedule: The schedule for temperature decay. (Default: ExponentialSchedule)
+            temperature_schedule: Schedule for temperature decay. (Default: ExponentialSchedule)
             random_seed: Seed for random number generation. (Default: None)
             tracer: Optional tracer for workflow and debugging.
         """
