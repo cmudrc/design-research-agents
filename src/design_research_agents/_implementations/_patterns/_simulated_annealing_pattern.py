@@ -36,7 +36,7 @@ class TemperatureSchedule(ABC):
         iteration: int,
         *,
         current_temperature: float | None = None,
-        energy_history: list[float] | None = None,
+        objective_value_history: list[float] | None = None,
     ) -> float:
         """Return the temperature for one iteration.
 
@@ -44,7 +44,7 @@ class TemperatureSchedule(ABC):
             initial_temperature: The initial temperature configured for the SA run.
             iteration: The current iteration number (starting from 0).
             current_temperature: The temperature from the previous iteration, if applicable.
-            energy_history: List of objective values from previous iterations, if applicable.
+            objective_value_history: List of objective values from previous iterations, if applicable.
 
         Returns:
             Temperature value for current iteration.
@@ -63,10 +63,10 @@ class LinearSchedule(TemperatureSchedule):
         iteration: int,
         *,
         current_temperature: float | None = None,
-        energy_history: list[float] | None = None,
+        objective_value_history: list[float] | None = None,
     ) -> float:
         """Decrease temperature by a constant amount each iteration."""
-        _ = current_temperature, energy_history  # Not used in linear schedule
+        _ = current_temperature, objective_value_history  # Not used in linear schedule
         return max(0.0, initial_temperature - self.alpha * iteration)
 
 
@@ -84,10 +84,10 @@ class ExponentialSchedule(TemperatureSchedule):
         iteration: int,
         *,
         current_temperature: float | None = None,
-        energy_history: list[float] | None = None,
+        objective_value_history: list[float] | None = None,
     ) -> float:
         """Decrease temperature by a constant multiplicative factor."""
-        _ = current_temperature, energy_history  # Not used in exponential schedule
+        _ = current_temperature, objective_value_history  # Not used in exponential schedule
         return initial_temperature * (self.alpha**iteration)
 
 
@@ -104,10 +104,10 @@ class LogarithmicSchedule(TemperatureSchedule):
         iteration: int,
         *,
         current_temperature: float | None = None,
-        energy_history: list[float] | None = None,
+        objective_value_history: list[float] | None = None,
     ) -> float:
         """Decrease temperature according to a logarithmic schedule."""
-        _ = initial_temperature, current_temperature, energy_history  # Not used in logarithmic schedule
+        _ = initial_temperature, current_temperature, objective_value_history  # Not used in logarithmic schedule
         return self.c / math.log(iteration + self.d)
 
 
@@ -119,11 +119,12 @@ class AdaptiveSchedule(TemperatureSchedule):
     ``delta`` is a constant target decrease in cost per Metropolis chain.
 
     When ``delta`` is not provided, it is derived automatically on the first
-    call that has sufficient energy history as ``stdev(energy_history) / mu``,
-    then held constant for the rest of the run.
+    call that has sufficient objective value history as
+    ``stdev(objective_value_history) / mu``, then held constant for the rest
+    of the run.
 
-    Falls back to current temperature when ``energy_history`` has fewer
-    than 2 entries, when variance is zero, or when the factor
+    Falls back to current temperature when ``objective_value_history`` has 
+    fewer than 2 entries, when variance is zero, or when the factor
     ``T_k * delta / sigma_sq >= 1``.
     """
 
@@ -137,23 +138,23 @@ class AdaptiveSchedule(TemperatureSchedule):
         iteration: int,
         *,
         current_temperature: float | None = None,
-        energy_history: list[float] | None = None,
+        objective_value_history: list[float] | None = None,
     ) -> float:
         """Decrease temperature adaptively based on spread of sampled objective values."""
         _ = iteration  # Not used in adaptive schedule
         t_k = current_temperature if current_temperature is not None else initial_temperature
 
         # Not enough data to adapt, return current temperature
-        if energy_history is None or len(energy_history) < 2:
+        if objective_value_history is None or len(objective_value_history) < 2:
             return t_k
 
-        sigma_sq = statistics.variance(energy_history)
-        # No variation in energy, keep temperature the same
+        sigma_sq = statistics.variance(objective_value_history)
+        # No variation in objective values, keep temperature the same
         if sigma_sq == 0.0:
             return t_k
 
-        # Derive delta from spread of energy values, scaled by mu, if not provided
-        delta = self.delta if self.delta is not None else statistics.stdev(energy_history) / self.mu
+        # Derive delta from spread of objective values, scaled by mu, if not provided
+        delta = self.delta if self.delta is not None else statistics.stdev(objective_value_history) / self.mu
 
         factor = t_k * delta / sigma_sq
         # Avoid negative or zero temperature, keep the same
@@ -164,8 +165,8 @@ class AdaptiveSchedule(TemperatureSchedule):
 
 
 def _metropolis_acceptance(
-    current_energy: float,
-    neighbor_energy: float,
+    current_objective_value: float,
+    neighbor_objective_value: float,
     temperature: float,
     rng: random.Random,
 ) -> bool:
@@ -174,8 +175,8 @@ def _metropolis_acceptance(
     Returns whether to accept the neighbor state.
 
     Args:
-        current_energy: Energy of the current state.
-        neighbor_energy: Energy of the proposed neighbor state.
+        current_objective_value: Objective value of the current state.
+        neighbor_objective_value: Objective value of the proposed neighbor state.
         temperature: Current temperature controlling acceptance probability.
         rng: Random number generator for stochastic acceptance.
 
@@ -183,7 +184,7 @@ def _metropolis_acceptance(
         accepted: whether the neighbor state is accepted.
     """
     # Always accept better states
-    if neighbor_energy < current_energy:
+    if neighbor_objective_value < current_objective_value:
         return True
 
     # Never accept worse states if temperature is zero or negative
@@ -191,7 +192,7 @@ def _metropolis_acceptance(
         return False
 
     # If neighbor is worse, accept with probabilty exp(-delta / temperature)
-    delta = neighbor_energy - current_energy
+    delta = neighbor_objective_value - current_objective_value
     acceptance_probability = math.exp(-delta / temperature)
 
     # Use seeded instance rather than global random for testability and reproducibility
@@ -202,7 +203,7 @@ def _metropolis_acceptance(
 class SimulatedAnnealingPattern(Delegate):
     """General simulated annealing optimization pattern."""
 
-    # TODO: should energy delegate just be an objective function?
+    # TODO: should objective delegate just be an objective function?
     # TODO: should neighbor delegate just be a list of possible modifications
     # from current state, rather than a function that generates one neighbor?
     def __init__(
@@ -340,18 +341,18 @@ class SimulatedAnnealingPattern(Delegate):
         """Build the workflow wrapper for one simulated annealing run."""
 
         def _get_initial_loop_state() -> dict[str, object]:
-            initial_energy = self._objective_delegate(self._initial_state)
+            initial_objective_value = self._objective_delegate(self._initial_state)
             return {
                 "current_state": dict(self._initial_state),
-                "current_energy": initial_energy,
+                "current_objective_value": initial_objective_value,
                 "best_state": dict(self._initial_state),
-                "best_energy": initial_energy,
+                "best_objective_value": initial_objective_value,
                 "current_temperature": self._initial_temperature,
-                "energy_history": [initial_energy],
+                "objective_value_history": [initial_objective_value],
                 "iteration": 0,
                 "should_continue": True,
                 "convergence_counter": 0,
-                "last_energy": initial_energy,
+                "last_objective_value": initial_objective_value,
                 "terminated_reason": None,
             }
 
@@ -360,14 +361,14 @@ class SimulatedAnnealingPattern(Delegate):
             loop_state = dict(raw_loop_state) if isinstance(raw_loop_state, Mapping) else {}
             iteration = int(loop_state.get("iteration") or 0)
             current_temperature = float(loop_state.get("current_temperature", self._initial_temperature))
-            energy_history = list(loop_state.get("energy_history", []))
+            objective_value_history = list(loop_state.get("objective_value_history", []))
 
             # Generate temperature for this iteration
             temperature = self._temperature_schedule.get_temperature(
                 self._initial_temperature,
                 iteration,
                 current_temperature=current_temperature,
-                energy_history=energy_history,
+                objective_value_history=objective_value_history,
             )
 
             # Generate neighbor
@@ -379,26 +380,26 @@ class SimulatedAnnealingPattern(Delegate):
                     **loop_state,
                     "iteration": iteration + 1,
                     "current_temperature": temperature,
-                    "energy_history": energy_history,
+                    "objective_value_history": objective_value_history,
                 }
 
-            # Compute neighbor energy
-            neighbor_energy = self._objective_delegate(neighbor)
+            # Compute neighbor objective value
+            neighbor_objective_value = self._objective_delegate(neighbor)
 
             # Determine whether to accept neighbor
             accepted = _metropolis_acceptance(
-                current_energy=loop_state["current_energy"],
-                neighbor_energy=neighbor_energy,
+                current_objective_value=loop_state["current_objective_value"],
+                neighbor_objective_value=neighbor_objective_value,
                 temperature=temperature,
                 rng=self._rng,
             )
 
-            # Update state and energy based on acceptance
+            # Update state and objective value based on acceptance
             current_state = neighbor if accepted else loop_state["current_state"]
-            current_energy = neighbor_energy if accepted else loop_state["current_energy"]
-            best_state = current_state if current_energy < loop_state["best_energy"] else loop_state["best_state"]
-            best_energy = min(current_energy, loop_state["best_energy"])
-            energy_history = [*energy_history, current_energy]
+            current_objective_value = neighbor_objective_value if accepted else loop_state["current_objective_value"]
+            best_state = current_state if current_objective_value < loop_state["best_objective_value"] else loop_state["best_state"]
+            best_objective_value = min(current_objective_value, loop_state["best_objective_value"])
+            objective_value_history = [*objective_value_history, current_objective_value]
 
             # Check for termination conditions
             terminated_reason = None
@@ -412,8 +413,8 @@ class SimulatedAnnealingPattern(Delegate):
 
             # Determine if convergence reached
             convergence_counter = int(loop_state.get("convergence_counter", 0))
-            last_energy = loop_state.get("last_energy", current_energy)
-            if abs(current_energy - last_energy) < self.convergence_threshold:
+            last_objective_value = loop_state.get("last_objective_value", current_objective_value)
+            if abs(current_objective_value - last_objective_value) < self.convergence_threshold:
                 convergence_counter += 1
                 if convergence_counter >= self.convergence_steps:
                     terminated_reason = "converged"
@@ -423,15 +424,15 @@ class SimulatedAnnealingPattern(Delegate):
 
             return {
                 "current_state": current_state,
-                "current_energy": current_energy,
+                "current_objective_value": current_objective_value,
                 "best_state": best_state,
-                "best_energy": best_energy,
+                "best_objective_value": best_objective_value,
                 "current_temperature": temperature,
-                "energy_history": energy_history,
+                "objective_value_history": objective_value_history,
                 "iteration": iteration + 1,
                 "should_continue": should_continue,
                 "convergence_counter": convergence_counter,
-                "last_energy": current_energy,
+                "last_objective_value": last_objective_value,
                 "terminated_reason": terminated_reason,
             }
 
@@ -498,7 +499,7 @@ def _build_simulated_annealing_result(
         success=workflow_result.success,
         final_output={
             "best_state": final_state.get("best_state"),
-            "best_energy": final_state.get("best_energy"),
+            "best_objective_value": final_state.get("best_objective_value"),
             "iterations": final_state.get("iteration"),
         },
         terminated_reason=terminated_reason,
@@ -510,7 +511,7 @@ def _build_simulated_annealing_result(
             "convergence_steps": convergence_steps,
             "temperature_schedule": temperature_schedule_name,
             "current_state": final_state.get("current_state"),
-            "current_energy": final_state.get("current_energy"),
+            "current_objective_value": final_state.get("current_objective_value"),
         },
         workflow_payload=workflow_result.to_dict(),
         artifacts=workflow_artifacts,

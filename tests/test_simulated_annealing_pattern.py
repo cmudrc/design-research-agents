@@ -23,7 +23,7 @@ def test_temperature_schedules_apply_expected_decay() -> None:
     assert math.isclose(ExponentialSchedule(alpha=0.5).get_temperature(8.0, 2), 2.0)
     assert math.isclose(LogarithmicSchedule(c=10.0, d=2.0).get_temperature(100.0, 1), 10.0 / math.log(3.0))
     assert math.isclose(
-        AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, current_temperature=5.0, energy_history=[0.0, 10.0]),
+        AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, current_temperature=5.0, objective_value_history=[0.0, 10.0]),
         5.0 * (1.0 - 5.0 * 0.5 / statistics.variance([0.0, 10.0])),
     )
 
@@ -36,32 +36,32 @@ def test_exponential_schedule_validates_alpha_range() -> None:
         ExponentialSchedule(alpha=1.0)
 
 
-def test_adaptive_schedule_derives_delta_from_energy_history() -> None:
-    energy_history = [0.0, 20.0, 10.0]
+def test_adaptive_schedule_derives_delta_from_objective_value_history() -> None:
+    objective_value_history = [0.0, 20.0, 10.0]
     t_k = 5.0
     sched = AdaptiveSchedule(mu=5.0)
-    result = sched.get_temperature(100.0, 0, current_temperature=t_k, energy_history=energy_history)
-    expected_delta = statistics.stdev(energy_history) / 5.0
-    sigma_sq = statistics.variance(energy_history)
+    result = sched.get_temperature(100.0, 0, current_temperature=t_k, objective_value_history=objective_value_history)
+    expected_delta = statistics.stdev(objective_value_history) / 5.0
+    sigma_sq = statistics.variance(objective_value_history)
     expected = t_k * (1 - t_k * expected_delta / sigma_sq)
     assert math.isclose(result, expected)
 
 
 def test_adaptive_schedule_falls_back_when_history_too_short() -> None:
     sched = AdaptiveSchedule(delta=1.5)
-    assert sched.get_temperature(100.0, 0, current_temperature=80.0, energy_history=[]) == 80.0
-    assert sched.get_temperature(100.0, 0, current_temperature=80.0, energy_history=[90.0]) == 80.0
+    assert sched.get_temperature(100.0, 0, current_temperature=80.0, objective_value_history=[]) == 80.0
+    assert sched.get_temperature(100.0, 0, current_temperature=80.0, objective_value_history=[90.0]) == 80.0
     assert sched.get_temperature(100.0, 0) == 100.0
 
 
 def test_adaptive_schedule_falls_back_when_variance_is_zero() -> None:
     sched = AdaptiveSchedule(delta=1.5)
-    assert sched.get_temperature(100.0, 0, current_temperature=80.0, energy_history=[50.0, 50.0, 50.0]) == 80.0
+    assert sched.get_temperature(100.0, 0, current_temperature=80.0, objective_value_history=[50.0, 50.0, 50.0]) == 80.0
 
 
 def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
     sched = AdaptiveSchedule(delta=100.0)  # Large delta to force factor > 1
-    assert sched.get_temperature(100.0, 0, current_temperature=50.0, energy_history=[0.0, 1.0]) == 50.0
+    assert sched.get_temperature(100.0, 0, current_temperature=50.0, objective_value_history=[0.0, 1.0]) == 50.0
 
 
 # ---------------------- Input validation tests ----------------------
@@ -130,7 +130,7 @@ def test_pattern_rejects_non_string_keys_in_initial_state() -> None:
 #     Objective: maximize a polynomial function: f(x) = x^4-4x^3-2x^2+12x+1
 #          Initial state: x = 2
 #          Neighbor delegate: propose a new x by adding a random value from [-1, 1] to current x
-#          Energy delegate: compute f(x) for the proposed x
+#          Objective delegate: f(x) for the proposed x
 #          Constraints: x must be between [-2, 2]
 """
         def polynomial(x: float) -> float:
@@ -154,7 +154,7 @@ def test_pattern_rejects_non_string_keys_in_initial_state() -> None:
 #     Objective: minimize the volume of a beam with length L, width w, and height h
 #          Initial state: L=5m, w=2m, h=1m
 #          Neighbor delegate: propose new dimensions by adding a random value from [-0.5, 0.5] to each dimension
-#          Energy delegate: compute the volume V = L * w * h
+#          Objective delegate: volume V = L * w * h
 #          Constraints: dimensions must be positive, max stress in beam must be below 250 MPa under a load of 10000 N
 """
         P = 10000   # applied load in Newtons
