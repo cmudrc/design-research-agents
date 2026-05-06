@@ -128,6 +128,108 @@ def test_pattern_rejects_non_string_keys_in_initial_state() -> None:
         )
 
 
+def test_pattern_requires_mutually_exclusive_neighbor_or_modifications_delegate() -> None:
+    with pytest.raises(ValueError, match="neighbor_delegate"):
+        SimulatedAnnealingPattern(
+            objective_delegate=lambda state: 0.0,
+            initial_state={"x": 0.0},
+        )
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: state,
+            modifications_delegate=lambda state: (state, {"x": 1.0}),
+            objective_delegate=lambda state: 0.0,
+            initial_state={"x": 0.0},
+        )
+
+
+def test_pattern_requires_exactly_one_initial_state_option() -> None:
+    with pytest.raises(ValueError, match="initial_state"):
+        SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: state,
+            objective_delegate=lambda state: 0.0,
+        )
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: state,
+            objective_delegate=lambda state: 0.0,
+            initial_state={"x": 0.0},
+            initial_state_generator=lambda: {"x": 1.0},
+        )
+
+
+def test_pattern_rejects_initial_state_missing_expected_keys() -> None:
+    with pytest.raises(ValueError, match="missing expected keys"):
+        SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: state,
+            objective_delegate=lambda state: 0.0,
+            initial_state={"y": 1.0},
+            expected_keys={"x", "y"},
+        )
+
+
+def test_pattern_rejects_initial_state_failing_state_validator() -> None:
+    with pytest.raises(ValueError, match="state_validator"):
+        SimulatedAnnealingPattern(
+            neighbor_delegate=lambda state: state,
+            objective_delegate=lambda state: 0.0,
+            initial_state={"x": -1.0},
+            state_validator=lambda state: state["x"] >= 0,
+        )
+
+
+# ---------------------- Delegate and objective mode tests ----------------------
+
+
+def test_pattern_accepts_initial_state_generator() -> None:
+    def generator() -> dict[str, object]:
+        return {"x": 1.0}
+
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: state,
+        objective_delegate=lambda state: 0.0,
+        initial_state_generator=generator,
+    )
+    assert pattern._initial_state is None
+    assert pattern._initial_state_generator is generator
+
+
+def test_modifications_delegate_stored_when_provided() -> None:
+    def modifications_delegate(state: object) -> list[dict]:
+        return [{"x": 1.0}]
+
+    pattern = SimulatedAnnealingPattern(
+        modifications_delegate=modifications_delegate,
+        objective_delegate=lambda state: state["x"],
+        initial_state={"x": 0.0},
+    )
+    assert pattern._modifications_delegate is modifications_delegate
+    assert pattern._neighbor_delegate is None
+
+
+def test_objective_mode_to_internal_score_minimize() -> None:
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: state,
+        objective_delegate=lambda state: state["x"],
+        initial_state={"x": 0.0},
+    )
+    assert pattern._objective_mode == "minimize"
+    assert pattern._to_internal_score(5.0) == 5.0
+    assert pattern._to_internal_score(-3.0) == -3.0
+
+
+def test_objective_mode_to_internal_score_maximize() -> None:
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: state,
+        objective_delegate=lambda state: state["x"],
+        initial_state={"x": 0.0},
+        objective_mode="maximize",
+    )
+    assert pattern._objective_mode == "maximize"
+    assert pattern._to_internal_score(3.0) == -3.0
+    assert pattern._to_internal_score(-2.0) == 2.0
+
+
 # Optimization test ideas to begin with:
 #     Objective: maximize a polynomial function: f(x) = x^4-4x^3-2x^2+12x+1
 #          Initial state: x = 2
