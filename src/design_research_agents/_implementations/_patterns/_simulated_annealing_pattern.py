@@ -27,6 +27,7 @@ ModificationsDelegate = Callable[[Mapping[str, object]], list[Mapping[str, objec
 ObjectiveDelegate = Callable[[Mapping[str, object]], float]
 ConstraintDelegate = Callable[[Mapping[str, object]], bool]
 InitialStateGenerator = Callable[[], Mapping[str, object]]
+StateValidator = Callable[[Mapping[str, object]], bool]
 
 
 class TemperatureSchedule(ABC):
@@ -170,10 +171,17 @@ class AdaptiveSchedule(TemperatureSchedule):
 def _validate_initial_state(
     inital_state: Mapping[str, object],
     constraints: list[ConstraintDelegate],
+    expected_keys: set[str] | None,
+    state_validator: StateValidator | None,
 ) -> None:
     """Validate initial state."""
     if not all(isinstance(k, str) for k in inital_state):
         raise ValueError("All keys in initial_state must be strings.")
+    if expected_keys is not None and not expected_keys.issubset(inital_state.keys()):
+        missing_keys = expected_keys - inital_state.keys()
+        raise ValueError(f"initial_state is missing expected keys: {missing_keys}")
+    if state_validator is not None and not state_validator(inital_state):
+        raise ValueError("initial_state failed validation by state_validator.")
     if constraints:
         violations = [i for i, c in enumerate(constraints) if not c(inital_state)]
         if violations:
@@ -229,6 +237,8 @@ class SimulatedAnnealingPattern(Delegate):
         constraints: list[ConstraintDelegate] | None = None,
         initial_state: Mapping[str, object] | None = None,
         initial_state_generator: InitialStateGenerator | None = None,
+        expected_keys: set[str] | None = None,
+        state_validator: StateValidator | None = None,
         initial_temperature: float = 100.0,
         max_iterations: int = 100,
         convergence_threshold: float = 1e-6,
@@ -252,6 +262,8 @@ class SimulatedAnnealingPattern(Delegate):
                 Mutually exclusive with initial_state_generator. (Default: None)
             initial_state_generator: Callable that generates the initial state.
                 Mutually exclusive with initial_state. (Default: None)
+            expected_keys: Optional set of expected keys that must be present in initial state. (Default: None)
+            state_validator: Optional callable that validates a state. (Default: None)
             initial_temperature: Starting temperature for the annealing process. (Default: 100.0)
             max_iterations: Maximum number of iterations to perform. (Default: 100)
             convergence_threshold: Minimum absolute change in objective value to consider non-converged. (Default: 1e-6)
@@ -282,7 +294,7 @@ class SimulatedAnnealingPattern(Delegate):
         if convergence_steps < 1:
             raise ValueError("convergence_steps must be >= 1.")
         if initial_state is not None:
-            _validate_initial_state(initial_state, constraints or [])
+            _validate_initial_state(initial_state, constraints or [], expected_keys, state_validator)
 
         self._neighbor_delegate = neighbor_delegate
         self._modifications_delegate = modifications_delegate
@@ -291,6 +303,8 @@ class SimulatedAnnealingPattern(Delegate):
         self._constraints = constraints or []
         self._initial_state = dict(initial_state) if initial_state is not None else None
         self._initial_state_generator = initial_state_generator
+        self._expected_keys = expected_keys
+        self._state_validator = state_validator
         self._initial_temperature = initial_temperature
         self._max_iterations = max_iterations
         self._temperature_schedule = temperature_schedule or ExponentialSchedule(alpha=0.95)
@@ -599,5 +613,6 @@ __all__ = [
     "NeighborDelegate",
     "ObjectiveDelegate",
     "SimulatedAnnealingPattern",
+    "StateValidator",
     "TemperatureSchedule",
 ]
