@@ -125,7 +125,7 @@ class AdaptiveSchedule(TemperatureSchedule):
     ``stdev(objective_value_history) / mu``, then held constant for the rest
     of the run.
 
-    Falls back to current temperature when ``objective_value_history`` has 
+    Falls back to current temperature when ``objective_value_history`` has
     fewer than 2 entries, when variance is zero, or when the factor
     ``T_k * delta / sigma_sq >= 1``.
     """
@@ -204,7 +204,7 @@ def _metropolis_acceptance(
 
 class SimulatedAnnealingPattern(Delegate):
     """General simulated annealing optimization pattern."""
-    
+
     def __init__(
         self,
         *,
@@ -242,7 +242,6 @@ class SimulatedAnnealingPattern(Delegate):
             random_seed: Seed for random number generation. (Default: None)
             tracer: Optional tracer for workflow and debugging.
         """
-
         # Validate mutually exclusive delegates
         if neighbor_delegate is None and modifications_delegate is None:
             raise ValueError("Either neighbor_delegate or modifications_delegate must be provided.")
@@ -423,7 +422,9 @@ class SimulatedAnnealingPattern(Delegate):
             current_state = neighbor if accepted else loop_state["current_state"]
             current_objective_value = neighbor_objective_value if accepted else loop_state["current_objective_value"]
 
-            is_better = self._to_internal_score(current_objective_value) < self._to_internal_score(loop_state["best_objective_value"])
+            is_better = self._to_internal_score(current_objective_value) < self._to_internal_score(
+                loop_state["best_objective_value"]
+            )
             best_state = current_state if is_better else loop_state["best_state"]
             best_objective_value = current_objective_value if is_better else loop_state["best_objective_value"]
             objective_value_history = [*objective_value_history, current_objective_value]

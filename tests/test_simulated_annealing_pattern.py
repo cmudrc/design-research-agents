@@ -23,7 +23,9 @@ def test_temperature_schedules_apply_expected_decay() -> None:
     assert math.isclose(ExponentialSchedule(alpha=0.5).get_temperature(8.0, 2), 2.0)
     assert math.isclose(LogarithmicSchedule(c=10.0, d=2.0).get_temperature(100.0, 1), 10.0 / math.log(3.0))
     assert math.isclose(
-        AdaptiveSchedule(delta=0.5).get_temperature(100.0, 0, current_temperature=5.0, objective_value_history=[0.0, 10.0]),
+        AdaptiveSchedule(delta=0.5).get_temperature(
+            100.0, 0, current_temperature=5.0, objective_value_history=[0.0, 10.0]
+        ),
         5.0 * (1.0 - 5.0 * 0.5 / statistics.variance([0.0, 10.0])),
     )
 
