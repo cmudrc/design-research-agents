@@ -23,6 +23,7 @@ from design_research_agents._tracing import Tracer
 from design_research_agents.workflow import CompiledExecution, Workflow
 
 NeighborDelegate = Callable[[Mapping[str, object]], Mapping[str, object]]
+ModificationsDelegate = Callable[[Mapping[str, object]], list[Mapping[str, object]]]
 ObjectiveDelegate = Callable[[Mapping[str, object]], float]
 ConstraintDelegate = Callable[[Mapping[str, object]], bool]
 
@@ -203,14 +204,12 @@ def _metropolis_acceptance(
 
 class SimulatedAnnealingPattern(Delegate):
     """General simulated annealing optimization pattern."""
-
-    # TODO: should objective delegate just be an objective function?
-    # TODO: should neighbor delegate just be a list of possible modifications
-    # from current state, rather than a function that generates one neighbor?
+    
     def __init__(
         self,
         *,
-        neighbor_delegate: NeighborDelegate,
+        neighbor_delegate: NeighborDelegate | None = None,
+        modifications_delegate: ModificationsDelegate | None = None,
         objective_delegate: ObjectiveDelegate,
         objective_mode: Literal["minimize", "maximize"] = "minimize",
         constraints: list[ConstraintDelegate] | None = None,
@@ -228,6 +227,9 @@ class SimulatedAnnealingPattern(Delegate):
 
         Args:
             neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
+                Mutually exclusive with modifications_delegate. (Default: None)
+            modifications_delegate: Delegate that returns list of possible modifications to current solution.
+                Mutually exclusive with neighbor_delegate. (Default: None)
             objective_delegate: Delegate that computes the objective function value for a given solution.
             objective_mode: Whether to minimize or maximize the objective function. (Default: "minimize")
             constraints: Optional list of delegates that define constraints for the optimization. (Default: None)
@@ -240,6 +242,13 @@ class SimulatedAnnealingPattern(Delegate):
             random_seed: Seed for random number generation. (Default: None)
             tracer: Optional tracer for workflow and debugging.
         """
+
+        # Validate mutually exclusive delegates
+        if neighbor_delegate is None and modifications_delegate is None:
+            raise ValueError("Either neighbor_delegate or modifications_delegate must be provided.")
+        if neighbor_delegate is not None and modifications_delegate is not None:
+            raise ValueError("neighbor_delegate and modifications_delegate are mutually exclusive.")
+
         # Validate inputs
         if not all(isinstance(k, str) for k in initial_state):
             raise ValueError("All keys in initial_state must be strings.")
@@ -257,6 +266,7 @@ class SimulatedAnnealingPattern(Delegate):
                 raise ValueError("initial_state must not violate constraints.")
 
         self._neighbor_delegate = neighbor_delegate
+        self._modifications_delegate = modifications_delegate
         self._objective_delegate = objective_delegate
         self._objective_mode = objective_mode
         self._constraints = constraints or []
@@ -382,7 +392,12 @@ class SimulatedAnnealingPattern(Delegate):
             )
 
             # Generate neighbor
-            neighbor = self._neighbor_delegate(loop_state["current_state"])
+            if self._modifications_delegate is not None:
+                modifications = self._modifications_delegate(loop_state["current_state"])
+                selected_modification = self._rng.choice(modifications)
+                neighbor = {**loop_state["current_state"], **selected_modification}
+            else:
+                neighbor = self._neighbor_delegate(loop_state["current_state"])
 
             # Invalid neighbors count as iterations, but do not update state
             if self._constraints and not all(c(neighbor) for c in self._constraints):
@@ -552,6 +567,7 @@ __all__ = [
     "ExponentialSchedule",
     "LinearSchedule",
     "LogarithmicSchedule",
+    "ModificationsDelegate",
     "NeighborDelegate",
     "ObjectiveDelegate",
     "SimulatedAnnealingPattern",
