@@ -554,7 +554,7 @@ def _build_simulated_annealing_result(
     random_seed: int | None,
 ) -> ExecutionResult:
     """Build the final result from one simulated annealing workflow execution."""
-    loop_step_result = workflow_result.step_results.get("simulated_annealing_loop")
+    loop_step_result = workflow_result.step_results.get("simulated_annealing")
     loop_output = dict(loop_step_result.output) if loop_step_result is not None else {}
     final_state_raw = loop_output.get("final_state")
     final_state = dict(final_state_raw) if isinstance(final_state_raw, Mapping) else {}

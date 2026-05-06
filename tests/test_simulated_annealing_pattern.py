@@ -233,6 +233,57 @@ def test_objective_mode_to_internal_score_maximize() -> None:
     assert pattern._to_internal_score(-2.0) == 2.0
 
 
+# ---------------------- Execution tests ----------------------
+
+
+def test_execution_with_initial_state_generator() -> None:
+    def generator() -> dict[str, object]:
+        return {"x": 5.0}
+
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: state,
+        objective_delegate=lambda state: state["x"],
+        initial_state_generator=generator,
+        max_iterations=1,
+        random_seed=0,
+    )
+    result = pattern.run("test")
+    assert result.success
+    assert result.output["final_output"]["best_state"] is not None
+
+
+def test_execution_with_modifications_delegate() -> None:
+    def delegate(state: object) -> list[dict]:
+        return [{"x": state["x"] - 1.0}]
+
+    pattern = SimulatedAnnealingPattern(
+        modifications_delegate=delegate,
+        objective_delegate=lambda state: state["x"],
+        initial_state={"x": 10.0},
+        max_iterations=3,
+        random_seed=0,
+    )
+    result = pattern.run("test")
+    assert result.success
+    assert result.output["final_output"]["best_state"] is not None
+    assert result.output["final_output"]["best_state"]["x"] < 10.0
+
+
+def test_execution_with_objective_mode_maximize() -> None:
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: {"x": state["x"] + 1.0},
+        objective_delegate=lambda state: state["x"],
+        initial_state={"x": 0.0},
+        objective_mode="maximize",
+        max_iterations=5,
+        random_seed=0,
+    )
+    result = pattern.run("test")
+    assert result.success
+    assert result.output["final_output"]["best_state"] is not None
+    assert result.output["final_output"]["best_state"]["x"] >= 0.0
+
+
 # Optimization test ideas to begin with:
 #     Objective: maximize a polynomial function: f(x) = x^4-4x^3-2x^2+12x+1
 #          Initial state: x = 2
