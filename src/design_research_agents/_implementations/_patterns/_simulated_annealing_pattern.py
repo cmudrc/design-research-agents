@@ -391,12 +391,13 @@ class SimulatedAnnealingPattern(Delegate):
             )
 
             # Generate neighbor
-            if self._modifications_delegate is not None:
+            if self._neighbor_delegate is not None:
+                neighbor = self._neighbor_delegate(loop_state["current_state"])
+            else:
+                assert self._modifications_delegate is not None
                 modifications = self._modifications_delegate(loop_state["current_state"])
                 selected_modification = self._rng.choice(modifications)
                 neighbor = {**loop_state["current_state"], **selected_modification}
-            else:
-                neighbor = self._neighbor_delegate(loop_state["current_state"])
 
             # Invalid neighbors count as iterations, but do not update state
             if self._constraints and not all(c(neighbor) for c in self._constraints):
@@ -421,7 +422,6 @@ class SimulatedAnnealingPattern(Delegate):
             # Update state and objective value based on acceptance
             current_state = neighbor if accepted else loop_state["current_state"]
             current_objective_value = neighbor_objective_value if accepted else loop_state["current_objective_value"]
-
             is_better = self._to_internal_score(current_objective_value) < self._to_internal_score(
                 loop_state["best_objective_value"]
             )
