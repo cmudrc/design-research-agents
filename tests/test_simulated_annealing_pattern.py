@@ -178,7 +178,7 @@ def test_pattern_rejects_initial_state_failing_state_validator() -> None:
         )
 
 
-# ---------------------- Delegate and objective mode tests ----------------------
+# ---------------------- Delegate behavior tests ----------------------
 
 
 def test_pattern_accepts_initial_state_generator() -> None:
@@ -205,6 +205,9 @@ def test_modifications_delegate_stored_when_provided() -> None:
     )
     assert pattern._modifications_delegate is modifications_delegate
     assert pattern._neighbor_delegate is None
+
+
+# ---------------------- Objective mode tests ----------------------
 
 
 def test_objective_mode_to_internal_score_minimize() -> None:
