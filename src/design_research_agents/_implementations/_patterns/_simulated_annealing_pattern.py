@@ -26,6 +26,7 @@ NeighborDelegate = Callable[[Mapping[str, object]], Mapping[str, object]]
 ModificationsDelegate = Callable[[Mapping[str, object]], list[Mapping[str, object]]]
 ObjectiveDelegate = Callable[[Mapping[str, object]], float]
 ConstraintDelegate = Callable[[Mapping[str, object]], bool]
+InitialStateGenerator = Callable[[], Mapping[str, object]]
 
 
 class TemperatureSchedule(ABC):
@@ -166,6 +167,19 @@ class AdaptiveSchedule(TemperatureSchedule):
         return t_k * (1 - factor)
 
 
+def _validate_initial_state(
+    inital_state: Mapping[str, object],
+    constraints: list[ConstraintDelegate],
+) -> None:
+    """Validate initial state."""
+    if not all(isinstance(k, str) for k in inital_state):
+        raise ValueError("All keys in initial_state must be strings.")
+    if constraints:
+        violations = [i for i, c in enumerate(constraints) if not c(inital_state)]
+        if violations:
+            raise ValueError(f"initial_state violates constraints at indices: {violations}")
+
+
 def _metropolis_acceptance(
     current_internal_score: float,
     neighbor_internal_score: float,
@@ -213,7 +227,8 @@ class SimulatedAnnealingPattern(Delegate):
         objective_delegate: ObjectiveDelegate,
         objective_mode: Literal["minimize", "maximize"] = "minimize",
         constraints: list[ConstraintDelegate] | None = None,
-        initial_state: Mapping[str, object],
+        initial_state: Mapping[str, object] | None = None,
+        initial_state_generator: InitialStateGenerator | None = None,
         initial_temperature: float = 100.0,
         max_iterations: int = 100,
         convergence_threshold: float = 1e-6,
@@ -234,6 +249,9 @@ class SimulatedAnnealingPattern(Delegate):
             objective_mode: Whether to minimize or maximize the objective function. (Default: "minimize")
             constraints: Optional list of delegates that define constraints for the optimization. (Default: None)
             initial_state: Initial state for the optimization.
+                Mutually exclusive with initial_state_generator. (Default: None)
+            initial_state_generator: Callable that generates the initial state.
+                Mutually exclusive with initial_state. (Default: None)
             initial_temperature: Starting temperature for the annealing process. (Default: 100.0)
             max_iterations: Maximum number of iterations to perform. (Default: 100)
             convergence_threshold: Minimum absolute change in objective value to consider non-converged. (Default: 1e-6)
@@ -248,9 +266,13 @@ class SimulatedAnnealingPattern(Delegate):
         if neighbor_delegate is not None and modifications_delegate is not None:
             raise ValueError("neighbor_delegate and modifications_delegate are mutually exclusive.")
 
+        # Validate initial state exclusivity
+        if initial_state is None and initial_state_generator is None:
+            raise ValueError("Either initial_state or initial_state_generator must be provided.")
+        if initial_state is not None and initial_state_generator is not None:
+            raise ValueError("initial_state and initial_state_generator are mutually exclusive.")
+
         # Validate inputs
-        if not all(isinstance(k, str) for k in initial_state):
-            raise ValueError("All keys in initial_state must be strings.")
         if max_iterations < 1:
             raise ValueError("max_iterations must be >= 1.")
         if initial_temperature < 1:
@@ -259,17 +281,16 @@ class SimulatedAnnealingPattern(Delegate):
             raise ValueError("convergence_threshold must be > 0.")
         if convergence_steps < 1:
             raise ValueError("convergence_steps must be >= 1.")
-        if constraints:
-            violations = [i for i, c in enumerate(constraints) if not c(initial_state)]
-            if violations:
-                raise ValueError("initial_state must not violate constraints.")
+        if initial_state is not None:
+            _validate_initial_state(initial_state, constraints or [])
 
         self._neighbor_delegate = neighbor_delegate
         self._modifications_delegate = modifications_delegate
         self._objective_delegate = objective_delegate
         self._objective_mode = objective_mode
         self._constraints = constraints or []
-        self._initial_state = dict(initial_state)
+        self._initial_state = dict(initial_state) if initial_state is not None else None
+        self._initial_state_generator = initial_state_generator
         self._initial_temperature = initial_temperature
         self._max_iterations = max_iterations
         self._temperature_schedule = temperature_schedule or ExponentialSchedule(alpha=0.95)
@@ -339,7 +360,7 @@ class SimulatedAnnealingPattern(Delegate):
                 workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
-                initial_state=self._initial_state,
+                initial_state=self._initial_state or {},
                 objective_mode=self._objective_mode,
                 initial_temperature=self._initial_temperature,
                 max_iterations=self._max_iterations,
@@ -360,11 +381,16 @@ class SimulatedAnnealingPattern(Delegate):
         """Build the workflow wrapper for one simulated annealing run."""
 
         def _get_initial_loop_state() -> dict[str, object]:
-            initial_objective_value = self._objective_delegate(self._initial_state)
+            if self._initial_state is not None:
+                initial_state = self._initial_state
+            else:
+                assert self._initial_state_generator is not None
+                initial_state = dict(self._initial_state_generator())
+            initial_objective_value = self._objective_delegate(initial_state)
             return {
-                "current_state": dict(self._initial_state),
+                "current_state": dict(initial_state),
                 "current_objective_value": initial_objective_value,
-                "best_state": dict(self._initial_state),
+                "best_state": dict(initial_state),
                 "best_objective_value": initial_objective_value,
                 "current_temperature": self._initial_temperature,
                 "objective_value_history": [initial_objective_value],
@@ -566,6 +592,7 @@ __all__ = [
     "AdaptiveSchedule",
     "ConstraintDelegate",
     "ExponentialSchedule",
+    "InitialStateGenerator",
     "LinearSchedule",
     "LogarithmicSchedule",
     "ModificationsDelegate",
