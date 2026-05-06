@@ -7,6 +7,7 @@ import random
 import statistics
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
+from typing import Literal
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._workflow import LogicStep, LoopStep
@@ -165,18 +166,18 @@ class AdaptiveSchedule(TemperatureSchedule):
 
 
 def _metropolis_acceptance(
-    current_objective_value: float,
-    neighbor_objective_value: float,
+    current_internal_score: float,
+    neighbor_internal_score: float,
     temperature: float,
     rng: random.Random,
 ) -> bool:
     """Metropolis-Hastings acceptance criterion.
 
-    Returns whether to accept the neighbor state.
+    Returns whether to accept the neighbor state based on internal score.
 
     Args:
-        current_objective_value: Objective value of the current state.
-        neighbor_objective_value: Objective value of the proposed neighbor state.
+        current_internal_score: Internal score of the current state.
+        neighbor_internal_score: Internal score of the proposed neighbor state.
         temperature: Current temperature controlling acceptance probability.
         rng: Random number generator for stochastic acceptance.
 
@@ -184,7 +185,7 @@ def _metropolis_acceptance(
         accepted: whether the neighbor state is accepted.
     """
     # Always accept better states
-    if neighbor_objective_value < current_objective_value:
+    if neighbor_internal_score < current_internal_score:
         return True
 
     # Never accept worse states if temperature is zero or negative
@@ -192,7 +193,7 @@ def _metropolis_acceptance(
         return False
 
     # If neighbor is worse, accept with probabilty exp(-delta / temperature)
-    delta = neighbor_objective_value - current_objective_value
+    delta = neighbor_internal_score - current_internal_score
     acceptance_probability = math.exp(-delta / temperature)
 
     # Use seeded instance rather than global random for testability and reproducibility
@@ -211,6 +212,7 @@ class SimulatedAnnealingPattern(Delegate):
         *,
         neighbor_delegate: NeighborDelegate,
         objective_delegate: ObjectiveDelegate,
+        objective_mode: Literal["minimize", "maximize"] = "minimize",
         constraints: list[ConstraintDelegate] | None = None,
         initial_state: Mapping[str, object],
         initial_temperature: float = 100.0,
@@ -227,6 +229,7 @@ class SimulatedAnnealingPattern(Delegate):
         Args:
             neighbor_delegate: Delegate that generates a neighboring solution given the current solution.
             objective_delegate: Delegate that computes the objective function value for a given solution.
+            objective_mode: Whether to minimize or maximize the objective function. (Default: "minimize")
             constraints: Optional list of delegates that define constraints for the optimization. (Default: None)
             initial_state: Initial state for the optimization.
             initial_temperature: Starting temperature for the annealing process. (Default: 100.0)
@@ -255,6 +258,7 @@ class SimulatedAnnealingPattern(Delegate):
 
         self._neighbor_delegate = neighbor_delegate
         self._objective_delegate = objective_delegate
+        self._objective_mode = objective_mode
         self._constraints = constraints or []
         self._initial_state = dict(initial_state)
         self._initial_temperature = initial_temperature
@@ -266,6 +270,10 @@ class SimulatedAnnealingPattern(Delegate):
         self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
         self._tracer = tracer
         self.workflow: Workflow | None = None
+
+    def _to_internal_score(self, objective_value: float) -> float:
+        """Convert objective value to internal score for optimization."""
+        return -objective_value if self._objective_mode == "maximize" else objective_value
 
     def run(
         self,
@@ -310,6 +318,7 @@ class SimulatedAnnealingPattern(Delegate):
             input_payload={
                 **run_context.normalized_input,
                 "mode": MODE_SIMULATED_ANNEALING,
+                "objective_mode": self._objective_mode,
                 "initial_temperature": self._initial_temperature,
                 "max_iterations": self._max_iterations,
                 "convergence_threshold": self.convergence_threshold,
@@ -322,6 +331,7 @@ class SimulatedAnnealingPattern(Delegate):
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
                 initial_state=self._initial_state,
+                objective_mode=self._objective_mode,
                 initial_temperature=self._initial_temperature,
                 max_iterations=self._max_iterations,
                 convergence_threshold=self.convergence_threshold,
@@ -388,8 +398,8 @@ class SimulatedAnnealingPattern(Delegate):
 
             # Determine whether to accept neighbor
             accepted = _metropolis_acceptance(
-                current_objective_value=loop_state["current_objective_value"],
-                neighbor_objective_value=neighbor_objective_value,
+                current_internal_score=self._to_internal_score(loop_state["current_objective_value"]),
+                neighbor_internal_score=self._to_internal_score(neighbor_objective_value),
                 temperature=temperature,
                 rng=self._rng,
             )
@@ -397,8 +407,10 @@ class SimulatedAnnealingPattern(Delegate):
             # Update state and objective value based on acceptance
             current_state = neighbor if accepted else loop_state["current_state"]
             current_objective_value = neighbor_objective_value if accepted else loop_state["current_objective_value"]
-            best_state = current_state if current_objective_value < loop_state["best_objective_value"] else loop_state["best_state"]
-            best_objective_value = min(current_objective_value, loop_state["best_objective_value"])
+
+            is_better = self._to_internal_score(current_objective_value) < self._to_internal_score(loop_state["best_objective_value"])
+            best_state = current_state if is_better else loop_state["best_state"]
+            best_objective_value = current_objective_value if is_better else loop_state["best_objective_value"]
             objective_value_history = [*objective_value_history, current_objective_value]
 
             # Check for termination conditions
@@ -477,6 +489,7 @@ def _build_simulated_annealing_result(
     request_id: str,
     dependencies: Mapping[str, object],
     initial_state: Mapping[str, object],
+    objective_mode: Literal["minimize", "maximize"],
     initial_temperature: float,
     max_iterations: int,
     convergence_threshold: float,
@@ -505,6 +518,7 @@ def _build_simulated_annealing_result(
         terminated_reason=terminated_reason,
         details={
             "initial_state": dict(initial_state),
+            "objective_mode": objective_mode,
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "convergence_threshold": convergence_threshold,
@@ -519,6 +533,7 @@ def _build_simulated_annealing_result(
         dependencies=dependencies,
         mode=MODE_SIMULATED_ANNEALING,
         metadata={
+            "objective_mode": objective_mode,
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "temperature_schedule": temperature_schedule_name,
