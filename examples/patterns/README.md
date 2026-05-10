@@ -14,6 +14,7 @@ These scripts demonstrate reusable orchestration patterns built on top of workfl
 - `ralph_loop.py`
 - `nominal_team.py`
 - `rag.py`
+- `simulated_annealing.py`
 
 ## Quick Start
 
