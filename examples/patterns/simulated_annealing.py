@@ -42,6 +42,8 @@ Example output shape:
 
 ## References
 - `Optimization by Simulated Annealing <https://www.science.org/doi/10.1126/science.220.4598.671>`_
+- `Equation of State Calculations by Fast Computing Machines <https://doi.org/10.1063/1.1699114>`_
+- `Stochastic Relaxation, Gibbs Distributions, and Bayesian Image Restoration <https://doi.org/10.1109/TPAMI.1984.4767596>`_
 """
 
 from __future__ import annotations
