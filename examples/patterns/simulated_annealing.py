@@ -41,9 +41,9 @@ Example output shape:
    }
 
 ## References
-- `Optimization by Simulated Annealing <https://www.science.org/doi/10.1126/science.220.4598.671>`_
-- `Equation of State Calculations by Fast Computing Machines <https://doi.org/10.1063/1.1699114>`_
-- `Stochastic Relaxation, Gibbs Distributions, and Bayesian Image Restoration <https://doi.org/10.1109/TPAMI.1984.4767596>`_
+- `Simulated Annealing <https://en.wikipedia.org/wiki/Simulated_annealing>`_
+- `Metropolis-Hastings Algorithm <https://en.wikipedia.org/wiki/Metropolis%E2%80%93Hastings_algorithm>`_
+- `Mathematical Optimization <https://en.wikipedia.org/wiki/Mathematical_optimization>`_
 """
 
 from __future__ import annotations
