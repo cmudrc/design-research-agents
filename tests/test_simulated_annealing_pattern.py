@@ -194,6 +194,27 @@ def test_pattern_accepts_initial_state_generator() -> None:
     assert pattern._initial_state_generator is generator
 
 
+def test_pattern_validates_generated_initial_state_before_objective() -> None:
+    objective_calls = 0
+
+    def objective_delegate(state: object) -> float:
+        nonlocal objective_calls
+        objective_calls += 1
+        return 0.0
+
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: state,
+        objective_delegate=objective_delegate,
+        initial_state_generator=lambda: {"x": -1.0},
+        state_validator=lambda state: state["x"] >= 0,
+    )
+
+    with pytest.raises(ValueError, match="state_validator"):
+        pattern.run("test")
+
+    assert objective_calls == 0
+
+
 def test_modifications_delegate_stored_when_provided() -> None:
     def modifications_delegate(state: object) -> list[dict]:
         return [{"x": 1.0}]
@@ -252,6 +273,29 @@ def test_execution_with_initial_state_generator() -> None:
     assert result.output["final_output"]["best_state"] is not None
 
 
+def test_execution_validates_neighbor_state_before_objective() -> None:
+    objective_inputs: list[object] = []
+
+    def objective_delegate(state: object) -> float:
+        objective_inputs.append(state["x"])
+        return float(state["x"])
+
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: {"x": -1.0},
+        objective_delegate=objective_delegate,
+        initial_state={"x": 0.0},
+        state_validator=lambda state: state["x"] >= 0,
+        max_iterations=1,
+        random_seed=0,
+    )
+
+    result = pattern.run("test")
+
+    assert not result.success
+    assert objective_inputs == [0.0]
+    assert "state_validator" in str(result.to_dict())
+
+
 def test_execution_with_modifications_delegate() -> None:
     def delegate(state: object) -> list[dict]:
         return [{"x": state["x"] - 1.0}]
@@ -269,6 +313,23 @@ def test_execution_with_modifications_delegate() -> None:
     assert result.output["final_output"]["best_state"]["x"] < 10.0
 
 
+def test_execution_rejects_empty_modifications_delegate_result() -> None:
+    pattern = SimulatedAnnealingPattern(
+        modifications_delegate=lambda state: [],
+        objective_delegate=lambda state: state["x"],
+        initial_state={"x": 10.0},
+        max_iterations=1,
+        random_seed=0,
+    )
+
+    result = pattern.run("test")
+
+    assert not result.success
+    result_payload = str(result.to_dict())
+    assert "modifications_delegate must return at least one modification" in result_payload
+    assert "IndexError" not in result_payload
+
+
 def test_execution_with_objective_mode_maximize() -> None:
     pattern = SimulatedAnnealingPattern(
         neighbor_delegate=lambda state: {"x": state["x"] + 1.0},
@@ -282,6 +343,24 @@ def test_execution_with_objective_mode_maximize() -> None:
     assert result.success
     assert result.output["final_output"]["best_state"] is not None
     assert result.output["final_output"]["best_state"]["x"] >= 0.0
+
+
+def test_execution_detects_convergence_after_objective_changes_then_stabilizes() -> None:
+    pattern = SimulatedAnnealingPattern(
+        neighbor_delegate=lambda state: {"x": 1.0},
+        objective_delegate=lambda state: -float(state["x"]),
+        initial_state={"x": 0.0},
+        initial_temperature=1.0,
+        max_iterations=5,
+        convergence_steps=1,
+        random_seed=0,
+    )
+
+    result = pattern.run("test")
+
+    assert result.success
+    assert result.output["terminated_reason"] == "converged"
+    assert result.output["final_output"]["iterations"] == 2
 
 
 # Optimization test ideas to begin with:

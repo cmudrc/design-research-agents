@@ -168,22 +168,38 @@ class AdaptiveSchedule(TemperatureSchedule):
         return t_k * (1 - factor)
 
 
+def _validate_state_shape(
+    state: Mapping[str, object],
+    *,
+    state_name: str,
+    expected_keys: set[str] | None,
+    state_validator: StateValidator | None,
+) -> None:
+    """Validate structural state requirements shared by initial and runtime states."""
+    if not all(isinstance(k, str) for k in state):
+        raise ValueError(f"All keys in {state_name} must be strings.")
+    if expected_keys is not None and not expected_keys.issubset(state.keys()):
+        missing_keys = expected_keys - state.keys()
+        raise ValueError(f"{state_name} is missing expected keys: {missing_keys}")
+    if state_validator is not None and not state_validator(state):
+        raise ValueError(f"{state_name} failed validation by state_validator.")
+
+
 def _validate_initial_state(
-    inital_state: Mapping[str, object],
+    initial_state: Mapping[str, object],
     constraints: list[ConstraintDelegate],
     expected_keys: set[str] | None,
     state_validator: StateValidator | None,
 ) -> None:
     """Validate initial state."""
-    if not all(isinstance(k, str) for k in inital_state):
-        raise ValueError("All keys in initial_state must be strings.")
-    if expected_keys is not None and not expected_keys.issubset(inital_state.keys()):
-        missing_keys = expected_keys - inital_state.keys()
-        raise ValueError(f"initial_state is missing expected keys: {missing_keys}")
-    if state_validator is not None and not state_validator(inital_state):
-        raise ValueError("initial_state failed validation by state_validator.")
+    _validate_state_shape(
+        initial_state,
+        state_name="initial_state",
+        expected_keys=expected_keys,
+        state_validator=state_validator,
+    )
     if constraints:
-        violations = [i for i, c in enumerate(constraints) if not c(inital_state)]
+        violations = [i for i, c in enumerate(constraints) if not c(initial_state)]
         if violations:
             raise ValueError(f"initial_state violates constraints at indices: {violations}")
 
@@ -400,6 +416,12 @@ class SimulatedAnnealingPattern(Delegate):
             else:
                 assert self._initial_state_generator is not None
                 initial_state = dict(self._initial_state_generator())
+                _validate_initial_state(
+                    initial_state,
+                    self._constraints,
+                    self._expected_keys,
+                    self._state_validator,
+                )
             initial_objective_value = self._objective_delegate(initial_state)
             return {
                 "current_state": dict(initial_state),
@@ -436,8 +458,17 @@ class SimulatedAnnealingPattern(Delegate):
             else:
                 assert self._modifications_delegate is not None
                 modifications = self._modifications_delegate(loop_state["current_state"])
+                if not modifications:
+                    raise ValueError("modifications_delegate must return at least one modification.")
                 selected_modification = self._rng.choice(modifications)
                 neighbor = {**loop_state["current_state"], **selected_modification}
+
+            _validate_state_shape(
+                neighbor,
+                state_name="neighbor state",
+                expected_keys=self._expected_keys,
+                state_validator=self._state_validator,
+            )
 
             # Invalid neighbors count as iterations, but do not update state
             if self._constraints and not all(c(neighbor) for c in self._constraints):
@@ -500,7 +531,7 @@ class SimulatedAnnealingPattern(Delegate):
                 "iteration": iteration + 1,
                 "should_continue": should_continue,
                 "convergence_counter": convergence_counter,
-                "last_objective_value": last_objective_value,
+                "last_objective_value": current_objective_value,
                 "terminated_reason": terminated_reason,
             }
 
