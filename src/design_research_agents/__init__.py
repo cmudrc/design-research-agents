@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Final
 
@@ -61,6 +62,7 @@ _EXPORTS: Final[dict[str, str]] = {
 }
 
 __all__ = ["__version__", *_EXPORTS.keys()]
+__all__.append("integration")
 
 try:
     __version__ = version("design-research-agents")
@@ -80,6 +82,11 @@ def __getattr__(name: str) -> object:
     Raises:
         AttributeError: If ``name`` is not part of the public export map.
     """
+    if name == "integration":
+        module = import_module("design_research_agents.integration")
+        globals()[name] = module
+        return module
+
     return resolve_lazy_export(
         module_name=__name__,
         exports=_EXPORTS,
@@ -116,6 +123,7 @@ if TYPE_CHECKING:
     from .agent import MultiStepAgent as MultiStepAgent
     from .agent import PromptWorkflowAgent as PromptWorkflowAgent
     from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
+    from .integration import execute_agent_run as execute_agent_run
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient

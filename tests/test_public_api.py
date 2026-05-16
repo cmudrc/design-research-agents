@@ -70,6 +70,7 @@ EXPECTED_PUBLIC_API = [
     "SGLangServerLLMClient",
     "ModelSelector",
     "Tracer",
+    "integration",
 ]
 
 EXPECTED_AGENT_API = [
