@@ -28,6 +28,7 @@ This package centers on reproducible agent workflows with a compact public API:
 - Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
 - A seeded random control-condition agent for packaged-problem studies (`SeededRandomBaselineAgent`)
 - A prompt-driven workflow agent for packaged-problem studies (`PromptWorkflowAgent`)
+- A study-facing integration seam in `design_research_agents.integration` for experiment runners
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
 - Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
@@ -98,6 +99,7 @@ The supported public surface is whatever is exported from
 Top-level exports include:
 
 - Agent entry points: `DirectLLMCall`, `MultiStepAgent`, `SeededRandomBaselineAgent`, `PromptWorkflowAgent`
+- Study-facing integration helpers: `integration` and `execute_agent_run`
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
