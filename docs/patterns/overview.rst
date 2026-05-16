@@ -11,6 +11,7 @@ Available reusable pattern implementations:
 - ``RoundBasedCoordinationPattern``: round-based peer coordination with no central orchestrator.
 - ``BlackboardPattern``: networked coordination with explicit shared board semantics.
 - ``TreeSearchPattern``: generator/evaluator reasoning over configurable tree-search strategies.
+- ``SimulatedAnnealingPattern``: local numeric optimization with temperature-based acceptance and convergence checks.
 - ``RalphLoopPattern``: ordered multi-role refinement with dedicated evaluator-score threshold stopping.
 - ``NominalTeamPattern``: independent fan-out generation with evaluator-driven best-of-N selection.
 - ``RAGPattern``: retrieval-augmented reasoning via memory workflow steps.
@@ -31,6 +32,7 @@ Examples
 - ``examples/patterns/two_speaker_conversation.py``
 - ``examples/patterns/coordination_patterns.py``
 - ``examples/patterns/tree_search.py``
+- ``examples/patterns/simulated_annealing.py``
 - ``examples/patterns/ralph_loop.py``
 - ``examples/patterns/nominal_team.py``
 - ``examples/patterns/rag.py``

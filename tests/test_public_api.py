@@ -55,6 +55,7 @@ EXPECTED_PUBLIC_API = [
     "BlackboardPattern",
     "TreeSearchPattern",
     "RAGPattern",
+    "SimulatedAnnealingPattern",
     "AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient",
@@ -109,6 +110,7 @@ EXPECTED_PATTERNS_API = [
     "RalphLoopPattern",
     "NominalTeamPattern",
     "RouterDelegatePattern",
+    "SimulatedAnnealingPattern",
     "TreeSearchPattern",
 ]
 LEGACY_PUBLIC_SYMBOLS = [

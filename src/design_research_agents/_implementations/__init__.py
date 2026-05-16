@@ -14,6 +14,7 @@ from ._patterns import (
     RalphLoopPattern,
     RoundBasedCoordinationPattern,
     RouterDelegatePattern,
+    SimulatedAnnealingPattern,
     TreeSearchPattern,
     TwoSpeakerConversationPattern,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "RalphLoopPattern",
     "RoundBasedCoordinationPattern",
     "RouterDelegatePattern",
+    "SimulatedAnnealingPattern",
     "TreeSearchPattern",
     "TwoSpeakerConversationPattern",
 ]

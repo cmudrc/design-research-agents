@@ -43,6 +43,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
+    "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
@@ -136,6 +137,7 @@ if TYPE_CHECKING:
     from .patterns import RalphLoopPattern as RalphLoopPattern
     from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
     from .patterns import RouterDelegatePattern as RouterDelegatePattern
+    from .patterns import SimulatedAnnealingPattern as SimulatedAnnealingPattern
     from .patterns import TreeSearchPattern as TreeSearchPattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
     from .skills import SkillsConfig as SkillsConfig
