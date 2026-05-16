@@ -109,7 +109,7 @@ def _signature_from_schema(*, tool_name: str, input_schema: Mapping[str, object]
             continue
         parameter_name = raw_name if raw_name.isidentifier() else _safe_identifier(raw_name)
         annotation = _annotation_from_schema(field_schema)
-        default = inspect._empty
+        default: object = inspect._empty
         if raw_name not in required_names:
             annotation = annotation | None
             default = None

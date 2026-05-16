@@ -69,11 +69,12 @@ class _SdkStdioMcpClient:
                         ) as session:
                             await session.initialize()
                             listed = await session.list_tools()
-                            return [_dump_model(tool) for tool in listed.tools]
+                            tools = [_dump_model(tool) for tool in listed.tools]
+                            return tools
                 finally:
                     self._record_errlog(errlog)
 
-        return self._run(_list_tools)
+        return cast(list[dict[str, object]], self._run(_list_tools))
 
     def call_tool(self, *, tool_name: str, arguments: Mapping[str, object]) -> dict[str, object]:
         """Invoke one remote MCP tool and return its raw result envelope.
@@ -112,7 +113,7 @@ class _SdkStdioMcpClient:
                 finally:
                     self._record_errlog(errlog)
 
-        return self._run(_call_tool)
+        return cast(dict[str, object], self._run(_call_tool))
 
     def record_stderr(self, text: str) -> None:
         """Record one or more stderr lines emitted by the SDK-managed subprocess."""
