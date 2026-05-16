@@ -43,8 +43,8 @@ def test_validation_anyof_type_and_object_array_edge_paths() -> None:
                     {"type": "string"},
                     {"type": "integer"},
                 ]
-        },
-    )
+            },
+        )
 
     validate_payload_against_schema(
         payload={"a": "value"},

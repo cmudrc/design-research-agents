@@ -84,6 +84,16 @@ EXPECTED_BADGES = (
         "https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg",
         "https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml",
     ),
+    (
+        "PyPI Version",
+        "https://img.shields.io/pypi/v/design-research-agents.svg",
+        "https://pypi.org/project/design-research-agents/",
+    ),
+    (
+        "Python Versions",
+        "https://img.shields.io/pypi/pyversions/design-research-agents.svg",
+        "https://pypi.org/project/design-research-agents/",
+    ),
 )
 DOCS_AUTOMATION_REQUIRED_FILES = (
     "scripts/generate_example_docs.py",

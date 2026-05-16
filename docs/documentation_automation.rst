@@ -8,7 +8,7 @@ where the utilities apply, with repo-specific exceptions called out explicitly.
 Shared Baseline
 ---------------
 
-- ``README.md``, the PyPI long description, and :doc:`index` share the same five-badge baseline: CI, Coverage, Examples Passing, Public API In Examples, and Docs.
+- ``README.md``, the PyPI long description, and :doc:`index` share the same seven-badge baseline: CI, Coverage, Examples Passing, Public API In Examples, Docs, PyPI Version, and Python Versions.
 - ``make docs-check``, ``make docs-build``, and ``make docs-linkcheck`` are the canonical docs validation commands.
 - ``scripts/generate_example_docs.py`` is the canonical path for generating example pages from runnable sources.
 - ``make examples-metrics`` is the canonical badge/metrics refresh path for deterministic example reporting.

@@ -97,9 +97,11 @@ def _signature_from_schema(*, tool_name: str, input_schema: Mapping[str, object]
         properties = {}
 
     required_raw = input_schema.get("required", ())
-    required_names = {
-        item for item in required_raw if isinstance(item, str)
-    } if isinstance(required_raw, Sequence) and not isinstance(required_raw, (str, bytes)) else set()
+    required_names = (
+        {item for item in required_raw if isinstance(item, str)}
+        if isinstance(required_raw, Sequence) and not isinstance(required_raw, (str, bytes))
+        else set()
+    )
 
     parameters: list[inspect.Parameter] = []
     for raw_name, field_schema in properties.items():

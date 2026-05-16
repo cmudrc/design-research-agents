@@ -48,7 +48,7 @@ Issues = "https://github.com/cmudrc/design-research-agents/issues"
 # Contributor batteries.
 dev = [
   "mypy>=1.10,<2",
-  "mcp>=1,<2",
+  "mcp>=1.10,<2",
   "pydata-sphinx-theme>=0.16,<1",
   "pre-commit>=3.7,<5",
   "pytest>=8.2,<9",
@@ -74,7 +74,7 @@ gemini = ["google-genai>=1.0,<2"]
 
 groq = ["groq>=1.0,<2"]
 
-mcp = ["mcp>=1,<2"]
+mcp = ["mcp>=1.10,<2"]
 
 # Optional memory backends
 memory_chroma = ["chromadb>=1.0,<2"]

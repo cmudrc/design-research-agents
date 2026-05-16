@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import tempfile
 from collections import deque
@@ -48,13 +49,14 @@ class _SdkStdioMcpClient:
         Raises:
             McpProtocolError: If the server response is malformed.
         """
+
         async def _list_tools() -> list[dict[str, object]]:
             anyio_module, client_session_cls, stdio_module, types_module = _import_mcp_sdk_modules()
             del anyio_module
             params = self._stdio_parameters(stdio_module=stdio_module)
             with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as errlog:
                 try:
-                    async with stdio_module.stdio_client(params, errlog=errlog) as streams:
+                    async with self._stdio_client(stdio_module=stdio_module, params=params, errlog=errlog) as streams:
                         read_stream, write_stream = streams
                         async with client_session_cls(
                             read_stream,
@@ -86,13 +88,14 @@ class _SdkStdioMcpClient:
         Raises:
             McpProtocolError: If the server response is malformed or reports an error.
         """
+
         async def _call_tool() -> dict[str, object]:
             anyio_module, client_session_cls, stdio_module, types_module = _import_mcp_sdk_modules()
             del anyio_module
             params = self._stdio_parameters(stdio_module=stdio_module)
             with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as errlog:
                 try:
-                    async with stdio_module.stdio_client(params, errlog=errlog) as streams:
+                    async with self._stdio_client(stdio_module=stdio_module, params=params, errlog=errlog) as streams:
                         read_stream, write_stream = streams
                         async with client_session_cls(
                             read_stream,
@@ -136,6 +139,17 @@ class _SdkStdioMcpClient:
             return
         if isinstance(text, str):
             self.record_stderr(text)
+
+    def _stdio_client(self, *, stdio_module: Any, params: Any, errlog: Any) -> Any:
+        """Open an SDK stdio client across MCP SDK minor-version signatures."""
+        client = stdio_module.stdio_client
+        try:
+            signature = inspect.signature(client)
+        except (TypeError, ValueError):
+            signature = None
+        if signature is not None and "errlog" in signature.parameters:
+            return client(params, errlog=errlog)
+        return client(params)
 
     def _stdio_parameters(self, *, stdio_module: Any) -> Any:
         command = tuple(self._server.command)
