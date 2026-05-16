@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import io
-import json
+import importlib.util
 import runpy
 from collections.abc import Mapping
 
@@ -11,6 +10,8 @@ from design_research_agents._contracts._tools import ToolResult, ToolSpec
 from design_research_agents._mcp_server import _adapters as adapters
 from design_research_agents._mcp_server import _cli as mcp_cli
 from design_research_agents._mcp_server import _server as mcp_server
+
+_HAS_MCP = importlib.util.find_spec("mcp") is not None
 
 
 class _RuntimeStub:
@@ -22,7 +23,12 @@ class _RuntimeStub:
             ToolSpec(
                 name="text.word_count",
                 description="Count words in text.",
-                input_schema={"type": "object"},
+                input_schema={
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
                 output_schema={"type": "object"},
             ),
         )
@@ -41,53 +47,19 @@ class _RuntimeStub:
         return ToolResult(tool_name=tool_name, ok=True, result={"echo": payload})
 
 
-def test_stdio_server_serve_round_trip_and_errors() -> None:
+@pytest.mark.skipif(not _HAS_MCP, reason="mcp SDK unavailable")
+def test_mcp_server_builds_fastmcp_tools() -> None:
+    import anyio
+
     runtime = _RuntimeStub()
-    server = mcp_server.StdioMcpServer(runtime=runtime)
-    requests = [
-        "not-json",
-        json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize"}),
-        json.dumps({"jsonrpc": "2.0", "id": 2, "method": "initialized"}),
-        json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/list"}),
-        json.dumps(
-            {
-                "jsonrpc": "2.0",
-                "id": 4,
-                "method": "tools/call",
-                "params": {"name": "text.word_count", "arguments": {"text": "one two"}},
-            }
-        ),
-        json.dumps(
-            {
-                "jsonrpc": "2.0",
-                "id": 5,
-                "method": "tools/call",
-                "params": {"name": "text.word_count", "arguments": []},
-            }
-        ),
-        json.dumps({"jsonrpc": "2.0", "id": 6, "method": "unknown/method"}),
-        json.dumps({"jsonrpc": "2.0", "id": 7, "method": "shutdown"}),
-    ]
-    stdin = io.StringIO("\n".join(requests) + "\n")
-    stdout = io.StringIO()
+    server = mcp_server.create_mcp_server(runtime=runtime)
 
-    server.serve(stdin=stdin, stdout=stdout)
+    tools = anyio.run(server.list_tools)
+    tool = next(item for item in tools if item.name == "text.word_count")
+    assert tool.inputSchema["properties"]["text"]["type"] == "string"
 
-    responses = [json.loads(line) for line in stdout.getvalue().splitlines() if line.strip()]
-    by_id = {response["id"]: response for response in responses if response.get("id") is not None}
-    parse_error = next(response for response in responses if response.get("id") is None)
-
-    assert parse_error["error"]["code"] == -32700
-    assert "Parse error:" in parse_error["error"]["message"]
-
-    assert by_id[1]["result"]["protocolVersion"] == "2024-11-05"
-    assert by_id[2]["result"] is None
-    assert by_id[3]["result"]["tools"][0]["name"] == "text.word_count"
-    assert by_id[4]["result"]["isError"] is False
-    assert by_id[4]["result"]["structuredContent"]["result"] == {"echo": {"text": "one two"}}
-    assert by_id[5]["error"]["code"] == -32602
-    assert by_id[6]["error"]["code"] == -32601
-    assert by_id[7]["result"] is None
+    _content, structured = anyio.run(server.call_tool, "text.word_count", {"text": "one two"})
+    assert structured["result"] == {"echo": {"text": "one two"}}
     assert runtime.invocations == [("text.word_count", {"text": "one two"}, "mcp")]
 
 
@@ -132,17 +104,15 @@ def test_mcp_server_serve_stdio_uses_default_streams(
         def __init__(self, *, runtime: object | None = None) -> None:
             captured["runtime"] = runtime
 
-        def serve(self, *, stdin: object, stdout: object) -> None:
-            captured["stdin"] = stdin
-            captured["stdout"] = stdout
+        def run(self) -> None:
+            captured["ran"] = True
 
     runtime = object()
     monkeypatch.setattr(mcp_server, "StdioMcpServer", _FakeServer)
     mcp_server._serve_stdio(runtime=runtime)
 
     assert captured["runtime"] is runtime
-    assert captured["stdin"] is mcp_server.sys.stdin
-    assert captured["stdout"] is mcp_server.sys.stdout
+    assert captured["ran"] is True
 
 
 def test_mcp_server_cli_main_calls_stdio(monkeypatch: pytest.MonkeyPatch) -> None:

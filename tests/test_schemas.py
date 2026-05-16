@@ -167,5 +167,5 @@ def test_schema_validation_type_union_and_null_paths() -> None:
     with pytest.raises(SchemaValidationError, match="expected null"):
         validate_payload_against_schema(payload="x", schema={"type": "null"})
 
-    # A non-string type entry should be ignored while valid entries still apply.
-    validate_payload_against_schema(payload="ok", schema={"type": ["string", 1]})
+    with pytest.raises(SchemaValidationError, match="invalid JSON schema"):
+        validate_payload_against_schema(payload="ok", schema={"type": ["string", 1]})

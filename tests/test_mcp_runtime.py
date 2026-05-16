@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import importlib.util
 import sys
+
+import pytest
 
 from design_research_agents.tools import Toolbox
 from design_research_agents.tools._config import MCPServerConfig
+
+pytestmark = pytest.mark.skipif(importlib.util.find_spec("mcp") is None, reason="mcp SDK unavailable")
 
 
 def test_mcp_stdio_server_list_and_call() -> None:

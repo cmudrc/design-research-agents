@@ -1,189 +1,201 @@
-"""Stdio MCP server exposing runtime tools."""
+"""Official MCP SDK server exposing runtime tools."""
 
 from __future__ import annotations
 
-import json
+import inspect
 import sys
-from collections.abc import Mapping
-from typing import TextIO
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, is_dataclass
+from pathlib import Path
+from typing import Any, cast
 
-from design_research_agents._contracts._tools import ToolRuntime
+from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents.tools import Toolbox
 
-from ._adapters import tool_result_to_mcp_payload, tool_spec_to_mcp_payload
+
+class McpServerDependencyError(ImportError):
+    """Raised when the optional MCP SDK is not installed."""
 
 
 class StdioMcpServer:
-    """Minimal JSON-RPC MCP server over stdio."""
+    """Thin compatibility wrapper around an official FastMCP stdio server."""
 
     def __init__(self, *, runtime: ToolRuntime | None = None) -> None:
-        """Initialize the server with a runtime or default unified runtime.
+        """Initialize the server with a runtime or default unified runtime."""
+        self._server = create_mcp_server(runtime=runtime)
 
-        Args:
-            runtime: Tool runtime used to list and invoke tools. Defaults to ``Toolbox``.
+    def run(self) -> None:
+        """Run the wrapped server over process stdio."""
+        self._server.run(transport="stdio")
+
+    def serve(self, *, stdin: object, stdout: object) -> None:
+        """Serve over stdio.
+
+        The official MCP SDK owns process stdio directly. The ``stdin`` and
+        ``stdout`` parameters are accepted for backward-compatible call sites,
+        but custom stream injection is no longer supported.
         """
-        self._runtime = runtime or Toolbox()
+        if stdin is not sys.stdin or stdout is not sys.stdout:
+            raise RuntimeError("The official MCP SDK stdio server requires process stdin/stdout.")
+        self.run()
 
-    def serve(self, *, stdin: TextIO, stdout: TextIO) -> None:
-        """Serve until stdin closes.
 
-        Args:
-            stdin: Input stream carrying one JSON-RPC request per line.
-            stdout: Output stream used for JSON-RPC responses.
-        """
-        for line in stdin:
-            raw_line = line.strip()
-            if not raw_line:
-                continue
-            try:
-                request = json.loads(raw_line)
-            except json.JSONDecodeError as exc:
-                self._write_error(
-                    stdout,
-                    request_id=None,
-                    code=-32700,
-                    message=f"Parse error: {exc}",
-                )
-                continue
-
-            response = self._handle_request(request)
-            stdout.write(json.dumps(response, ensure_ascii=True) + "\n")
-            stdout.flush()
-
-    def _handle_request(self, request: Mapping[str, object]) -> dict[str, object]:
-        """Dispatch one JSON-RPC request to an MCP handler.
-
-        Args:
-            request: Parsed JSON-RPC request object.
-
-        Returns:
-            JSON-RPC response object.
-        """
-        request_id = request.get("id")
-        method = str(request.get("method", ""))
-        params = request.get("params")
-        if not isinstance(params, Mapping):
-            params = {}
-
-        if method == "initialize":
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {"tools": {}},
-                    "serverInfo": {
-                        "name": "design-research-agents",
-                        "version": "0.1.0",
-                    },
-                },
-            }
-
-        if method == "initialized":
-            return {"jsonrpc": "2.0", "id": request_id, "result": None}
-
-        if method == "tools/list":
-            tools = [tool_spec_to_mcp_payload(spec) for spec in self._runtime.list_tools()]
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {"tools": tools},
-            }
-
-        if method == "tools/call":
-            name = str(params.get("name", "")).strip()
-            arguments = params.get("arguments", {})
-            if not isinstance(arguments, Mapping):
-                return self._error_response(
-                    request_id=request_id,
-                    code=-32602,
-                    message="tools/call arguments must be an object.",
-                )
-            result = self._runtime.invoke(
-                name,
-                dict(arguments),
-                request_id="mcp",
-                dependencies={},
-            )
-            return {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": tool_result_to_mcp_payload(result),
-            }
-
-        if method == "shutdown":
-            return {"jsonrpc": "2.0", "id": request_id, "result": None}
-
-        return self._error_response(
-            request_id=request_id,
-            code=-32601,
-            message=f"Method not found: {method}",
+def create_mcp_server(*, runtime: ToolRuntime | None = None) -> Any:
+    """Build a FastMCP server from a tool runtime."""
+    fastmcp_cls = _import_fastmcp()
+    resolved_runtime = runtime or Toolbox()
+    server = fastmcp_cls("design-research-agents")
+    for spec in resolved_runtime.list_tools():
+        runtime_tool = _build_runtime_tool(runtime=resolved_runtime, spec=spec)
+        server.add_tool(
+            runtime_tool,
+            name=spec.name,
+            description=spec.description,
+            structured_output=True,
         )
+        _patch_registered_input_schema(server=server, spec=spec)
+    return server
 
-    def _error_response(
-        self,
-        *,
-        request_id: object,
-        code: int,
-        message: str,
-    ) -> dict[str, object]:
-        """Build a JSON-RPC error response payload.
 
-        Args:
-            request_id: Request id to echo back to the client.
-            code: JSON-RPC error code.
-            message: Human-readable error message.
+def _build_runtime_tool(*, runtime: ToolRuntime, spec: ToolSpec) -> Any:
+    signature = _signature_from_schema(tool_name=spec.name, input_schema=spec.input_schema)
+    optional_none_keys = tuple(
+        parameter.name for parameter in signature.parameters.values() if parameter.default is None
+    )
 
-        Returns:
-            JSON-RPC error response object.
-        """
-        return {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "error": {
-                "code": code,
-                "message": message,
-            },
-        }
+    async def runtime_tool(**kwargs: object) -> dict[str, object]:
+        forwarded = dict(kwargs)
+        for key in optional_none_keys:
+            if forwarded.get(key) is None:
+                forwarded.pop(key, None)
+        result = runtime.invoke(spec.name, forwarded, request_id="mcp", dependencies={})
+        if not result.ok:
+            raise ValueError(result.error_message or f"Tool {spec.name!r} failed.")
+        return _tool_result_payload(result)
 
-    def _write_error(
-        self,
-        stdout: TextIO,
-        *,
-        request_id: object,
-        code: int,
-        message: str,
-    ) -> None:
-        """Write one JSON-RPC error object to the output stream.
+    runtime_tool.__name__ = f"tool_{_safe_identifier(spec.name)}"
+    runtime_tool_any = cast(Any, runtime_tool)
+    runtime_tool_any.__signature__ = signature
+    return runtime_tool
 
-        Args:
-            stdout: Output stream receiving the encoded error line.
-            request_id: Request id to echo back to the client.
-            code: JSON-RPC error code.
-            message: Human-readable error message.
-        """
-        stdout.write(
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "error": {"code": code, "message": message},
-                },
-                ensure_ascii=True,
+
+def _patch_registered_input_schema(*, server: Any, spec: ToolSpec) -> None:
+    """Preserve runtime-declared JSON schemas in FastMCP tool listings."""
+    tool_manager = getattr(server, "_tool_manager", None)
+    tools = getattr(tool_manager, "_tools", None)
+    if isinstance(tools, dict) and spec.name in tools:
+        tools[spec.name].parameters = dict(spec.input_schema)
+
+
+def _signature_from_schema(*, tool_name: str, input_schema: Mapping[str, object]) -> inspect.Signature:
+    schema_type = input_schema.get("type")
+    if schema_type not in (None, "object"):
+        return inspect.Signature(return_annotation=dict[str, object])
+
+    properties = input_schema.get("properties")
+    if not isinstance(properties, Mapping):
+        properties = {}
+
+    required_raw = input_schema.get("required", ())
+    required_names = {
+        item for item in required_raw if isinstance(item, str)
+    } if isinstance(required_raw, Sequence) and not isinstance(required_raw, (str, bytes)) else set()
+
+    parameters: list[inspect.Parameter] = []
+    for raw_name, field_schema in properties.items():
+        if not isinstance(raw_name, str):
+            continue
+        parameter_name = raw_name if raw_name.isidentifier() else _safe_identifier(raw_name)
+        annotation = _annotation_from_schema(field_schema)
+        default = inspect._empty
+        if raw_name not in required_names:
+            annotation = annotation | None
+            default = None
+        parameters.append(
+            inspect.Parameter(
+                parameter_name,
+                kind=inspect.Parameter.KEYWORD_ONLY,
+                annotation=annotation,
+                default=default,
             )
-            + "\n"
         )
-        stdout.flush()
+    try:
+        return inspect.Signature(parameters=parameters, return_annotation=dict[str, object])
+    except ValueError as exc:
+        raise ValueError(f"Cannot expose tool {tool_name!r} through MCP: {exc}") from exc
+
+
+def _annotation_from_schema(schema: object) -> Any:
+    if not isinstance(schema, Mapping):
+        return object
+    schema_type = schema.get("type")
+    if isinstance(schema_type, list):
+        non_null = [entry for entry in schema_type if entry != "null"]
+        schema_type = non_null[0] if non_null else None
+    if schema_type == "string":
+        return str
+    if schema_type == "number":
+        return float
+    if schema_type == "integer":
+        return int
+    if schema_type == "boolean":
+        return bool
+    if schema_type == "array":
+        return list[object]
+    if schema_type == "object":
+        return dict[str, object]
+    return object
+
+
+def _tool_result_payload(result: ToolResult) -> dict[str, object]:
+    return {
+        "tool_name": result.tool_name,
+        "ok": result.ok,
+        "result": _to_jsonable(result.result),
+        "artifacts": [_to_jsonable(asdict(artifact)) for artifact in result.artifacts],
+        "warnings": list(result.warnings),
+        "error": _to_jsonable(asdict(result.error)) if result.error is not None else None,
+        "metadata": _to_jsonable(result.metadata),
+    }
+
+
+def _to_jsonable(value: object) -> object:
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if is_dataclass(value) and not isinstance(value, type):
+        return _to_jsonable(asdict(value))
+    if isinstance(value, Mapping):
+        return {str(key): _to_jsonable(item) for key, item in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
+        return [_to_jsonable(item) for item in value]
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _safe_identifier(name: str) -> str:
+    token = "".join(char if (char.isalnum() or char == "_") else "_" for char in name)
+    if not token or token[0].isdigit():
+        token = f"tool_{token}"
+    return token
+
+
+def _import_fastmcp() -> Any:
+    try:
+        from mcp.server.fastmcp import FastMCP
+    except ImportError as exc:
+        raise McpServerDependencyError(
+            "The official MCP Python SDK is required for the built-in MCP server. "
+            "Install it with: pip install design-research-agents[mcp]"
+        ) from exc
+    return FastMCP
 
 
 def _serve_stdio(runtime: ToolRuntime | None = None) -> None:
-    """Start stdio MCP server.
-
-    Args:
-        runtime: Optional tool runtime override used by the server.
-    """
-    server = StdioMcpServer(runtime=runtime)
-    server.serve(stdin=sys.stdin, stdout=sys.stdout)
+    """Start the official stdio MCP server."""
+    StdioMcpServer(runtime=runtime).run()
 
 
-__all__ = ["StdioMcpServer"]
+__all__ = ["McpServerDependencyError", "StdioMcpServer", "create_mcp_server"]
