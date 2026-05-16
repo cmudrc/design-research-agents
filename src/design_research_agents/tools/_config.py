@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -74,6 +75,50 @@ class MCPServerConfig:
     """Explicit environment variables to set for the server process. This is a mapping of variable 
     names to their desired values. These variables will be included in the server's environment in 
     addition to any variables from the allowlist that are present in the parent process."""
+
+    @classmethod
+    def python_module(
+        cls,
+        *,
+        id: str,
+        module: str,
+        args: tuple[str | Path, ...] = (),
+        python: str | Path | None = None,
+        timeout_s: int = 20,
+        env_allowlist: tuple[str, ...] | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> MCPServerConfig:
+        """Create a stdio server config for ``python -m <module>``.
+
+        Args:
+            id: Unique server identifier used in tool names and traces.
+            module: Importable Python module to launch with ``-m``.
+            args: Positional command-line arguments passed after the module.
+            python: Python executable to use. Defaults to the current interpreter.
+            timeout_s: Timeout in seconds for MCP server responses.
+            env_allowlist: Optional environment-variable allowlist override.
+            env: Explicit environment variables for the server process.
+
+        Returns:
+            MCP server config with a normalized module command.
+
+        Raises:
+            ValueError: If ``module`` is empty.
+        """
+        module_name = module.strip()
+        if not module_name:
+            raise ValueError("module must be a non-empty import path.")
+
+        command = (str(python or sys.executable), "-m", module_name, *(str(arg) for arg in args))
+        if env_allowlist is not None:
+            return cls(
+                id=id,
+                command=command,
+                timeout_s=timeout_s,
+                env_allowlist=tuple(env_allowlist),
+                env=dict(env or {}),
+            )
+        return cls(id=id, command=command, timeout_s=timeout_s, env=dict(env or {}))
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
