@@ -4,6 +4,8 @@ VS Code Setup Guide
 This guide covers the library-specific steps for using the published
 ``design-research-agents`` package in VS Code.
 
+Requires Python 3.12+.
+
 1. Install The Prerequisites
 ----------------------------
 
@@ -31,6 +33,10 @@ When installing Python, enable the option that adds ``python`` to your
 In VS Code, choose ``File > Open Folder...`` and open a folder for your own
 project, such as ``design-research-study``.
 
+If VS Code asks whether you trust the authors of the files in that folder,
+choose the option that trusts the workspace so Python features and terminals
+can run normally.
+
 You do not need to clone this repository to use the library.
 
 3. Create A Virtual Environment
@@ -48,10 +54,17 @@ On macOS or Linux:
 
 On Windows:
 
-.. code-block:: powershell
+1. Open the terminal dropdown in VS Code and switch the shell to
+   ``Command Prompt`` before running the activation command. This avoids the
+   default PowerShell execution-policy error that blocks ``Activate.ps1`` on
+   many fresh Windows setups.
+2. If your machine has multiple Python versions installed, use ``py -3.12`` or
+   another ``3.12+`` launcher entry for the commands below.
 
-   python -m venv .venv
-   .\.venv\Scripts\activate
+.. code-block:: bat
+
+   py -3.12 -m venv .venv
+   .\.venv\Scripts\activate.bat
 
 4. Install The Package
 ----------------------
@@ -61,14 +74,19 @@ With the virtual environment active, run:
 .. code-block:: bash
 
    python -m pip install --upgrade pip
-   pip install design-research-agents
+   python -m pip install design-research-agents
+
+Windows note:
+If ``python`` still points to an older interpreter after you reopen the
+terminal, go back to Step 3 and recreate ``.venv`` with ``py -3.12 -m venv
+.venv`` before retrying the install commands.
 
 If you want to connect to a specific model backend later, install only the
 extra you need. For example:
 
 .. code-block:: bash
 
-   pip install "design-research-agents[openai]"
+   python -m pip install "design-research-agents[openai]"
 
 Use :doc:`dependencies_and_extras` for the full extras list.
 
@@ -77,14 +95,19 @@ Use :doc:`dependencies_and_extras` for the full extras list.
 
 VS Code usually detects ``.venv`` automatically. If it does not:
 
-1. Open the Command Palette.
+1. Open the Command Palette with ``Ctrl+Shift+P`` on Windows/Linux or
+   ``Cmd+Shift+P`` on macOS. You can also use ``View > Command Palette``.
 2. Run ``Python: Select Interpreter``.
-3. Choose the interpreter inside this folder's ``.venv``.
+3. Choose the interpreter inside this workspace folder's ``.venv``.
 
 6. Create A First Script
 ------------------------
 
-Create a file named ``hello_agents.py`` in your workspace with this example:
+Create and save a file named ``hello_agents.py`` in your workspace folder.
+For example, use ``File > New File``, paste the code below, then save it as
+``hello_agents.py`` before trying to run it.
+
+Use this example:
 
 .. code-block:: python
 
@@ -123,6 +146,17 @@ You can run the file in either of these ways:
 
 A successful run prints a JSON summary in the integrated terminal.
 
+Expected output:
+
+.. code-block:: json
+
+   {
+     "error": null,
+     "final_output": "Hello from design-research-agents.",
+     "success": true,
+     "terminated_reason": null
+   }
+
 8. Troubleshooting
 ------------------
 
@@ -136,6 +170,15 @@ If imports are underlined after installation:
 
 1. Run ``Python: Select Interpreter``.
 2. Pick the interpreter inside ``.venv``.
+
+If Windows PowerShell says scripts are disabled when you try to activate
+``.venv``:
+
+1. Switch the VS Code terminal profile to ``Command Prompt`` and run
+   ``.\.venv\Scripts\activate.bat`` instead.
+2. If you want to stay in PowerShell, follow the
+   `Microsoft execution-policy guidance <https://go.microsoft.com/fwlink/?LinkID=135170>`_
+   before rerunning ``.\.venv\Scripts\Activate.ps1``.
 
 If you want a terminal-first workflow instead of VS Code:
 

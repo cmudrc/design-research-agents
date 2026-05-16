@@ -10,6 +10,12 @@ Toolformer motivates tool-use planning, JSON Schema defines stable machine-reada
 function-calling guidance captures operational patterns for structured tool dispatch. This example shows a
 JSON-mode agent that repeatedly selects tools through explicit schema-constrained payloads.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -31,7 +37,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/multi_step_json_tool_calling_agent.py
    :language: python
-   :lines: 51-
+   :lines: 57-
    :linenos:
 
 Expected Results

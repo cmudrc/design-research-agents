@@ -4,6 +4,8 @@ Quickstart
 This example shows the shortest meaningful path through
 ``design-research-agents``.
 
+Requires Python 3.12+.
+
 .. note::
 
    If you want a step-by-step editor workflow for creating a virtual
@@ -13,9 +15,16 @@ This example shows the shortest meaningful path through
 1. Install
 ----------
 
+Install the published package with a Python 3.12+ interpreter:
+
 .. code-block:: bash
 
-   pip install design-research-agents
+   python3 -m pip install design-research-agents
+
+Windows note:
+If ``python`` or ``pip`` resolve to an older interpreter, use
+``py -3.12 -m pip install design-research-agents`` and
+``py -3.12 -m venv .venv`` for any virtual-environment setup.
 
 Or install from source:
 
@@ -23,10 +32,10 @@ Or install from source:
 
    git clone https://github.com/cmudrc/design-research-agents.git
    cd design-research-agents
-   python -m venv .venv
+   python3 -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-   pip install -e .
+   python -m pip install -e .
 
 2. Minimal Runnable Example
 ---------------------------

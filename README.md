@@ -48,13 +48,17 @@ print(result.final_output)
 Requires Python 3.12+.
 Reproducible release installs target Python `3.12` (see `.python-version`).
 
+On Windows, if `python` or `pip` resolve to an older interpreter, use
+`py -3.12 -m venv .venv` and `py -3.12 -m pip ...` for the environment-creation
+and package-install steps.
+
 If you prefer a guided editor-first flow, use the
 [VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).
 It walks through creating a virtual environment, installing the published
 package, and running a first script in VS Code.
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 make dev
 make test
@@ -76,6 +80,13 @@ For frozen installs, extras, and release maintenance, see
 Start with [examples/README.md](https://github.com/cmudrc/design-research-agents/blob/HEAD/examples/README.md)
 for runnable examples grouped by agents, clients, workflows, patterns, model
 selection, and tools.
+
+Some local `LlamaCppServerLLMClient` examples intentionally use `Qwen3-4B`
+GGUF configs, which can exceed available RAM on smaller machines. If you want a
+lighter local starting point, begin with the
+[Ollama local client docs](https://cmudrc.github.io/design-research-agents/examples/clients/ollama_local_client.html)
+or the
+[OllamaLLMClient guide](https://cmudrc.github.io/design-research-agents/llm_clients/ollama_local.html).
 
 ## Docs
 

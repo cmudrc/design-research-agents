@@ -10,6 +10,12 @@ Tree of Thoughts motivates explicit branching and ranking instead of single-pass
 This example uses dedicated generator/evaluator delegates and a bounded beam search to show
 search-policy behavior (expand, score, prune) in a traceable way.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -31,7 +37,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/tree_search.py
    :language: python
-   :lines: 51-
+   :lines: 57-
    :linenos:
 
 Expected Results

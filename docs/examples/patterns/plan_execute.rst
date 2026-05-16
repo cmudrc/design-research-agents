@@ -10,6 +10,12 @@ Plan-and-Solve and ReAct both separate planning from execution to reduce reasoni
 shows how these roles can be modularized across components. This example encodes planner-executor separation
 with tool-backed execution and deterministic trace artifacts.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -32,7 +38,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/plan_execute.py
    :language: python
-   :lines: 52-
+   :lines: 58-
    :linenos:
 
 Expected Results

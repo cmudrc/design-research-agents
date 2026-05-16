@@ -10,6 +10,12 @@ Reflexion, Generative Agents, and MemGPT each emphasize that iterative performan
 is persisted and reused rather than recomputed from scratch. This example adds memory reads/writes to JSON
 tool-calling so multi-step behavior remains auditable across turns.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -32,7 +38,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/multi_step_json_with_memory.py
    :language: python
-   :lines: 52-
+   :lines: 58-
    :linenos:
 
 Expected Results
