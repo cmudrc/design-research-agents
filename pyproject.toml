@@ -76,6 +76,8 @@ groq = ["groq>=1.0,<2"]
 
 mcp = ["mcp>=1.10,<2"]
 
+huggingface = ["huggingface-hub>=0.24"]
+
 # Optional memory backends
 memory_chroma = ["chromadb>=1.0,<2"]
 
@@ -234,6 +236,8 @@ module = [
   "google.*",
   "groq",
   "groq.*",
+  "huggingface_hub",
+  "huggingface_hub.*",
   "mlx_lm",
   "mlx_lm.*",
   "openai",

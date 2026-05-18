@@ -58,6 +58,9 @@ _EXPORTS: Final[dict[str, str]] = {
     "VLLMServerLLMClient": "design_research_agents.llm:VLLMServerLLMClient",
     "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
     "SGLangServerLLMClient": "design_research_agents.llm:SGLangServerLLMClient",
+    "ModelCatalog": "design_research_agents._model_selection:ModelCatalog",
+    "ModelFlight": "design_research_agents._model_selection:ModelFlight",
+    "ModelFlightRegistry": "design_research_agents._model_selection:ModelFlightRegistry",
     "ModelSelector": "design_research_agents._model_selection:ModelSelector",
     "Tracer": "design_research_agents._tracing:Tracer",
 }
@@ -118,6 +121,9 @@ if TYPE_CHECKING:
     from ._contracts import MemoryWriteStep as MemoryWriteStep
     from ._contracts import ModelStep as ModelStep
     from ._contracts import ToolStep as ToolStep
+    from ._model_selection import ModelCatalog as ModelCatalog
+    from ._model_selection import ModelFlight as ModelFlight
+    from ._model_selection import ModelFlightRegistry as ModelFlightRegistry
     from ._model_selection import ModelSelector as ModelSelector
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall

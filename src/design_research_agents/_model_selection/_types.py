@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -64,6 +65,16 @@ class ModelSpec:
         cost_hint: Optional cost hints.
         quality_tier: Relative quality score (higher is better).
         speed_tier: Relative speed score (higher is faster).
+        source: Provenance label for the catalog entry.
+        repo_id: Optional upstream repository id.
+        revision: Optional upstream revision or commit SHA.
+        artifact: Optional preferred model artifact or filename.
+        license: Optional upstream license identifier.
+        context_window: Optional context-window size in tokens.
+        capabilities: Optional normalized capability labels.
+        tags: Optional normalized discovery labels.
+        source_url: Optional upstream URL.
+        metadata: Optional supplemental metadata.
     """
 
     model_id: str
@@ -88,6 +99,56 @@ class ModelSpec:
     """Relative quality ranking used by policy scoring."""
     speed_tier: int | None
     """Relative speed ranking used by policy scoring."""
+    source: str = "curated"
+    """Provenance label for this catalog entry."""
+    repo_id: str | None = None
+    """Optional upstream repository id."""
+    revision: str | None = None
+    """Optional upstream revision or commit SHA."""
+    artifact: str | None = None
+    """Optional preferred model artifact or filename."""
+    license: str | None = None
+    """Optional upstream license identifier."""
+    context_window: int | None = None
+    """Optional context-window size in tokens."""
+    capabilities: tuple[str, ...] = ()
+    """Normalized capability labels for filtering and reporting."""
+    tags: tuple[str, ...] = ()
+    """Normalized discovery labels for filtering and reporting."""
+    source_url: str | None = None
+    """Optional upstream URL."""
+    metadata: Mapping[str, object] | None = None
+    """Optional supplemental metadata."""
+
+    def __post_init__(self) -> None:
+        """Normalize optional metadata fields for stable querying."""
+        normalized_model_id = self.model_id.strip()
+        if not normalized_model_id:
+            raise ValueError("model_id must be non-empty.")
+        normalized_provider = self.provider.strip()
+        if not normalized_provider:
+            raise ValueError("provider must be non-empty.")
+        normalized_family = self.family.strip()
+        if not normalized_family:
+            raise ValueError("family must be non-empty.")
+        normalized_source = self.source.strip() or "curated"
+        normalized_capabilities = _normalize_string_tuple(self.capabilities)
+        normalized_tags = _normalize_string_tuple(self.tags)
+        if self.context_window is not None and self.context_window <= 0:
+            raise ValueError("context_window must be positive when provided.")
+
+        object.__setattr__(self, "model_id", normalized_model_id)
+        object.__setattr__(self, "provider", normalized_provider)
+        object.__setattr__(self, "family", normalized_family)
+        object.__setattr__(self, "source", normalized_source)
+        object.__setattr__(self, "repo_id", _normalize_optional_string(self.repo_id))
+        object.__setattr__(self, "revision", _normalize_optional_string(self.revision))
+        object.__setattr__(self, "artifact", _normalize_optional_string(self.artifact))
+        object.__setattr__(self, "license", _normalize_optional_string(self.license))
+        object.__setattr__(self, "capabilities", normalized_capabilities)
+        object.__setattr__(self, "tags", normalized_tags)
+        object.__setattr__(self, "source_url", _normalize_optional_string(self.source_url))
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
 
     @property
     def is_local(self) -> bool:
@@ -106,6 +167,24 @@ class ModelSpec:
             "sglang_local",
             "local",
         }
+
+
+def _normalize_optional_string(value: str | None) -> str | None:
+    """Normalize optional string metadata."""
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalize_string_tuple(values: tuple[str, ...]) -> tuple[str, ...]:
+    """Normalize and deduplicate a tuple of string labels."""
+    normalized: list[str] = []
+    for value in values:
+        label = value.strip()
+        if label and label not in normalized:
+            normalized.append(label)
+    return tuple(normalized)
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)

@@ -57,6 +57,10 @@ Extras matrix
      - Gemini hosted backend
    * - ``groq``
      - Groq hosted backend
+   * - ``mcp``
+     - MCP tool-runtime integration
+   * - ``huggingface``
+     - Hugging Face Hub metadata discovery for ``ModelCatalog.from_huggingface``
    * - ``memory_chroma``
      - Optional ChromaDB-backed vector memory store
    * - ``memory_graph``
@@ -93,6 +97,7 @@ Recommended install profiles:
 
 - hosted OpenAI-family studies: ``pip install -e ".[dev,openai]"``
 - hosted provider comparisons: ``pip install -e ".[dev,providers]"``
+- Hugging Face catalog discovery: ``pip install -e ".[dev,huggingface]"``
 - Chroma-backed memory experiments: ``pip install -e ".[dev,memory_chroma]"``
 - graph-memory experiments: ``pip install -e ".[dev,memory_graph]"``
 - local-only studies: ``pip install -e ".[dev,local]"``

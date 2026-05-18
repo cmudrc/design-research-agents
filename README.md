@@ -35,7 +35,7 @@ This package centers on reproducible agent workflows with a compact public API:
 - A study-facing integration seam in `design_research_agents.integration` for experiment runners
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
-- Hosted and local LLM clients, plus `ModelSelector` for backend-selection policies
+- Hosted and local LLM clients, model flights/catalogs, and `ModelSelector` for backend-selection policies
 - Prebuilt coordination and reasoning patterns for plan/execute, propose/critic, debate, routing, round-based coordination, blackboard, tree search, Ralph loops, nominal teams, RAG, and conversation
 - Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
 
@@ -80,7 +80,8 @@ OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
 tooling only; backend runtimes are explicit extras. Use
 `design-research-agents[full]` for the hosted + local backend bundle and
 `design-research-agents[all]` when you also want the optional ChromaDB and
-graph-memory backends.
+graph-memory backends. Use `design-research-agents[huggingface]` when you only
+need Hugging Face Hub metadata for catalog discovery.
 
 For frozen installs, extras, and release maintenance, see
 [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
@@ -123,7 +124,7 @@ Top-level exports include:
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
 - Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, and RAG
 - LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
-- Runtime services: `ModelSelector` and `Tracer`
+- Runtime services: `ModelFlightRegistry`, `ModelCatalog`, `ModelSelector`, and `Tracer`
 
 ## Contributing
 

@@ -24,4 +24,5 @@ def test_package_init_falls_back_to_unknown_version(
 
     assert module.__version__ == "0+unknown"
     assert "__version__" in module.__dir__()
+    assert "ModelFlightRegistry" in module.__dir__()
     assert "ModelSelector" in module.__dir__()

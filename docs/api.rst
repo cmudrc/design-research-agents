@@ -15,7 +15,7 @@ contributors, but they are not compatibility-guaranteed.
 Top-level groups:
 
 - Metadata: ``__version__``
-- Entry points: agents, LLM clients, ``ModelSelector``
+- Entry points: agents, LLM clients, ``ModelSelector``, and model flights/catalogs
 - Skills: ``SkillsConfig``
 - Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
   with normalized read helpers for structured payload access
@@ -60,8 +60,8 @@ Skills
    :members:
    :undoc-members:
 
-LLM Clients and Selection
-^^^^^^^^^^^^^^^^^^^^^^^^^
+LLM Clients, Flights, and Selection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 All public LLM clients implement the same introspection helpers in addition to
 generation methods: ``default_model()``, ``capabilities()``,
@@ -116,6 +116,21 @@ context-manager form is the preferred public usage pattern.
 .. autoclass:: design_research_agents.SGLangServerLLMClient
    :members:
    :undoc-members:
+
+.. autoclass:: design_research_agents.ModelCatalog
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.ModelFlight
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.ModelFlightRegistry
+   :members:
+   :undoc-members:
+   :no-index:
 
 .. autoclass:: design_research_agents.ModelSelector
    :members:

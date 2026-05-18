@@ -72,6 +72,8 @@ nitpick_ignore = [
     ("py:class", "design_research_agents._contracts._workflow.WorkflowArtifact"),
     ("py:class", "design_research_agents._contracts._workflow.WorkflowDelegate"),
     ("py:class", "design_research_agents._model_selection._catalog.ModelCatalog"),
+    ("py:class", "design_research_agents._model_selection._catalog.ModelFlight"),
+    ("py:class", "design_research_agents._model_selection._catalog.ModelFlightRegistry"),
     ("py:class", "design_research_agents._model_selection._types.ModelCostHint"),
     ("py:class", "design_research_agents._model_selection._types.ModelLatencyHint"),
     ("py:class", "design_research_agents._model_selection._types.ModelMemoryHint"),
