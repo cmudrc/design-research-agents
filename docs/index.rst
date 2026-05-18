@@ -72,7 +72,8 @@ Typical Workflow
 3. Run a deterministic example or local quickstart to validate the environment.
 4. Inspect traces, tool boundaries, and structured outputs for debugging and evaluation.
 5. Reuse the same runtime contracts inside broader experiments through
-   ``design_research_agents.integration.execute_agent_run(...)`` and in
+   ``design_research_agents.integration.execute_agent_run(...)``,
+   ``design_research_agents.integration.normalize_agent_execution(...)``, and
    downstream analysis.
 
 .. container:: drc-home-callout

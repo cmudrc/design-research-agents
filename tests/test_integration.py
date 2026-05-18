@@ -60,6 +60,21 @@ def test_public_seeded_random_agent_executes_through_integration() -> None:
     assert execution.events[0]["event_type"]
 
 
+def test_public_normalize_agent_execution_reuses_owner_envelope() -> None:
+    execution = integration.normalize_agent_execution(
+        {
+            "text": "done",
+            "metrics": {"primary_outcome": 1.0},
+            "events": [{"event_type": "assistant_output", "text": "done"}],
+        },
+        request_id="run-normalize",
+    )
+
+    assert execution.output == {"text": "done"}
+    assert execution.metrics["primary_outcome"] == 1.0
+    assert execution.events[0]["session_id"] == "run-normalize"
+
+
 def test_seeded_random_and_prompt_workflow_normalize_to_same_envelope_shape() -> None:
     problem_packet = type("ProblemPacket", (), {"problem_id": "problem-1", "brief": "Pick one design."})()
     run_spec = _RunSpec(run_id="run-2", seed=11)

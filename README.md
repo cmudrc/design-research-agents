@@ -117,7 +117,7 @@ The supported public surface is whatever is exported from
 Top-level exports include:
 
 - Agent entry points: `DirectLLMCall`, `MultiStepAgent`, `SeededRandomBaselineAgent`, `PromptWorkflowAgent`
-- Study-facing integration helpers: `integration` and `execute_agent_run`
+- Study-facing integration helpers: the `integration` module, including `execute_agent_run` and `normalize_agent_execution`
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`

@@ -59,6 +59,15 @@ def execute_agent_run(
     return _normalize_agent_execution(raw=raw, request_id=request_id)
 
 
+def normalize_agent_execution(
+    raw: Any,
+    *,
+    request_id: str | None = None,
+) -> AgentExecutionEnvelope:
+    """Normalize raw agent output into the study-facing execution envelope."""
+    return _normalize_agent_execution(raw=raw, request_id=request_id)
+
+
 def _resolve_agent_ref(
     agent_ref: Any,
     *,
@@ -417,4 +426,4 @@ def _hash_identifier(prefix: str, payload: Mapping[str, Any]) -> str:
     return f"{prefix}-{digest}"
 
 
-__all__ = ["AgentExecutionEnvelope", "execute_agent_run"]
+__all__ = ["AgentExecutionEnvelope", "execute_agent_run", "normalize_agent_execution"]
