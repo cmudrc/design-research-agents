@@ -18,6 +18,7 @@ from design_research_agents._contracts import (
 )
 
 from ._compiled import CompiledExecution
+from ._json_prompt import build_json_prompt_workflow
 from ._schema_helpers import list_of, scalar, typed_dict
 from .workflow import Workflow
 
@@ -36,6 +37,7 @@ __all__ = [
     "Workflow",
     "WorkflowArtifact",
     "WorkflowArtifactSource",
+    "build_json_prompt_workflow",
     "list_of",
     "scalar",
     "typed_dict",

@@ -19,7 +19,8 @@ Top-level groups:
 - Skills: ``SkillsConfig``
 - Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
   with normalized read helpers for structured payload access
-- Orchestration: workflow step classes, ``Workflow``, and pattern classes
+- Orchestration: workflow step classes, ``Workflow``, workflow builders,
+  and pattern classes
   (module homes: ``design_research_agents.workflow`` and
   ``design_research_agents.patterns``)
 - Tools: ``Toolbox``, ``CallableToolConfig``, ``ScriptToolConfig``, ``MCPServerConfig``
@@ -212,6 +213,8 @@ Workflow step executions surface ``WorkflowStepResult`` payloads through
 .. autoclass:: design_research_agents.CompiledExecution
    :members:
    :undoc-members:
+
+.. autofunction:: design_research_agents.build_json_prompt_workflow
 
 Patterns
 ^^^^^^^^

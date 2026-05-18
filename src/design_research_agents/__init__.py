@@ -33,6 +33,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "ToolResult": "design_research_agents.tools:ToolResult",
     "Workflow": "design_research_agents.workflow:Workflow",
     "CompiledExecution": "design_research_agents.workflow:CompiledExecution",
+    "build_json_prompt_workflow": "design_research_agents.workflow:build_json_prompt_workflow",
     "TwoSpeakerConversationPattern": "design_research_agents.patterns:TwoSpeakerConversationPattern",
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
@@ -156,3 +157,4 @@ if TYPE_CHECKING:
     from .tools import ToolResult as ToolResult
     from .workflow import CompiledExecution as CompiledExecution
     from .workflow import Workflow as Workflow
+    from .workflow import build_json_prompt_workflow as build_json_prompt_workflow
