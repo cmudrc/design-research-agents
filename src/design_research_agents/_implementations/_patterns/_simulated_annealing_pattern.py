@@ -384,6 +384,7 @@ class SimulatedAnnealingPattern(Delegate):
                 "convergence_threshold": self.convergence_threshold,
                 "convergence_steps": self.convergence_steps,
                 "temperature_schedule": type(self._temperature_schedule).__name__,
+                "temperature_schedule_params": vars(self._temperature_schedule),
             },
             workflow_request_id=f"{run_context.request_id}:simulated_annealing_workflow",
             finalize=lambda workflow_result: _build_simulated_annealing_result(
