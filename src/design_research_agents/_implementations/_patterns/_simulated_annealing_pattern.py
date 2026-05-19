@@ -397,6 +397,7 @@ class SimulatedAnnealingPattern(Delegate):
                 convergence_threshold=self.convergence_threshold,
                 convergence_steps=self.convergence_steps,
                 temperature_schedule_name=type(self._temperature_schedule).__name__,
+                temperature_schedule_params=vars(self._temperature_schedule),
                 random_seed=self._random_seed,
             ),
         )
@@ -582,6 +583,7 @@ def _build_simulated_annealing_result(
     convergence_threshold: float,
     convergence_steps: int,
     temperature_schedule_name: str,
+    temperature_schedule_params: dict[str, object],
     random_seed: int | None,
 ) -> ExecutionResult:
     """Build the final result from one simulated annealing workflow execution."""
@@ -611,6 +613,7 @@ def _build_simulated_annealing_result(
             "convergence_threshold": convergence_threshold,
             "convergence_steps": convergence_steps,
             "temperature_schedule": temperature_schedule_name,
+            "temperature_schedule_params": temperature_schedule_params,
             "current_state": final_state.get("current_state"),
             "current_objective_value": final_state.get("current_objective_value"),
         },
@@ -624,6 +627,7 @@ def _build_simulated_annealing_result(
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "temperature_schedule": temperature_schedule_name,
+            "temperature_schedule_params": temperature_schedule_params,
             "convergence_threshold": convergence_threshold,
             "convergence_steps": convergence_steps,
             "random_seed": random_seed,
