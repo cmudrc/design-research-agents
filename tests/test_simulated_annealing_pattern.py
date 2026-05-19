@@ -271,6 +271,7 @@ def test_execution_with_initial_state_generator() -> None:
     result = pattern.run("test")
     assert result.success
     assert result.output["final_output"]["best_state"] is not None
+    assert result.output["details"]["initial_state"] == {"x": 5.0}
 
 
 def test_execution_validates_neighbor_state_before_objective() -> None:
