@@ -391,7 +391,6 @@ class SimulatedAnnealingPattern(Delegate):
                 workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
-                initial_state=self._initial_state or {},
                 objective_mode=self._objective_mode,
                 initial_temperature=self._initial_temperature,
                 max_iterations=self._max_iterations,
@@ -426,6 +425,7 @@ class SimulatedAnnealingPattern(Delegate):
                 )
             initial_objective_value = self._objective_delegate(initial_state)
             return {
+                "initial_state": dict(initial_state),
                 "current_state": dict(initial_state),
                 "current_objective_value": initial_objective_value,
                 "best_state": dict(initial_state),
@@ -524,6 +524,7 @@ class SimulatedAnnealingPattern(Delegate):
                 convergence_counter = 0
 
             return {
+                "initial_state": loop_state.get("initial_state"),
                 "current_state": current_state,
                 "current_objective_value": current_objective_value,
                 "best_state": best_state,
@@ -577,7 +578,6 @@ def _build_simulated_annealing_result(
     workflow_result: ExecutionResult,
     request_id: str,
     dependencies: Mapping[str, object],
-    initial_state: Mapping[str, object],
     objective_mode: Literal["minimize", "maximize"],
     initial_temperature: float,
     max_iterations: int,
@@ -607,7 +607,7 @@ def _build_simulated_annealing_result(
         },
         terminated_reason=terminated_reason,
         details={
-            "initial_state": dict(initial_state),
+            "initial_state": final_state.get("initial_state"),
             "objective_mode": objective_mode,
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
