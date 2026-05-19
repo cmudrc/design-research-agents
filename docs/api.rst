@@ -287,7 +287,7 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :undoc-members:
 
 Temperature Schedules
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 Temperature schedules control the cooling rate during simulated annealing.
 Pass an instance to ``SimulatedAnnealingPattern`` via the
