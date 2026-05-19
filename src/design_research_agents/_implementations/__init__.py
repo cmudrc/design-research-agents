@@ -17,6 +17,11 @@ from ._patterns import (
     SimulatedAnnealingPattern,
     TreeSearchPattern,
     TwoSpeakerConversationPattern,
+    AdaptiveSchedule,
+    ExponentialSchedule,
+    LinearSchedule,
+    LogarithmicSchedule,
+    TemperatureSchedule,
 )
 
 __all__ = [
@@ -34,4 +39,9 @@ __all__ = [
     "SimulatedAnnealingPattern",
     "TreeSearchPattern",
     "TwoSpeakerConversationPattern",
+    "AdaptiveSchedule",
+    "ExponentialSchedule",
+    "LinearSchedule",
+    "LogarithmicSchedule",
+    "TemperatureSchedule",
 ]
