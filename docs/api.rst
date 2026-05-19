@@ -286,6 +286,34 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+Temperature Schedules
+^^^^^^^^^^^^^^^^^
+
+Temperature schedules control the cooling rate during simulated annealing.
+Pass an instance to ``SimulatedAnnealingPattern`` via the
+``temperature_schedule`` parameter. Subclass ``TemperatureSchedule`` to
+implement custom schedules.
+
+.. autoclass:: design_research_agents.TemperatureSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.LinearSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ExponentialSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.LogarithmicSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.AdaptiveSchedule
+   :members:
+   :undoc-members:
+
 Tools
 -----
 
