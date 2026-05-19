@@ -119,6 +119,13 @@ EXPECTED_PATTERNS_API = [
     "SimulatedAnnealingPattern",
     "TreeSearchPattern",
 ]
+EXPECTED_SCHEDULE_API = [
+    "AdaptiveSchedule",
+    "ExponentialSchedule",
+    "LinearSchedule",
+    "LogarithmicSchedule",
+    "TemperatureSchedule",
+]
 LEGACY_PUBLIC_SYMBOLS = [
     "CallableTool",
     "ScriptTool",

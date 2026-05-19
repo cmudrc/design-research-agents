@@ -19,11 +19,6 @@ _EXPORTS: Final[dict[str, str]] = {
     "RouterDelegatePattern": "design_research_agents._implementations._patterns:RouterDelegatePattern",
     "SimulatedAnnealingPattern": "design_research_agents._implementations._patterns:SimulatedAnnealingPattern",
     "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
-    "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
-    "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",
-    "LinearSchedule": "design_research_agents._implementations._patterns:LinearSchedule",
-    "LogarithmicSchedule": "design_research_agents._implementations._patterns:LogarithmicSchedule",
-    "TemperatureSchedule": "design_research_agents._implementations._patterns:TemperatureSchedule",
 }
 
 __all__ = list(_EXPORTS.keys())

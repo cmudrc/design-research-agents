@@ -46,11 +46,11 @@ _EXPORTS: Final[dict[str, str]] = {
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
-    "AdaptiveSchedule": "design_research_agents.patterns:AdaptiveSchedule",
-    "ExponentialSchedule": "design_research_agents.patterns:ExponentialSchedule",
-    "LinearSchedule": "design_research_agents.patterns:LinearSchedule",
-    "LogarithmicSchedule": "design_research_agents.patterns:LogarithmicSchedule",
-    "TemperatureSchedule": "design_research_agents.patterns:TemperatureSchedule",
+    "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
+    "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",
+    "LinearSchedule": "design_research_agents._implementations._patterns:LinearSchedule",
+    "LogarithmicSchedule": "design_research_agents._implementations._patterns:LogarithmicSchedule",
+    "TemperatureSchedule": "design_research_agents._implementations._patterns:TemperatureSchedule",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
@@ -126,6 +126,11 @@ if TYPE_CHECKING:
     from ._contracts import MemoryWriteStep as MemoryWriteStep
     from ._contracts import ModelStep as ModelStep
     from ._contracts import ToolStep as ToolStep
+    from ._implementations._patterns import AdaptiveSchedule as AdaptiveSchedule
+    from ._implementations._patterns import ExponentialSchedule as ExponentialSchedule
+    from ._implementations._patterns import LinearSchedule as LinearSchedule
+    from ._implementations._patterns import LogarithmicSchedule as LogarithmicSchedule
+    from ._implementations._patterns import TemperatureSchedule as TemperatureSchedule
     from ._model_selection import ModelCatalog as ModelCatalog
     from ._model_selection import ModelFlight as ModelFlight
     from ._model_selection import ModelFlightRegistry as ModelFlightRegistry
