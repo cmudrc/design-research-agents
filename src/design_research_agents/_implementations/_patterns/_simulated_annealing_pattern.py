@@ -617,6 +617,7 @@ def _build_simulated_annealing_result(
             "temperature_schedule_params": temperature_schedule_params,
             "current_state": final_state.get("current_state"),
             "current_objective_value": final_state.get("current_objective_value"),
+            "objective_value_history": final_state.get("objective_value_history"),
         },
         workflow_payload=workflow_result.to_dict(),
         artifacts=workflow_artifacts,
