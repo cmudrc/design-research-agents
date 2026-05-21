@@ -66,6 +66,8 @@ class LinearSchedule(TemperatureSchedule):
     """Linear decay schedule."""
 
     def __init__(self, alpha: float) -> None:
+        if alpha < 0:
+            raise ValueError("alpha must be >= 0 for linear schedule.")
         self.alpha = alpha
 
     def get_temperature(
@@ -112,6 +114,8 @@ class LogarithmicSchedule(TemperatureSchedule):
     """Logarithmic decay schedule."""
 
     def __init__(self, c: float, d: float) -> None:
+        if d <= 1:
+            raise ValueError("d must be > 1 for logarithmic schedule.")
         self.c = c
         self.d = d
 
