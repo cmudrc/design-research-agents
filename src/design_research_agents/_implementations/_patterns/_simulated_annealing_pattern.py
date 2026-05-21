@@ -53,10 +53,10 @@ class TemperatureSchedule(ABC):
         Returns:
             Temperature value for current iteration.
         """
-    
+
     def get_params(self) -> dict[str, object]:
         """Return JSON-safe parameters describing this schedule.
-        
+
         Override in custom sublasses to cotnrol what is exposed in result metadata.
         """
         return {}
@@ -81,7 +81,7 @@ class LinearSchedule(TemperatureSchedule):
         """Decrease temperature by a constant amount each iteration."""
         _ = current_temperature, objective_value_history  # Not used in linear schedule
         return max(0.0, initial_temperature - self.alpha * iteration)
-    
+
     def get_params(self) -> dict[str, object]:
         return {"alpha": self.alpha}
 
@@ -105,7 +105,7 @@ class ExponentialSchedule(TemperatureSchedule):
         """Decrease temperature by a constant multiplicative factor."""
         _ = current_temperature, objective_value_history  # Not used in exponential schedule
         return initial_temperature * (self.alpha**iteration)
-    
+
     def get_params(self) -> dict[str, object]:
         return {"alpha": self.alpha}
 
@@ -130,7 +130,7 @@ class LogarithmicSchedule(TemperatureSchedule):
         """Decrease temperature according to a logarithmic schedule."""
         _ = initial_temperature, current_temperature, objective_value_history  # Not used in logarithmic schedule
         return self.c / math.log(iteration + self.d)
-    
+
     def get_params(self) -> dict[str, object]:
         return {"c": self.c, "d": self.d}
 
@@ -187,7 +187,7 @@ class AdaptiveSchedule(TemperatureSchedule):
             return t_k
 
         return t_k * (1 - factor)
-    
+
     def get_params(self) -> dict[str, object]:
         return {"delta": self.delta, "mu": self.mu}
 

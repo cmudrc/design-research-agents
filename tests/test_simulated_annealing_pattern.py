@@ -38,7 +38,7 @@ def test_linear_schedule_validates_alpha_non_negative() -> None:
 def test_logarithmic_schedule_validates_d_greater_than_one() -> None:
     with pytest.raises(ValueError, match="d"):
         LogarithmicSchedule(c=1.0, d=1.0)
-    
+
     with pytest.raises(ValueError, match="d"):
         LogarithmicSchedule(c=1.0, d=0.5)
 
