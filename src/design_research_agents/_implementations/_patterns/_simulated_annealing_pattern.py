@@ -53,6 +53,13 @@ class TemperatureSchedule(ABC):
         Returns:
             Temperature value for current iteration.
         """
+    
+    def get_params(self) -> dict[str, object]:
+        """Return JSON-safe parameters describing this schedule.
+        
+        Override in custom sublasses to cotnrol what is exposed in result metadata.
+        """
+        return {}
 
 
 class LinearSchedule(TemperatureSchedule):
@@ -72,6 +79,9 @@ class LinearSchedule(TemperatureSchedule):
         """Decrease temperature by a constant amount each iteration."""
         _ = current_temperature, objective_value_history  # Not used in linear schedule
         return max(0.0, initial_temperature - self.alpha * iteration)
+    
+    def get_params(self) -> dict[str, object]:
+        return {"alpha": self.alpha}
 
 
 class ExponentialSchedule(TemperatureSchedule):
@@ -93,6 +103,9 @@ class ExponentialSchedule(TemperatureSchedule):
         """Decrease temperature by a constant multiplicative factor."""
         _ = current_temperature, objective_value_history  # Not used in exponential schedule
         return initial_temperature * (self.alpha**iteration)
+    
+    def get_params(self) -> dict[str, object]:
+        return {"alpha": self.alpha}
 
 
 class LogarithmicSchedule(TemperatureSchedule):
@@ -113,6 +126,9 @@ class LogarithmicSchedule(TemperatureSchedule):
         """Decrease temperature according to a logarithmic schedule."""
         _ = initial_temperature, current_temperature, objective_value_history  # Not used in logarithmic schedule
         return self.c / math.log(iteration + self.d)
+    
+    def get_params(self) -> dict[str, object]:
+        return {"c": self.c, "d": self.d}
 
 
 class AdaptiveSchedule(TemperatureSchedule):
@@ -166,6 +182,9 @@ class AdaptiveSchedule(TemperatureSchedule):
             return t_k
 
         return t_k * (1 - factor)
+    
+    def get_params(self) -> dict[str, object]:
+        return {"delta": self.delta, "mu": self.mu}
 
 
 def _validate_state_shape(
@@ -384,7 +403,7 @@ class SimulatedAnnealingPattern(Delegate):
                 "convergence_threshold": self.convergence_threshold,
                 "convergence_steps": self.convergence_steps,
                 "temperature_schedule": type(self._temperature_schedule).__name__,
-                "temperature_schedule_params": vars(self._temperature_schedule),
+                "temperature_schedule_params": self._temperature_schedule.get_params(),
             },
             workflow_request_id=f"{run_context.request_id}:simulated_annealing_workflow",
             finalize=lambda workflow_result: _build_simulated_annealing_result(
@@ -397,7 +416,7 @@ class SimulatedAnnealingPattern(Delegate):
                 convergence_threshold=self.convergence_threshold,
                 convergence_steps=self.convergence_steps,
                 temperature_schedule_name=type(self._temperature_schedule).__name__,
-                temperature_schedule_params=vars(self._temperature_schedule),
+                temperature_schedule_params=self._temperature_schedule.get_params(),
                 random_seed=self._random_seed,
             ),
         )
