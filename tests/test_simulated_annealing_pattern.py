@@ -82,7 +82,7 @@ def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
 def test_adaptive_schedule_delta_is_fixed_after_first_derivation() -> None:
     sched = AdaptiveSchedule(mu=5.0)
     first_history = [0.0, 10.0]
-    sched.get_temperature(100.0, 0, current_temperature=5.0, objective_value_history=objective_value_history)
+    sched.get_temperature(100.0, 0, current_temperature=5.0, objective_value_history=first_history)
     first_delta = sched.delta
 
     second_history = [0.0, 10.0, 100.0]
