@@ -173,10 +173,11 @@ class AdaptiveSchedule(TemperatureSchedule):
         if sigma_sq == 0.0:
             return t_k
 
-        # Derive delta from spread of objective values, scaled by mu, if not provided
-        delta = self.delta if self.delta is not None else statistics.stdev(objective_value_history) / self.mu
+        # Derive delta once from first snapshot with sufficient history, then hold it constant
+        if self.delta is None:
+            self.delta = statistics.stdev(objective_value_history) / self.mu
 
-        factor = t_k * delta / sigma_sq
+        factor = t_k * self.delta / sigma_sq
         # Avoid negative or zero temperature, keep the same
         if factor >= 1.0:
             return t_k
