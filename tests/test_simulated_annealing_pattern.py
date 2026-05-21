@@ -30,6 +30,19 @@ def test_temperature_schedules_apply_expected_decay() -> None:
     )
 
 
+def test_linear_schedule_validates_alpha_non_negative() -> None:
+    with pytest.raises(ValueError, match="alpha"):
+        LinearSchedule(alpha=-1.0)
+
+
+def test_logarithmic_schedule_validates_d_greater_than_one() -> None:
+    with pytest.raises(ValueError, match="d"):
+        LogarithmicSchedule(c=1.0, d=1.0)
+    
+    with pytest.raises(ValueError, match="d"):
+        LogarithmicSchedule(c=1.0, d=0.5)
+
+
 def test_exponential_schedule_validates_alpha_range() -> None:
     with pytest.raises(ValueError, match="alpha"):
         ExponentialSchedule(alpha=0.0)
@@ -64,6 +77,17 @@ def test_adaptive_schedule_falls_back_when_variance_is_zero() -> None:
 def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
     sched = AdaptiveSchedule(delta=100.0)  # Large delta to force factor > 1
     assert sched.get_temperature(100.0, 0, current_temperature=50.0, objective_value_history=[0.0, 1.0]) == 50.0
+
+
+def test_adaptive_schedule_delta_is_fixed_after_first_derivation() -> None:
+    sched = AdaptiveSchedule(mu=5.0)
+    first_history = [0.0, 10.0]
+    sched.get_temperature(100.0, 0, current_temperature=5.0, objective_value_history=objective_value_history)
+    first_delta = sched.delta
+
+    second_history = [0.0, 10.0, 100.0]
+    sched.get_temperature(100.0, 1, current_temperature=4.0, objective_value_history=second_history)
+    assert sched.delta == first_delta
 
 
 # ---------------------- Input validation tests ----------------------
