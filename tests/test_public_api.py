@@ -11,71 +11,17 @@ import design_research_agents as dra
 import design_research_agents.agent as dra_agent
 import design_research_agents.llm as dra_llm
 import design_research_agents.memory as dra_memory
+import design_research_agents.model_selection as dra_model_selection
 import design_research_agents.patterns as dra_patterns
 import design_research_agents.skills as dra_skills
+import design_research_agents.study as dra_study
 import design_research_agents.tools as dra_tools
 import design_research_agents.workflow as dra_workflow
 from design_research_agents import _contracts as dra_contracts
 from design_research_agents._contracts._tools import ToolRuntime
+from design_research_agents._public_exports import TOP_LEVEL_PUBLIC_API
 
-EXPECTED_PUBLIC_API = [
-    "__version__",
-    "DirectLLMCall",
-    "MultiStepAgent",
-    "SkillsConfig",
-    "SeededRandomBaselineAgent",
-    "PromptWorkflowAgent",
-    "Toolbox",
-    "CallableToolConfig",
-    "ScriptToolConfig",
-    "MCPServerConfig",
-    "LogicStep",
-    "ToolStep",
-    "DelegateStep",
-    "ModelStep",
-    "DelegateBatchStep",
-    "LoopStep",
-    "MemoryReadStep",
-    "MemoryWriteStep",
-    "ExecutionResult",
-    "LLMRequest",
-    "LLMMessage",
-    "LLMResponse",
-    "ToolResult",
-    "Workflow",
-    "CompiledExecution",
-    "build_json_prompt_workflow",
-    "TwoSpeakerConversationPattern",
-    "DebatePattern",
-    "PlanExecutePattern",
-    "ProposeCriticPattern",
-    "RalphLoopPattern",
-    "NominalTeamPattern",
-    "RouterDelegatePattern",
-    "RoundBasedCoordinationPattern",
-    "BlackboardPattern",
-    "TreeSearchPattern",
-    "RAGPattern",
-    "SimulatedAnnealingPattern",
-    "AnthropicServiceLLMClient",
-    "AzureOpenAIServiceLLMClient",
-    "GeminiServiceLLMClient",
-    "GroqServiceLLMClient",
-    "LlamaCppServerLLMClient",
-    "OpenAIServiceLLMClient",
-    "OpenAICompatibleHTTPLLMClient",
-    "TransformersLocalLLMClient",
-    "MLXLocalLLMClient",
-    "VLLMServerLLMClient",
-    "OllamaLLMClient",
-    "SGLangServerLLMClient",
-    "ModelCatalog",
-    "ModelFlight",
-    "ModelFlightRegistry",
-    "ModelSelector",
-    "Tracer",
-    "integration",
-]
+EXPECTED_PUBLIC_API = list(TOP_LEVEL_PUBLIC_API)
 
 EXPECTED_AGENT_API = [
     "DirectLLMCall",
@@ -118,6 +64,31 @@ EXPECTED_PATTERNS_API = [
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
     "TreeSearchPattern",
+]
+EXPECTED_MODEL_SELECTION_API = [
+    "HardwareProfile",
+    "ModelCatalog",
+    "ModelCostHint",
+    "ModelFlight",
+    "ModelFlightRegistry",
+    "ModelLatencyHint",
+    "ModelMemoryHint",
+    "ModelSafetyConstraints",
+    "ModelSelectionConstraints",
+    "ModelSelectionDecision",
+    "ModelSelectionIntent",
+    "ModelSelectionPolicyConfig",
+    "ModelSelector",
+    "ModelSpec",
+]
+EXPECTED_STUDY_API = [
+    "AgentBinding",
+    "AgentExecutionEnvelope",
+    "AgentRunRequest",
+    "StudyCondition",
+    "execute_agent_request",
+    "execute_agent_run",
+    "normalize_agent_execution",
 ]
 LEGACY_PUBLIC_SYMBOLS = [
     "CallableTool",
@@ -176,6 +147,21 @@ def test_patterns_module_exports_match_curated_contract() -> None:
     assert dra_patterns.__all__ == EXPECTED_PATTERNS_API
     for symbol_name in dra_patterns.__all__:
         assert getattr(dra_patterns, symbol_name) is not None
+
+
+def test_model_selection_module_exports_public_facade() -> None:
+    assert dra_model_selection.__all__ == EXPECTED_MODEL_SELECTION_API
+    assert dra_model_selection.ModelCatalog is dra.ModelCatalog
+    assert dra_model_selection.ModelSelector is dra.ModelSelector
+    assert dra_model_selection.HardwareProfile.__name__ == "HardwareProfile"
+
+
+def test_study_module_exports_public_execution_facade() -> None:
+    assert dra_study.__all__ == EXPECTED_STUDY_API
+    assert dra_study.AgentRunRequest is dra.AgentRunRequest
+    assert dra_study.StudyCondition is dra.StudyCondition
+    assert dra_study.execute_agent_run is dra.execute_agent_run
+    assert dra_study.normalize_agent_execution is dra.normalize_agent_execution
 
 
 def test_legacy_public_symbols_are_absent_from_public_facades() -> None:

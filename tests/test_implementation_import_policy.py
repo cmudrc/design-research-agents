@@ -38,7 +38,9 @@ def test_internal_modules_and_packages_use_underscore_naming() -> None:
         "llm",
         "llm/clients",
         "memory",
+        "model_selection",
         "skills",
+        "study",
         "tools",
     }
     public_module_paths = {

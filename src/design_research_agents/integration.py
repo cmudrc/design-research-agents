@@ -34,6 +34,83 @@ class AgentExecutionEnvelope:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(slots=True, frozen=True, kw_only=True)
+class StudyCondition:
+    """Minimal public condition descriptor for study orchestration.
+
+    Attributes:
+        condition_id: Stable condition identifier.
+        label: Optional human-readable condition label.
+        metadata: Optional condition metadata for downstream analysis.
+    """
+
+    condition_id: str
+    """Stable condition identifier."""
+    label: str | None = None
+    """Optional human-readable condition label."""
+    metadata: Mapping[str, object] = field(default_factory=dict)
+    """Optional condition metadata."""
+
+    def __post_init__(self) -> None:
+        """Normalize condition fields for stable downstream use."""
+        normalized_condition_id = self.condition_id.strip()
+        if not normalized_condition_id:
+            raise ValueError("condition_id must be non-empty.")
+        normalized_label = self.label.strip() if isinstance(self.label, str) else None
+        object.__setattr__(self, "condition_id", normalized_condition_id)
+        object.__setattr__(self, "label", normalized_label or None)
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+
+@dataclass(slots=True, frozen=True, kw_only=True)
+class AgentRunRequest:
+    """Typed request object for running one agent inside a study.
+
+    Attributes:
+        agent_ref: Public agent reference, executable object, or binding key.
+        prompt: Prompt or problem-like payload for the run.
+        request_id: Optional run identifier.
+        dependencies: Optional dependencies exposed to the agent.
+        agent_bindings: Optional mapping of binding keys to executable agents or factories.
+    """
+
+    agent_ref: Any
+    """Public agent reference, executable object, or binding key."""
+    prompt: Any
+    """Prompt or problem-like payload for the run."""
+    request_id: str | None = None
+    """Optional run identifier."""
+    dependencies: Mapping[str, object] = field(default_factory=dict)
+    """Optional dependencies exposed to the agent."""
+    agent_bindings: Mapping[str, AgentBinding] = field(default_factory=dict)
+    """Optional mapping of binding keys to executable agents or factories."""
+
+    def __post_init__(self) -> None:
+        """Normalize request metadata mappings."""
+        normalized_request_id = self.request_id.strip() if isinstance(self.request_id, str) else None
+        object.__setattr__(self, "request_id", normalized_request_id or None)
+        object.__setattr__(self, "dependencies", dict(self.dependencies))
+        object.__setattr__(self, "agent_bindings", dict(self.agent_bindings))
+
+
+def execute_agent_request(request: AgentRunRequest) -> AgentExecutionEnvelope:
+    """Execute one typed agent-run request.
+
+    Args:
+        request: Agent-run request to execute.
+
+    Returns:
+        Normalized execution envelope.
+    """
+    return execute_agent_run(
+        request.agent_ref,
+        prompt=request.prompt,
+        request_id=request.request_id,
+        dependencies=request.dependencies,
+        agent_bindings=request.agent_bindings,
+    )
+
+
 def execute_agent_run(
     agent_ref: Any,
     *,
@@ -426,4 +503,12 @@ def _hash_identifier(prefix: str, payload: Mapping[str, Any]) -> str:
     return f"{prefix}-{digest}"
 
 
-__all__ = ["AgentExecutionEnvelope", "execute_agent_run", "normalize_agent_execution"]
+__all__ = [
+    "AgentBinding",
+    "AgentExecutionEnvelope",
+    "AgentRunRequest",
+    "StudyCondition",
+    "execute_agent_request",
+    "execute_agent_run",
+    "normalize_agent_execution",
+]

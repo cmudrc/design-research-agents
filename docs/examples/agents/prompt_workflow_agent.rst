@@ -13,12 +13,13 @@ turns model output into one structured JSON payload.
 Technical Implementation
 ------------------------
 
-1. Define tiny local study packet dataclasses so the example stays dependency-light and deterministic.
+1. Define tiny local study packet dataclasses plus a public ``StudyCondition``.
 2. Build a prompt-mode ``Workflow`` with ``build_json_prompt_workflow(...)`` and a tiny deterministic LLM
    client.
 3. Wrap that workflow in ``PromptWorkflowAgent`` with a prompt builder that converts study metadata into one
    canonical prompt string.
-4. Run the delegate with a fixed ``request_id`` and print a compact JSON payload for docs and regression tests.
+4. Execute an ``AgentRunRequest`` through ``execute_agent_request(...)`` and print a compact JSON payload for
+   docs and regression tests.
 
 .. mermaid::
 
@@ -30,7 +31,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/agents/prompt_workflow_agent.py
    :language: python
-   :lines: 53-
+   :lines: 49-
    :linenos:
 
 Expected Results
@@ -48,18 +49,13 @@ Example output shape:
 
    {
      "workflow_mermaid": "flowchart LR ...",
-     "summary": {
-       "success": true,
-       "final_output": {
-        "request_id": "example-prompt-workflow-agent-001",
+     "execution": {
+       "output": {
          "study_prompt": "Problem: cooling_plate_redesign...",
-         "workflow_step": "emit_summary"
+         "workflow_step": "json_response"
        },
-       "terminated_reason": null,
-       "error": null,
-       "trace": {
-         "request_id": "example-workflow-study-delegate-001"
-       }
+       "metrics": {},
+       "event_count": 1
      }
    }
 

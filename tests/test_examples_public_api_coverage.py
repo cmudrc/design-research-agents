@@ -5,11 +5,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_ROOT = REPO_ROOT / "examples"
-PACKAGE_INIT = REPO_ROOT / "src" / "design_research_agents" / "__init__.py"
+PUBLIC_EXPORTS = REPO_ROOT / "src" / "design_research_agents" / "_public_exports.py"
 
 
 def _public_symbols() -> tuple[str, ...]:
-    module = ast.parse(PACKAGE_INIT.read_text(encoding="utf-8"), filename=str(PACKAGE_INIT))
+    module = ast.parse(PUBLIC_EXPORTS.read_text(encoding="utf-8"), filename=str(PUBLIC_EXPORTS))
     exports: list[str] = []
 
     export_dict: ast.Dict | None = None
@@ -17,23 +17,23 @@ def _public_symbols() -> tuple[str, ...]:
         if (
             isinstance(node, ast.AnnAssign)
             and isinstance(node.target, ast.Name)
-            and node.target.id == "_EXPORTS"
+            and node.target.id == "TOP_LEVEL_EXPORTS"
             and isinstance(node.value, ast.Dict)
         ):
             export_dict = node.value
             break
         if isinstance(node, ast.Assign) and len(node.targets) == 1:
             target = node.targets[0]
-            if isinstance(target, ast.Name) and target.id == "_EXPORTS" and isinstance(node.value, ast.Dict):
+            if isinstance(target, ast.Name) and target.id == "TOP_LEVEL_EXPORTS" and isinstance(node.value, ast.Dict):
                 export_dict = node.value
                 break
 
     if export_dict is None:
-        raise AssertionError("Unable to locate _EXPORTS in package __init__.py")
+        raise AssertionError("Unable to locate TOP_LEVEL_EXPORTS in _public_exports.py")
 
     for key in export_dict.keys:
         if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
-            raise AssertionError("_EXPORTS contains a non-string key")
+            raise AssertionError("TOP_LEVEL_EXPORTS contains a non-string key")
         exports.append(key.value)
     return tuple(name for name in exports if not (name.startswith("__") and name.endswith("__")))
 

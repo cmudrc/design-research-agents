@@ -56,6 +56,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
 }
 nitpick_ignore = [
+    ("py:class", "AgentBinding"),
     ("py:class", "ExecutionResult"),
     ("py:class", "LlamaCppServerBackend"),
     ("py:class", "design_research_agents._contracts._delegate.Delegate"),

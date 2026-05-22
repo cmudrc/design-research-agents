@@ -256,7 +256,7 @@ def _find_missing_example_path_violations(repo_root: Path, files: list[Path]) ->
 
 
 def _parse_exports(repo_root: Path) -> set[str]:
-    """Parse canonical top-level exports from package ``__init__``.
+    """Parse canonical top-level symbol exports from the public export manifest.
 
     Args:
         repo_root: Repository root directory.
@@ -264,14 +264,14 @@ def _parse_exports(repo_root: Path) -> set[str]:
     Returns:
         Exported symbol names.
     """
-    init_path = repo_root / "src" / "design_research_agents" / "__init__.py"
-    tree = ast.parse(init_path.read_text(encoding="utf-8"))
+    manifest_path = repo_root / "src" / "design_research_agents" / "_public_exports.py"
+    tree = ast.parse(manifest_path.read_text(encoding="utf-8"))
     exports: set[str] = {"__version__"}
     for node in tree.body:
         if not isinstance(node, ast.AnnAssign):
             continue
         target = node.target
-        if not isinstance(target, ast.Name) or target.id != "_EXPORTS":
+        if not isinstance(target, ast.Name) or target.id != "TOP_LEVEL_EXPORTS":
             continue
         value = node.value
         if not isinstance(value, ast.Dict):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from design_research_agents import PromptWorkflowAgent, SeededRandomBaselineAgent, integration
+from design_research_agents import PromptWorkflowAgent, SeededRandomBaselineAgent, integration, study
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents.workflow import LogicStep, Workflow
 
@@ -58,6 +58,27 @@ def test_public_seeded_random_agent_executes_through_integration() -> None:
     assert execution.metadata["problem_id"] == "stub-decision"
     assert execution.metadata["request_id"] == "run-1"
     assert execution.events[0]["event_type"]
+
+
+def test_public_study_request_executes_through_typed_facade() -> None:
+    problem = _DecisionProblem()
+    run_request = study.AgentRunRequest(
+        agent_ref="SeededRandomBaselineAgent",
+        prompt=problem,
+        request_id="run-request",
+        dependencies={
+            "problem": problem,
+            "run_spec": _RunSpec(run_id="run-request", seed=5),
+            "condition": study.StudyCondition(condition_id="cond-request"),
+            "seed": 5,
+        },
+    )
+
+    execution = study.execute_agent_request(run_request)
+
+    assert execution.output
+    assert execution.metadata["request_id"] == "run-request"
+    assert execution.metadata["condition_id"] == "cond-request"
 
 
 def test_public_normalize_agent_execution_reuses_owner_envelope() -> None:

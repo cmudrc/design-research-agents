@@ -32,7 +32,7 @@ This package centers on reproducible agent workflows with a compact public API:
 - Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
 - A seeded random control-condition agent for packaged-problem studies (`SeededRandomBaselineAgent`)
 - A prompt-driven workflow agent for packaged-problem studies (`PromptWorkflowAgent`)
-- A study-facing integration seam in `design_research_agents.integration` for experiment runners
+- A study-facing execution facade in `design_research_agents.study` for experiment runners
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
 - Hosted and local LLM clients, model flights/catalogs, and `ModelSelector` for backend-selection policies
@@ -118,13 +118,15 @@ The supported public surface is whatever is exported from
 Top-level exports include:
 
 - Agent entry points: `DirectLLMCall`, `MultiStepAgent`, `SeededRandomBaselineAgent`, `PromptWorkflowAgent`
-- Study-facing integration helpers: the `integration` module, including `execute_agent_run` and `normalize_agent_execution`
+- Study-facing helpers: the `study` module, `AgentRunRequest`, `execute_agent_request`,
+  `execute_agent_run`, and `normalize_agent_execution`
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
 - Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, and RAG
 - LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
-- Runtime services: `ModelFlightRegistry`, `ModelCatalog`, `ModelSelector`, and `Tracer`
+- Runtime services: `design_research_agents.model_selection`, `ModelFlightRegistry`,
+  `ModelCatalog`, `ModelSelector`, and `Tracer`
 
 ## Contributing
 
