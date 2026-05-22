@@ -17,6 +17,7 @@ Quick chooser
 - Need shared-state convergence rounds: ``BlackboardPattern``.
 - Need branch-and-score candidate search (beam or MCTS): ``TreeSearchPattern``.
 - Need local numeric optimization over constrained state changes: ``SimulatedAnnealingPattern``.
+- Need policy learning from reward signals in sequential design loops: :doc:`reinforcement_learning_starter`.
 - Need ordered multi-role refinement with evaluator score threshold: ``RalphLoopPattern``.
 - Need independent fan-out drafts with evaluator-based best-of-N selection: ``NominalTeamPattern``.
 - Need retrieval-augmented reasoning with write-back: ``RAGPattern``.
@@ -30,6 +31,7 @@ Pages
 - :doc:`reasoning`
 - :doc:`coordination_patterns`
 - :doc:`memory_and_rag`
+- :doc:`reinforcement_learning_starter`
 
 .. toctree::
    :maxdepth: 2
@@ -39,3 +41,4 @@ Pages
    reasoning
    coordination_patterns
    memory_and_rag
+   reinforcement_learning_starter
