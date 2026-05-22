@@ -51,7 +51,22 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from design_research_agents.patterns import SimulatedAnnealingPattern
+from design_research_agents import (
+    AdaptiveSchedule,
+    ExponentialSchedule,
+    LinearSchedule,
+    LogarithmicSchedule,
+    SimulatedAnnealingPattern,
+    TemperatureSchedule,
+)
+
+_SCHEDULES = [
+    LinearSchedule(alpha=10.0),
+    ExponentialSchedule(alpha=0.95),
+    LogarithmicSchedule(c=100.0, d=2.0),
+    AdaptiveSchedule(delta=0.5),
+]
+assert all(isinstance(s, TemperatureSchedule) for s in _SCHEDULES)
 
 
 def _state_float(state: Mapping[str, object], key: str) -> float:

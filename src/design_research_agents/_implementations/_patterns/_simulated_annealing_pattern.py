@@ -54,11 +54,20 @@ class TemperatureSchedule(ABC):
             Temperature value for current iteration.
         """
 
+    def get_params(self) -> dict[str, object]:
+        """Return JSON-safe parameters describing this schedule.
+
+        Override in custom sublasses to cotnrol what is exposed in result metadata.
+        """
+        return {}
+
 
 class LinearSchedule(TemperatureSchedule):
     """Linear decay schedule."""
 
     def __init__(self, alpha: float) -> None:
+        if alpha < 0:
+            raise ValueError("alpha must be >= 0 for linear schedule.")
         self.alpha = alpha
 
     def get_temperature(
@@ -72,6 +81,9 @@ class LinearSchedule(TemperatureSchedule):
         """Decrease temperature by a constant amount each iteration."""
         _ = current_temperature, objective_value_history  # Not used in linear schedule
         return max(0.0, initial_temperature - self.alpha * iteration)
+
+    def get_params(self) -> dict[str, object]:
+        return {"alpha": self.alpha}
 
 
 class ExponentialSchedule(TemperatureSchedule):
@@ -94,11 +106,16 @@ class ExponentialSchedule(TemperatureSchedule):
         _ = current_temperature, objective_value_history  # Not used in exponential schedule
         return initial_temperature * (self.alpha**iteration)
 
+    def get_params(self) -> dict[str, object]:
+        return {"alpha": self.alpha}
+
 
 class LogarithmicSchedule(TemperatureSchedule):
     """Logarithmic decay schedule."""
 
     def __init__(self, c: float, d: float) -> None:
+        if d <= 1:
+            raise ValueError("d must be > 1 for logarithmic schedule.")
         self.c = c
         self.d = d
 
@@ -113,6 +130,9 @@ class LogarithmicSchedule(TemperatureSchedule):
         """Decrease temperature according to a logarithmic schedule."""
         _ = initial_temperature, current_temperature, objective_value_history  # Not used in logarithmic schedule
         return self.c / math.log(iteration + self.d)
+
+    def get_params(self) -> dict[str, object]:
+        return {"c": self.c, "d": self.d}
 
 
 class AdaptiveSchedule(TemperatureSchedule):
@@ -157,15 +177,19 @@ class AdaptiveSchedule(TemperatureSchedule):
         if sigma_sq == 0.0:
             return t_k
 
-        # Derive delta from spread of objective values, scaled by mu, if not provided
-        delta = self.delta if self.delta is not None else statistics.stdev(objective_value_history) / self.mu
+        # Derive delta once from first snapshot with sufficient history, then hold it constant
+        if self.delta is None:
+            self.delta = statistics.stdev(objective_value_history) / self.mu
 
-        factor = t_k * delta / sigma_sq
+        factor = t_k * self.delta / sigma_sq
         # Avoid negative or zero temperature, keep the same
         if factor >= 1.0:
             return t_k
 
         return t_k * (1 - factor)
+
+    def get_params(self) -> dict[str, object]:
+        return {"delta": self.delta, "mu": self.mu}
 
 
 def _validate_state_shape(
@@ -384,19 +408,20 @@ class SimulatedAnnealingPattern(Delegate):
                 "convergence_threshold": self.convergence_threshold,
                 "convergence_steps": self.convergence_steps,
                 "temperature_schedule": type(self._temperature_schedule).__name__,
+                "temperature_schedule_params": self._temperature_schedule.get_params(),
             },
             workflow_request_id=f"{run_context.request_id}:simulated_annealing_workflow",
             finalize=lambda workflow_result: _build_simulated_annealing_result(
                 workflow_result=workflow_result,
                 request_id=run_context.request_id,
                 dependencies=run_context.dependencies,
-                initial_state=self._initial_state or {},
                 objective_mode=self._objective_mode,
                 initial_temperature=self._initial_temperature,
                 max_iterations=self._max_iterations,
                 convergence_threshold=self.convergence_threshold,
                 convergence_steps=self.convergence_steps,
                 temperature_schedule_name=type(self._temperature_schedule).__name__,
+                temperature_schedule_params=self._temperature_schedule.get_params(),
                 random_seed=self._random_seed,
             ),
         )
@@ -424,6 +449,7 @@ class SimulatedAnnealingPattern(Delegate):
                 )
             initial_objective_value = self._objective_delegate(initial_state)
             return {
+                "initial_state": dict(initial_state),
                 "current_state": dict(initial_state),
                 "current_objective_value": initial_objective_value,
                 "best_state": dict(initial_state),
@@ -522,6 +548,7 @@ class SimulatedAnnealingPattern(Delegate):
                 convergence_counter = 0
 
             return {
+                "initial_state": loop_state.get("initial_state"),
                 "current_state": current_state,
                 "current_objective_value": current_objective_value,
                 "best_state": best_state,
@@ -575,13 +602,13 @@ def _build_simulated_annealing_result(
     workflow_result: ExecutionResult,
     request_id: str,
     dependencies: Mapping[str, object],
-    initial_state: Mapping[str, object],
     objective_mode: Literal["minimize", "maximize"],
     initial_temperature: float,
     max_iterations: int,
     convergence_threshold: float,
     convergence_steps: int,
     temperature_schedule_name: str,
+    temperature_schedule_params: dict[str, object],
     random_seed: int | None,
 ) -> ExecutionResult:
     """Build the final result from one simulated annealing workflow execution."""
@@ -604,15 +631,17 @@ def _build_simulated_annealing_result(
         },
         terminated_reason=terminated_reason,
         details={
-            "initial_state": dict(initial_state),
+            "initial_state": final_state.get("initial_state"),
             "objective_mode": objective_mode,
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "convergence_threshold": convergence_threshold,
             "convergence_steps": convergence_steps,
             "temperature_schedule": temperature_schedule_name,
+            "temperature_schedule_params": temperature_schedule_params,
             "current_state": final_state.get("current_state"),
             "current_objective_value": final_state.get("current_objective_value"),
+            "objective_value_history": final_state.get("objective_value_history"),
         },
         workflow_payload=workflow_result.to_dict(),
         artifacts=workflow_artifacts,
@@ -624,6 +653,7 @@ def _build_simulated_annealing_result(
             "initial_temperature": initial_temperature,
             "max_iterations": max_iterations,
             "temperature_schedule": temperature_schedule_name,
+            "temperature_schedule_params": temperature_schedule_params,
             "convergence_threshold": convergence_threshold,
             "convergence_steps": convergence_steps,
             "random_seed": random_seed,

@@ -5,8 +5,12 @@ from ._agents import (
     MultiStepAgent,
 )
 from ._patterns import (
+    AdaptiveSchedule,
     BlackboardPattern,
     DebatePattern,
+    ExponentialSchedule,
+    LinearSchedule,
+    LogarithmicSchedule,
     NominalTeamPattern,
     PlanExecutePattern,
     ProposeCriticPattern,
@@ -15,14 +19,19 @@ from ._patterns import (
     RoundBasedCoordinationPattern,
     RouterDelegatePattern,
     SimulatedAnnealingPattern,
+    TemperatureSchedule,
     TreeSearchPattern,
     TwoSpeakerConversationPattern,
 )
 
 __all__ = [
+    "AdaptiveSchedule",
     "BlackboardPattern",
     "DebatePattern",
     "DirectLLMCall",
+    "ExponentialSchedule",
+    "LinearSchedule",
+    "LogarithmicSchedule",
     "MultiStepAgent",
     "NominalTeamPattern",
     "PlanExecutePattern",
@@ -32,6 +41,7 @@ __all__ = [
     "RoundBasedCoordinationPattern",
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
+    "TemperatureSchedule",
     "TreeSearchPattern",
     "TwoSpeakerConversationPattern",
 ]

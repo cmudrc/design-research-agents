@@ -30,6 +30,19 @@ def test_temperature_schedules_apply_expected_decay() -> None:
     )
 
 
+def test_linear_schedule_validates_alpha_non_negative() -> None:
+    with pytest.raises(ValueError, match="alpha"):
+        LinearSchedule(alpha=-1.0)
+
+
+def test_logarithmic_schedule_validates_d_greater_than_one() -> None:
+    with pytest.raises(ValueError, match="d"):
+        LogarithmicSchedule(c=1.0, d=1.0)
+
+    with pytest.raises(ValueError, match="d"):
+        LogarithmicSchedule(c=1.0, d=0.5)
+
+
 def test_exponential_schedule_validates_alpha_range() -> None:
     with pytest.raises(ValueError, match="alpha"):
         ExponentialSchedule(alpha=0.0)
@@ -64,6 +77,17 @@ def test_adaptive_schedule_falls_back_when_variance_is_zero() -> None:
 def test_adaptive_schedule_falls_back_when_factor_exceeds_one() -> None:
     sched = AdaptiveSchedule(delta=100.0)  # Large delta to force factor > 1
     assert sched.get_temperature(100.0, 0, current_temperature=50.0, objective_value_history=[0.0, 1.0]) == 50.0
+
+
+def test_adaptive_schedule_delta_is_fixed_after_first_derivation() -> None:
+    sched = AdaptiveSchedule(mu=5.0)
+    first_history = [0.0, 10.0]
+    sched.get_temperature(100.0, 0, current_temperature=5.0, objective_value_history=first_history)
+    first_delta = sched.delta
+
+    second_history = [0.0, 10.0, 100.0]
+    sched.get_temperature(100.0, 1, current_temperature=4.0, objective_value_history=second_history)
+    assert sched.delta == first_delta
 
 
 # ---------------------- Input validation tests ----------------------
@@ -271,6 +295,7 @@ def test_execution_with_initial_state_generator() -> None:
     result = pattern.run("test")
     assert result.success
     assert result.output["final_output"]["best_state"] is not None
+    assert result.output["details"]["initial_state"] == {"x": 5.0}
 
 
 def test_execution_validates_neighbor_state_before_objective() -> None:
@@ -361,67 +386,3 @@ def test_execution_detects_convergence_after_objective_changes_then_stabilizes()
     assert result.success
     assert result.output["terminated_reason"] == "converged"
     assert result.output["final_output"]["iterations"] == 2
-
-
-# Optimization test ideas to begin with:
-#     Objective: maximize a polynomial function: f(x) = x^4-4x^3-2x^2+12x+1
-#          Initial state: x = 2
-#          Neighbor delegate: propose a new x by adding a random value from [-1, 1] to current x
-#          Objective delegate: f(x) for the proposed x
-#          Constraints: x must be between [-2, 2]
-"""
-        def polynomial(x: float) -> float:
-            return x**4 - 4*x**3 - 2*x**2 + 12*x + 1
-
-        pattern_1 = SimulatedAnnealingPattern(
-            neighbor_delegate=lambda state: {
-                "x": state["x"] + random.uniform(-1, 1)
-            },
-            objective_delegate=lambda state: -polynomial(state["x"]),  # negate to maximize
-            constraints=[
-                lambda state: -2 <= state["x"] <= 2,
-            ],
-            initial_state={"x": 2.0},
-            initial_temperature=100.0,
-            max_iterations=1000,
-            random_seed=42,
-        )
-"""
-
-#     Objective: minimize the volume of a beam with length L, width w, and height h
-#          Initial state: L=5m, w=2m, h=1m
-#          Neighbor delegate: propose new dimensions by adding a random value from [-0.5, 0.5] to each dimension
-#          Objective delegate: volume V = L * w * h
-#          Constraints: dimensions must be positive, max stress in beam must be below 250 MPa under a load of 10000 N
-"""
-        P = 10000   # applied load in Newtons
-        MAX_STRESS = 250e6  # 250 MPa in Pascals
-
-        def max_bending_stress(state: dict) -> float:
-            L, w, h = state["L"], state["w"], state["h"]
-            return (6 * P * L) / (w * h**2)
-
-        def max_shear_stress(state: dict) -> float:
-            L, w, h = state["L"], state["w"], state["h"]
-            return (3 * P) / (2 * w * h)
-
-        pattern_2 = SimulatedAnnealingPattern(
-            neighbor_delegate=lambda state: {
-                "L": state["L"] + random.uniform(-0.5, 0.5),
-                "w": state["w"] + random.uniform(-0.5, 0.5),
-                "h": state["h"] + random.uniform(-0.5, 0.5),
-            },
-            objective_delegate=lambda state: state["L"] * state["w"] * state["h"],
-            constraints=[
-                lambda state: state["L"] > 0,
-                lambda state: state["w"] > 0,
-                lambda state: state["h"] > 0,
-                lambda state: max_bending_stress(state) < MAX_STRESS,
-                lambda state: max_shear_stress(state) < MAX_STRESS,
-            ],
-            initial_state={"L": 5.0, "w": 2.0, "h": 1.0},
-            initial_temperature=100.0,
-            max_iterations=1000,
-            random_seed=42,
-        )
-"""

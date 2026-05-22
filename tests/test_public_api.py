@@ -65,6 +65,13 @@ EXPECTED_PATTERNS_API = [
     "SimulatedAnnealingPattern",
     "TreeSearchPattern",
 ]
+EXPECTED_SCHEDULE_API = [
+    "AdaptiveSchedule",
+    "ExponentialSchedule",
+    "LinearSchedule",
+    "LogarithmicSchedule",
+    "TemperatureSchedule",
+]
 EXPECTED_MODEL_SELECTION_API = [
     "HardwareProfile",
     "ModelCatalog",
@@ -147,6 +154,11 @@ def test_patterns_module_exports_match_curated_contract() -> None:
     assert dra_patterns.__all__ == EXPECTED_PATTERNS_API
     for symbol_name in dra_patterns.__all__:
         assert getattr(dra_patterns, symbol_name) is not None
+
+
+def test_top_level_schedule_exports_resolve() -> None:
+    for symbol_name in EXPECTED_SCHEDULE_API:
+        assert getattr(dra, symbol_name).__name__ == symbol_name
 
 
 def test_model_selection_module_exports_public_facade() -> None:
