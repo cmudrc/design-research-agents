@@ -44,6 +44,7 @@ EXPECTED_PUBLIC_API = [
     "ToolResult",
     "Workflow",
     "CompiledExecution",
+    "build_json_prompt_workflow",
     "TwoSpeakerConversationPattern",
     "DebatePattern",
     "PlanExecutePattern",
@@ -55,6 +56,12 @@ EXPECTED_PUBLIC_API = [
     "BlackboardPattern",
     "TreeSearchPattern",
     "RAGPattern",
+    "SimulatedAnnealingPattern",
+    "AdaptiveSchedule",
+    "ExponentialSchedule",
+    "LinearSchedule",
+    "LogarithmicSchedule",
+    "TemperatureSchedule",
     "AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient",
@@ -67,8 +74,12 @@ EXPECTED_PUBLIC_API = [
     "VLLMServerLLMClient",
     "OllamaLLMClient",
     "SGLangServerLLMClient",
+    "ModelCatalog",
+    "ModelFlight",
+    "ModelFlightRegistry",
     "ModelSelector",
     "Tracer",
+    "integration",
 ]
 
 EXPECTED_AGENT_API = [
@@ -94,6 +105,7 @@ EXPECTED_WORKFLOW_API = [
     "Workflow",
     "WorkflowArtifact",
     "WorkflowArtifactSource",
+    "build_json_prompt_workflow",
     "list_of",
     "scalar",
     "typed_dict",
@@ -109,7 +121,15 @@ EXPECTED_PATTERNS_API = [
     "RalphLoopPattern",
     "NominalTeamPattern",
     "RouterDelegatePattern",
+    "SimulatedAnnealingPattern",
     "TreeSearchPattern",
+]
+EXPECTED_SCHEDULE_API = [
+    "AdaptiveSchedule",
+    "ExponentialSchedule",
+    "LinearSchedule",
+    "LogarithmicSchedule",
+    "TemperatureSchedule",
 ]
 LEGACY_PUBLIC_SYMBOLS = [
     "CallableTool",

@@ -11,6 +11,12 @@ Toolformer and Plan-and-Solve motivate explicit action/reason loops for model-gu
 example operationalizes that idea as a JSON tool-calling optimization workflow with traceable proposals and
 evaluations.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -32,7 +38,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/optimization/multi_step_json_tool_calling_1d_optimization.py
    :language: python
-   :lines: 52-
+   :lines: 58-
    :linenos:
 
 Expected Results

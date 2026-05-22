@@ -45,6 +45,26 @@ Programmatic helpers
    )
    runtime.close()
 
+For Python module-backed servers, use ``MCPServerConfig.python_module(...)`` to
+avoid hand-building the ``python -m`` command.
+
+.. code-block:: python
+
+   from design_research_agents import MCPServerConfig, Toolbox
+
+   runtime = Toolbox(
+       enable_core_tools=False,
+       mcp_servers=(
+           MCPServerConfig.python_module(
+               id="drp_problem",
+               module="design_research_problems.mcp",
+               args=("pill_capsule_min_area", "--no-citation"),
+           ),
+       ),
+   )
+   tools = [spec.name for spec in runtime.list_tools()]
+   runtime.close()
+
 Troubleshooting
 ---------------
 

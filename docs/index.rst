@@ -35,6 +35,12 @@ compare, and audit across experiments.
         <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml">
           <img alt="Docs" src="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg">
         </a>
+        <a class="drc-badge-link" href="https://pypi.org/project/design-research-agents/">
+          <img alt="PyPI Version" src="https://img.shields.io/pypi/v/design-research-agents.svg">
+        </a>
+        <a class="drc-badge-link" href="https://pypi.org/project/design-research-agents/">
+          <img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/design-research-agents.svg">
+        </a>
       </div>
 
 Highlights
@@ -42,6 +48,7 @@ Highlights
 
 - Two core agent entry points: ``DirectLLMCall`` and ``MultiStepAgent``
 - Explicit multi-step modes for ``direct``, ``json``, and ``code`` execution
+- A study-facing integration seam in ``design_research_agents.integration``
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - Model-selection policies with local and remote catalogs
 - Tool contracts and schemas for safe, structured I/O
@@ -49,6 +56,12 @@ Highlights
 - Workflow-native memory and reusable reasoning patterns including tree search,
   Ralph loops, nominal teams, debate, and RAG
 - Runnable examples for deterministic validation and experimentation
+
+The public surface is intentionally layered: start with ``DirectLLMCall`` for
+one-shot execution, move to ``MultiStepAgent`` for managed loops, use
+``Workflow`` when you need to author reusable graphs, reach for
+``design_research_agents.patterns`` when a prebuilt orchestration strategy fits,
+and use runnable examples as exemplars rather than as the primary abstraction.
 
 Typical Workflow
 ----------------
@@ -58,15 +71,17 @@ Typical Workflow
 2. Configure runtime mode, tools, models, and any workflow or memory helpers.
 3. Run a deterministic example or local quickstart to validate the environment.
 4. Inspect traces, tool boundaries, and structured outputs for debugging and evaluation.
-5. Reuse the same runtime contracts inside broader experiments and downstream analysis.
+5. Reuse the same runtime contracts inside broader experiments through
+   ``design_research_agents.integration.execute_agent_run(...)``,
+   ``design_research_agents.integration.normalize_agent_execution(...)``, and
+   downstream analysis.
 
 .. container:: drc-home-callout
 
    .. note::
 
-      **Start with** :doc:`quickstart` to run a first agent workflow, inspect the
-      public runtime surface, and get the package into a stable local loop before
-      diving into the broader patterns and reference material.
+      **New here?** Start with :doc:`where_to_start` to choose the right layer,
+      then use :doc:`quickstart` to run the smallest end-to-end example.
 
 Guides
 ------
@@ -75,6 +90,7 @@ Learn the base concepts, setup flow, and execution patterns that shape a stable
 agent-research pipeline.
 
 - :doc:`quickstart`
+- :doc:`where_to_start`
 - :doc:`installation`
 - :doc:`vscode_setup`
 - :doc:`concepts`
@@ -130,6 +146,7 @@ Start Here
 ----------
 
 - :doc:`quickstart`
+- :doc:`where_to_start`
 - :doc:`installation`
 - :doc:`vscode_setup`
 - :doc:`concepts`
@@ -144,6 +161,7 @@ Start Here
    :hidden:
 
    quickstart
+   where_to_start
    installation
    vscode_setup
    concepts
@@ -176,4 +194,5 @@ Start Here
    :caption: Development
    :hidden:
 
+   documentation_automation
    CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/HEAD/CONTRIBUTING.md>

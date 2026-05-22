@@ -8,9 +8,10 @@ selection policy execution with observable scoring outputs and traces.
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
-2. Build the runtime surface (public APIs only) and execute ``ModelSelector.select(...)`` with a fixed ``request_id``.
-3. Evaluate model constraints and policy, then expose selector metadata in the traced payload.
-4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+2. Build a default ``ModelFlightRegistry`` and flatten it into the ``ModelCatalog`` passed to ``ModelSelector``.
+3. Execute ``ModelSelector.select(...)`` with a fixed ``request_id``.
+4. Evaluate model constraints and policy, then expose selector metadata in the traced payload.
+5. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
 flowchart LR
@@ -31,12 +32,12 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 .. code-block:: text
 
    {
-     "catalog_signature": "440e215f0fee",
+     "catalog_signature": "4dbd48aeadb6",
      "example": "model_selection/local.py",
-     "model_id": "qwen3-14b-instruct-gguf-q4_k_m",
+     "model_id": "llama-3.1-8b-instruct-gguf-q4_k_m",
      "policy_id": "default",
      "provider": "llama_cpp",
-     "rationale": "priority=quality; selection_reason=local_fit; model_size_b=14.0; ram_budget_gb=10.0; max_cost_us...
+     "rationale": "priority=quality; selection_reason=local_fit; model_size_b=8.0; ram_budget_gb=10.0; max_cost_us...
      "safety_constraints": {
        "max_cost_usd": 0.01,
        "max_latency_ms": null
@@ -64,8 +65,14 @@ from pathlib import Path
 import design_research_agents as drag
 
 
+def _default_model_catalog() -> drag.ModelCatalog:
+    flight_registry = drag.ModelFlightRegistry.default()
+    flights: tuple[drag.ModelFlight, ...] = tuple(flight_registry.flights)
+    return drag.ModelCatalog.from_flights(flights)
+
+
 def _select_local() -> dict[str, object]:
-    selector = drag.ModelSelector()
+    selector = drag.ModelSelector(catalog=_default_model_catalog())
     decision = selector.select(
         task="Summarize engineering design review findings for stakeholders.",
         priority="quality",

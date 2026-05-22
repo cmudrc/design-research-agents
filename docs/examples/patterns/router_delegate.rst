@@ -10,6 +10,12 @@ RouteLLM motivates specialized route selection, AutoGen demonstrates multi-agent
 Human-AI collaboration by design frames why explicit routing supports accountable coordination. This example
 shows intent-based routing across direct and multi-step agents using a shared runtime surface.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 Technical Implementation
 ------------------------
 
@@ -31,7 +37,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/router_delegate.py
    :language: python
-   :lines: 51-
+   :lines: 57-
    :linenos:
 
 Expected Results

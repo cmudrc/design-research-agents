@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._catalog import ModelCatalog, ModelFlight, ModelFlightRegistry
 from ._selector import ModelSelector
 
-__all__ = ["ModelSelector"]
+__all__ = ["ModelCatalog", "ModelFlight", "ModelFlightRegistry", "ModelSelector"]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Final
 
@@ -32,6 +33,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "ToolResult": "design_research_agents.tools:ToolResult",
     "Workflow": "design_research_agents.workflow:Workflow",
     "CompiledExecution": "design_research_agents.workflow:CompiledExecution",
+    "build_json_prompt_workflow": "design_research_agents.workflow:build_json_prompt_workflow",
     "TwoSpeakerConversationPattern": "design_research_agents.patterns:TwoSpeakerConversationPattern",
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
@@ -43,6 +45,12 @@ _EXPORTS: Final[dict[str, str]] = {
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
+    "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
+    "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
+    "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",
+    "LinearSchedule": "design_research_agents._implementations._patterns:LinearSchedule",
+    "LogarithmicSchedule": "design_research_agents._implementations._patterns:LogarithmicSchedule",
+    "TemperatureSchedule": "design_research_agents._implementations._patterns:TemperatureSchedule",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
@@ -55,11 +63,15 @@ _EXPORTS: Final[dict[str, str]] = {
     "VLLMServerLLMClient": "design_research_agents.llm:VLLMServerLLMClient",
     "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
     "SGLangServerLLMClient": "design_research_agents.llm:SGLangServerLLMClient",
+    "ModelCatalog": "design_research_agents._model_selection:ModelCatalog",
+    "ModelFlight": "design_research_agents._model_selection:ModelFlight",
+    "ModelFlightRegistry": "design_research_agents._model_selection:ModelFlightRegistry",
     "ModelSelector": "design_research_agents._model_selection:ModelSelector",
     "Tracer": "design_research_agents._tracing:Tracer",
 }
 
 __all__ = ["__version__", *_EXPORTS.keys()]
+__all__.append("integration")
 
 try:
     __version__ = version("design-research-agents")
@@ -79,6 +91,11 @@ def __getattr__(name: str) -> object:
     Raises:
         AttributeError: If ``name`` is not part of the public export map.
     """
+    if name == "integration":
+        module = import_module("design_research_agents.integration")
+        globals()[name] = module
+        return module
+
     return resolve_lazy_export(
         module_name=__name__,
         exports=_EXPORTS,
@@ -109,12 +126,21 @@ if TYPE_CHECKING:
     from ._contracts import MemoryWriteStep as MemoryWriteStep
     from ._contracts import ModelStep as ModelStep
     from ._contracts import ToolStep as ToolStep
+    from ._implementations._patterns import AdaptiveSchedule as AdaptiveSchedule
+    from ._implementations._patterns import ExponentialSchedule as ExponentialSchedule
+    from ._implementations._patterns import LinearSchedule as LinearSchedule
+    from ._implementations._patterns import LogarithmicSchedule as LogarithmicSchedule
+    from ._implementations._patterns import TemperatureSchedule as TemperatureSchedule
+    from ._model_selection import ModelCatalog as ModelCatalog
+    from ._model_selection import ModelFlight as ModelFlight
+    from ._model_selection import ModelFlightRegistry as ModelFlightRegistry
     from ._model_selection import ModelSelector as ModelSelector
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
     from .agent import PromptWorkflowAgent as PromptWorkflowAgent
     from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
+    from .integration import execute_agent_run as execute_agent_run
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
@@ -136,6 +162,7 @@ if TYPE_CHECKING:
     from .patterns import RalphLoopPattern as RalphLoopPattern
     from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
     from .patterns import RouterDelegatePattern as RouterDelegatePattern
+    from .patterns import SimulatedAnnealingPattern as SimulatedAnnealingPattern
     from .patterns import TreeSearchPattern as TreeSearchPattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
     from .skills import SkillsConfig as SkillsConfig
@@ -146,3 +173,4 @@ if TYPE_CHECKING:
     from .tools import ToolResult as ToolResult
     from .workflow import CompiledExecution as CompiledExecution
     from .workflow import Workflow as Workflow
+    from .workflow import build_json_prompt_workflow as build_json_prompt_workflow

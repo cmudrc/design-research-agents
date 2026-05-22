@@ -14,5 +14,6 @@ Generated from canonical example docstrings/comments in ``examples/patterns``.
    rag
    ralph_loop
    router_delegate
+   simulated_annealing
    tree_search
    two_speaker_conversation

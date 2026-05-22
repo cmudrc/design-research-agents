@@ -50,7 +50,7 @@ Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 .. code-block:: text
 
    {
-     "catalog_signature": "440e215f0fee",
+     "catalog_signature": "4dbd48aeadb6",
      "example": "model_selection/remote.py",
      "model_id": "gpt-4o-mini",
      "policy_id": "default",

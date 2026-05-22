@@ -1,14 +1,14 @@
 """# Agents / Prompt Workflow Agent.
 
 ## Introduction
-This example shows how to package a prompt-mode ``Workflow`` as a reusable study agent for deterministic
-design experiments. ``PromptWorkflowAgent`` keeps the workflow itself simple while moving packaged-problem,
-run-spec, and condition formatting into one explicit prompt builder.
+This example shows how to package a JSON prompt-mode ``Workflow`` as a reusable study agent for deterministic
+design experiments. ``PromptWorkflowAgent`` keeps study prompt construction separate from the workflow that
+turns model output into one structured JSON payload.
 
 ## Technical Implementation
 1. Define tiny local study packet dataclasses so the example stays dependency-light and deterministic.
-2. Build a prompt-mode ``Workflow`` with logic steps that capture the resolved study prompt and emit one final
-   summary payload.
+2. Build a prompt-mode ``Workflow`` with ``build_json_prompt_workflow(...)`` and a tiny deterministic LLM
+   client.
 3. Wrap that workflow in ``PromptWorkflowAgent`` with a prompt builder that converts study metadata into one
    canonical prompt string.
 4. Run the delegate with a fixed ``request_id`` and print a compact JSON payload for docs and regression tests.
@@ -16,10 +16,9 @@ run-spec, and condition formatting into one explicit prompt builder.
 ```mermaid
 flowchart LR
     A["Problem packet + run spec + condition"] --> B["PromptWorkflowAgent(prompt_builder)"]
-    B --> C["Prompt-mode Workflow"]
-    C --> D["capture_study_prompt"]
-    D --> E["emit_summary"]
-    E --> F["JSON payload"]
+    B --> C["build_json_prompt_workflow"]
+    C --> D["json_response"]
+    D --> E["JSON payload"]
 ```
 
 ## Expected Results
@@ -55,7 +54,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
 
 import design_research_agents as drag
 
@@ -80,46 +78,43 @@ class _Condition:
     budget_label: str
 
 
-def _capture_study_prompt(context: dict[str, Any]) -> dict[str, object]:
-    """Capture the resolved study prompt and request id inside the workflow."""
-    workflow_metadata = context.get("_workflow")
-    request_id = ""
-    if isinstance(workflow_metadata, dict):
-        raw_request_id = workflow_metadata.get("request_id")
-        if isinstance(raw_request_id, str):
-            request_id = raw_request_id
-    return {
-        "study_prompt": str(context["prompt"]),
-        "request_id": request_id,
-    }
+class _DeterministicJSONClient:
+    """Small deterministic LLM client used to keep the example offline."""
 
-
-def _emit_summary(context: dict[str, Any]) -> dict[str, object]:
-    """Emit the canonical final_output payload for this example run."""
-    capture_output = context["dependency_results"]["capture_study_prompt"]["output"]
-    return {
-        "final_output": {
-            "request_id": capture_output["request_id"],
-            "study_prompt": capture_output["study_prompt"],
-            "workflow_step": str(context["_workflow"]["step_id"]),
-        }
-    }
+    def generate(self, request: drag.LLMRequest) -> drag.LLMResponse:
+        """Return a valid JSON response echoing the study prompt."""
+        prompt = request.messages[-1].content
+        return drag.LLMResponse(
+            text=json.dumps(
+                {
+                    "study_prompt": prompt,
+                    "workflow_step": "json_response",
+                    "prompt_character_count": len(prompt),
+                },
+                ensure_ascii=True,
+                sort_keys=True,
+            ),
+            model="deterministic-json-client",
+            provider="example",
+            usage={"prompt_tokens": 42, "completion_tokens": 24},
+        )
 
 
 def build_example_workflow() -> drag.Workflow:
     """Build the prompt-mode workflow wrapped by the prompt workflow agent."""
-    return drag.Workflow(
-        steps=[
-            drag.LogicStep(
-                step_id="capture_study_prompt",
-                handler=_capture_study_prompt,
-            ),
-            drag.LogicStep(
-                step_id="emit_summary",
-                dependencies=("capture_study_prompt",),
-                handler=_emit_summary,
-            ),
-        ]
+    return drag.build_json_prompt_workflow(
+        llm_client=_DeterministicJSONClient(),
+        response_schema={
+            "type": "object",
+            "properties": {
+                "study_prompt": {"type": "string"},
+                "workflow_step": {"type": "string"},
+                "prompt_character_count": {"type": "number"},
+            },
+            "required": ["study_prompt", "workflow_step", "prompt_character_count"],
+        },
+        request_metadata={"example": "prompt_workflow_agent"},
+        default_request_id_prefix="example-prompt-workflow-agent",
     )
 
 

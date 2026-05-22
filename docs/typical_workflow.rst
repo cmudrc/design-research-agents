@@ -51,3 +51,6 @@ Use ``DirectLLMCall`` when you want the shortest execution path and minimal
 control overhead. Move to ``MultiStepAgent`` when interpretability and control
 matter more than absolute latency. Move to patterns when you need coordinated
 multi-role behavior and reusable orchestration logic.
+
+If you are deciding between primitives, workflows, patterns, and exemplars,
+see :doc:`where_to_start`.

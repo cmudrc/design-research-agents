@@ -1,16 +1,16 @@
-"""MCP-backed tool source over the stdio JSON-RPC transport."""
+"""MCP-backed tool source over the official SDK stdio transport."""
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
-import select
-import subprocess
-import time
+import tempfile
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from threading import Lock, Thread
-from typing import TextIO
+from datetime import timedelta
+from typing import Any, cast
 
 from design_research_agents._contracts._tools import (
     ToolMetadata,
@@ -26,8 +26,8 @@ class McpProtocolError(RuntimeError):
     """Raised for MCP transport/protocol errors."""
 
 
-class _StdioMcpClient:
-    """Tiny stdio JSON-RPC client used for MCP tools/list and tools/call."""
+class _SdkStdioMcpClient:
+    """Synchronous facade over the official MCP Python SDK stdio client."""
 
     def __init__(self, *, server: MCPServerConfig, policy: ToolPolicy) -> None:
         """Initialize one stdio MCP client for the configured server.
@@ -38,12 +38,7 @@ class _StdioMcpClient:
         """
         self._server = server
         self._policy = policy
-        self._process: subprocess.Popen[str] | None = None
-        self._request_id = 0
-        self._initialized = False
         self._stderr_lines: deque[str] = deque(maxlen=32)
-        self._stderr_lock = Lock()
-        self._stderr_thread: Thread | None = None
 
     def list_tools(self) -> list[dict[str, object]]:
         """Fetch raw tool descriptors from the remote MCP server.
@@ -54,18 +49,32 @@ class _StdioMcpClient:
         Raises:
             McpProtocolError: If the server response is malformed.
         """
-        list_tools_response = self._request("tools/list", {})
-        response_result = list_tools_response.get("result")
-        if not isinstance(response_result, Mapping):
-            raise McpProtocolError("tools/list response missing result object.")
-        tools = response_result.get("tools")
-        if not isinstance(tools, list):
-            raise McpProtocolError("tools/list result missing tools array.")
-        parsed: list[dict[str, object]] = []
-        for item in tools:
-            if isinstance(item, Mapping):
-                parsed.append(dict(item))
-        return parsed
+
+        async def _list_tools() -> list[dict[str, object]]:
+            anyio_module, client_session_cls, stdio_module, types_module = _import_mcp_sdk_modules()
+            del anyio_module
+            params = self._stdio_parameters(stdio_module=stdio_module)
+            with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as errlog:
+                try:
+                    async with self._stdio_client(stdio_module=stdio_module, params=params, errlog=errlog) as streams:
+                        read_stream, write_stream = streams
+                        async with client_session_cls(
+                            read_stream,
+                            write_stream,
+                            read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
+                            client_info=types_module.Implementation(
+                                name="design-research-agents",
+                                version="0.3.0",
+                            ),
+                        ) as session:
+                            await session.initialize()
+                            listed = await session.list_tools()
+                            tools = [_dump_model(tool) for tool in listed.tools]
+                            return tools
+                finally:
+                    self._record_errlog(errlog)
+
+        return cast(list[dict[str, object]], self._run(_list_tools))
 
     def call_tool(self, *, tool_name: str, arguments: Mapping[str, object]) -> dict[str, object]:
         """Invoke one remote MCP tool and return its raw result envelope.
@@ -80,222 +89,140 @@ class _StdioMcpClient:
         Raises:
             McpProtocolError: If the server response is malformed or reports an error.
         """
-        call_tool_response = self._request(
-            "tools/call",
-            {"name": tool_name, "arguments": dict(arguments)},
-        )
-        response_result = call_tool_response.get("result")
-        if not isinstance(response_result, Mapping):
-            raise McpProtocolError("tools/call response missing result object.")
-        return dict(response_result)
 
-    def _request(self, method: str, params: Mapping[str, object]) -> dict[str, object]:
-        """Send one JSON-RPC request to the MCP server and read its response.
+        async def _call_tool() -> dict[str, object]:
+            anyio_module, client_session_cls, stdio_module, types_module = _import_mcp_sdk_modules()
+            del anyio_module
+            params = self._stdio_parameters(stdio_module=stdio_module)
+            with tempfile.TemporaryFile(mode="w+t", encoding="utf-8") as errlog:
+                try:
+                    async with self._stdio_client(stdio_module=stdio_module, params=params, errlog=errlog) as streams:
+                        read_stream, write_stream = streams
+                        async with client_session_cls(
+                            read_stream,
+                            write_stream,
+                            read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
+                            client_info=types_module.Implementation(
+                                name="design-research-agents",
+                                version="0.3.0",
+                            ),
+                        ) as session:
+                            await session.initialize()
+                            result = await session.call_tool(tool_name, dict(arguments))
+                            return _dump_model(result)
+                finally:
+                    self._record_errlog(errlog)
 
-        Args:
-            method: JSON-RPC method name to invoke.
-            params: Request parameter mapping to serialize.
+        return cast(dict[str, object], self._run(_call_tool))
 
-        Returns:
-            Parsed JSON-RPC response payload for the matching request id.
-
-        Raises:
-            McpProtocolError: If the transport is unavailable or the server reports an error.
-        """
-        self._ensure_started()
-        self._ensure_initialized()
-
-        process = self._process
-        if process is None or process.stdin is None:
-            raise McpProtocolError("MCP server stdin is unavailable.")
-
-        self._request_id += 1
-        request_id = self._request_id
-        request_payload = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": dict(params),
-        }
-        process.stdin.write(json.dumps(request_payload, ensure_ascii=True) + "\n")
-        process.stdin.flush()
-
-        # Match responses by JSON-RPC id because MCP servers may emit unrelated notifications.
-        response_payload = self._read_response(expected_id=request_id)
-        if "error" in response_payload:
-            error = response_payload.get("error")
-            if isinstance(error, Mapping):
-                message = str(error.get("message", "Unknown MCP error"))
-            else:
-                message = "Unknown MCP error"
-            raise McpProtocolError(f"MCP method '{method}' failed: {message}")
-        return response_payload
-
-    def _ensure_started(self) -> None:
-        """Start the managed MCP subprocess on first use."""
-        if self._process is not None:
-            return
-
-        with self._stderr_lock:
-            self._stderr_lines.clear()
-
-        # Launch subprocesses with an allowlisted environment to reduce accidental secret leakage.
-        env = self._policy.sanitize_subprocess_env(
-            allowlist=self._server.env_allowlist,
-            extra_env=self._server.env,
-        )
-        self._process = subprocess.Popen(
-            list(self._server.command),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            env=env,
-        )
-        if self._process.stderr is not None:
-            self._stderr_thread = Thread(
-                target=self._drain_stderr,
-                args=(self._process.stderr,),
-                daemon=True,
-                name=f"dra-mcp-stderr-{self._server.id}",
-            )
-            self._stderr_thread.start()
-
-    def _drain_stderr(self, stderr: TextIO) -> None:
-        """Continuously drain ``stderr`` to avoid child-process backpressure."""
-        try:
-            for line in iter(stderr.readline, ""):
-                self._record_stderr_line(line)
-        except Exception:
-            # Best-effort background draining should not disrupt the client lifecycle.
-            return
-
-    def _record_stderr_line(self, line: str) -> None:
-        """Store one bounded stderr line for later diagnostics."""
-        normalized = line.rstrip()
-        if not normalized:
-            return
-        with self._stderr_lock:
-            self._stderr_lines.append(normalized)
+    def record_stderr(self, text: str) -> None:
+        """Record one or more stderr lines emitted by the SDK-managed subprocess."""
+        for raw_line in text.splitlines():
+            normalized = raw_line.rstrip()
+            if normalized:
+                self._stderr_lines.append(normalized)
 
     def _stderr_preview(self) -> str:
-        """Return a bounded stderr preview captured by the background drain thread."""
-        with self._stderr_lock:
-            if not self._stderr_lines:
-                return ""
-            preview = "\n".join(self._stderr_lines)
+        """Return a bounded stderr preview captured by the SDK transport."""
+        if not self._stderr_lines:
+            return ""
+        preview = "\n".join(self._stderr_lines)
         if len(preview) <= 2_000:
             return preview
         return f"...{preview[-1_997:]}"
 
-    def _ensure_initialized(self) -> None:
-        """Perform the MCP initialize and initialized handshake once.
-
-        Raises:
-            McpProtocolError: If the subprocess is unavailable during initialization.
-        """
-        if self._initialized:
+    def _record_errlog(self, errlog: Any) -> None:
+        """Read captured SDK subprocess stderr from a file handle."""
+        try:
+            errlog.seek(0)
+            text = errlog.read()
+        except (OSError, AttributeError):
             return
-        process = self._process
-        if process is None or process.stdin is None:
-            raise McpProtocolError("MCP server process is not available.")
+        if isinstance(text, str):
+            self.record_stderr(text)
 
-        self._request_id += 1
-        init_id = self._request_id
-        init_payload = {
-            "jsonrpc": "2.0",
-            "id": init_id,
-            "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "design-research-agents", "version": "0.1.0"},
-            },
-        }
-        process.stdin.write(json.dumps(init_payload, ensure_ascii=True) + "\n")
-        process.stdin.flush()
-        _ = self._read_response(expected_id=init_id)
+    def _stdio_client(self, *, stdio_module: Any, params: Any, errlog: Any) -> Any:
+        """Open an SDK stdio client across MCP SDK minor-version signatures."""
+        client = stdio_module.stdio_client
+        try:
+            signature = inspect.signature(client)
+        except (TypeError, ValueError):
+            signature = None
+        if signature is not None and "errlog" in signature.parameters:
+            return client(params, errlog=errlog)
+        return client(params)
 
-        # Follow initialize with initialized per MCP lifecycle expectations.
-        self._request_id += 1
-        initialized_id = self._request_id
-        initialized_payload = {
-            "jsonrpc": "2.0",
-            "id": initialized_id,
-            "method": "initialized",
-            "params": {},
-        }
-        process.stdin.write(json.dumps(initialized_payload, ensure_ascii=True) + "\n")
-        process.stdin.flush()
-        _ = self._read_response(expected_id=initialized_id)
+    def _stdio_parameters(self, *, stdio_module: Any) -> Any:
+        command = tuple(self._server.command)
+        if not command:
+            raise McpProtocolError(f"MCP server '{self._server.id}' has no command configured.")
+        env = self._policy.sanitize_subprocess_env(
+            allowlist=self._server.env_allowlist,
+            extra_env=self._server.env,
+        )
+        return stdio_module.StdioServerParameters(
+            command=command[0],
+            args=list(command[1:]),
+            env=env,
+        )
 
-        self._initialized = True
+    def _run(self, async_fn: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+        else:
+            raise McpProtocolError("MCP stdio calls must run outside an active asyncio event loop.")
 
-    def _read_response(self, *, expected_id: int) -> dict[str, object]:
-        """Read the next JSON-RPC response matching ``expected_id``.
-
-        Args:
-            expected_id: Request id that the response must match.
-
-        Returns:
-            Parsed response payload for the matching request id.
-
-        Raises:
-            McpProtocolError: If the process times out, exits, or emits invalid data.
-        """
-        process = self._process
-        if process is None or process.stdout is None:
-            raise McpProtocolError("MCP server stdout is unavailable.")
-
-        deadline = time.monotonic() + self._server.timeout_s
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise McpProtocolError(f"Timed out waiting for MCP response from server '{self._server.id}'.")
-            readable, _, _ = select.select([process.stdout], [], [], remaining)
-            if not readable:
-                continue
-            line = process.stdout.readline()
-            if line == "":
-                stderr_text = self._stderr_preview()
-                details = f" stderr={stderr_text!r}" if stderr_text else ""
-                raise McpProtocolError(f"MCP server '{self._server.id}' closed unexpectedly.{details}")
-            try:
-                response_payload = json.loads(line)
-            except json.JSONDecodeError:
-                # Ignore non-JSON lines to tolerate noisy stderr-forwarding wrappers.
-                continue
-            if not isinstance(response_payload, Mapping):
-                continue
-            response_id = response_payload.get("id")
-            if response_id != expected_id:
-                continue
-            return dict(response_payload)
+        anyio_module, _, _, _ = _import_mcp_sdk_modules()
+        try:
+            self._stderr_lines.clear()
+            return cast(Any, anyio_module).run(async_fn)
+        except McpProtocolError:
+            raise
+        except Exception as exc:
+            stderr = self._stderr_preview()
+            suffix = f" stderr={stderr!r}" if stderr else ""
+            raise McpProtocolError(f"MCP server '{self._server.id}' request failed: {exc}{suffix}") from exc
 
     def close(self) -> None:
-        """Terminate the managed MCP subprocess if it is running."""
-        process = self._process
-        if process is None:
-            return
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=1.0)
-            except subprocess.TimeoutExpired:
-                process.kill()
-        self._process = None
-        self._initialized = False
-        stderr_thread = self._stderr_thread
-        if stderr_thread is not None:
-            stderr_thread.join(timeout=0.1)
-        self._stderr_thread = None
-        with self._stderr_lock:
-            self._stderr_lines.clear()
+        """Close the client facade.
+
+        The SDK transport opens short-lived sessions for each operation, so no
+        persistent subprocess handle is retained here.
+        """
+        self._stderr_lines.clear()
 
     def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
         """Perform best-effort shutdown during interpreter garbage collection."""
         self.close()
+
+
+def _import_mcp_sdk_modules() -> tuple[Any, Any, Any, Any]:
+    """Import the optional official MCP SDK modules."""
+    try:
+        import anyio
+        import mcp.types as types_module
+        from mcp.client import stdio as stdio_module
+        from mcp.client.session import ClientSession
+    except ImportError as exc:
+        raise McpProtocolError(
+            "The official MCP Python SDK is required for MCP tool sources. "
+            "Install it with: pip install design-research-agents[mcp]"
+        ) from exc
+    return anyio, ClientSession, stdio_module, types_module
+
+
+def _dump_model(value: object) -> dict[str, object]:
+    """Return a JSON-compatible dictionary for MCP SDK Pydantic models."""
+    dump = getattr(value, "model_dump", None)
+    if callable(dump):
+        payload = dump(mode="json", by_alias=True, exclude_none=True)
+        if isinstance(payload, Mapping):
+            return dict(payload)
+    if isinstance(value, Mapping):
+        return dict(value)
+    return {}
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -324,8 +251,8 @@ class McpToolSource:
         """
         self._config = mcp_config
         self._policy = policy
-        self._clients: dict[str, _StdioMcpClient] = {
-            server.id: _StdioMcpClient(server=server, policy=policy) for server in mcp_config.servers
+        self._clients: dict[str, _SdkStdioMcpClient] = {
+            server.id: _SdkStdioMcpClient(server=server, policy=policy) for server in mcp_config.servers
         }
         self._routes: dict[str, _McpRoute] = {}
 

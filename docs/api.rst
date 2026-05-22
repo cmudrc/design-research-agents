@@ -15,11 +15,12 @@ contributors, but they are not compatibility-guaranteed.
 Top-level groups:
 
 - Metadata: ``__version__``
-- Entry points: agents, LLM clients, ``ModelSelector``
+- Entry points: agents, LLM clients, ``ModelSelector``, and model flights/catalogs
 - Skills: ``SkillsConfig``
 - Core contracts: ``ExecutionResult``, ``LLMRequest``, ``LLMMessage``, ``LLMResponse``, ``ToolResult``
   with normalized read helpers for structured payload access
-- Orchestration: workflow step classes, ``Workflow``, and pattern classes
+- Orchestration: workflow step classes, ``Workflow``, workflow builders,
+  and pattern classes
   (module homes: ``design_research_agents.workflow`` and
   ``design_research_agents.patterns``)
 - Tools: ``Toolbox``, ``CallableToolConfig``, ``ScriptToolConfig``, ``MCPServerConfig``
@@ -59,8 +60,8 @@ Skills
    :members:
    :undoc-members:
 
-LLM Clients and Selection
-^^^^^^^^^^^^^^^^^^^^^^^^^
+LLM Clients, Flights, and Selection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 All public LLM clients implement the same introspection helpers in addition to
 generation methods: ``default_model()``, ``capabilities()``,
@@ -115,6 +116,21 @@ context-manager form is the preferred public usage pattern.
 .. autoclass:: design_research_agents.SGLangServerLLMClient
    :members:
    :undoc-members:
+
+.. autoclass:: design_research_agents.ModelCatalog
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.ModelFlight
+   :members:
+   :undoc-members:
+   :no-index:
+
+.. autoclass:: design_research_agents.ModelFlightRegistry
+   :members:
+   :undoc-members:
+   :no-index:
 
 .. autoclass:: design_research_agents.ModelSelector
    :members:
@@ -213,6 +229,8 @@ Workflow step executions surface ``WorkflowStepResult`` payloads through
    :members:
    :undoc-members:
 
+.. autofunction:: design_research_agents.build_json_prompt_workflow
+
 Patterns
 ^^^^^^^^
 
@@ -261,6 +279,38 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :undoc-members:
 
 .. autoclass:: design_research_agents.RAGPattern
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.SimulatedAnnealingPattern
+   :members:
+   :undoc-members:
+
+Temperature Schedules
+^^^^^^^^^^^^^^^^^^^^^
+
+Temperature schedules control the cooling rate during simulated annealing.
+Pass an instance to ``SimulatedAnnealingPattern`` via the
+``temperature_schedule`` parameter. Subclass ``TemperatureSchedule`` to
+implement custom schedules.
+
+.. autoclass:: design_research_agents.TemperatureSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.LinearSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.ExponentialSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.LogarithmicSchedule
+   :members:
+   :undoc-members:
+
+.. autoclass:: design_research_agents.AdaptiveSchedule
    :members:
    :undoc-members:
 

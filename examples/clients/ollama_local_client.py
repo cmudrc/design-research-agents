@@ -5,6 +5,12 @@ Ollama operationalizes local model serving, the OpenAI Responses API provides a 
 HELM underlines why comparable execution conditions matter in benchmarking. This example verifies the Ollama
 client integration path under the project tracing/runtime conventions.
 
+.. note::
+
+   This example uses the lighter default Ollama model
+   ``qwen2.5:1.5b-instruct``. If the checked-in ``Qwen3-4B`` examples exceed
+   your machine's RAM, start here instead.
+
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.

@@ -6,6 +6,14 @@ designed to show not only API usage, but how the library fits into realistic
 experimental workflows. Each example lists dependencies, expected scope, and
 the primary concept it demonstrates.
 
+.. note::
+
+   Some local ``LlamaCppServerLLMClient`` examples intentionally use
+   ``Qwen3-4B`` GGUF configs, which can exceed available RAM on smaller
+   machines. If you want a lighter local starting point, swap in a smaller
+   model or begin with :doc:`clients/ollama_local_client`, which documents the
+   lighter Ollama defaults.
+
 Featured Examples
 -----------------
 

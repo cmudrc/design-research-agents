@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
-from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -36,15 +34,6 @@ class _StubClient:
 
     def close(self) -> None:
         pass
-
-
-@dataclass(slots=True, kw_only=True)
-class _FakeProcess:
-    stdout: object
-    stderr: object
-
-    def poll(self) -> int | None:
-        return 0
 
 
 def _policy(tmp_path: Path) -> ToolPolicy:
@@ -182,63 +171,31 @@ def test_mcp_source_registry_emits_observation_events(tmp_path: Path, monkeypatc
     assert captured["results"][-1]["ok"] is True
 
 
-def test_stdio_read_response_handles_timeout_and_eof(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sdk_client_surfaces_missing_mcp_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
-    client = mcp_source._StdioMcpClient(
+    client = mcp_source._SdkStdioMcpClient(
         server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=1),
         policy=policy,
     )
 
-    class _FakeStdout:
-        def readline(self) -> str:
-            return ""
+    def _raise_missing() -> tuple[object, object, object, object]:
+        raise McpProtocolError("missing sdk")
 
-    process = _FakeProcess(stdout=_FakeStdout(), stderr=StringIO(""))
-    client._process = process  # type: ignore[assignment]
-    client._record_stderr_line("boom")
-
-    monkeypatch.setattr(
-        mcp_source.select,
-        "select",
-        lambda *_args, **_kwargs: ([process.stdout], [], []),
-    )
-    with pytest.raises(McpProtocolError, match="stderr='boom'"):
-        client._read_response(expected_id=1)
-
-    ticks = iter([0.0, 0.0, 2.0])
-    monkeypatch.setattr(mcp_source.time, "monotonic", lambda: next(ticks))
-    monkeypatch.setattr(mcp_source.select, "select", lambda *_args, **_kwargs: ([], [], []))
-    with pytest.raises(McpProtocolError, match="Timed out waiting"):
-        client._read_response(expected_id=1)
+    monkeypatch.setattr(mcp_source, "_import_mcp_sdk_modules", _raise_missing)
+    with pytest.raises(McpProtocolError, match="missing sdk"):
+        client.list_tools()
 
 
-def test_stdio_read_response_skips_noise_until_expected_id(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sdk_client_stderr_preview_is_bounded() -> None:
     policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
-    client = mcp_source._StdioMcpClient(
+    client = mcp_source._SdkStdioMcpClient(
         server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=5),
         policy=policy,
     )
-
-    class _FakeStdout:
-        def __init__(self) -> None:
-            self.lines = [
-                "not-json\n",
-                '{"jsonrpc":"2.0","id":2,"result":{}}\n',
-                '{"jsonrpc":"2.0","id":1,"result":{"ok":true}}\n',
-            ]
-
-        def readline(self) -> str:
-            if not self.lines:
-                return ""
-            return self.lines.pop(0)
-
-    process = _FakeProcess(stdout=_FakeStdout(), stderr=StringIO(""))
-    client._process = process  # type: ignore[assignment]
-    monkeypatch.setattr(
-        mcp_source.select,
-        "select",
-        lambda *_args, **_kwargs: ([process.stdout], [], []),
-    )
-
-    payload = client._read_response(expected_id=1)
-    assert payload["result"] == {"ok": True}
+    client.record_stderr("first\n")
+    assert client._stderr_preview() == "first"
+    client.record_stderr("x" * 2500)
+    preview = client._stderr_preview()
+    assert len(preview) <= 2001
+    client.close()
+    assert client._stderr_preview() == ""

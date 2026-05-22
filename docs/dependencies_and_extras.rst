@@ -57,6 +57,10 @@ Extras matrix
      - Gemini hosted backend
    * - ``groq``
      - Groq hosted backend
+   * - ``mcp``
+     - MCP tool-runtime integration
+   * - ``huggingface``
+     - Hugging Face Hub metadata discovery for ``ModelCatalog.from_huggingface``
    * - ``memory_chroma``
      - Optional ChromaDB-backed vector memory store
    * - ``memory_graph``
@@ -77,6 +81,11 @@ Extras matrix
      - Hosted-provider convenience bundle
    * - ``full``
      - Providers + local backends
+   * - ``all``
+     - ``full`` plus optional ChromaDB and graph-memory stores
+
+``full`` remains the backend-focused bundle. Use ``all`` when you want that same
+runtime surface plus the optional memory backends exposed by this package.
 
 Hosted clients are the fastest path for onboarding and benchmark iteration, but
 they require network access and data egress. Local in-process clients are often
@@ -88,9 +97,11 @@ Recommended install profiles:
 
 - hosted OpenAI-family studies: ``pip install -e ".[dev,openai]"``
 - hosted provider comparisons: ``pip install -e ".[dev,providers]"``
+- Hugging Face catalog discovery: ``pip install -e ".[dev,huggingface]"``
 - Chroma-backed memory experiments: ``pip install -e ".[dev,memory_chroma]"``
 - graph-memory experiments: ``pip install -e ".[dev,memory_graph]"``
 - local-only studies: ``pip install -e ".[dev,local]"``
 - broad backend validation: ``pip install -e ".[dev,full]"``
+- broad runtime + memory validation: ``pip install -e ".[dev,all]"``
 
 Release validation is exposed via ``make release-check``.

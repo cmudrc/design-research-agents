@@ -48,6 +48,7 @@ Issues = "https://github.com/cmudrc/design-research-agents/issues"
 # Contributor batteries.
 dev = [
   "mypy>=1.10,<2",
+  "mcp>=1.10,<2",
   "pydata-sphinx-theme>=0.16,<1",
   "pre-commit>=3.7,<5",
   "pytest>=8.2,<9",
@@ -72,6 +73,10 @@ anthropic = ["anthropic>=0.40,<1"]
 gemini = ["google-genai>=1.0,<2"]
 
 groq = ["groq>=1.0,<2"]
+
+mcp = ["mcp>=1.10,<2"]
+
+huggingface = ["huggingface-hub>=0.24"]
 
 # Optional memory backends
 memory_chroma = ["chromadb>=1.0,<2"]
@@ -108,6 +113,7 @@ sglang = [
 # - "local" = all local backends that make sense on the current platform
 # - "providers" = all provider backends
 # - "full" = providers + local backends (platform-gated pieces auto-skip where unsupported)
+# - "all" = full + optional memory backends for the broadest runtime surface
 local = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
@@ -132,6 +138,22 @@ full = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
   "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "openai>=1.40,<2",
+  "torch>=2.4,<3",
+  "transformers>=4.44",
+  "vllm>=0.6,<1; platform_system == 'Linux' and python_version < '3.14'",
+  "sglang>=0.4,<1; platform_system == 'Linux' and python_version < '3.14'",
+]
+
+all = [
+  "anthropic>=0.40,<1",
+  "chromadb>=1.0,<2",
+  "google-genai>=1.0,<2",
+  "groq>=1.0,<2",
+  "huggingface-hub>=0.24",
+  "llama-cpp-python[server]>=0.2.90",
+  "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "networkx>=3.0,<4",
   "openai>=1.40,<2",
   "torch>=2.4,<3",
   "transformers>=4.44",
@@ -214,6 +236,8 @@ module = [
   "google.*",
   "groq",
   "groq.*",
+  "huggingface_hub",
+  "huggingface_hub.*",
   "mlx_lm",
   "mlx_lm.*",
   "openai",

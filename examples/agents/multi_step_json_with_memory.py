@@ -5,6 +5,12 @@ Reflexion, Generative Agents, and MemGPT each emphasize that iterative performan
 is persisted and reused rather than recomputed from scratch. This example adds memory reads/writes to JSON
 tool-calling so multi-step behavior remains auditable across turns.
 
+.. note::
+
+   This example's checked-in local ``LlamaCppServerLLMClient`` config uses a
+   ``Qwen3-4B`` GGUF model. On lower-RAM machines, swap in a smaller local
+   model or start with :doc:`../clients/ollama_local_client`.
+
 
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
@@ -57,6 +63,9 @@ from pathlib import Path
 import design_research_agents as drag
 from design_research_agents.memory import SQLiteMemoryStore
 
+# This checked-in local config uses a Qwen3-4B GGUF model to exercise a richer
+# multi-step path. On lower-RAM machines, swap in a smaller local model or
+# start with the lighter Ollama local client example first.
 _EXAMPLE_LLAMA_CLIENT_KWARGS = {
     "model": "Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
     "hf_model_repo_id": "bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF",

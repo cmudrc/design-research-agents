@@ -1,7 +1,11 @@
 ## Model Selection Examples
 
 These traced examples show how `ModelSelector` chooses local or remote models
-for engineering-design tasks.
+for engineering-design tasks. The same model-selection package also exposes
+`ModelFlightRegistry` for enumerating named model sets such as `qwen3-gguf`,
+`gemma3-gguf`, `llama-gguf`, `mistral-gguf`, `phi-gguf`, `open-reasoning`,
+`frontier-moe-open-weights`, `agentic-coding-open-weights`,
+`vision-language-open-weights`, and `openai-api`.
 
 ## Scripts
 

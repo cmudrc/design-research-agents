@@ -4,11 +4,18 @@
 
 - `make docs-check`
 - `make docs-build`
+- `make docs-linkcheck` when you change links, README badge surfaces, or docs landing-page content
 
 ## Example Page Generation
 
 Example pages are generated from runnable scripts via `scripts/generate_example_docs.py`.
 Update script docstrings/comments, then run docs generation checks before commit.
+
+## Shared Docs/CI Baseline
+
+This repo treats docs automation as a checked contract. The canonical baseline is
+documented in `documentation_automation.rst` and enforced by
+`scripts/check_docs_consistency.py`.
 
 ## Docstring Style
 

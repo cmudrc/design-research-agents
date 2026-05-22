@@ -26,6 +26,11 @@ Run from repository root:
 PYTHONPATH=src python examples/agents/direct_llm_call.py
 ```
 
+Some local `LlamaCppServerLLMClient` examples intentionally use `Qwen3-4B`
+GGUF configs to exercise richer multi-step flows. On lower-RAM machines, swap
+in a smaller local model or start with `examples/clients/ollama_local_client.py`,
+which documents the lighter `qwen2.5:1.5b-instruct` Ollama default.
+
 Run the smoke test set:
 
 ```bash
