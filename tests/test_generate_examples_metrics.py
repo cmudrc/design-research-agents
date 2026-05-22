@@ -76,3 +76,30 @@ def test_runnable_example_counts_require_all_expected_python_examples(tmp_path: 
             ),
             shell_examples=(metrics_module.REPO_ROOT / "examples" / "tools" / "script_tools" / "tool.sh",),
         )
+
+
+def test_public_api_symbols_are_read_from_export_manifest(tmp_path: Path) -> None:
+    metrics_module = _load_metrics_module()
+    manifest = tmp_path / "_public_exports.py"
+    manifest.write_text(
+        textwrap.dedent(
+            """
+            TOP_LEVEL_EXPORTS = {
+                "Agent": "package:Agent",
+                "Workflow": "package:Workflow",
+            }
+
+            TOP_LEVEL_SUBMODULES = {
+                "study": "package.study",
+            }
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+
+    assert metrics_module._extract_public_api_symbols(manifest) == (
+        "__version__",
+        "Agent",
+        "Workflow",
+        "study",
+    )

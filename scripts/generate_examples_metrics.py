@@ -10,7 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES_ROOT = REPO_ROOT / "examples"
-PUBLIC_API_INIT = REPO_ROOT / "src" / "design_research_agents" / "__init__.py"
+PUBLIC_API_EXPORTS = REPO_ROOT / "src" / "design_research_agents" / "_public_exports.py"
 JUNIT_XML = REPO_ROOT / "artifacts" / "examples" / "examples-deterministic.junit.xml"
 METRICS_JSON = REPO_ROOT / "artifacts" / "examples" / "examples_metrics.json"
 _NON_STREAMING_TEST_PREFIX = "test_non_streaming_example_runs["
@@ -104,13 +104,12 @@ def _parse_junit_runnable_example_counts(
     return total, passed, failed
 
 
-def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
-    """Extract intended public symbols from ``design_research_agents.__init__``."""
-    module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+def _extract_string_keyed_dict(module: ast.Module, name: str, path: Path) -> tuple[str, ...]:
+    """Extract ordered string keys from a module-level dictionary assignment."""
     export_dict: ast.Dict | None = None
 
     for node in module.body:
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "_EXPORTS":
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == name:
             if isinstance(node.value, ast.Dict):
                 export_dict = node.value
             break
@@ -118,20 +117,28 @@ def _extract_exports_from_init(path: Path) -> tuple[str, ...]:
             if len(node.targets) != 1:
                 continue
             target = node.targets[0]
-            if isinstance(target, ast.Name) and target.id == "_EXPORTS":
+            if isinstance(target, ast.Name) and target.id == name:
                 if isinstance(node.value, ast.Dict):
                     export_dict = node.value
                 break
 
     if export_dict is None:
-        raise ValueError(f"Unable to locate _EXPORTS dictionary in {path}.")
+        raise ValueError(f"Unable to locate {name} dictionary in {path}.")
 
-    exports: list[str] = ["__version__"]
+    keys: list[str] = []
     for key in export_dict.keys:
         if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
-            raise ValueError("_EXPORTS contains a non-string key, which is unsupported.")
-        exports.append(key.value)
-    return tuple(exports)
+            raise ValueError(f"{name} contains a non-string key, which is unsupported.")
+        keys.append(key.value)
+    return tuple(keys)
+
+
+def _extract_public_api_symbols(path: Path) -> tuple[str, ...]:
+    """Extract intended top-level public symbols from the public export manifest."""
+    module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    exports = _extract_string_keyed_dict(module, "TOP_LEVEL_EXPORTS", path)
+    submodules = _extract_string_keyed_dict(module, "TOP_LEVEL_SUBMODULES", path)
+    return ("__version__", *exports, *submodules)
 
 
 def _collect_public_api_symbol_usage(
@@ -222,7 +229,7 @@ def main() -> None:
         shell_examples=shell_examples,
     )
 
-    export_symbols = _extract_exports_from_init(PUBLIC_API_INIT)
+    export_symbols = _extract_public_api_symbols(PUBLIC_API_EXPORTS)
     symbol_usage = _collect_public_api_symbol_usage(
         example_files=python_examples,
         export_symbols=export_symbols,
