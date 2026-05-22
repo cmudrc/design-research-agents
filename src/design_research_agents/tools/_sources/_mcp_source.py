@@ -64,7 +64,7 @@ class _SdkStdioMcpClient:
                             read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
                             client_info=types_module.Implementation(
                                 name="design-research-agents",
-                                version="0.4.0",
+                                version="0.4.1",
                             ),
                         ) as session:
                             await session.initialize()
@@ -104,7 +104,7 @@ class _SdkStdioMcpClient:
                             read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
                             client_info=types_module.Implementation(
                                 name="design-research-agents",
-                                version="0.4.0",
+                                version="0.4.1",
                             ),
                         ) as session:
                             await session.initialize()

@@ -9,9 +9,9 @@
 
 <!-- release-callout:start -->
 > [!IMPORTANT]
-> Current monthly release: [Mayer Momentum - May 2026](https://github.com/cmudrc/design-research-agents/milestone/4)  
-> Due: June 1, 2026  
-> Tracks: May 2026 work
+> Current monthly release: [Johnson Jumpstart - June 2026](https://github.com/cmudrc/design-research-agents/milestone/5)  
+> Due: July 1, 2026  
+> Tracks: June 2026 work
 <!-- release-callout:end -->
 
 `design-research-agents` is the agent-execution layer in the cmudrc design
