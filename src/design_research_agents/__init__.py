@@ -4,74 +4,16 @@ from __future__ import annotations
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
+from design_research_agents._public_exports import (
+    TOP_LEVEL_EXPORTS,
+    TOP_LEVEL_PUBLIC_API,
+    TOP_LEVEL_SUBMODULES,
+)
 
-_EXPORTS: Final[dict[str, str]] = {
-    "DirectLLMCall": "design_research_agents.agent:DirectLLMCall",
-    "MultiStepAgent": "design_research_agents.agent:MultiStepAgent",
-    "SkillsConfig": "design_research_agents.skills:SkillsConfig",
-    "SeededRandomBaselineAgent": "design_research_agents.agent:SeededRandomBaselineAgent",
-    "PromptWorkflowAgent": "design_research_agents.agent:PromptWorkflowAgent",
-    "Toolbox": "design_research_agents.tools:Toolbox",
-    "CallableToolConfig": "design_research_agents.tools:CallableToolConfig",
-    "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
-    "MCPServerConfig": "design_research_agents.tools:MCPServerConfig",
-    "LogicStep": "design_research_agents._contracts:LogicStep",
-    "ToolStep": "design_research_agents._contracts:ToolStep",
-    "DelegateStep": "design_research_agents._contracts:DelegateStep",
-    "ModelStep": "design_research_agents._contracts:ModelStep",
-    "DelegateBatchStep": "design_research_agents._contracts:DelegateBatchStep",
-    "LoopStep": "design_research_agents._contracts:LoopStep",
-    "MemoryReadStep": "design_research_agents._contracts:MemoryReadStep",
-    "MemoryWriteStep": "design_research_agents._contracts:MemoryWriteStep",
-    "ExecutionResult": "design_research_agents._contracts:ExecutionResult",
-    "LLMRequest": "design_research_agents.llm:LLMRequest",
-    "LLMMessage": "design_research_agents.llm:LLMMessage",
-    "LLMResponse": "design_research_agents.llm:LLMResponse",
-    "ToolResult": "design_research_agents.tools:ToolResult",
-    "Workflow": "design_research_agents.workflow:Workflow",
-    "CompiledExecution": "design_research_agents.workflow:CompiledExecution",
-    "build_json_prompt_workflow": "design_research_agents.workflow:build_json_prompt_workflow",
-    "TwoSpeakerConversationPattern": "design_research_agents.patterns:TwoSpeakerConversationPattern",
-    "DebatePattern": "design_research_agents.patterns:DebatePattern",
-    "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
-    "ProposeCriticPattern": "design_research_agents.patterns:ProposeCriticPattern",
-    "RalphLoopPattern": "design_research_agents.patterns:RalphLoopPattern",
-    "NominalTeamPattern": "design_research_agents.patterns:NominalTeamPattern",
-    "RouterDelegatePattern": "design_research_agents.patterns:RouterDelegatePattern",
-    "RoundBasedCoordinationPattern": "design_research_agents.patterns:RoundBasedCoordinationPattern",
-    "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
-    "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
-    "RAGPattern": "design_research_agents.patterns:RAGPattern",
-    "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
-    "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
-    "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",
-    "LinearSchedule": "design_research_agents._implementations._patterns:LinearSchedule",
-    "LogarithmicSchedule": "design_research_agents._implementations._patterns:LogarithmicSchedule",
-    "TemperatureSchedule": "design_research_agents._implementations._patterns:TemperatureSchedule",
-    "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
-    "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
-    "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
-    "GroqServiceLLMClient": "design_research_agents.llm:GroqServiceLLMClient",
-    "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
-    "OpenAIServiceLLMClient": "design_research_agents.llm:OpenAIServiceLLMClient",
-    "OpenAICompatibleHTTPLLMClient": "design_research_agents.llm:OpenAICompatibleHTTPLLMClient",
-    "TransformersLocalLLMClient": "design_research_agents.llm:TransformersLocalLLMClient",
-    "MLXLocalLLMClient": "design_research_agents.llm:MLXLocalLLMClient",
-    "VLLMServerLLMClient": "design_research_agents.llm:VLLMServerLLMClient",
-    "OllamaLLMClient": "design_research_agents.llm:OllamaLLMClient",
-    "SGLangServerLLMClient": "design_research_agents.llm:SGLangServerLLMClient",
-    "ModelCatalog": "design_research_agents._model_selection:ModelCatalog",
-    "ModelFlight": "design_research_agents._model_selection:ModelFlight",
-    "ModelFlightRegistry": "design_research_agents._model_selection:ModelFlightRegistry",
-    "ModelSelector": "design_research_agents._model_selection:ModelSelector",
-    "Tracer": "design_research_agents._tracing:Tracer",
-}
-
-__all__ = ["__version__", *_EXPORTS.keys()]
-__all__.append("integration")
+__all__ = list(TOP_LEVEL_PUBLIC_API)
 
 try:
     __version__ = version("design-research-agents")
@@ -91,14 +33,14 @@ def __getattr__(name: str) -> object:
     Raises:
         AttributeError: If ``name`` is not part of the public export map.
     """
-    if name == "integration":
-        module = import_module("design_research_agents.integration")
+    if name in TOP_LEVEL_SUBMODULES:
+        module = import_module(TOP_LEVEL_SUBMODULES[name])
         globals()[name] = module
         return module
 
     return resolve_lazy_export(
         module_name=__name__,
-        exports=_EXPORTS,
+        exports=TOP_LEVEL_EXPORTS,
         export_name=name,
         namespace=globals(),
     )
@@ -131,16 +73,11 @@ if TYPE_CHECKING:
     from ._implementations._patterns import LinearSchedule as LinearSchedule
     from ._implementations._patterns import LogarithmicSchedule as LogarithmicSchedule
     from ._implementations._patterns import TemperatureSchedule as TemperatureSchedule
-    from ._model_selection import ModelCatalog as ModelCatalog
-    from ._model_selection import ModelFlight as ModelFlight
-    from ._model_selection import ModelFlightRegistry as ModelFlightRegistry
-    from ._model_selection import ModelSelector as ModelSelector
     from ._tracing import Tracer as Tracer
     from .agent import DirectLLMCall as DirectLLMCall
     from .agent import MultiStepAgent as MultiStepAgent
     from .agent import PromptWorkflowAgent as PromptWorkflowAgent
     from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
-    from .integration import execute_agent_run as execute_agent_run
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
@@ -153,6 +90,10 @@ if TYPE_CHECKING:
     from .llm import SGLangServerLLMClient as SGLangServerLLMClient
     from .llm import TransformersLocalLLMClient as TransformersLocalLLMClient
     from .llm import VLLMServerLLMClient as VLLMServerLLMClient
+    from .model_selection import ModelCatalog as ModelCatalog
+    from .model_selection import ModelFlight as ModelFlight
+    from .model_selection import ModelFlightRegistry as ModelFlightRegistry
+    from .model_selection import ModelSelector as ModelSelector
     from .patterns import BlackboardPattern as BlackboardPattern
     from .patterns import DebatePattern as DebatePattern
     from .patterns import NominalTeamPattern as NominalTeamPattern
@@ -166,6 +107,12 @@ if TYPE_CHECKING:
     from .patterns import TreeSearchPattern as TreeSearchPattern
     from .patterns import TwoSpeakerConversationPattern as TwoSpeakerConversationPattern
     from .skills import SkillsConfig as SkillsConfig
+    from .study import AgentExecutionEnvelope as AgentExecutionEnvelope
+    from .study import AgentRunRequest as AgentRunRequest
+    from .study import StudyCondition as StudyCondition
+    from .study import execute_agent_request as execute_agent_request
+    from .study import execute_agent_run as execute_agent_run
+    from .study import normalize_agent_execution as normalize_agent_execution
     from .tools import CallableToolConfig as CallableToolConfig
     from .tools import MCPServerConfig as MCPServerConfig
     from .tools import ScriptToolConfig as ScriptToolConfig

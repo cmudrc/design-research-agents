@@ -17,7 +17,9 @@ Guaranteed Public Modules
    patterns
    llm
    memory
+   model_selection
    skills
+   study
    tools
 
 Internal Modules (Underscored, Unstable)
@@ -30,7 +32,6 @@ internal and may change without compatibility guarantees.
    :maxdepth: 2
 
    contracts
-   model_selection
    tracing
    prompts
    schemas
