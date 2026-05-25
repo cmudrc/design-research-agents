@@ -199,3 +199,30 @@ def test_sdk_client_stderr_preview_is_bounded() -> None:
     assert len(preview) <= 2001
     client.close()
     assert client._stderr_preview() == ""
+
+
+def test_sdk_client_failure_message_includes_timeout_and_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
+    client = mcp_source._SdkStdioMcpClient(
+        server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=7),
+        policy=policy,
+    )
+
+    class _RaisingAnyio:
+        def run(self, async_fn: object) -> object:
+            del async_fn
+            raise TimeoutError("operation timed out")
+
+    monkeypatch.setattr(
+        mcp_source,
+        "_import_mcp_sdk_modules",
+        lambda: (_RaisingAnyio(), object(), object(), object()),
+    )
+
+    with pytest.raises(McpProtocolError) as exc_info:
+        client._run(lambda: None)
+
+    message = str(exc_info.value)
+    assert "timeout_s=7" in message
+    assert "command='python3 -c pass'" in message
+    assert "raise MCPServerConfig.timeout_s" in message

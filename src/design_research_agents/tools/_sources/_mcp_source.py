@@ -183,7 +183,13 @@ class _SdkStdioMcpClient:
         except Exception as exc:
             stderr = self._stderr_preview()
             suffix = f" stderr={stderr!r}" if stderr else ""
-            raise McpProtocolError(f"MCP server '{self._server.id}' request failed: {exc}{suffix}") from exc
+            command_text = " ".join(self._server.command) if self._server.command else "<empty>"
+            raise McpProtocolError(
+                f"MCP server '{self._server.id}' request failed "
+                f"(timeout_s={self._server.timeout_s}, command={command_text!r}): {exc}{suffix}. "
+                "If the server is doing useful long-running work, raise MCPServerConfig.timeout_s; "
+                "otherwise verify the stdio command and captured stderr."
+            ) from exc
 
     def close(self) -> None:
         """Close the client facade.
