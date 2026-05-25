@@ -47,6 +47,7 @@ it exits successfully with an ``available: false`` payload and an install hint.
 ## References
 - `design-research-problems documentation <https://cmudrc.github.io/design-research-problems/>`_
 - `Model Context Protocol Specification <https://modelcontextprotocol.io/specification/2025-06-18>`_
+- `SciPy optimize documentation <https://docs.scipy.org/doc/scipy/reference/optimize.html>`_
 """
 
 from __future__ import annotations

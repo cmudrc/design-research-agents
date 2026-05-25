@@ -35,7 +35,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/tools/derp_mcp_general_solver.py
    :language: python
-   :lines: 52-
+   :lines: 53-
    :linenos:
 
 Expected Results
@@ -66,3 +66,4 @@ References
 
 - `design-research-problems documentation <https://cmudrc.github.io/design-research-problems/>`_
 - `Model Context Protocol Specification <https://modelcontextprotocol.io/specification/2025-06-18>`_
+- `SciPy optimize documentation <https://docs.scipy.org/doc/scipy/reference/optimize.html>`_
