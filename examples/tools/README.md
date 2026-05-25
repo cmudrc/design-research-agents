@@ -9,6 +9,8 @@ sources for design-analysis workflows.
   - Traced MCP-only runtime and namespaced invocation.
 - `multi_source_tool_usage.py`
   - Traced multi-source run combining core/script/MCP tools.
+- `derp_mcp_general_solver.py`
+  - Maintained DRAG + DERP problem-selection and MCP evaluation path.
 - `script_tools/README.md`
   - Script-tool examples and direct execution commands.
 
@@ -17,6 +19,7 @@ sources for design-analysis workflows.
 ```bash
 PYTHONPATH=src python3 examples/tools/mcp_minimal.py
 PYTHONPATH=src python3 examples/tools/multi_source_tool_usage.py
+PYTHONPATH=src python3 examples/tools/derp_mcp_general_solver.py
 bash examples/tools/script_tools/repo_quickscan.sh <<'JSON'
 {"include_hidden":false}
 JSON

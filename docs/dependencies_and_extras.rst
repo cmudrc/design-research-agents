@@ -97,6 +97,8 @@ Recommended install profiles:
 
 - hosted OpenAI-family studies: ``pip install -e ".[dev,openai]"``
 - hosted provider comparisons: ``pip install -e ".[dev,providers]"``
+- DRAG/DERP MCP workflows:
+  ``pip install "design-research-agents[mcp,gemini]" "design-research-problems[mcp]"``
 - Hugging Face catalog discovery: ``pip install -e ".[dev,huggingface]"``
 - Chroma-backed memory experiments: ``pip install -e ".[dev,memory_chroma]"``
 - graph-memory experiments: ``pip install -e ".[dev,memory_graph]"``
