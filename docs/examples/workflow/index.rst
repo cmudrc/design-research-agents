@@ -6,6 +6,7 @@ Generated from canonical example docstrings/comments in ``examples/workflow``.
 .. toctree::
    :maxdepth: 1
 
+   demo_json_tool_workflow
    workflow_delegate_and_memory_steps
    workflow_diagram_generation
    workflow_model_step_design_tradeoff

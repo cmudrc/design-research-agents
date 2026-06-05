@@ -80,6 +80,7 @@ if TYPE_CHECKING:
     from .agent import SeededRandomBaselineAgent as SeededRandomBaselineAgent
     from .llm import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .llm import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
+    from .llm import DemoLLMClient as DemoLLMClient
     from .llm import GeminiServiceLLMClient as GeminiServiceLLMClient
     from .llm import GroqServiceLLMClient as GroqServiceLLMClient
     from .llm import LlamaCppServerLLMClient as LlamaCppServerLLMClient

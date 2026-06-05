@@ -20,6 +20,7 @@ from design_research_agents.llm._backends._base import BaseLLMBackend
 from design_research_agents.llm.clients import (
     AnthropicServiceLLMClient,
     AzureOpenAIServiceLLMClient,
+    DemoLLMClient,
     GeminiServiceLLMClient,
     GroqServiceLLMClient,
     LlamaCppServerLLMClient,
@@ -81,9 +82,10 @@ class _StubBackend(BaseLLMBackend):
 
 
 def test_provider_clients_empty_init_and_default_model() -> None:
-    with LlamaCppServerLLMClient() as llama:
+    with LlamaCppServerLLMClient() as llama, DemoLLMClient() as demo:
         clients = (
             llama,
+            demo,
             AnthropicServiceLLMClient(),
             AzureOpenAIServiceLLMClient(),
             GeminiServiceLLMClient(),
@@ -104,6 +106,9 @@ def test_provider_clients_empty_init_and_default_model() -> None:
 def test_provider_clients_use_expected_default_backend_names() -> None:
     with LlamaCppServerLLMClient() as llama:
         assert llama._backend.name == "llama-local"
+
+    with DemoLLMClient() as demo:
+        assert demo._backend.name == "demo-local"
 
     assert AnthropicServiceLLMClient()._backend.name == "anthropic"
     assert AzureOpenAIServiceLLMClient()._backend.name == "azure-openai"

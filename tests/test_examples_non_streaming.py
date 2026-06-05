@@ -35,6 +35,7 @@ _EXECUTION_RESULT_EXAMPLES = {
     "examples/workflow/workflow_schema_mode.py",
     "examples/workflow/workflow_model_step_design_tradeoff.py",
     "examples/workflow/workflow_delegate_and_memory_steps.py",
+    "examples/workflow/demo_json_tool_workflow.py",
     "examples/patterns/router_delegate.py",
     "examples/patterns/two_speaker_conversation.py",
     "examples/patterns/debate_pattern.py",

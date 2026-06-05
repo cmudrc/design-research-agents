@@ -89,6 +89,11 @@ llama_cpp = [
   "llama-cpp-python[server]>=0.2.90",
 ]
 
+demo = [
+  "huggingface-hub>=0.24",
+  "llama-cpp-python[server]>=0.2.90",
+]
+
 transformers = [
   "huggingface-hub>=0.24",
   "torch>=2.4,<3",

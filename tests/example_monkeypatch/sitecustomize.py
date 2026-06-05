@@ -40,6 +40,13 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
         ),
         ('{"tool_name":"final_answer","tool_input":{"word_count":3},"reason":"done"}'),
     ),
+    "examples/workflow/demo_json_tool_workflow.py": (
+        (
+            '{"tool_name":"text.word_count","tool_input":{"text":"design research workshop"},'
+            '"reason":"Measure the phrase before answering."}'
+        ),
+        ('{"tool_name":"final_answer","tool_input":{"word_count":3},"reason":"done"}'),
+    ),
     "examples/agents/multi_step_json_with_skills.py": (
         (
             '{"tool_name":"skills.activate","tool_input":{"skill_name":"word_count_helper"},'
@@ -180,6 +187,9 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     ),
     "examples/clients/llama_cpp_server_client.py": (
         "Tradeoff: strict review gates improve reliability but can slow delivery speed.",
+    ),
+    "examples/clients/demo_client.py": (
+        "Run a quick affinity-mapping exercise with a shared set of interview notes.",
     ),
     "examples/clients/anthropic_service_client.py": (
         "Run architecture red-team reviews before committing high-impact changes with uncertain failure modes.",
@@ -465,6 +475,29 @@ if _DETERMINISTIC_MODE:
             },
         )
 
+    def _patched_demo_client(**kwargs: object) -> _DeterministicConfiguredClient:
+        model = _as_name(kwargs.get("api_model"), "qwen3-0.6b-q8-demo")
+        return _DeterministicConfiguredClient(
+            client_class_name="DemoLLMClient",
+            name=_as_name(kwargs.get("name"), "demo-local"),
+            default_model=model,
+            kind="llama_cpp_server",
+            max_retries=_as_int(kwargs.get("max_retries"), 2),
+            model_patterns=_as_patterns(kwargs.get("model_patterns")),
+            extra_backend_fields={
+                "host": _as_name(kwargs.get("host"), "127.0.0.1"),
+                "port": kwargs.get("port", 8001),
+                "api_model": model,
+                "thinking": _as_name(kwargs.get("thinking"), "off"),
+            },
+            server_snapshot={
+                "managed": True,
+                "kind": "llama_cpp_server",
+                "host": _as_name(kwargs.get("host"), "127.0.0.1"),
+                "port": kwargs.get("port", 8001),
+            },
+        )
+
     def _patched_mlx_local_client(**kwargs: object) -> _DeterministicConfiguredClient:
         default_model = _as_name(kwargs.get("default_model"), _as_name(kwargs.get("model_id"), "example-model"))
         return _DeterministicConfiguredClient(
@@ -651,6 +684,7 @@ if _DETERMINISTIC_MODE:
         )
 
     _PATCHES = {
+        "DemoLLMClient": _patched_demo_client,
         "LlamaCppServerLLMClient": _patched_llama_cpp_server_client,
         "MLXLocalLLMClient": _patched_mlx_local_client,
         "OllamaLLMClient": _patched_ollama_client,

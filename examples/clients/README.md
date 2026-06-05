@@ -6,6 +6,7 @@ and emit configuration plus call metadata.
 ## Scripts
 
 - `llama_cpp_server_client.py`
+- `demo_client.py`
 - `anthropic_service_client.py`
 - `gemini_service_client.py`
 - `groq_service_client.py`
@@ -21,6 +22,7 @@ and emit configuration plus call metadata.
 
 ```bash
 PYTHONPATH=src python3 examples/clients/llama_cpp_server_client.py
+PYTHONPATH=src python3 examples/clients/demo_client.py
 PYTHONPATH=src python3 examples/clients/anthropic_service_client.py
 PYTHONPATH=src python3 examples/clients/gemini_service_client.py
 PYTHONPATH=src python3 examples/clients/groq_service_client.py

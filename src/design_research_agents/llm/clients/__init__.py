@@ -11,6 +11,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "AzureOpenAIServiceLLMClient": (
         "design_research_agents.llm.clients._azure_openai_service:AzureOpenAIServiceLLMClient"
     ),
+    "DemoLLMClient": "design_research_agents.llm.clients._demo:DemoLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm.clients._gemini_service:GeminiServiceLLMClient",
     "GroqServiceLLMClient": "design_research_agents.llm.clients._groq_service:GroqServiceLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm.clients._llama_cpp_server:LlamaCppServerLLMClient",
@@ -46,6 +47,7 @@ def __dir__() -> list[str]:
 if TYPE_CHECKING:
     from ._anthropic_service import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from ._azure_openai_service import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
+    from ._demo import DemoLLMClient as DemoLLMClient
     from ._gemini_service import GeminiServiceLLMClient as GeminiServiceLLMClient
     from ._groq_service import GroqServiceLLMClient as GroqServiceLLMClient
     from ._llama_cpp_server import LlamaCppServerLLMClient as LlamaCppServerLLMClient

@@ -11,6 +11,7 @@ from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 _EXPORTS: Final[dict[str, str]] = {
     "AnthropicServiceLLMClient": "design_research_agents.llm.clients:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm.clients:AzureOpenAIServiceLLMClient",
+    "DemoLLMClient": "design_research_agents.llm.clients:DemoLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm.clients:GeminiServiceLLMClient",
     "GroqServiceLLMClient": "design_research_agents.llm.clients:GroqServiceLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm.clients:LlamaCppServerLLMClient",
@@ -53,6 +54,7 @@ def __dir__() -> list[str]:
 if TYPE_CHECKING:
     from .clients import AnthropicServiceLLMClient as AnthropicServiceLLMClient
     from .clients import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
+    from .clients import DemoLLMClient as DemoLLMClient
     from .clients import GeminiServiceLLMClient as GeminiServiceLLMClient
     from .clients import GroqServiceLLMClient as GroqServiceLLMClient
     from .clients import LlamaCppServerLLMClient as LlamaCppServerLLMClient

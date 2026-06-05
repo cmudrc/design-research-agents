@@ -49,6 +49,7 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "TemperatureSchedule": "design_research_agents._implementations._patterns:TemperatureSchedule",
     "AnthropicServiceLLMClient": "design_research_agents.llm:AnthropicServiceLLMClient",
     "AzureOpenAIServiceLLMClient": "design_research_agents.llm:AzureOpenAIServiceLLMClient",
+    "DemoLLMClient": "design_research_agents.llm:DemoLLMClient",
     "GeminiServiceLLMClient": "design_research_agents.llm:GeminiServiceLLMClient",
     "GroqServiceLLMClient": "design_research_agents.llm:GroqServiceLLMClient",
     "LlamaCppServerLLMClient": "design_research_agents.llm:LlamaCppServerLLMClient",
