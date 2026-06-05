@@ -160,6 +160,7 @@ def test_anthropic_backend_and_helper_edges(monkeypatch: pytest.MonkeyPatch) -> 
     assert delta is not None
     assert delta.tool_call_delta is not None
     assert delta.tool_call_delta.arguments_json_delta == '{"x":1}'
+
     class _ToDictOnly:
         def to_dict(self) -> dict[str, bool]:
             return {"ok": True}
@@ -338,9 +339,7 @@ def test_ollama_local_backend_and_transport_edges(monkeypatch: pytest.MonkeyPatc
     assert _ollama_local._parse_ollama_usage({}) is None
     assert _ollama_local._format_messages(
         [DumpObj(role=None, content="x"), DumpObj(role="user", content="x", name="n")]
-    ) == [
-        {"role": "user", "content": "x", "name": "n"}
-    ]
+    ) == [{"role": "user", "content": "x", "name": "n"}]
     auth_error = HTTPError("http://unit", 401, "auth", None, None)
     assert _ollama_local._http_error(auth_error).__class__.__name__ == "LLMAuthError"
     bad_request = HTTPError("http://unit", 400, "bad", None, None)

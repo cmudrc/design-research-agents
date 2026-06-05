@@ -226,16 +226,21 @@ def test_two_speaker_conversation_helpers_cover_result_branches() -> None:
     assert conv_impl._extract_model_text_from_output({"model_text": " text "}) == "text"
     assert conv_impl._extract_model_text_from_output({"final_output": {"message": " nested "}}) == "nested"
     assert conv_impl._extract_model_text_from_output({}) == ""
-    assert conv_impl._render_conversation_prompt(
-        template_text="$task_prompt $turn $speaker_name $partner_name $partner_message $conversation_transcript_json",
-        field_name="speaker_prompt",
-        task_prompt="Task",
-        turn_number=1,
-        speaker_name="A",
-        partner_name="B",
-        partner_message="Hi",
-        transcript=[],
-    ) == "Task 1 A B Hi []"
+    assert (
+        conv_impl._render_conversation_prompt(
+            template_text=(
+                "$task_prompt $turn $speaker_name $partner_name $partner_message $conversation_transcript_json"
+            ),
+            field_name="speaker_prompt",
+            task_prompt="Task",
+            turn_number=1,
+            speaker_name="A",
+            partner_name="B",
+            partner_message="Hi",
+            transcript=[],
+        )
+        == "Task 1 A B Hi []"
+    )
     failure_state = conv_impl._build_loop_failure_state(
         transcript=[],
         last_message_from_a="a",
@@ -245,10 +250,13 @@ def test_two_speaker_conversation_helpers_cover_result_branches() -> None:
     )
     assert failure_state["should_continue"] is False
     assert conv_impl._extract_model_text(ExecutionResult(success=True, output={"final_output": " final "})) == "final"
-    assert conv_impl._extract_failure_error(
-        ExecutionResult(success=False, output={"error": " err "}),
-        fallback_message="fallback",
-    ) == "err"
+    assert (
+        conv_impl._extract_failure_error(
+            ExecutionResult(success=False, output={"error": " err "}),
+            fallback_message="fallback",
+        )
+        == "err"
+    )
     assert conv_impl._extract_failure_error(ExecutionResult(success=False), fallback_message="fallback") == "fallback"
     assert conv_impl._build_final_output([]) == {}
     with pytest.raises(ValueError, match="speaker"):
@@ -351,9 +359,7 @@ def test_propose_critic_callbacks_cover_failure_and_success_paths() -> None:
                 "propose_critic_critic_delegate": {
                     "success": True,
                     "output": {
-                        "output": {
-                            "final_output": '{"approved": true, "feedback": "ok", "revision_goals": []}'
-                        }
+                        "output": {"final_output": '{"approved": true, "feedback": "ok", "revision_goals": []}'}
                     },
                 },
             }
@@ -362,8 +368,7 @@ def test_propose_critic_callbacks_cover_failure_and_success_paths() -> None:
     assert delegate_success["approved"] is True
 
     assert (
-        callbacks._build_critique_result(proposal="p", parsed_critique=None)["failure_reason"]
-        == "critic_invalid_json"
+        callbacks._build_critique_result(proposal="p", parsed_critique=None)["failure_reason"] == "critic_invalid_json"
     )
     assert (
         callbacks._build_critique_result(proposal="p", parsed_critique={"approved": "yes"})["failure_reason"]
@@ -550,9 +555,9 @@ def test_round_based_coordination_helpers_cover_payload_normalization_edges() ->
         round_number=1,
     )["messages"] == ["plain text"]
     assert round_impl._normalize_peer_contribution(peer_id="p4", peer_output={}, round_number=1)["messages"] == ["{}"]
-    assert round_impl._coerce_contribution_mapping({"proposal": {"a": object()}, "decision": ["x"]})[
-        "decisions"
-    ] == {"decision": ["x"]}
+    assert round_impl._coerce_contribution_mapping({"proposal": {"a": object()}, "decision": ["x"]})["decisions"] == {
+        "decision": ["x"]
+    }
     assert round_impl._strip_json_code_fence("```json") == "```json"
     assert round_impl._normalize_singular_contribution("", fallback_key="proposal") == {}
     assert round_impl._normalize_singular_contribution([object()], fallback_key="proposal")["proposal"][0].startswith(
@@ -570,18 +575,24 @@ def test_round_based_coordination_helpers_cover_payload_normalization_edges() ->
 
 def test_router_delegate_private_helpers_and_finalization_edges() -> None:
     assert router_impl._extract_selected_name_from_router_output({"tool_name": " alpha "}) == "alpha"
-    assert router_impl._extract_selected_name_from_router_output(
-        {"step_outputs": [{"tool_name": "first"}, object(), {"tool_name": " second "}]}
-    ) == "second"
+    assert (
+        router_impl._extract_selected_name_from_router_output(
+            {"step_outputs": [{"tool_name": "first"}, object(), {"tool_name": " second "}]}
+        )
+        == "second"
+    )
     assert router_impl._extract_selected_name_from_router_output({"step_outputs": "bad"}) == ""
     assert (
         router_impl._selected_tool_name_from_result(ExecutionResult(success=True, output={"tool_name": "alpha"}))
         == "alpha"
     )
-    assert router_impl._append_activated_skill_context(
-        prompt="Prompt",
-        tool_results=[ToolResult(tool_name="other", ok=True)],
-    ) == "Prompt"
+    assert (
+        router_impl._append_activated_skill_context(
+            prompt="Prompt",
+            tool_results=[ToolResult(tool_name="other", ok=True)],
+        )
+        == "Prompt"
+    )
     activated_prompt = router_impl._append_activated_skill_context(
         prompt="Prompt",
         tool_results=[

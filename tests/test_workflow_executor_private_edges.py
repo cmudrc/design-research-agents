@@ -54,14 +54,20 @@ def test_model_step_private_helpers_cover_schema_and_validation_branches() -> No
         }
     }
 
-    assert executor_common._apply_terminal_output_schema(
-        llm_request=request,
-        step_context={},
-    ) is request
-    assert executor_common._apply_terminal_output_schema(
-        llm_request=request,
-        step_context={"_workflow": {"is_terminal_step": False}},
-    ) is request
+    assert (
+        executor_common._apply_terminal_output_schema(
+            llm_request=request,
+            step_context={},
+        )
+        is request
+    )
+    assert (
+        executor_common._apply_terminal_output_schema(
+            llm_request=request,
+            step_context={"_workflow": {"is_terminal_step": False}},
+        )
+        is request
+    )
     with_explicit_schema = _request(response_schema={"type": "object"})
     assert (
         executor_common._apply_terminal_output_schema(

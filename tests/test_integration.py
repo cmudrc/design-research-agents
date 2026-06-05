@@ -230,24 +230,33 @@ def test_integration_callable_invocation_contract_edges() -> None:
         del first, second
         return "bad"
 
-    assert integration._invoke_callable(
-        callable_obj=accepts_public_contract,
-        prompt="p",
-        request_id="req",
-        dependencies={"d": 1},
-    ) == "public"
-    assert integration._invoke_callable(
-        callable_obj=accepts_input,
-        prompt="p",
-        request_id=None,
-        dependencies={},
-    ) == "input"
-    assert integration._invoke_callable(
-        callable_obj=accepts_nothing,
-        prompt="p",
-        request_id=None,
-        dependencies={},
-    ) == "nothing"
+    assert (
+        integration._invoke_callable(
+            callable_obj=accepts_public_contract,
+            prompt="p",
+            request_id="req",
+            dependencies={"d": 1},
+        )
+        == "public"
+    )
+    assert (
+        integration._invoke_callable(
+            callable_obj=accepts_input,
+            prompt="p",
+            request_id=None,
+            dependencies={},
+        )
+        == "input"
+    )
+    assert (
+        integration._invoke_callable(
+            callable_obj=accepts_nothing,
+            prompt="p",
+            request_id=None,
+            dependencies={},
+        )
+        == "nothing"
+    )
     assert integration._invoke_callable(callable_obj=accepts_one, prompt="p", request_id=None, dependencies={}) == "one"
     with pytest.raises(ValueError, match="public prompt"):
         integration._invoke_callable(callable_obj=accepts_too_many, prompt="p", request_id=None, dependencies={})
