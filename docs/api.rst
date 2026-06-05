@@ -101,6 +101,10 @@ context-manager form is the preferred public usage pattern.
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.DemoLLMClient
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.AnthropicServiceLLMClient
    :members:
    :undoc-members:

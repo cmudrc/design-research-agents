@@ -188,9 +188,7 @@ _SCRIPT_RESPONSE_PROFILES: dict[str, tuple[str, ...]] = {
     "examples/clients/llama_cpp_server_client.py": (
         "Tradeoff: strict review gates improve reliability but can slow delivery speed.",
     ),
-    "examples/clients/demo_client.py": (
-        "Run a quick affinity-mapping exercise with a shared set of interview notes.",
-    ),
+    "examples/clients/demo_client.py": ("Run a quick affinity-mapping exercise with a shared set of interview notes.",),
     "examples/clients/anthropic_service_client.py": (
         "Run architecture red-team reviews before committing high-impact changes with uncertain failure modes.",
     ),
