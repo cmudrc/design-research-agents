@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import heapq
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict
 
@@ -48,13 +47,12 @@ from ._executors._common import (
 )
 from ._loop import run_loop_step
 from ._runtime_options import normalize_dependencies, resolve_request_id
+from ._scheduling import run_dag, run_sequential
 from ._step_context import build_step_context, has_upstream_failure, route_deactivations
 from ._step_tracing import activate_step_span, finish_step_span, start_step_span, step_kind
 from ._workflow_graph import (
     PreparedWorkflow,
-    normalize_step_id,
     prepare_workflow_graph,
-    release_dependents,
     validate_no_cycles,
 )
 
@@ -129,7 +127,7 @@ class WorkflowRuntime(WorkflowRunner):
                 validate_no_cycles(prepared.step_map, prepared.dependencies)
 
             if execution_mode == "sequential":
-                step_results, execution_order = self._run_sequential(
+                step_results, execution_order = run_sequential(
                     prepared=prepared,
                     original_steps=steps,
                     base_context=base_context,
@@ -137,15 +135,17 @@ class WorkflowRuntime(WorkflowRunner):
                     resolved_dependencies=resolved_dependencies,
                     failure_policy=failure_policy,
                     execution_mode=execution_mode,
+                    evaluate_step=self._evaluate_scheduled_step,
                 )
             elif execution_mode == "dag":
-                step_results, execution_order = self._run_dag(
+                step_results, execution_order = run_dag(
                     prepared=prepared,
                     base_context=base_context,
                     resolved_request_id=resolved_request_id,
                     resolved_dependencies=resolved_dependencies,
                     failure_policy=failure_policy,
                     execution_mode=execution_mode,
+                    evaluate_step=self._evaluate_scheduled_step,
                 )
             else:
                 raise ValueError(f"Unsupported execution_mode '{execution_mode}'.")
@@ -195,140 +195,6 @@ class WorkflowRuntime(WorkflowRunner):
         )
         finish_trace_run(trace_scope, result=workflow_result)
         return workflow_result
-
-    def _run_sequential(
-        self,
-        *,
-        prepared: PreparedWorkflow,
-        original_steps: Sequence[WorkflowStep],
-        base_context: Mapping[str, object],
-        resolved_request_id: str,
-        resolved_dependencies: Mapping[str, object],
-        failure_policy: WorkflowFailurePolicy,
-        execution_mode: WorkflowExecutionMode,
-    ) -> tuple[dict[str, WorkflowStepResult], list[str]]:
-        """Execute steps strictly in the user-provided order.
-
-        Args:
-            prepared: Precomputed workflow graph metadata.
-            original_steps: Original ordered step sequence from caller input.
-            base_context: Shared workflow context mapping.
-            resolved_request_id: Resolved request id used for nested calls.
-            resolved_dependencies: Resolved dependency payload mapping.
-            failure_policy: Upstream-failure handling strategy.
-            execution_mode: Scheduling mode used for downstream step execution.
-
-        Returns:
-            Tuple of ``(step_results, execution_order)``.
-
-        Raises:
-            ValueError: If a step is encountered before one of its dependencies.
-        """
-        step_results: dict[str, WorkflowStepResult] = {}
-        execution_order: list[str] = []
-        deactivated_steps: set[str] = set()
-
-        for step in original_steps:
-            step_id = normalize_step_id(step.step_id)
-            step_dependencies = prepared.dependencies[step_id]
-
-            unresolved_dependencies = [dependency for dependency in step_dependencies if dependency not in step_results]
-            if unresolved_dependencies:
-                raise ValueError(
-                    f"Step '{step_id}' cannot run before dependencies are resolved: "
-                    f"{', '.join(sorted(unresolved_dependencies))}."
-                )
-
-            step_result = self._evaluate_step(
-                step=step,
-                step_id=step_id,
-                step_dependencies=step_dependencies,
-                step_results=step_results,
-                deactivated_steps=deactivated_steps,
-                prepared=prepared,
-                base_context=base_context,
-                request_id=resolved_request_id,
-                execution_mode=execution_mode,
-                failure_policy=failure_policy,
-                dependencies=resolved_dependencies,
-            )
-
-            step_results[step_id] = step_result
-            execution_order.append(step_id)
-
-        return step_results, execution_order
-
-    def _run_dag(
-        self,
-        *,
-        prepared: PreparedWorkflow,
-        base_context: Mapping[str, object],
-        resolved_request_id: str,
-        resolved_dependencies: Mapping[str, object],
-        failure_policy: WorkflowFailurePolicy,
-        execution_mode: WorkflowExecutionMode,
-    ) -> tuple[dict[str, WorkflowStepResult], list[str]]:
-        """Execute a DAG workflow using dependency-driven scheduling.
-
-        Args:
-            prepared: Precomputed workflow graph metadata.
-            base_context: Shared workflow context mapping.
-            resolved_request_id: Resolved request id used for nested calls.
-            resolved_dependencies: Resolved dependency payload mapping.
-            failure_policy: Upstream-failure handling strategy.
-            execution_mode: Scheduling mode used for downstream step execution.
-
-        Returns:
-            Tuple of ``(step_results, execution_order)``.
-
-        Raises:
-            RuntimeError: If execution terminates before all DAG nodes resolve.
-        """
-        in_degree: dict[str, int] = {step_id: len(prepared.dependencies[step_id]) for step_id in prepared.step_map}
-        ready_steps = [step_id for step_id, degree in in_degree.items() if degree == 0]
-        # Heap ordering keeps DAG execution deterministic when multiple nodes become ready together.
-        heapq.heapify(ready_steps)
-
-        step_results: dict[str, WorkflowStepResult] = {}
-        execution_order: list[str] = []
-        deactivated_steps: set[str] = set()
-
-        while ready_steps:
-            step_id = heapq.heappop(ready_steps)
-            if step_id in step_results:
-                continue
-
-            step = prepared.step_map[step_id]
-            step_dependencies = prepared.dependencies[step_id]
-
-            step_result = self._evaluate_step(
-                step=step,
-                step_id=step_id,
-                step_dependencies=step_dependencies,
-                step_results=step_results,
-                deactivated_steps=deactivated_steps,
-                prepared=prepared,
-                base_context=base_context,
-                request_id=resolved_request_id,
-                execution_mode=execution_mode,
-                failure_policy=failure_policy,
-                dependencies=resolved_dependencies,
-            )
-
-            step_results[step_id] = step_result
-            execution_order.append(step_id)
-            release_dependents(
-                step_id=step_id,
-                dependents=prepared.dependents,
-                in_degree=in_degree,
-                ready_steps=ready_steps,
-            )
-
-        if len(step_results) != len(prepared.step_map):
-            unresolved_steps = sorted(set(prepared.step_map).difference(step_results))
-            raise RuntimeError(f"DAG workflow execution ended with unresolved steps: {', '.join(unresolved_steps)}")
-
-        return step_results, execution_order
 
     def _execute_step(
         self,
@@ -653,6 +519,35 @@ class WorkflowRuntime(WorkflowRunner):
             )
         deactivated_steps.update(deactivation_update)
         return step_result
+
+    def _evaluate_scheduled_step(
+        self,
+        step: WorkflowStep,
+        step_id: str,
+        step_dependencies: Sequence[str],
+        step_results: Mapping[str, WorkflowStepResult],
+        deactivated_steps: set[str],
+        prepared: PreparedWorkflow,
+        base_context: Mapping[str, object],
+        request_id: str,
+        execution_mode: WorkflowExecutionMode,
+        failure_policy: WorkflowFailurePolicy,
+        dependencies: Mapping[str, object],
+    ) -> WorkflowStepResult:
+        """Adapt scheduler positional calls to the engine's named-step evaluator."""
+        return self._evaluate_step(
+            step=step,
+            step_id=step_id,
+            step_dependencies=step_dependencies,
+            step_results=step_results,
+            deactivated_steps=deactivated_steps,
+            prepared=prepared,
+            base_context=base_context,
+            request_id=request_id,
+            execution_mode=execution_mode,
+            failure_policy=failure_policy,
+            dependencies=dependencies,
+        )
 
     def _skip_step_result(self, *, step_id: str, reason: str) -> WorkflowStepResult:
         """Construct a standardized skipped-step result.
