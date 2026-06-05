@@ -280,7 +280,9 @@ def test_mcp_server_helpers_cover_schema_runtime_and_jsonable_edges(
         mcp_server._signature_from_schema(
             tool_name="plain",
             input_schema={"properties": {1: {"type": "string"}, "x": object()}, "required": "x"},
-        ).parameters["x"].default
+        )
+        .parameters["x"]
+        .default
         is None
     )
     with pytest.raises(ValueError, match="Cannot expose tool"):
