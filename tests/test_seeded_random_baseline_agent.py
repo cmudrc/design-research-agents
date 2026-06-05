@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import inspect
+from collections import namedtuple
 from dataclasses import dataclass
 
 import pytest
 
 from design_research_agents import SeededRandomBaselineAgent
+from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._termination import (
     TERMINATED_COMPLETED,
     TERMINATED_MAX_STEPS_REACHED,
     TERMINATED_STEP_FAILURE,
 )
+from design_research_agents._contracts._workflow import WorkflowStepResult
 from design_research_agents._implementations._agents import (
     _seeded_random_baseline_agent as seeded_random_impl,
 )
@@ -143,6 +146,61 @@ class _NoArgOptimizationProblem:
         return [42]
 
 
+class _EmptyDecisionProblem:
+    def iter_candidates(self) -> tuple[object, ...]:
+        return ()
+
+
+class _TransitionWithoutNextState:
+    rule_name = "missing_next_state"
+    parameters = (("alpha", 1),)
+
+
+class _MissingNextStateGrammarProblem:
+    def initial_state(self) -> dict[str, object]:
+        return {"depth": 0}
+
+    def enumerate_transitions(
+        self,
+        state: dict[str, object],
+    ) -> tuple[_TransitionWithoutNextState, ...]:
+        del state
+        return (_TransitionWithoutNextState(),)
+
+
+@dataclass(frozen=True)
+class _ProblemWrapper:
+    problem_object: object
+
+
+@dataclass(frozen=True)
+class _ProblemWithDirectId:
+    problem_id: str = "direct-problem-id"
+
+    def generate_initial_solution(self, seed: int | None = None) -> list[int]:
+        return [0 if seed is None else seed]
+
+
+class _ToListValue:
+    def tolist(self) -> list[object]:
+        return [1, {"nested": 2}]
+
+
+class _PublicValueObject:
+    def __init__(self) -> None:
+        self.name = "demo"
+        self.values = [1, 2]
+        self._private = "hidden"
+
+    def method(self) -> None:
+        return None
+
+
+class _AsDictObject:
+    def _asdict(self) -> dict[str, object]:
+        return {"alpha": 1, "beta": {"x": 2}}
+
+
 def test_seeded_random_baseline_matches_standard_delegate_signature() -> None:
     run_parameters = inspect.signature(SeededRandomBaselineAgent.run).parameters
     compile_parameters = inspect.signature(SeededRandomBaselineAgent.compile).parameters
@@ -154,6 +212,11 @@ def test_seeded_random_baseline_matches_standard_delegate_signature() -> None:
     for parameter_name in ("request_id", "dependencies"):
         assert run_parameters[parameter_name].kind is inspect.Parameter.KEYWORD_ONLY
         assert compile_parameters[parameter_name].kind is inspect.Parameter.KEYWORD_ONLY
+
+
+def test_seeded_random_baseline_rejects_invalid_grammar_step_limit() -> None:
+    with pytest.raises(ValueError, match="grammar_max_steps must be >= 1"):
+        SeededRandomBaselineAgent(grammar_max_steps=0)
 
 
 def test_seeded_random_baseline_compile_exposes_standard_delegate_workflow() -> None:
@@ -342,6 +405,47 @@ def test_missing_problem_dependency_returns_structured_failure_result() -> None:
     assert result.output["terminated_reason"] == TERMINATED_STEP_FAILURE
 
 
+def test_seeded_random_baseline_reports_internal_problem_shape_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    agent = SeededRandomBaselineAgent(seed=3)
+
+    with pytest.raises(ValueError, match="at least one candidate"):
+        agent._run_decision(problem=_EmptyDecisionProblem(), seed=3, metadata={})
+
+    with pytest.raises(TypeError, match="next_state"):
+        agent._run_grammar(problem=_MissingNextStateGrammarProblem(), seed=3, metadata={})
+
+    monkeypatch.setattr(seeded_random_impl, "_detect_problem_family", lambda problem: "mystery")
+    with pytest.raises(TypeError, match="Unsupported packaged problem family"):
+        agent._execute_baseline(dependencies={"problem": _DecisionProblem()})
+
+
+def test_finalize_baseline_result_converts_failed_workflow_to_delegate_failure() -> None:
+    workflow_result = ExecutionResult(
+        success=False,
+        output={"workflow": {"success": False}, "artifacts": ("artifact.txt",)},
+        step_results={
+            "seeded_random_baseline": WorkflowStepResult(
+                step_id="seeded_random_baseline",
+                status="failed",
+                success=False,
+                output={},
+                error="baseline failed",
+            )
+        },
+    )
+
+    result = seeded_random_impl._finalize_baseline_result(
+        workflow_result=workflow_result,
+        request_id="request-001",
+        dependencies={"problem": _DecisionProblem()},
+    )
+
+    assert result.success is False
+    assert result.output["error"] == "baseline failed"
+    assert result.output["terminated_reason"] == TERMINATED_STEP_FAILURE
+    assert result.output["artifacts"] == ["artifact.txt"]
+
+
 def test_optional_real_problem_integration_path_for_decision_problem() -> None:
     derp = pytest.importorskip("design_research_problems")
     problem = derp.get_problem("decision_laptop_design_profit_maximization")
@@ -370,3 +474,43 @@ def test_seeded_random_helper_branches_cover_fallbacks_and_payload_helpers() -> 
     assert seeded_random_impl._decision_output_payload({"x": 1}) == {"x": 1}
     assert seeded_random_impl._coerce_seed_like(3.9) == 3
     assert seeded_random_impl._coerce_seed_like("8") == 8
+
+
+def test_seeded_random_helper_branches_cover_wrappers_and_serialization() -> None:
+    packet_problem = _DecisionProblem()
+    wrapped_problem = _DecisionProblem()
+    tuple_payload = namedtuple("TuplePayload", ("alpha", "beta"))(alpha=1, beta={"x": 2})
+
+    assert seeded_random_impl._resolve_problem_object(problem_packet=packet_problem, problem=None) is packet_problem
+    assert (
+        seeded_random_impl._resolve_problem_object(
+            problem_packet=None,
+            problem=_ProblemWrapper(problem_object=wrapped_problem),
+        )
+        is wrapped_problem
+    )
+    assert seeded_random_impl._resolve_problem_object(problem_packet={"payload": {}}, problem=object()) is None
+    assert seeded_random_impl._resolve_seed(explicit_seed=None, run_spec=None, default_seed=None) == 0
+    assert seeded_random_impl._seed_source(explicit_seed=None, run_spec=None, default_seed=None) == "implicit_default"
+    assert (
+        seeded_random_impl._resolve_problem_id(
+            problem_packet=None,
+            problem=_ProblemWithDirectId(),
+        )
+        == "direct-problem-id"
+    )
+    assert seeded_random_impl._resolve_problem_id(problem_packet=None, problem=object()) == "object"
+    assert "object object" in str(seeded_random_impl._decision_output_payload(object())["candidate"])
+    assert seeded_random_impl._transition_parameters_payload({"tolist": _ToListValue()}) == {
+        "tolist": [1, {"nested": 2}]
+    }
+    assert seeded_random_impl._transition_parameters_payload([("alpha", 1), ("bad",), "skip"]) == {"alpha": 1}
+    assert seeded_random_impl._transition_parameters_payload(None) == {}
+    assert seeded_random_impl._normalize_sequence(("a", "b")) == ["a", "b"]
+    assert seeded_random_impl._normalize_sequence(range(2)) == [0, 1]
+    assert seeded_random_impl._normalize_sequence("abc") == []
+    assert seeded_random_impl._json_safe_value(tuple_payload) == [1, {"x": 2}]
+    assert seeded_random_impl._json_safe_value(_AsDictObject()) == {"alpha": 1, "beta": {"x": 2}}
+    assert seeded_random_impl._json_safe_value(_PublicValueObject()) == {"name": "demo", "values": [1, 2]}
+    assert seeded_random_impl._json_safe_value(object()).startswith("<object object at ")
+    assert seeded_random_impl._coerce_seed_like(True) == 1

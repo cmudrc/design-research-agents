@@ -16,6 +16,8 @@ from design_research_agents._contracts._workflow import (
     MemoryReadStep,
     MemoryWriteStep,
     ToolStep,
+    WorkflowArtifact,
+    WorkflowStepResult,
 )
 from design_research_agents._memory._stores._sqlite_store import SQLiteMemoryStore
 from design_research_agents._runtime._workflow._engine import WorkflowRuntime
@@ -206,6 +208,206 @@ def test_workflow_runtime_loop_step_carries_state_across_iterations() -> None:
     assert loop_output["final_state"]["value"] == 16
 
 
+@pytest.mark.parametrize(
+    ("loop_step", "expected_error"),
+    (
+        (
+            LoopStep(
+                step_id="invalid_loop",
+                steps=(LogicStep(step_id="body", handler=lambda context: {"ok": True}),),
+                max_iterations=0,
+            ),
+            "LoopStep max_iterations must be >= 1.",
+        ),
+        (
+            LoopStep(step_id="invalid_loop", steps=(), max_iterations=1),
+            "LoopStep requires at least one nested step.",
+        ),
+    ),
+)
+def test_workflow_runtime_loop_step_rejects_invalid_configuration(
+    loop_step: LoopStep,
+    expected_error: str,
+) -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow.run([loop_step], execution_mode="sequential")
+
+    assert result.success is False
+    loop_result = result.step_results["invalid_loop"]
+    assert loop_result.status == "failed"
+    assert loop_result.error == expected_error
+    assert loop_result.metadata["stage"] == "loop_binding"
+
+
+def test_workflow_runtime_loop_step_requires_mapping_reducer_output() -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow.run(
+        [
+            LoopStep(
+                step_id="bad_reducer_loop",
+                steps=(LogicStep(step_id="body", handler=lambda context: {"ok": True}),),
+                max_iterations=1,
+                state_reducer=lambda state, iteration_result, iteration: ["not", "a", "mapping"],
+            )
+        ],
+        execution_mode="sequential",
+    )
+
+    loop_result = result.step_results["bad_reducer_loop"]
+    assert result.success is False
+    assert loop_result.status == "failed"
+    assert loop_result.error == "LoopStep state_reducer must return a mapping."
+    assert loop_result.metadata["stage"] == "loop_state_reducer"
+
+
+@pytest.mark.parametrize(
+    ("loop_step", "expected_error"),
+    (
+        (
+            LoopStep(
+                step_id="private_invalid_loop",
+                steps=(LogicStep(step_id="body", handler=lambda context: {"ok": True}),),
+                max_iterations=0,
+            ),
+            "LoopStep max_iterations must be >= 1.",
+        ),
+        (
+            LoopStep(step_id="private_invalid_loop", steps=(), max_iterations=1),
+            "LoopStep requires at least one nested step.",
+        ),
+    ),
+)
+def test_workflow_runtime_private_loop_executor_rejects_invalid_configuration(
+    loop_step: LoopStep,
+    expected_error: str,
+) -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow._run_loop_step(
+        step=loop_step,
+        step_id="private_invalid_loop",
+        step_context={},
+        request_id="private-loop-test",
+        dependencies={},
+    )
+
+    assert result.status == "failed"
+    assert result.error == expected_error
+    assert result.metadata["stage"] == "loop_binding"
+
+
+def test_workflow_runtime_private_loop_executor_stops_before_first_iteration() -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow._run_loop_step(
+        step=LoopStep(
+            step_id="private_loop",
+            steps=(LogicStep(step_id="body", handler=lambda context: {"ok": True}),),
+            max_iterations=3,
+            continue_predicate=lambda iteration, state: False,
+        ),
+        step_id="private_loop",
+        step_context={},
+        request_id="private-loop-test",
+        dependencies={},
+    )
+
+    assert result.status == "completed"
+    assert result.output["terminated_reason"] == "condition_stopped"
+    assert result.output["iterations_executed"] == 0
+    assert result.output["final_state"] == {}
+
+
+def test_workflow_runtime_private_loop_executor_reduces_iteration_state() -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow._run_loop_step(
+        step=LoopStep(
+            step_id="private_loop",
+            steps=(
+                LogicStep(
+                    step_id="tick",
+                    handler=lambda context: {
+                        "value": int(
+                            (context.get("loop_state") if isinstance(context.get("loop_state"), Mapping) else {}).get(
+                                "value",
+                                0,
+                            )
+                        )
+                        + 1
+                    },
+                ),
+            ),
+            max_iterations=2,
+            initial_state={"value": 0},
+            state_reducer=lambda state, iteration_result, iteration: {
+                "value": iteration_result.step_results["tick"].output["value"],
+                "iteration": iteration,
+            },
+            execution_mode="sequential",
+        ),
+        step_id="private_loop",
+        step_context={"dependency_results": {"parent": {"output": {"value": "kept"}}}},
+        request_id="private-loop-test",
+        dependencies={"external": "dependency"},
+    )
+
+    assert result.status == "completed"
+    assert result.output["terminated_reason"] == "max_iterations_reached"
+    assert result.output["iterations_executed"] == 2
+    assert result.output["final_state"] == {"value": 2, "iteration": 2}
+
+
+def test_workflow_runtime_private_loop_executor_requires_mapping_reducer_output() -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow._run_loop_step(
+        step=LoopStep(
+            step_id="private_loop",
+            steps=(LogicStep(step_id="body", handler=lambda context: {"ok": True}),),
+            max_iterations=1,
+            state_reducer=lambda state, iteration_result, iteration: ["not", "a", "mapping"],
+        ),
+        step_id="private_loop",
+        step_context={},
+        request_id="private-loop-test",
+        dependencies={},
+    )
+
+    assert result.status == "failed"
+    assert result.error == "LoopStep state_reducer must return a mapping."
+    assert result.metadata["stage"] == "loop_state_reducer"
+
+
+def test_workflow_runtime_private_loop_executor_reports_iteration_failure() -> None:
+    workflow = WorkflowRuntime()
+
+    result = workflow._run_loop_step(
+        step=LoopStep(
+            step_id="private_loop",
+            steps=(
+                LogicStep(
+                    step_id="body",
+                    handler=lambda context: (_ for _ in ()).throw(RuntimeError("iteration boom")),
+                ),
+            ),
+            max_iterations=1,
+        ),
+        step_id="private_loop",
+        step_context={},
+        request_id="private-loop-test",
+        dependencies={},
+    )
+
+    assert result.status == "failed"
+    assert result.error == "Loop iteration failed."
+    assert result.metadata["stage"] == "loop_execution"
+    assert result.output["terminated_reason"] == "iteration_failed"
+    assert result.output["iteration_results"][0]["step_results"]["body"]["error"] == "iteration boom"
+
+
 def test_workflow_runtime_sequential_raises_for_unresolved_dependencies() -> None:
     workflow = WorkflowRuntime()
     steps = [
@@ -316,6 +518,34 @@ def test_workflow_runtime_route_branching_skips_non_selected_branch() -> None:
     assert result.step_results["left_step"].status == "completed"
     assert result.step_results["right_step"].status == "skipped"
     assert result.step_results["right_step"].error == "skipped_branch_not_selected"
+
+
+def test_workflow_runtime_route_map_error_fails_router_step() -> None:
+    workflow = WorkflowRuntime()
+    steps = [
+        LogicStep(
+            step_id="router",
+            handler=lambda context: {"route": "missing"},
+            route_map={"left": ("left_step",)},
+        ),
+        LogicStep(
+            step_id="left_step",
+            dependencies=("router",),
+            handler=lambda context: {"value": 1},
+        ),
+    ]
+
+    result = workflow.run(
+        steps,
+        execution_mode="sequential",
+        failure_policy="skip_dependents",
+    )
+
+    assert result.success is False
+    assert result.step_results["router"].status == "failed"
+    assert result.step_results["router"].metadata["stage"] == "routing"
+    assert "selected route 'missing'" in str(result.step_results["router"].error)
+    assert result.step_results["left_step"].error == "skipped_upstream_failure"
 
 
 def test_workflow_runtime_tool_step_returns_serialized_tool_result() -> None:
@@ -538,6 +768,118 @@ def test_workflow_runtime_memory_steps_participate_in_dag_dependencies(
     assert result.success
     assert result.execution_order == ["read_memory", "postprocess"]
     assert result.step_results["postprocess"].output["count"] == 1
+
+
+def test_workflow_runtime_artifact_builder_failure_preserves_output_artifacts() -> None:
+    workflow = WorkflowRuntime()
+    result = workflow.run(
+        [
+            LogicStep(
+                step_id="make_artifact",
+                handler=lambda context: {
+                    "artifacts": [{"path": "from-output.txt", "mime": "text/plain"}],
+                    "value": 1,
+                },
+                artifacts_builder=lambda context: (_ for _ in ()).throw(RuntimeError("broken manifest")),
+            )
+        ],
+        execution_mode="sequential",
+    )
+    step_result = result.step_results["make_artifact"]
+
+    assert result.success is False
+    assert step_result.status == "failed"
+    assert step_result.error == "Artifact builder failed: broken manifest"
+    assert step_result.metadata["stage"] == "artifact_builder"
+    assert [artifact.path for artifact in step_result.artifacts] == ["from-output.txt"]
+
+
+def test_workflow_runtime_normalizes_nested_and_typed_artifact_entries() -> None:
+    workflow = WorkflowRuntime()
+    typed_artifact = WorkflowArtifact(path="typed.txt", mime="text/plain")
+
+    result = workflow.run(
+        [
+            LogicStep(
+                step_id="make_artifacts",
+                handler=lambda context: {
+                    "artifacts": [
+                        typed_artifact,
+                        object(),
+                        {"path": "  "},
+                        {"path": "outer.txt", "mime": "text/plain", "metadata": {"kind": "outer"}},
+                    ],
+                    "result": {
+                        "artifacts": [
+                            {
+                                "path": "nested.json",
+                                "mime": "application/json",
+                                "producer_step_id": "nested_producer",
+                                "source_field": "result.artifacts",
+                            }
+                        ]
+                    },
+                    "output": {"artifacts": [{"path": "deep.bin"}]},
+                },
+            )
+        ],
+        execution_mode="sequential",
+    )
+    artifacts = result.step_results["make_artifacts"].artifacts
+
+    assert result.success is True
+    assert [artifact.path for artifact in artifacts] == [
+        "typed.txt",
+        "outer.txt",
+        "nested.json",
+        "deep.bin",
+    ]
+    assert artifacts[0].producer_step_id == "make_artifacts"
+    assert artifacts[0].sources[0].step_id == "make_artifacts"
+    assert artifacts[1].metadata == {"kind": "outer"}
+    assert artifacts[2].producer_step_id == "nested_producer"
+    assert artifacts[2].sources[0].field == "result.artifacts"
+    assert result.metadata["artifact_count"] == 4
+
+
+def test_workflow_runtime_private_artifact_collection_and_final_output_helpers() -> None:
+    workflow = WorkflowRuntime()
+    artifact = WorkflowArtifact(path="kept.txt", mime="text/plain")
+    completed = WorkflowStepResult(
+        step_id="completed",
+        status="completed",
+        success=True,
+        output={"final_output": {"answer": 42}},
+        artifacts=(artifact,),
+    )
+    fallback_completed = WorkflowStepResult(
+        step_id="fallback",
+        status="completed",
+        success=True,
+        output={"value": "fallback"},
+    )
+    failed = WorkflowStepResult(
+        step_id="failed",
+        status="failed",
+        success=False,
+        output={"final_output": "ignored"},
+    )
+
+    collected = workflow._collect_artifacts(
+        step_results={"completed": completed},
+        execution_order=("missing", "completed"),
+    )
+
+    assert collected == [artifact]
+    assert workflow._resolve_final_output(
+        step_results={"failed": failed, "fallback": fallback_completed, "completed": completed},
+        execution_order=("failed", "fallback", "completed"),
+    ) == {"answer": 42}
+    assert workflow._resolve_final_output(
+        step_results={"fallback": fallback_completed},
+        execution_order=("fallback", "missing"),
+    ) == {"value": "fallback"}
+    assert workflow._resolve_final_output(step_results={"failed": failed}, execution_order=("failed",)) == {}
 
 
 def test_workflow_runtime_emits_step_context_and_result_events(tmp_path: Path) -> None:

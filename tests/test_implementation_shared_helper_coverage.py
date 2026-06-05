@@ -9,6 +9,9 @@ from design_research_agents._contracts._llm import LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolSpec
 from design_research_agents._contracts._workflow import WorkflowStepResult
 from design_research_agents._implementations._shared._agent_internal import (
+    _multi_step_json_helpers as json_helpers,
+)
+from design_research_agents._implementations._shared._agent_internal import (
     _multi_step_json_runtime_helpers as json_runtime,
 )
 from design_research_agents._implementations._shared._agent_internal import (
@@ -166,6 +169,44 @@ def test_multi_step_json_runtime_helpers_cover_summary_and_failure_paths() -> No
     assert failure.success is False
     assert failure.output["error"] == "fatal"
     assert failure.metadata["stage"] == "terminal"
+
+
+def test_multi_step_json_helpers_cover_formatting_and_failure_fallbacks() -> None:
+    tools_text = json_helpers.build_step_tools_text(
+        tool_specs={
+            "calculator": ToolSpec(
+                name="calculator",
+                description="",
+                input_schema={"type": "object"},
+                output_schema={"type": "object"},
+            )
+        }
+    )
+    assert "description: (none)" in tools_text
+
+    assert json_helpers.resolve_step_error(ExecutionResult(success=True)) == ""
+    assert (
+        json_helpers.resolve_step_error(
+            ExecutionResult(success=False, tool_results=[SimpleNamespace(ok=False, error="tool failed")])
+        )
+        == "tool failed"
+    )
+    assert json_helpers.resolve_step_error(ExecutionResult(success=False)) == "Step execution failed."
+    assert json_helpers.normalize_step_final_output({"value": 1}) == {"value": 1}
+    assert json_helpers.normalize_step_final_output("raw") == {"tool_output": "raw"}
+
+    failure = json_helpers.failure_result(
+        error="bad",
+        model_response=LLMResponse(text="last"),
+        tool_results=[],
+        request_id="req",
+        dependencies={"dep": True},
+        metadata={"stage": "helper"},
+        output={"terminated_reason": "failed"},
+    )
+    assert failure.success is False
+    assert failure.output["error"] == "bad"
+    assert failure.metadata["stage"] == "helper"
 
 
 def test_plan_execute_helpers_cover_deserialization_and_callback_edge_cases() -> None:

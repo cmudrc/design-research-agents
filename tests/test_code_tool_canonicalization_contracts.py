@@ -7,6 +7,9 @@ from design_research_agents._implementations._shared._agent_internal._code_tool_
     AllowedTool,
     canonicalize_generated_code,
     compile_default_allowed_tools,
+    extract_allowed_tools,
+    extract_boolean,
+    extract_positive_int,
     extract_python_code,
     match_fenced_code_block,
     normalize_allowed_tools,
@@ -113,8 +116,77 @@ def test_allowed_tool_normalization_and_default_compilation_are_runtime_bounded(
     assert {tool.tool_name for tool in compiled_defaults} == {"calculator", "text.word_count"}
 
 
+def test_allowed_tool_parsing_covers_invalid_entries_and_skill_activation_default() -> None:
+    specs = {
+        **_runtime_specs(),
+        "skills.activate": ToolSpec(
+            name="skills.activate",
+            description="Activate a skill",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}}},
+            output_schema={"type": "object"},
+        ),
+    }
+
+    assert normalize_allowed_tools(raw_tools="calculator", runtime_specs=specs) == []
+    assert normalize_allowed_tools(raw_tools=[{"tool_name": 3}, {"name": "   "}], runtime_specs=specs) == []
+    normalized = normalize_allowed_tools(
+        raw_tools=[
+            {
+                "tool_name": "calculator",
+                "description": "custom",
+                "input_schema": {"type": "object", "properties": {"expression": {"type": "string"}}},
+            }
+        ],
+        runtime_specs=specs,
+    )
+    assert normalized[0].input_schema["properties"] == {"expression": {"type": "string"}}
+
+    compiled = compile_default_allowed_tools(
+        runtime_specs=specs,
+        default_tools=[{"tool_name": "calculator"}],
+    )
+    assert [tool.tool_name for tool in compiled] == ["calculator", "skills.activate"]
+
+    cloned, source = extract_allowed_tools(default_allowed_tools=compiled)
+    assert source == "init_default"
+    assert cloned == list(compiled)
+    assert cloned is not list(compiled)
+
+
+def test_scalar_input_parsing_uses_defaults_for_invalid_values() -> None:
+    payload = {"missing": None, "bool": True, "count": 3, "zero": 0, "flag": False, "bad_flag": "yes"}
+
+    assert extract_positive_int(input_payload=payload, key="missing", default_value=9) == 9
+    assert extract_positive_int(input_payload=payload, key="bool", default_value=9) == 9
+    assert extract_positive_int(input_payload=payload, key="count", default_value=9) == 3
+    assert extract_positive_int(input_payload=payload, key="zero", default_value=9) == 9
+    assert extract_boolean(input_payload=payload, key="flag", default_value=True) is False
+    assert extract_boolean(input_payload=payload, key="bad_flag", default_value=True) is True
+
+
 def test_python_code_extraction_prefers_python_fences_only() -> None:
     assert match_fenced_code_block("```js\nx=1\n```") is None
+    assert match_fenced_code_block("```python") is None
+    assert match_fenced_code_block("```python\nx=1") is None
     assert match_fenced_code_block("```python\nx=1\n```") == "x=1\n"
     assert extract_python_code("```py\nx=2\n``` trailing") == "x=2"
     assert extract_python_code(" print('x') ") == "print('x')"
+
+
+def test_canonicalize_generated_code_covers_empty_and_unrewritable_call_shapes() -> None:
+    allowed_tools = _allowed_tools()
+
+    empty = canonicalize_generated_code(code_text="", allowed_tools=allowed_tools)
+    assert empty.code_text == ""
+    assert empty.metadata()["changed"] is False
+
+    for raw_code in (
+        "calculator(1, 2)",
+        "calculator()",
+        "calculator(**payload)",
+        "unknown({'x': 1})",
+        "factory().calculator({'x': 1})",
+        "other.other({'x': 1})",
+    ):
+        normalized = canonicalize_generated_code(code_text=raw_code, allowed_tools=allowed_tools)
+        assert normalized.parse_error is None
