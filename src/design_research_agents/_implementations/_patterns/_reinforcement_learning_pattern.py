@@ -6,6 +6,9 @@ import random
 from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol
 
+from design_research_agents._contracts._delegate import Delegate
+from design_research_agents._tracing._config import Tracer
+
 # Design state
 RLState = Mapping[str, object]
 # Discrete action name or continuous parameter dict
@@ -115,11 +118,65 @@ class EpsilonGreedyPolicy:
             "epsilon": self._epsilon,
         }
 
-class ReinforcementLearningPattern:
+class ReinforcementLearningPattern(Delegate):
     """Reinforcement learning pattern with episodic agent-environment loop."""
 
-    def __init__(self) -> None:
-        pass
+    def __init__(
+        self,
+        *,
+        environment_reset: EnvironmentResetDelegate,
+        environment_step: EnvironmentStepDelegate,
+        policy: RLPolicy | None,
+        actions: Sequence[str] | None = None,
+        max_episodes: int = 100,
+        max_steps_per_episode: int = 50,
+        gamma: float = 0.99,
+        epsilon: float = 1.0,
+        epsilon_decay: float = 0.99,
+        epsilon_min: float = 0.01,
+        convergence_threshold: float = 0.01,
+        convergence_episodes: int = 5,
+        random_seed: int | None = None,
+        tracer: Tracer | None = None,
+    ) -> None:
+        if max_episodes < 1:
+            raise ValueError("max_episodes must be >= 1.")
+        if max_steps_per_episode < 1:
+            raise ValueError("max_steps_per_episode must be >= 1.")
+        if not 0 < gamma <= 1:
+            raise ValueError("gamma must be in (0, 1].")
+        if convergence_threshold < 0:
+            raise ValueError("convergence_threshold must be >= 0.")
+        if convergence_episodes < 1:
+            raise ValueError("convergence_episodes must be >= 1.")
+        if policy is None and not actions:
+            raise ValueError("Either policy or actions must be provided.")
+        
+        self._rng = random.Random(random_seed) if random_seed
+
+        if policy is not None:
+            self._policy = policy
+        else:
+            assert actions is not None
+            self._policy = EpsilonGreedyPolicy(
+                actions=actions,
+                epsilon=epsilon,
+                epsilon_decay=epsilon_decay,
+                epsilon_min=epsilon_min,
+                gamma=gamma,
+                rng=self._rng,
+            )
+
+        self._environment_reset = environment_reset
+        self._environment_step = environment_step
+        self._max_episodes = max_episodes
+        self._max_steps_per_episode = max_steps_per_episode
+        self._gamma = gamma
+        self._convergence_threshold = convergence_threshold
+        self._convergence_episodes = convergence_episodes
+        self._random_seed = random_seed
+        self._tracer = tracer
+        self.workflow = Workflow | None = None
 
     def run(self) -> None:
         pass
