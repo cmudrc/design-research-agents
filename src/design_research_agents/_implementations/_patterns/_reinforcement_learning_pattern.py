@@ -8,7 +8,7 @@ from typing import Protocol
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._workflow import LogicStep, LoopStep
-from design_research_agents._runtime._patterns._pattern_contract import (
+from design_research_agents._runtime._patterns import (
     MODE_REINFORCEMENT_LEARNING,
     build_compiled_pattern_execution,
     build_loop_callbacks,
@@ -16,8 +16,8 @@ from design_research_agents._runtime._patterns._pattern_contract import (
     resolve_pattern_run_context,
     wrap_iteration_handler,
 )
-from design_research_agents._tracing._config import Tracer
-from design_research_agents.workflow.workflow import CompiledExecution, Workflow
+from design_research_agents._tracing import Tracer
+from design_research_agents.workflow import CompiledExecution, Workflow
 
 # Design state
 RLState = Mapping[str, object]
