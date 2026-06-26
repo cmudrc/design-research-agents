@@ -31,6 +31,7 @@ EnvironmentResetDelegate = Callable[[], RLState]
 # (state, action) -> (next_state, reward, done)
 EnvironmentStepDelegate = Callable[[RLState, RLAction], tuple[RLState, float, bool]]
 
+
 class RLPolicy(Protocol):
     """Protocol for pluggable RL policies."""
 
@@ -70,7 +71,7 @@ class EpsilonGreedyPolicy:
             raise ValueError("epsilon_min must be in [0, 1].")
         if not 0 <= gamma <= 1:
             raise ValueError("gamma must be in [0, 1].")
-        
+
         self._actions = list(actions)
         self._epsilon = epsilon
         self._epsilon_decay = epsilon_decay
@@ -93,18 +94,18 @@ class EpsilonGreedyPolicy:
         best_value = max(self._q_values.values())
         best_actions = [a for a, v in self._q_values.items() if v == best_value]
         return self._rng.choice(best_actions)
-    
+
     def update(self, trajectory: Trajectory) -> dict[str, object]:
         """Compute discounted returns from episode and update Q-values."""
         if not trajectory:
             return {"mean_return": 0.0}
-        
+
         # compute discounted returns backwards from end of episode
         n = len(trajectory)
         returns = [0.0] * n
         returns[-1] = trajectory[-1][2]
-        for t in range(n-2, -1, -1):
-            returns[t] = trajectory[t][2] + self._gamma * returns[t+1]
+        for t in range(n - 2, -1, -1):
+            returns[t] = trajectory[t][2] + self._gamma * returns[t + 1]
 
         # incremental mean update for each action's Q-value
         for t in range(n):
@@ -127,6 +128,7 @@ class EpsilonGreedyPolicy:
             "action_counts": dict(self._action_counts),
             "epsilon": self._epsilon,
         }
+
 
 class ReinforcementLearningPattern(Delegate):
     """Reinforcement learning pattern with episodic agent-environment loop."""
@@ -161,7 +163,7 @@ class ReinforcementLearningPattern(Delegate):
             raise ValueError("convergence_episodes must be >= 1.")
         if policy is None and not actions:
             raise ValueError("Either policy or actions must be provided.")
-        
+
         self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
 
         if policy is not None:
@@ -259,7 +261,7 @@ class ReinforcementLearningPattern(Delegate):
         dependencies: Mapping[str, object],
     ) -> Workflow:
         """Build the workflow for one reinforcement learning training run."""
-        
+
         def _get_initial_loop_state() -> dict[str, object]:
             return {
                 "episode": 0,
@@ -295,14 +297,16 @@ class ReinforcementLearningPattern(Delegate):
                 next_state = dict(next_state) if isinstance(next_state, Mapping) else next_state
 
                 trajectory.append((state, action, reward))
-                step_traces.append({
-                    "step_num": step_num,
-                    "state": state,
-                    "action": action,
-                    "reward": reward,
-                    "next_state": next_state,
-                    "done": done,
-                })
+                step_traces.append(
+                    {
+                        "step_num": step_num,
+                        "state": state,
+                        "action": action,
+                        "reward": reward,
+                        "next_state": next_state,
+                        "done": done,
+                    }
+                )
                 episode_reward += reward
                 state = next_state
 
@@ -334,7 +338,7 @@ class ReinforcementLearningPattern(Delegate):
             if convergence_counter >= self._convergence_episodes:
                 should_continue = False
                 terminated_reason = "converged"
-            
+
             elif (episode_idx + 1) >= self._max_episodes:
                 should_continue = False
                 terminated_reason = "max_episodes_reached"
@@ -376,12 +380,7 @@ class ReinforcementLearningPattern(Delegate):
             steps=[
                 LoopStep(
                     step_id="rl_loop",
-                    steps=(
-                        LogicStep(
-                            step_id="rl_episode",
-                            handler=loop_callbacks.iteration_handler
-                        ),
-                    ),
+                    steps=(LogicStep(step_id="rl_episode", handler=loop_callbacks.iteration_handler),),
                     max_iterations=self._max_episodes,
                     initial_state=_get_initial_loop_state(),
                     continue_predicate=loop_callbacks.continue_predicate,
@@ -394,17 +393,18 @@ class ReinforcementLearningPattern(Delegate):
         self.workflow = workflow
         return workflow
 
+
 def _build_reinforcement_learning_result(
-        *,
-        workflow_result: ExecutionResult,
-        request_id: str,
-        dependencies: Mapping[str, object],
-        max_episodes: int,
-        max_steps_per_episode: int,
-        gamma: float,
-        convergence_threshold: float,
-        convergence_episodes: int,
-        random_seed: int | None,
+    *,
+    workflow_result: ExecutionResult,
+    request_id: str,
+    dependencies: Mapping[str, object],
+    max_episodes: int,
+    max_steps_per_episode: int,
+    gamma: float,
+    convergence_threshold: float,
+    convergence_episodes: int,
+    random_seed: int | None,
 ) -> ExecutionResult:
     """Build the final ExecutionResult from one reinforcement learning workflow run."""
     loop_step_result = workflow_result.step_results.get("rl_loop")
@@ -419,38 +419,38 @@ def _build_reinforcement_learning_result(
     )
     policy_params_history = final_state.get("policy_params_history", [])
     return build_pattern_execution_result(
-    success=workflow_result.success,
-    final_output={
-        "best_episode_reward": final_state.get("best_episode_reward"),
-        "best_episode_index": final_state.get("best_episode_index"),
-        "episodes_completed": final_state.get("episode"),
-        "final_policy_params": policy_params_history[-1] if policy_params_history else {},
-        "episode_rewards": final_state.get("episode_rewards"),
-    },
-    terminated_reason=terminated_reason,
-    details={
-        "max_episodes": max_episodes,
-        "max_steps_per_episode": max_steps_per_episode,
-        "gamma": gamma,
-        "episode_traces": final_state.get("episode_traces"),
-        "policy_params_history": policy_params_history,
-    },
-    workflow_payload=workflow_result.to_dict(),
-    artifacts=workflow_artifacts,
-    request_id=request_id,
-    dependencies=dependencies,
-    mode=MODE_REINFORCEMENT_LEARNING,
-    metadata={
-        "max_episodes": max_episodes,
-        "max_steps_per_episode": max_steps_per_episode,
-        "gamma": gamma,
-        "convergence_threshold": convergence_threshold,
-        "convergence_episodes": convergence_episodes,
-        "random_seed": random_seed,
-    },
-    requested_mode=MODE_REINFORCEMENT_LEARNING,
-    resolved_mode=MODE_REINFORCEMENT_LEARNING,
-)
+        success=workflow_result.success,
+        final_output={
+            "best_episode_reward": final_state.get("best_episode_reward"),
+            "best_episode_index": final_state.get("best_episode_index"),
+            "episodes_completed": final_state.get("episode"),
+            "final_policy_params": policy_params_history[-1] if policy_params_history else {},
+            "episode_rewards": final_state.get("episode_rewards"),
+        },
+        terminated_reason=terminated_reason,
+        details={
+            "max_episodes": max_episodes,
+            "max_steps_per_episode": max_steps_per_episode,
+            "gamma": gamma,
+            "episode_traces": final_state.get("episode_traces"),
+            "policy_params_history": policy_params_history,
+        },
+        workflow_payload=workflow_result.to_dict(),
+        artifacts=workflow_artifacts,
+        request_id=request_id,
+        dependencies=dependencies,
+        mode=MODE_REINFORCEMENT_LEARNING,
+        metadata={
+            "max_episodes": max_episodes,
+            "max_steps_per_episode": max_steps_per_episode,
+            "gamma": gamma,
+            "convergence_threshold": convergence_threshold,
+            "convergence_episodes": convergence_episodes,
+            "random_seed": random_seed,
+        },
+        requested_mode=MODE_REINFORCEMENT_LEARNING,
+        resolved_mode=MODE_REINFORCEMENT_LEARNING,
+    )
 
 
 __all__ = [
@@ -461,5 +461,5 @@ __all__ = [
     "RLPolicy",
     "RLState",
     "ReinforcementLearningPattern",
-    "Trajectory"
+    "Trajectory",
 ]
