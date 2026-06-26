@@ -17,8 +17,8 @@ _EXPORTS: Final[dict[str, str]] = {
     "RalphLoopPattern": "design_research_agents._implementations._patterns:RalphLoopPattern",
     "NominalTeamPattern": "design_research_agents._implementations._patterns:NominalTeamPattern",
     "RouterDelegatePattern": "design_research_agents._implementations._patterns:RouterDelegatePattern",
-    "ReinforcementLearningPattern": "design_research_agents._implementations._patterns:ReinforcementLearningPattern",
     "SimulatedAnnealingPattern": "design_research_agents._implementations._patterns:SimulatedAnnealingPattern",
+    "ReinforcementLearningPattern": "design_research_agents._implementations._patterns:ReinforcementLearningPattern",
     "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }
 

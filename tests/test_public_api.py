@@ -63,6 +63,7 @@ EXPECTED_PATTERNS_API = [
     "NominalTeamPattern",
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
+    "ReinforcementLearningPattern",
     "TreeSearchPattern",
 ]
 EXPECTED_SCHEDULE_API = [
