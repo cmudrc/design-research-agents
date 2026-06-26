@@ -12,6 +12,7 @@ from design_research_agents._runtime._patterns._pattern_contract import MODE_REI
 from design_research_agents._runtime._patterns._run_context import build_compiled_pattern_execution, resolve_pattern_run_context
 from design_research_agents._tracing._config import Tracer
 from design_research_agents.workflow._compiled import CompiledExecution
+from design_research_agents.workflow.workflow import Workflow
 
 # Design state
 RLState = Mapping[str, object]
@@ -156,7 +157,7 @@ class ReinforcementLearningPattern(Delegate):
         if policy is None and not actions:
             raise ValueError("Either policy or actions must be provided.")
         
-        self._rng = random.Random(random_seed) if random_seed
+        self._rng = random.Random(random_seed) if random_seed is not None else random.Random()
 
         if policy is not None:
             self._policy = policy
@@ -180,7 +181,7 @@ class ReinforcementLearningPattern(Delegate):
         self._convergence_episodes = convergence_episodes
         self._random_seed = random_seed
         self._tracer = tracer
-        self.workflow = Workflow | None = None
+        self.workflow: Workflow | None = None
 
     def run(
         self,
