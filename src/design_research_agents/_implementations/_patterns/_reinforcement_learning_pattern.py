@@ -12,7 +12,6 @@ from design_research_agents._runtime._patterns._pattern_contract import (
     MODE_REINFORCEMENT_LEARNING,
     build_compiled_pattern_execution,
     build_loop_callbacks,
-    build_pattern_execution_result,
     resolve_pattern_run_context,
     wrap_iteration_handler,
 )
@@ -251,15 +250,148 @@ class ReinforcementLearningPattern(Delegate):
             ),
         )
 
-    def _build_workflow(self) -> None:
+    def _build_workflow(
+        self,
+        prompt: str,
+        *,
+        request_id: str,
+        dependencies: Mapping[str, object],
+    ) -> Workflow:
+        """Build the workflow for one reinforcement learning training run."""
         
         def _get_initial_loop_state() -> dict[str, object]:
-            pass
+            return {
+                "episode": 0,
+                "should_continue": True,
+                "episode_rewards": [],
+                "best_episode_reward": float("-inf"),
+                "best_episode_index": -1,
+                "convergence_counter": 0,
+                "terminated_reason": None,
+                # TODO: history kept to trace how Q-values evolved per episode, but grows large
+                # Should we only store final params?
+                "policy_params_history": [self._policy.get_params()],
+                "episode_traces": [],
+            }
 
         def _run_iteration(context: Mapping[str, object]) -> Mapping[str, object]:
-            pass
+            # Extract loop state from previous iteration
+            raw_loop_state = context.get("loop_state")
+            loop_state = dict(raw_loop_state) if isinstance(raw_loop_state, Mapping) else {}
+            episode_idx = int(loop_state.get("episode", 0))
 
-        pass
+            # Start fresh episode
+            state = dict(self._environment_reset())
+            trajectory: list[tuple[RLState, RLAction, float]] = []
+            episode_reward = 0.0
+            step_traces: list[dict[str, object]] = []
+
+            # Repeatedly ask policy for an action, step enviornment, and collect (state, action, reward) until done or
+            # step cap
+            for step_num in range(self._max_steps_per_episode):
+                action = self._policy.select_action(state)
+                next_state, reward, done = self._environment_step(state, action)
+                next_state = dict(next_state) if isinstance(next_state, Mapping) else next_state
+
+                trajectory.append((state, action, reward))
+                step_traces.append({
+                    "step_num": step_num,
+                    "state": state,
+                    "action": action,
+                    "reward": reward,
+                    "next_state": next_state,
+                    "done": done,
+                })
+                episode_reward += reward
+                state = next_state
+
+                if done:
+                    break
+
+            # Monte Carlo update: compute discounted returns from full trajectory and update policy
+            update_stats = self._policy.update(trajectory)
+
+            # Track best episode seen so far
+            episode_rewards = [*list(loop_state.get("episode_rewards", [])), episode_reward]
+            best_reward = float(loop_state.get("best_episode_reward", float("-inf")))
+            best_idx = int(loop_state.get("best_episode_index", -1))
+            if episode_reward > best_reward:
+                best_reward = episode_reward
+                best_idx = episode_idx
+
+            # Check for convergence
+            convergence_counter = int(loop_state.get("convergence_counter", 0))
+            terminated_reason = None
+            should_continue = True
+
+            if len(episode_rewards) >= 2:
+                if abs(episode_rewards[-1] - episode_rewards[-2]) < self._convergence_threshold:
+                    convergence_counter += 1
+                else:
+                    convergence_counter = 0
+
+            if convergence_counter >= self._convergence_episodes:
+                should_continue = False
+                terminated_reason = "converged"
+            
+            elif (episode_idx + 1) >= self._max_episodes:
+                should_continue = False
+                terminated_reason = "max_episodes_reached"
+
+            episode_trace = {
+                "episode": episode_idx,
+                "episode_reward": episode_reward,
+                "steps": len(trajectory),
+                "step_traces": step_traces,
+                "update_stats": update_stats,
+                "policy_params": self._policy.get_params(),
+            }
+
+            return {
+                "episode": episode_idx + 1,
+                "should_continue": should_continue,
+                "episode_rewards": episode_rewards,
+                "best_episode_reward": best_reward,
+                "best_episode_index": best_idx,
+                "convergence_counter": convergence_counter,
+                "terminated_reason": terminated_reason,
+                "policy_params_history": [*list(loop_state.get("policy_params_history", []))],
+                "episode_traces": [*list(loop_state.get("episode_traces", [])), episode_trace],
+            }
+
+        wrapped_handler = wrap_iteration_handler(
+            handler=_run_iteration,
+            error_prefix="ReinforcementLearningPattern episode",
+        )
+        loop_callbacks = build_loop_callbacks(
+            iteration_step_id="rl_episode",
+            iteration_handler=wrapped_handler,
+        )
+
+        workflow = Workflow(
+            tool_runtime=None,
+            tracer=self._tracer,
+            input_schema={"type": "object"},
+            steps=[
+                LoopStep(
+                    step_id="rl_loop",
+                    steps=(
+                        LogicStep(
+                            step_id="rl_episode",
+                            handler=loop_callbacks.iteration_handler
+                        ),
+                    ),
+                    max_iterations=self._max_episodes,
+                    initial_state=_get_initial_loop_state(),
+                    continue_predicate=loop_callbacks.continue_predicate,
+                    state_reducer=loop_callbacks.state_reducer,
+                    execution_mode="sequential",
+                    failure_policy="propagate_failed_state",
+                )
+            ],
+        )
+        self.workflow = workflow
+        return workflow
 
 def _build_reinforcement_learning_result() -> None:
     pass
