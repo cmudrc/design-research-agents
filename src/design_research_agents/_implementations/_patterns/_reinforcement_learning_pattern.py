@@ -6,13 +6,18 @@ import random
 from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol
 
-from design_research_agents._contracts._delegate import Delegate
-from design_research_agents._contracts._execution import ExecutionResult
-from design_research_agents._runtime._patterns._pattern_contract import MODE_REINFORCEMENT_LEARNING
-from design_research_agents._runtime._patterns._run_context import build_compiled_pattern_execution, resolve_pattern_run_context
+from design_research_agents._contracts._delegate import Delegate, ExecutionResult
+from design_research_agents._contracts._workflow import LogicStep, LoopStep
+from design_research_agents._runtime._patterns._pattern_contract import (
+    MODE_REINFORCEMENT_LEARNING,
+    build_compiled_pattern_execution,
+    build_loop_callbacks,
+    build_pattern_execution_result,
+    resolve_pattern_run_context,
+    wrap_iteration_handler,
+)
 from design_research_agents._tracing._config import Tracer
-from design_research_agents.workflow._compiled import CompiledExecution
-from design_research_agents.workflow.workflow import Workflow
+from design_research_agents.workflow.workflow import CompiledExecution, Workflow
 
 # Design state
 RLState = Mapping[str, object]
