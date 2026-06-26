@@ -12,6 +12,7 @@ from design_research_agents._runtime._patterns._pattern_contract import (
     MODE_REINFORCEMENT_LEARNING,
     build_compiled_pattern_execution,
     build_loop_callbacks,
+    build_pattern_execution_result,
     resolve_pattern_run_context,
     wrap_iteration_handler,
 )
@@ -393,8 +394,64 @@ class ReinforcementLearningPattern(Delegate):
         self.workflow = workflow
         return workflow
 
-def _build_reinforcement_learning_result() -> None:
-    pass
+def _build_reinforcement_learning_result(
+        *,
+        workflow_result: ExecutionResult,
+        request_id: str,
+        dependencies: Mapping[str, object],
+        max_episodes: int,
+        max_steps_per_episode: int,
+        gamma: float,
+        convergence_threshold: float,
+        convergence_episodes: int,
+        random_seed: int | None,
+) -> ExecutionResult:
+    """Build the final ExecutionResult from one reinforcement learning workflow run."""
+    loop_step_result = workflow_result.step_results.get("rl_loop")
+    loop_output = dict(loop_step_result.output) if loop_step_result is not None else {}
+    final_state_raw = loop_output.get("final_state")
+    final_state = dict(final_state_raw) if isinstance(final_state_raw, Mapping) else {}
+    workflow_artifacts = workflow_result.output.get("artifacts", [])
+    terminated_reason = str(
+        final_state.get("terminated_reason", loop_output.get("terminated_reason"))
+        if workflow_result.success
+        else "workflow_failure"
+    )
+    policy_params_history = final_state.get("policy_params_history", [])
+    return build_pattern_execution_result(
+    success=workflow_result.success,
+    final_output={
+        "best_episode_reward": final_state.get("best_episode_reward"),
+        "best_episode_index": final_state.get("best_episode_index"),
+        "episodes_completed": final_state.get("episode"),
+        "final_policy_params": policy_params_history[-1] if policy_params_history else {},
+        "episode_rewards": final_state.get("episode_rewards"),
+    },
+    terminated_reason=terminated_reason,
+    details={
+        "max_episodes": max_episodes,
+        "max_steps_per_episode": max_steps_per_episode,
+        "gamma": gamma,
+        "episode_traces": final_state.get("episode_traces"),
+        "policy_params_history": policy_params_history,
+    },
+    workflow_payload=workflow_result.to_dict(),
+    artifacts=workflow_artifacts,
+    request_id=request_id,
+    dependencies=dependencies,
+    mode=MODE_REINFORCEMENT_LEARNING,
+    metadata={
+        "max_episodes": max_episodes,
+        "max_steps_per_episode": max_steps_per_episode,
+        "gamma": gamma,
+        "convergence_threshold": convergence_threshold,
+        "convergence_episodes": convergence_episodes,
+        "random_seed": random_seed,
+    },
+    requested_mode=MODE_REINFORCEMENT_LEARNING,
+    resolved_mode=MODE_REINFORCEMENT_LEARNING,
+)
+
 
 __all__ = [
     "EnvironmentResetDelegate",
