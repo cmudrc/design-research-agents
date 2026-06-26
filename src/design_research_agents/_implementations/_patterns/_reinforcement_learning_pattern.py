@@ -7,7 +7,11 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol
 
 from design_research_agents._contracts._delegate import Delegate
+from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._runtime._patterns._pattern_contract import MODE_REINFORCEMENT_LEARNING
+from design_research_agents._runtime._patterns._run_context import build_compiled_pattern_execution, resolve_pattern_run_context
 from design_research_agents._tracing._config import Tracer
+from design_research_agents.workflow._compiled import CompiledExecution
 
 # Design state
 RLState = Mapping[str, object]
@@ -178,11 +182,68 @@ class ReinforcementLearningPattern(Delegate):
         self._tracer = tracer
         self.workflow = Workflow | None = None
 
-    def run(self) -> None:
-        pass
+    def run(
+        self,
+        prompt: str | object,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        """Execute the reinforcement learning pattern."""
+        return self.compile(
+            prompt=prompt,
+            request_id=request_id,
+            dependencies=dependencies,
+        ).run()
 
-    def compile(self) -> None:
-        pass
+    def compile(
+        self,
+        prompt: str | object,
+        *,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> CompiledExecution:
+        """Compile one reinforcement learning workflow."""
+        run_context = resolve_pattern_run_context(
+            prompt=prompt,
+            default_request_id_prefix=None,
+            default_dependencies={},
+            request_id=request_id,
+            dependencies=dependencies,
+        )
+        workflow = self._build_workflow(
+            run_context.prompt,
+            request_id=run_context.request_id,
+            dependencies=run_context.dependencies,
+        )
+        return build_compiled_pattern_execution(
+            workflow=workflow,
+            pattern_name="ReinforcementLearningPattern",
+            request_id=run_context.request_id,
+            dependencies=run_context.dependencies,
+            tracer=self._tracer,
+            input_payload={
+                **run_context.normalized_input,
+                "mode": MODE_REINFORCEMENT_LEARNING,
+                "max_episodes": self._max_episodes,
+                "max_steps_per_episode": self._max_steps_per_episode,
+                "gamma": self._gamma,
+                "convergence_threshold": self._convergence_threshold,
+                "convergence_episodes": self._convergence_episodes,
+            },
+            workflow_request_id=f"{run_context.request_id}:rl_workflow",
+            finalize=lambda workflow_result: _build_reinforcement_learning_result(
+                workflow_result=workflow_result,
+                request_id=run_context.request_id,
+                dependencies=run_context.dependencies,
+                max_episodes=self._max_episodes,
+                max_steps_per_episode=self._max_steps_per_episode,
+                gamma=self._gamma,
+                convergence_threshold=self._convergence_threshold,
+                convergence_episodes=self._convergence_episodes,
+                random_seed=self._random_seed,
+            ),
+        )
 
     def _build_workflow(self) -> None:
         
