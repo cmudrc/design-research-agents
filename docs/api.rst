@@ -315,6 +315,10 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.ReinforcementLearningPattern
+   :members:
+   :undoc-members:
+
 Temperature Schedules
 ^^^^^^^^^^^^^^^^^^^^^
 
