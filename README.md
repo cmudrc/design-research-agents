@@ -65,7 +65,8 @@ and package-install steps.
 If you prefer a guided editor-first flow, use the
 [VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).
 It walks through creating a virtual environment, installing the published
-package, and running a first script in VS Code.
+package, running a first script in VS Code, and using the source checkout for
+repository examples.
 
 ```bash
 python3 -m venv .venv
