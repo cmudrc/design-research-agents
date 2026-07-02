@@ -11,20 +11,20 @@ runtime contract is easy to inspect without an LLM dependency.
 ## Technical Implementation
 1. Define an environment reset delegate that returns the initial state.
 2. Define an environment step delegate that applies an action and returns the next
-   state, reward, and done flag.
+   state, reward, and done flag.
 3. Execute ``ReinforcementLearningPattern.run(...)`` through the public patterns API.
 4. Print a compact JSON payload showing the learned policy and reward history.
 
 ```mermaid
 flowchart LR
-    A["Initial state"] --> B["ReinforcementLearningPattern.run(...)"]
-    B --> C["environment_reset starts each episode"]
-    C --> D["EpsilonGreedyPolicy selects action"]
-    D --> E["environment_step returns next_state, reward, done"]
-    E --> F["Trajectory collected until done"]
-    F --> G["Monte Carlo policy update"]
-    G --> H["ExecutionResult/payload"]
-    H --> I["Printed JSON output"]
+    A["Initial state"] --> B["ReinforcementLearningPattern.run(...)"]
+    B --> C["environment_reset starts each episode"]
+    C --> D["EpsilonGreedyPolicy selects action"]
+    D --> E["environment_step returns next_state, reward, done"]
+    E --> F["Trajectory collected until done"]
+    F --> G["Monte Carlo policy update"]
+    G --> H["ExecutionResult/payload"]
+    H --> I["Printed JSON output"]
 ```
 
 
@@ -34,13 +34,13 @@ Example output shape:
 
 .. code-block:: text
 
-   {
-     "best_episode_reward": 7.0,
-     "best_episode_index": ...,
-     "episodes_completed": ...,
-     "success": true,
-     "terminated_reason": "converged"
-   }
+{
+    "best_episode_reward": 7.0,
+    "best_episode_index": ...,
+    "episodes_completed": ...,
+    "success": true,
+    "terminated_reason": "converged"
+}
 
 ## References
 - `Reinforcement Learning <https://en.wikipedia.org/wiki/Reinforcement_learning>`_
