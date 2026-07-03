@@ -77,6 +77,7 @@ def main() -> None:
     pattern = ReinforcementLearningPattern(
         environment_reset=environment_reset,
         environment_step=environment_step,
+        policy=None,
         actions=["left", "right", "stay"],
         max_episodes=200,
         max_steps_per_episode=10,
