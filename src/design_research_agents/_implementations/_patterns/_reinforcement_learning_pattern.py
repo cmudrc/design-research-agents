@@ -49,7 +49,7 @@ class RLPolicy(Protocol):
 
 
 class EpsilonGreedyPolicy:
-    """Simple epsilon-greedy policy with Monte Carlo Q-value updates."""
+    """Simple epsilon-greedy policy with Monte Carlo Q-value action-value updates."""
 
     def __init__(
         self,
@@ -138,7 +138,7 @@ class ReinforcementLearningPattern(Delegate):
         *,
         environment_reset: EnvironmentResetDelegate,
         environment_step: EnvironmentStepDelegate,
-        policy: RLPolicy | None,
+        policy: RLPolicy | None = None,
         actions: Sequence[str] | None = None,
         max_episodes: int = 100,
         max_steps_per_episode: int = 50,
