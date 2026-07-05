@@ -43,9 +43,9 @@ Example output shape:
     }
 
 ## References
-- `Reinforcement Learning <https://en.wikipedia.org/wiki/Reinforcement_learning>`_
-- `Q-Learning <https://en.wikipedia.org/wiki/Q-learning>`_
-- `Epsilon-greedy Algorithm <https://en.wikipedia.org/wiki/Epsilon-greedy_algorithm>`_
+- `Reinforcement Learning <https://huggingface.co/learn/deep-rl-course/en/unit1/what-is-rl>`_
+- `Q-Learning <https://huggingface.co/learn/deep-rl-course/en/unit2/q-learning>`_
+- `Epsilon-greedy Algorithm <https://www.geeksforgeeks.org/machine-learning/epsilon-greedy-algorithm-in-reinforcement-learning/>`_
 """
 
 from __future__ import annotations
