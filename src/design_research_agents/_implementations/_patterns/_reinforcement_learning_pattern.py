@@ -44,16 +44,17 @@ class RLPolicy(Protocol):
         pass
 
     def get_params(self) -> dict[str, object]:
-        """Get current policy parameters for logging."""
+        """Get current policy parameters for logging. Returns fresh snapshot."""
         pass
 
 
 class EpsilonGreedyPolicy:
     """Simple epsilon-greedy policy with Monte Carlo Q-value action-value updates.
-    
+
     Note: this policy is state-independent. It keeps one Q-value per action and
-    ignores the state. This is suitable for simple environments with a small 
-    number of discrete actions; plug in custom ``RLPolicy`` otherwise."""
+    ignores the state. This is suitable for simple environments with a small
+    number of discrete actions; plug in custom ``RLPolicy`` otherwise.
+    """
 
     def __init__(
         self,
@@ -298,7 +299,7 @@ class ReinforcementLearningPattern(Delegate):
             for step_num in range(self._max_steps_per_episode):
                 # Snapshot pre-transition state
                 recorded_state = dict(state) if isinstance(state, Mapping) else state
-                
+
                 action = self._policy.select_action(state)
                 next_state, reward, done = self._environment_step(state, action)
                 next_state = dict(next_state) if isinstance(next_state, Mapping) else next_state
@@ -367,10 +368,7 @@ class ReinforcementLearningPattern(Delegate):
                 "best_episode_index": best_idx,
                 "convergence_counter": convergence_counter,
                 "terminated_reason": terminated_reason,
-                "policy_params_history": [
-                    *list(loop_state.get("policy_params", [])),
-                    self._policy.get_params()
-                ],
+                "policy_params_history": [*list(loop_state.get("policy_params", [])), self._policy.get_params()],
                 "episode_traces": [*list(loop_state.get("episode_traces", [])), episode_trace],
             }
 
