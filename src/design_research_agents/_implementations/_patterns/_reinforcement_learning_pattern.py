@@ -296,15 +296,18 @@ class ReinforcementLearningPattern(Delegate):
             # Repeatedly ask policy for an action, step enviornment, and collect (state, action, reward) until done or
             # step cap
             for step_num in range(self._max_steps_per_episode):
+                # Snapshot pre-transition state
+                recorded_state = dict(state) if isinstance(state, Mapping) else state
+                
                 action = self._policy.select_action(state)
                 next_state, reward, done = self._environment_step(state, action)
                 next_state = dict(next_state) if isinstance(next_state, Mapping) else next_state
 
-                trajectory.append((state, action, reward))
+                trajectory.append((recorded_state, action, reward))
                 step_traces.append(
                     {
                         "step_num": step_num,
-                        "state": state,
+                        "state": recorded_state,
                         "action": action,
                         "reward": reward,
                         "next_state": next_state,
