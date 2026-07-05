@@ -62,7 +62,7 @@ class EpsilonGreedyPolicy:
         rng: random.Random | None = None,
     ) -> None:
         if not actions:
-            raise ValueError("actions must not be a non-empty sequence.")
+            raise ValueError("actions must be a non-empty sequence.")
         if not 0 <= epsilon <= 1:
             raise ValueError("epsilon must be in [0, 1].")
         if not 0 <= epsilon_decay <= 1:
