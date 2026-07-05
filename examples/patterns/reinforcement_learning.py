@@ -52,7 +52,7 @@ from __future__ import annotations
 
 import json
 
-from design_research_agents import ReinforcementLearningPattern
+from design_research_agents.patterns import ReinforcementLearningPattern
 
 
 def main() -> None:
