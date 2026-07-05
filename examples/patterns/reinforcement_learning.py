@@ -40,7 +40,7 @@ Example output shape:
     "episodes_completed": ...,
     "success": true,
     "terminated_reason": "converged"
-}
+    }
 
 ## References
 - `Reinforcement Learning <https://en.wikipedia.org/wiki/Reinforcement_learning>`_

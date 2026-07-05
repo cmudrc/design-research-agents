@@ -57,7 +57,7 @@ Example output shape:
     "episodes_completed": ...,
     "success": true,
     "terminated_reason": "converged"
-   }
+    }
 
 References
 ----------
