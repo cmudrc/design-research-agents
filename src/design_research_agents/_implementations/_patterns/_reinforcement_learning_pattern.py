@@ -49,7 +49,11 @@ class RLPolicy(Protocol):
 
 
 class EpsilonGreedyPolicy:
-    """Simple epsilon-greedy policy with Monte Carlo Q-value action-value updates."""
+    """Simple epsilon-greedy policy with Monte Carlo Q-value action-value updates.
+    
+    Note: this policy is state-independent. It keeps one Q-value per action and
+    ignores the state. This is suitable for simple environments with a small 
+    number of discrete actions; plug in custom ``RLPolicy`` otherwise."""
 
     def __init__(
         self,
