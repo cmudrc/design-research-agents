@@ -360,7 +360,10 @@ class ReinforcementLearningPattern(Delegate):
                 "best_episode_index": best_idx,
                 "convergence_counter": convergence_counter,
                 "terminated_reason": terminated_reason,
-                "policy_params_history": [*list(loop_state.get("policy_params_history", []))],
+                "policy_params_history": [
+                    *list(loop_state.get("policy_params", [])),
+                    self._policy.get_params()
+                ],
                 "episode_traces": [*list(loop_state.get("episode_traces", [])), episode_trace],
             }
 
