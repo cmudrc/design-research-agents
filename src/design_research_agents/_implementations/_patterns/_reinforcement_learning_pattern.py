@@ -46,6 +46,7 @@ class RLPolicy(Protocol):
     def get_params(self) -> dict[str, object]:
         """Get current policy parameters for logging. Returns fresh snapshot."""
         pass
+    
 
 
 class EpsilonGreedyPolicy:
