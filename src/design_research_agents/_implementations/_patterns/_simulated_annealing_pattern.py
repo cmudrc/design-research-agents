@@ -255,7 +255,7 @@ def _metropolis_acceptance(
     if temperature <= 0:
         return False
 
-    # If neighbor is worse, accept with probabilty exp(-delta / temperature)
+    # If neighbor is worse, accept with probability exp(-delta / temperature)
     delta = neighbor_internal_score - current_internal_score
     acceptance_probability = math.exp(-delta / temperature)
 
@@ -283,7 +283,6 @@ class SimulatedAnnealingPattern(Delegate):
         max_iterations: int = 100,
         convergence_threshold: float = 1e-6,
         convergence_steps: int = 5,
-        # TODO: do we want to support user-defined temperature schedules?
         temperature_schedule: TemperatureSchedule | None = None,
         random_seed: int | None = None,
         tracer: Tracer | None = None,
