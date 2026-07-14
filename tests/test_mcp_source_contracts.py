@@ -47,6 +47,21 @@ def _config() -> McpConfig:
     )
 
 
+def test_mcp_client_info_uses_package_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep SDK client metadata synchronized with package releases."""
+    monkeypatch.setattr(mcp_source, "__version__", "9.9.9")
+    types_module = type(
+        "TypesModule",
+        (),
+        {"Implementation": staticmethod(lambda **values: values)},
+    )
+
+    assert mcp_source._client_info(types_module) == {
+        "name": "design-research-agents",
+        "version": "9.9.9",
+    }
+
+
 def test_mcp_source_route_refresh_and_invoke_variants(tmp_path: Path) -> None:
     source = McpToolSource(mcp_config=_config(), policy=_policy(tmp_path))
     source._clients["alpha"] = _StubClient(
