@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import builtins
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 
+from design_research_agents._model_selection import _catalog as catalog_impl
 from design_research_agents._model_selection._catalog import (
     ModelCatalog,
     ModelFlight,
@@ -294,3 +297,119 @@ def test_memory_hint_is_positive_and_monotonic_with_size() -> None:
     assert large.min_vram_gb > small.min_vram_gb
     assert higher_bits.min_ram_gb > large.min_ram_gb
     assert higher_bits.min_vram_gb > large.min_vram_gb
+
+
+def test_model_catalog_validation_and_lookup_error_paths() -> None:
+    model = ModelFlightRegistry.default().require("openai-api").models[0]
+    with pytest.raises(ValueError, match="description"):
+        ModelFlight(flight_id="flight", description=" ", models=(model,))
+    with pytest.raises(ValueError, match="at least one ModelFlight"):
+        ModelFlightRegistry(flights=())
+
+    first = ModelFlight(flight_id="first", description="First", models=(model,))
+    second = ModelFlight(flight_id="second", description="Second", models=(model,))
+    with pytest.raises(ValueError, match="duplicate model ids"):
+        ModelFlightRegistry(flights=(first, second))
+    with pytest.raises(ValueError, match="duplicate model ids"):
+        ModelCatalog(models=(model, model))
+    with pytest.raises(KeyError, match="Unknown model flight"):
+        ModelFlightRegistry(flights=(first,)).require("missing")
+    with pytest.raises(KeyError, match="Unknown model"):
+        ModelCatalog(models=(model,)).require("missing")
+    with pytest.raises(ValueError, match="repo_ids"):
+        ModelCatalog.from_huggingface((" ",), api=object())
+
+
+def test_model_catalog_filter_helper_rejects_each_mismatched_constraint() -> None:
+    model = ModelSpec(
+        model_id="local-model",
+        provider="llama_cpp",
+        family="family",
+        size_b=3.0,
+        format="gguf",
+        quantization="q4_k_m",
+        memory_hint=None,
+        latency_hint=None,
+        cost_hint=None,
+        quality_tier=None,
+        speed_tier=None,
+        source="huggingface",
+        capabilities=("chat",),
+        tags=("local",),
+    )
+    defaults = {
+        "provider": None,
+        "family": None,
+        "quantization": None,
+        "model_format": None,
+        "source": None,
+        "local": None,
+        "capability": None,
+        "tag": None,
+        "min_size_b": None,
+        "max_size_b": None,
+    }
+    mismatches = {
+        "provider": "openai",
+        "family": "other",
+        "quantization": "q8_0",
+        "model_format": "api",
+        "source": "curated",
+        "local": False,
+        "capability": "vision",
+        "tag": "remote",
+        "min_size_b": 4.0,
+        "max_size_b": 2.0,
+    }
+    for key, value in mismatches.items():
+        arguments = {**defaults, key: value}
+        assert not catalog_impl._matches_catalog_filter(model, **arguments)
+
+
+def test_huggingface_catalog_helpers_cover_malformed_and_inferred_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(TypeError, match="callable model_info"):
+        catalog_impl._call_huggingface_model_info(
+            object(),
+            repo_id="repo/model",
+            revision=None,
+            token=None,
+            timeout=None,
+        )
+
+    real_import = builtins.__import__
+
+    def _missing_hub(name: str, *args: object, **kwargs: object):
+        if name == "huggingface_hub":
+            raise ImportError("missing")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", _missing_hub)
+    with pytest.raises(ImportError, match="huggingface_hub"):
+        catalog_impl._load_huggingface_api(token=None)
+
+    assert catalog_impl._huggingface_info_tags(SimpleNamespace(tags="invalid")) == ()
+    assert catalog_impl._preferred_huggingface_artifact(SimpleNamespace(siblings=object())) is None
+    assert catalog_impl._preferred_huggingface_artifact(SimpleNamespace(siblings=[])) is None
+    assert catalog_impl._artifact_sort_key("model.gguf")[0] == 0
+    assert catalog_impl._artifact_sort_key("model.safetensors")[0] == 1
+    assert catalog_impl._artifact_sort_key("model.bin")[0] == 2
+    assert catalog_impl._artifact_sort_key("README.md")[0] == 3
+    assert catalog_impl._infer_model_format_from_artifact(None) is None
+    assert catalog_impl._infer_model_format_from_artifact("model.safetensors") == "safetensors"
+    assert catalog_impl._infer_model_format_from_artifact("model.bin") == "pytorch"
+    assert catalog_impl._infer_model_format_from_artifact("README.md") is None
+    assert catalog_impl._infer_quantization_from_labels(("MODEL-Q6_K",)) == "q6_k"
+    assert catalog_impl._infer_quantization_from_labels(("plain",)) is None
+    assert catalog_impl._infer_size_b_from_labels(("mix-8x7b",)) == 56.0
+    assert catalog_impl._infer_size_b_from_labels(("plain",)) is None
+    assert catalog_impl._infer_family_from_repo_id("org/-") == "-"
+    assert catalog_impl._huggingface_license(SimpleNamespace(cardData=None)) is None
+    assert catalog_impl._huggingface_license(SimpleNamespace(cardData={"license": 3})) is None
+    assert catalog_impl._huggingface_context_window(SimpleNamespace(config=None)) is None
+    assert catalog_impl._huggingface_context_window(SimpleNamespace(config={"n_positions": 0})) is None
+    assert catalog_impl._card_data_mapping(SimpleNamespace(card_data={"license": "x"})) == {"license": "x"}
+    assert catalog_impl._read_optional_str_attr(SimpleNamespace(value=" "), "value") is None
+    assert catalog_impl._read_optional_str_attr(SimpleNamespace(value=3), "value") is None
+    assert catalog_impl._normalized_labels((" a ", "a", "", 2)) == ("a", "2")

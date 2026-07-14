@@ -65,12 +65,45 @@ avoid hand-building the ``python -m`` command.
    tools = [spec.name for spec in runtime.list_tools()]
    runtime.close()
 
+For packaged ``design-research-problems`` tasks, launch DERP's maintained MCP
+entrypoint directly. This avoids temporary server scripts and keeps problem
+briefs, evaluation tools, and solver hints on the library-owned path.
+
+.. code-block:: bash
+
+   python -m pip install "design-research-agents[mcp,gemini]" "design-research-problems[mcp]"
+
+.. code-block:: python
+
+   from design_research_agents import MCPServerConfig, Toolbox
+
+   runtime = Toolbox(
+       enable_core_tools=False,
+       mcp_servers=(
+           MCPServerConfig.python_module(
+               id="drp_problem",
+               module="design_research_problems.mcp",
+               args=("pill_capsule_min_area", "--no-citation"),
+               timeout_s=45,
+           ),
+       ),
+   )
+   hints = runtime.invoke(
+       "drp_problem::solver_hints",
+       {},
+       request_id="docs-derp-hints",
+       dependencies={},
+   )
+   runtime.close()
+
 Troubleshooting
 ---------------
 
 - ``Server '<id>' is not configured``: validate ``mcp.enabled`` and server id.
 - ``Unknown MCP tool '<name>'``: inspect ``Toolbox.list_tools()`` for available names.
-- Timeouts: increase ``timeout_s``.
+- Timeouts: the error includes ``timeout_s`` and the stdio command. Increase
+  ``MCPServerConfig.timeout_s`` for genuinely long-running tools; otherwise
+  verify the command and captured stderr.
 - Missing env vars: set both ``env_allowlist`` and ``env`` entries.
 
 Examples
@@ -78,4 +111,5 @@ Examples
 
 - ``examples/tools/mcp_minimal.py``
 - ``examples/tools/multi_source_tool_usage.py``
+- ``examples/tools/derp_mcp_general_solver.py``
 - ``examples/tools/README.md``

@@ -283,6 +283,8 @@ def test_git_helpers_build_expected_arguments_and_errors(tmp_path: Path, monkeyp
         git_tools._git_show({"repo": "repo", "rev": "--paginate"}, policy=policy)
     with pytest.raises(ValueError, match="must not contain whitespace"):
         git_tools._git_show({"repo": "repo", "rev": "HEAD~1 other"}, policy=policy)
+    with pytest.raises(ValueError, match="must not contain control characters"):
+        git_tools._git_show({"repo": "repo", "rev": "HEAD\x7f"}, policy=policy)
 
 
 def test_run_git_merges_stderr_and_appends_truncated_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

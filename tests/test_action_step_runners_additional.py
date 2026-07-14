@@ -5,6 +5,7 @@ from collections.abc import Mapping, Sequence
 import pytest
 
 from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents._contracts._tools import ToolError, ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._contracts._workflow import WorkflowStepResult
 from design_research_agents._implementations._shared._agent_internal._code_action_step_runner import (
@@ -23,6 +24,22 @@ from design_research_agents._implementations._shared._agent_internal._json_actio
     _tool_step_id,
 )
 from tests.helpers.workflow_stubs import SequenceLLMClient
+
+
+class _CaptureChatClient:
+    def __init__(self) -> None:
+        self.params: LLMChatParams | None = None
+
+    def chat(
+        self,
+        messages: Sequence[LLMMessage],
+        *,
+        model: str,
+        params: LLMChatParams,
+    ) -> LLMResponse:
+        del messages
+        self.params = params
+        return LLMResponse(text="final_output = {}", model=model, provider="capture")
 
 
 class _ActionRuntime(ToolRuntime):
@@ -418,6 +435,22 @@ def test_json_action_step_runner_internal_helpers_cover_branch_paths() -> None:
     assert _mapping_or_empty("x") == {}
     assert _tool_step_id("a.b-c") == "invoke_a_b_c"
     assert _tool_step_id("___") == "invoke_tool"
+
+
+def test_code_action_step_runner_keeps_trace_labels_out_of_provider_options() -> None:
+    client = _CaptureChatClient()
+    runner = CodeActionStepRunner(llm_client=client, tool_runtime=_ActionRuntime())
+
+    response = runner._generate_code(
+        prompt="Return an empty result.",
+        allowed_tools=(),
+        model="gemini-test",
+        alternatives_prompt_target="user",
+    )
+
+    assert response.text == "final_output = {}"
+    assert client.params is not None
+    assert client.params.provider_options == {}
 
 
 def test_code_action_step_runner_success_and_failure_modes() -> None:

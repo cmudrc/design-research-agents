@@ -15,6 +15,7 @@ from design_research_agents._contracts._llm import (
 )
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._skills import SkillsToolRuntimeAdapter, discover_skills, resolve_skills_context
+from design_research_agents._skills._models import DiscoveredSkill, SkillCatalog
 from design_research_agents._skills._parser import parse_skill_file
 from design_research_agents.agent import DirectLLMCall, MultiStepAgent
 from design_research_agents.patterns import RouterDelegatePattern, TwoSpeakerConversationPattern
@@ -70,6 +71,21 @@ class _CaptureSequenceLLMClient:
             text=self._responses.pop(0),
             provider="capture",
         )
+
+
+def test_skill_catalog_rejects_duplicate_names(tmp_path: Path) -> None:
+    """Catalog construction should reject ambiguous duplicate skill names."""
+    skill = DiscoveredSkill(
+        name="analysis",
+        description="Analyze evidence.",
+        body="Inspect the evidence carefully.",
+        skill_root=tmp_path,
+        skill_file=tmp_path / "SKILL.md",
+        source_label="test",
+    )
+
+    with pytest.raises(ValueError, match="skill names must be unique"):
+        SkillCatalog(skills=(skill, skill))
 
 
 class _MathToolRuntime(ToolRuntime):

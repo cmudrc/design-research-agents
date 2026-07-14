@@ -30,7 +30,7 @@ compare, and audit across experiments.
           <img alt="Examples Passing" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-passing.svg">
         </a>
         <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml">
-          <img alt="Public API In Examples" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg">
+          <img alt="API in Examples" src="https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg">
         </a>
         <a class="drc-badge-link" href="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml">
           <img alt="Docs" src="https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg">
@@ -42,6 +42,20 @@ compare, and audit across experiments.
           <img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/design-research-agents.svg">
         </a>
       </div>
+
+Quality Signals
+---------------
+
+- ``Coverage`` reports total line coverage for the default deterministic test
+  suite; CI requires at least 95%.
+- ``Examples Passing`` reports checked-in example scripts that execute
+  successfully in the examples workflow.
+- ``API in Examples`` reports curated top-level ``__all__`` exports referenced
+  by runnable examples. ``N/N`` means every supported top-level export appears
+  in at least one example, and CI requires 100%.
+
+Run ``make coverage``, ``make examples-test``, and ``make examples-coverage``
+to reproduce these checks locally.
 
 Highlights
 ----------

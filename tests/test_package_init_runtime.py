@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+import design_research_agents._implementations as implementations
+
 
 def test_package_init_falls_back_to_unknown_version(
     monkeypatch: pytest.MonkeyPatch,
@@ -26,3 +28,8 @@ def test_package_init_falls_back_to_unknown_version(
     assert "__version__" in module.__dir__()
     assert "ModelFlightRegistry" in module.__dir__()
     assert "ModelSelector" in module.__dir__()
+
+
+def test_implementation_lazy_exports_are_discoverable() -> None:
+    assert "DirectLLMCall" in dir(implementations)
+    assert "RalphLoopPattern" in dir(implementations)

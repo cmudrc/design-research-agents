@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
 from design_research_agents._contracts import LLMMessage, LLMRequest, LLMResponse
 from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
@@ -48,18 +48,3 @@ def __getattr__(name: str) -> object:
 def __dir__() -> list[str]:
     """Return module attributes, including lazy exports."""
     return module_dir(globals(), __all__)
-
-
-if TYPE_CHECKING:
-    from .clients import AnthropicServiceLLMClient as AnthropicServiceLLMClient
-    from .clients import AzureOpenAIServiceLLMClient as AzureOpenAIServiceLLMClient
-    from .clients import GeminiServiceLLMClient as GeminiServiceLLMClient
-    from .clients import GroqServiceLLMClient as GroqServiceLLMClient
-    from .clients import LlamaCppServerLLMClient as LlamaCppServerLLMClient
-    from .clients import MLXLocalLLMClient as MLXLocalLLMClient
-    from .clients import OllamaLLMClient as OllamaLLMClient
-    from .clients import OpenAICompatibleHTTPLLMClient as OpenAICompatibleHTTPLLMClient
-    from .clients import OpenAIServiceLLMClient as OpenAIServiceLLMClient
-    from .clients import SGLangServerLLMClient as SGLangServerLLMClient
-    from .clients import TransformersLocalLLMClient as TransformersLocalLLMClient
-    from .clients import VLLMServerLLMClient as VLLMServerLLMClient

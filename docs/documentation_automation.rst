@@ -8,7 +8,7 @@ where the utilities apply, with repo-specific exceptions called out explicitly.
 Shared Baseline
 ---------------
 
-- ``README.md``, the PyPI long description, and :doc:`index` share the same seven-badge baseline: CI, Coverage, Examples Passing, Public API In Examples, Docs, PyPI Version, and Python Versions.
+- ``README.md``, the PyPI long description, and :doc:`index` share the same seven-badge baseline: CI, Coverage, Examples Passing, API in Examples, Docs, PyPI Version, and Python Versions.
 - ``make docs-check``, ``make docs-build``, and ``make docs-linkcheck`` are the canonical docs validation commands.
 - ``scripts/generate_example_docs.py`` is the canonical path for generating example pages from runnable sources.
 - ``make examples-metrics`` is the canonical badge/metrics refresh path for deterministic example reporting.
@@ -26,7 +26,7 @@ Repo-Specific Exception
 -----------------------
 
 This repo keeps the example-oriented badge/report pair
-(``Examples Passing`` and ``Public API In Examples``) because runnable examples
+(``Examples Passing`` and ``API in Examples``) because runnable examples
 are part of the public-surface contract here. Sibling repos can omit those
 surfaces when they do not publish comparable example metrics.
 

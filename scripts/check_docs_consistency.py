@@ -75,7 +75,7 @@ EXPECTED_BADGES = (
         "https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml",
     ),
     (
-        "Public API In Examples",
+        "API in Examples",
         "https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg",
         "https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml",
     ),

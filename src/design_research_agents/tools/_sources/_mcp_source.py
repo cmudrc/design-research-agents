@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, cast
 
+from design_research_agents import __version__
 from design_research_agents._contracts._tools import (
     ToolMetadata,
     ToolResult,
@@ -24,6 +25,14 @@ from design_research_agents.tools._policy import ToolPolicy
 
 class McpProtocolError(RuntimeError):
     """Raised for MCP transport/protocol errors."""
+
+
+def _client_info(types_module: Any) -> Any:
+    """Build MCP client metadata from the installed package identity."""
+    return types_module.Implementation(
+        name="design-research-agents",
+        version=__version__,
+    )
 
 
 class _SdkStdioMcpClient:
@@ -62,10 +71,7 @@ class _SdkStdioMcpClient:
                             read_stream,
                             write_stream,
                             read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
-                            client_info=types_module.Implementation(
-                                name="design-research-agents",
-                                version="0.4.0",
-                            ),
+                            client_info=_client_info(types_module),
                         ) as session:
                             await session.initialize()
                             listed = await session.list_tools()
@@ -102,10 +108,7 @@ class _SdkStdioMcpClient:
                             read_stream,
                             write_stream,
                             read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
-                            client_info=types_module.Implementation(
-                                name="design-research-agents",
-                                version="0.4.0",
-                            ),
+                            client_info=_client_info(types_module),
                         ) as session:
                             await session.initialize()
                             result = await session.call_tool(tool_name, dict(arguments))
@@ -183,7 +186,13 @@ class _SdkStdioMcpClient:
         except Exception as exc:
             stderr = self._stderr_preview()
             suffix = f" stderr={stderr!r}" if stderr else ""
-            raise McpProtocolError(f"MCP server '{self._server.id}' request failed: {exc}{suffix}") from exc
+            command_text = " ".join(self._server.command) if self._server.command else "<empty>"
+            raise McpProtocolError(
+                f"MCP server '{self._server.id}' request failed "
+                f"(timeout_s={self._server.timeout_s}, command={command_text!r}): {exc}{suffix}. "
+                "If the server is doing useful long-running work, raise MCPServerConfig.timeout_s; "
+                "otherwise verify the stdio command and captured stderr."
+            ) from exc
 
     def close(self) -> None:
         """Close the client facade.

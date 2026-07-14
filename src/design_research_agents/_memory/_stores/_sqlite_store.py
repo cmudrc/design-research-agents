@@ -91,6 +91,12 @@ class SQLiteMemoryStore(MemoryStore):
         self.close()
         return None
 
+    def __del__(self) -> None:  # pragma: no cover - defensive cleanup.
+        """Best-effort cleanup when callers do not close the store explicitly."""
+        connection = getattr(self, "_connection", None)
+        if connection is not None:
+            connection.close()
+
     def write(
         self,
         records: Sequence[MemoryWriteRecord],

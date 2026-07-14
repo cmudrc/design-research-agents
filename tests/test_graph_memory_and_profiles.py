@@ -176,6 +176,13 @@ def test_graph_contract_dataclasses_and_protocol_defaults() -> None:
     assert store.close() is None
     assert store.__exit__(None, None, None) is None
 
+    document = KnowledgeDocument(
+        document_id="spring-notes",
+        title="Spring Notes",
+        content="Hooke's law relates force and displacement.",
+    )
+    assert document.to_dict()["document_id"] == "spring-notes"
+
 
 def test_graph_extraction_and_store_helper_branches(monkeypatch) -> None:
     nodes, edges = extract_graph_records_from_text("Motor A drives Motor A.   ")
