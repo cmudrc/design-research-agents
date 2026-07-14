@@ -914,9 +914,7 @@ class CodeActionStepRunner(Delegate):
             skills_context=self._skills_context,
             include_catalog=True,
         )
-        llm_params = LLMChatParams(
-            provider_options={"agent": "CodeActionStepRunner"},
-        )
+        llm_params = LLMChatParams()
         messages = [
             LLMMessage(role="system", content=system_prompt),
             LLMMessage(role="user", content=user_prompt),
