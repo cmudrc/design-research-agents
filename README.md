@@ -7,13 +7,6 @@
 [![PyPI Version](https://img.shields.io/pypi/v/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 
-<!-- release-callout:start -->
-> [!IMPORTANT]
-> Current monthly release: [Mayer Momentum - May 2026](https://github.com/cmudrc/design-research-agents/milestone/4)  
-> Due: June 1, 2026  
-> Tracks: May 2026 work
-<!-- release-callout:end -->
-
 `design-research-agents` is the agent-execution layer in the cmudrc design
 research ecosystem.
 
@@ -65,7 +58,8 @@ and package-install steps.
 If you prefer a guided editor-first flow, use the
 [VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).
 It walks through creating a virtual environment, installing the published
-package, and running a first script in VS Code.
+package, running a first script in VS Code, and using the source checkout for
+repository examples.
 
 ```bash
 python3 -m venv .venv
