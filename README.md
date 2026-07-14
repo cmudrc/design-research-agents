@@ -7,13 +7,6 @@
 [![PyPI Version](https://img.shields.io/pypi/v/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 
-<!-- release-callout:start -->
-> [!IMPORTANT]
-> Current monthly release: [Mayer Momentum - May 2026](https://github.com/cmudrc/design-research-agents/milestone/4)  
-> Due: June 1, 2026  
-> Tracks: May 2026 work
-<!-- release-callout:end -->
-
 `design-research-agents` is the agent-execution layer in the cmudrc design
 research ecosystem.
 
