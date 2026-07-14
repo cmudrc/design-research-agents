@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from types import SimpleNamespace
 
 import pytest
 
 from design_research_agents._contracts._delegate import ExecutionResult
+from design_research_agents._implementations._patterns import _ralph_loop_pattern as ralph_impl
 from design_research_agents.patterns import RalphLoopPattern
 
 
@@ -79,6 +81,19 @@ def test_ralph_loop_pattern_validates_role_and_config_inputs() -> None:
             roles=(RalphLoopPattern.RoleSpec(role_id="evaluator", delegate=_SequenceRoleAgent([{"score": 1.0}])),),
             evaluator_role_id="evaluator",
             loop_config=RalphLoopPattern.LoopConfig(consensus_threshold=1.1),
+        )
+
+    with pytest.raises(ValueError, match="non-empty role_id"):
+        RalphLoopPattern(
+            roles=(RalphLoopPattern.RoleSpec(role_id=" ", delegate=_SequenceRoleAgent([{}])),),
+            evaluator_role_id=" ",
+        )
+
+    with pytest.raises(ValueError, match="selection_strategy"):
+        RalphLoopPattern(
+            roles=(RalphLoopPattern.RoleSpec(role_id="evaluator", delegate=_SequenceRoleAgent([{"score": 1.0}])),),
+            evaluator_role_id="evaluator",
+            loop_config=RalphLoopPattern.LoopConfig(selection_strategy="invalid"),  # type: ignore[arg-type]
         )
 
 
@@ -253,3 +268,130 @@ def test_ralph_loop_pattern_passes_current_round_outputs_to_later_roles() -> Non
     assert '"proposal": "draft v1"' in synthesizer.prompts[0]
     assert '"risks": [' in synthesizer.prompts[0]
     assert '"synthesis": "draft v1 with sealing"' in evaluator.prompts[0]
+
+
+def test_ralph_internal_role_and_evaluator_helpers_report_missing_results() -> None:
+    pattern = RalphLoopPattern(
+        roles=(
+            RalphLoopPattern.RoleSpec(role_id="proposer", delegate=_SequenceRoleAgent([{}])),
+            RalphLoopPattern.RoleSpec(role_id="evaluator", delegate=_SequenceRoleAgent([{}])),
+        ),
+        evaluator_role_id="evaluator",
+    )
+
+    assert pattern._resolve_iteration({}) == 1
+    assert pattern._find_role_failure({}) == ("proposer", "Role result missing.")
+    assert pattern._find_role_failure({"proposer": {"success": False}}) == ("proposer", "Role call failed.")
+    assert pattern._extract_evaluator_score({}) == (0.0, "Evaluator role result is missing.")
+    assert pattern._extract_evaluator_score({"evaluator": {"output": "invalid"}}) == (
+        0.0,
+        "Evaluator role output is missing.",
+    )
+
+    with pytest.raises(RuntimeError, match="step result is missing"):
+        pattern._finalize_result(
+            workflow_result=ExecutionResult(success=False),
+            request_id="request",
+            dependencies={},
+        )
+
+
+def test_ralph_synthesis_and_compaction_helpers_cover_fallback_shapes() -> None:
+    roles = (
+        RalphLoopPattern.RoleSpec(role_id="proposer", delegate=object()),
+        RalphLoopPattern.RoleSpec(role_id="evaluator", delegate=object()),
+    )
+    assert ralph_impl._resolve_synthesized_output(
+        {"proposer": "invalid", "evaluator": {"output": {"feedback": "only"}}},  # type: ignore[dict-item]
+        ordered_roles=roles,
+        evaluator_role_id="evaluator",
+    ) == {"feedback": "only"}
+    assert (
+        ralph_impl._resolve_synthesized_output(
+            {},
+            ordered_roles=roles,
+            evaluator_role_id="evaluator",
+        )
+        == {}
+    )
+    assert ralph_impl._compact_role_results(
+        {
+            "invalid": "ignored",
+            "valid": {"success": 1, "error": None, "output": {"final_output": '{"value": 2}'}},
+        }
+    ) == {"valid": {"success": True, "error": None, "output": {"value": 2}}}
+
+    assert ralph_impl._compact_role_output({}) == {}
+    assert ralph_impl._compact_role_output({"final_output": 3}) == {"value": 3}
+    assert ralph_impl._compact_role_output({"model_text": " plain text "}) == {"text": "plain text"}
+    assert ralph_impl._compact_role_output(
+        {
+            "workflow": {"large": True},
+            "artifacts": ["ignored"],
+            "mapping": {"a": 1},
+            "items": [1, 2],
+            "label": " value ",
+            "count": 2,
+            "none": None,
+        }
+    ) == {"mapping": {"a": 1}, "items": [1, 2], "label": "value", "count": 2}
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ({"a": object()}, {"a": "<object>"}),
+        (" ", {}),
+        ("[1, 2]", {"text": "[1, 2]"}),
+        (True, {"value": True}),
+        (None, {}),
+    ],
+)
+def test_ralph_compact_value_variants(value: object, expected: dict[str, object]) -> None:
+    result = ralph_impl._mapping_from_compact_value(value)
+    if value and isinstance(value, Mapping):
+        assert result["a"].startswith("<object object at")
+    else:
+        assert result == expected
+
+
+def test_ralph_score_error_and_scalar_helpers_cover_invalid_inputs() -> None:
+    assert (
+        ralph_impl._extract_execution_error(
+            result=ExecutionResult(success=False, output={"error": " explicit "}),
+            fallback="fallback",
+        )
+        == "explicit"
+    )
+    assert (
+        ralph_impl._extract_execution_error(
+            result=SimpleNamespace(error=None, output={"error": " output "}),  # type: ignore[arg-type]
+            fallback="fallback",
+        )
+        == "output"
+    )
+    assert ralph_impl._extract_execution_error(result=ExecutionResult(success=False), fallback="fallback") == "fallback"
+
+    assert ralph_impl._extract_score({"score": 3}) == 1.0
+    assert ralph_impl._extract_score({"model_text": '{"score": -1}'}) == 0.0
+    assert ralph_impl._extract_score({"model_text": "invalid"}) is None
+    assert ralph_impl._extract_score({"model_text": '{"score": "high"}'}) is None
+    assert ralph_impl._extract_score({}) is None
+
+    assert ralph_impl._safe_float(True) == 1.0
+    assert ralph_impl._safe_float(2) == 2.0
+    assert ralph_impl._safe_float(" 2.5 ") == 2.5
+    assert ralph_impl._safe_float("invalid") == 0.0
+    assert ralph_impl._safe_float(object()) == 0.0
+    assert ralph_impl._safe_int(True) == 1
+    assert ralph_impl._safe_int(2) == 2
+    assert ralph_impl._safe_int(2.9) == 2
+    assert ralph_impl._safe_int(" 3 ") == 3
+    assert ralph_impl._safe_int("invalid") == 0
+    assert ralph_impl._safe_int(object()) == 0
+    assert ralph_impl._as_dict({"a": 1}) == {"a": 1}
+    assert ralph_impl._as_dict("invalid") == {}
+    assert ralph_impl._as_list([1]) == [1]
+    assert ralph_impl._as_list((1,)) == []
+    assert ralph_impl._json_ready({"a": (1, object())})["a"][0] == 1
+    assert ralph_impl._json_ready([1, object()])[0] == 1

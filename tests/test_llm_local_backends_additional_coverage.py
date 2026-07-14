@@ -6,7 +6,14 @@ from urllib.error import HTTPError, URLError
 
 import pytest
 
-from design_research_agents._contracts._llm import LLMInvalidRequestError, LLMProviderError
+from design_research_agents._contracts._llm import (
+    LLMAuthError,
+    LLMInvalidRequestError,
+    LLMProviderError,
+    LLMRateLimitError,
+    LLMResponse,
+    Usage,
+)
 from design_research_agents.llm._backends._providers import (
     _ollama_local,
     _ollama_server,
@@ -216,6 +223,100 @@ def test_openai_like_local_transport_helpers_cover_error_paths(
 
 
 @pytest.mark.parametrize(
+    ("module", "backend_cls", "default_model"),
+    [
+        (_vllm_local, _vllm_local.VllmLocalBackend, "api-model"),
+        (_sglang_local, _sglang_local.SglangLocalBackend, "startup-model"),
+    ],
+)
+def test_openai_like_local_structured_fallback_retry_and_http_contracts(
+    module: object,
+    backend_cls: type[object],
+    default_model: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = backend_cls(
+        name="local",
+        base_url="http://127.0.0.1:9999",
+        default_model=default_model,
+        request_timeout_seconds=10.0,
+        config_hash="cfg",
+    )
+    post_stream_with_retry = module._post_stream_with_retry
+    structured_request = request(model=default_model, response_schema={"type": "object"})
+    fallback = LLMResponse(
+        text='{"ok":true}',
+        usage=Usage(prompt_tokens=1, completion_tokens=2, total_tokens=3),
+    )
+    monkeypatch.setattr(backend, "_generate_prompt_validated_json", lambda _request: fallback)
+    monkeypatch.setattr(
+        module,
+        "_post_json_with_retry",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("response_format is unsupported")),
+    )
+    assert backend._generate(structured_request) is fallback
+    with pytest.raises(LLMInvalidRequestError):
+        backend._generate(request(model=default_model))
+
+    monkeypatch.setattr(
+        module,
+        "_post_stream_with_retry",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("json_schema is unsupported")),
+    )
+    deltas = list(backend._stream(structured_request))
+    assert deltas[0].text_delta == '{"ok":true}'
+    assert deltas[1].usage_delta.total_tokens == 3
+    with pytest.raises(LLMInvalidRequestError):
+        list(backend._stream(request(model=default_model)))
+
+    assert not module._should_fallback_to_prompt_validated_json(
+        request(model=default_model),
+        LLMInvalidRequestError("response_format"),
+    )
+    assert not module._is_response_format_error(LLMProviderError("response_format"))
+
+    stream = object()
+    stream_attempts = iter([LLMRateLimitError("retry"), stream])
+
+    def _post_stream(*_args: object, **_kwargs: object) -> object:
+        outcome = next(stream_attempts)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(module, "_post_stream", _post_stream)
+    monkeypatch.setattr(module, "_post_stream_with_retry", post_stream_with_retry)
+    monkeypatch.setattr(module.time, "sleep", lambda _seconds: None)
+    assert (
+        module._post_stream_with_retry(
+            "http://unit",
+            {},
+            timeout_seconds=1.0,
+            max_retries=1,
+        )
+        is stream
+    )
+
+    monkeypatch.setattr(module, "urlopen", lambda *_args, **_kwargs: _JsonResponse(text="{}"))
+    assert module._post_json("http://unit", {}, timeout_seconds=1.0) == {}
+
+    error = HTTPError(
+        url="http://unit",
+        code=500,
+        msg="provider failure",
+        hdrs=None,
+        fp=io.BytesIO(b"{}"),
+    )
+    monkeypatch.setattr(
+        module,
+        "urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(error),
+    )
+    with pytest.raises(LLMProviderError):
+        module._post_json("http://unit", {}, timeout_seconds=1.0)
+
+
+@pytest.mark.parametrize(
     ("factory", "create_fn", "module_name"),
     [
         (
@@ -371,6 +472,145 @@ def test__ollama_local_additional_transport_and_parser_paths(
     deltas = _ollama_local._extract_tool_call_deltas([None, {"function": {"name": "calc", "arguments": {"x": 1}}}])
     assert deltas[0].call_id == "call_2"
     assert deltas[0].arguments_json_delta is not None
+
+
+def test__ollama_local_structured_fallback_and_format_translation_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    backend = _ollama_local.OllamaLocalBackend(
+        name="ollama",
+        base_url="http://127.0.0.1:11434",
+        default_model="demo",
+        request_timeout_seconds=10.0,
+        config_hash="cfg",
+    )
+    structured_request = request(model="demo", response_schema={"type": "object"})
+    fallback = LLMResponse(text='{"ok":true}', usage=Usage(prompt_tokens=1, completion_tokens=2, total_tokens=3))
+    monkeypatch.setattr(backend, "_generate_prompt_validated_json", lambda _request: fallback)
+    monkeypatch.setattr(
+        _ollama_local,
+        "_post_json_with_retry",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("format unsupported")),
+    )
+    assert backend._generate(structured_request) is fallback
+
+    monkeypatch.setattr(
+        _ollama_local,
+        "_post_stream_with_retry",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(LLMInvalidRequestError("json schema unsupported")),
+    )
+    deltas = list(backend._stream(structured_request))
+    assert deltas[0].text_delta == '{"ok":true}'
+    assert deltas[1].usage_delta.total_tokens == 3
+
+    with pytest.raises(LLMInvalidRequestError):
+        list(backend._stream(request(model="demo")))
+    assert _ollama_local._format_ollama_response_format(request(response_format={"type": "json_object"})) == "json"
+    assert _ollama_local._translate_ollama_response_format({"type": "json_object", "schema": {"type": "array"}}) == {
+        "type": "array"
+    }
+    assert _ollama_local._translate_ollama_response_format({"type": "json_schema", "schema": {"type": "string"}}) == {
+        "type": "string"
+    }
+    assert _ollama_local._translate_ollama_response_format(
+        {"type": "json_schema", "json_schema": {"schema": {"type": "number"}}}
+    ) == {"type": "number"}
+    assert _ollama_local._translate_ollama_response_format({"type": "json_schema"}) == "json"
+    assert _ollama_local._translate_ollama_response_format({"type": "custom"}) == {"type": "custom"}
+    assert not _ollama_local._should_fallback_to_prompt_validated_json(
+        request(),
+        LLMInvalidRequestError("format"),
+    )
+    assert not _ollama_local._is_format_error(LLMProviderError("format"))
+
+    dict_usage = LLMResponse(text="", usage={"prompt_eval_count": 2, "eval_count": 3})  # type: ignore[arg-type]
+    fallback_deltas = list(_ollama_local._stream_prompt_validated_json_fallback(dict_usage))
+    assert fallback_deltas[0].usage_delta.total_tokens == 5
+
+
+def test__ollama_local_retry_and_http_error_taxonomy_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    attempts = iter([LLMProviderError("retry"), {"ok": True}])
+
+    def _post_json(*_args: object, **_kwargs: object) -> dict[str, object]:
+        outcome = next(attempts)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(_ollama_local, "_post_json", _post_json)
+    monkeypatch.setattr(_ollama_local.time, "sleep", lambda _seconds: None)
+    assert _ollama_local._post_json_with_retry(
+        "http://unit",
+        {},
+        timeout_seconds=1.0,
+        max_retries=1,
+    ) == {"ok": True}
+
+    stream = object()
+    stream_attempts = iter([LLMRateLimitError("retry"), stream])
+
+    def _post_stream(*_args: object, **_kwargs: object) -> object:
+        outcome = next(stream_attempts)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(_ollama_local, "_post_stream", _post_stream)
+    assert (
+        _ollama_local._post_stream_with_retry(
+            "http://unit",
+            {},
+            timeout_seconds=1.0,
+            max_retries=1,
+        )
+        is stream
+    )
+    assert _ollama_local._should_retry(LLMRateLimitError("limited"))
+
+    for code, expected_type in (
+        (401, LLMAuthError),
+        (429, LLMRateLimitError),
+        (400, LLMInvalidRequestError),
+        (500, LLMProviderError),
+    ):
+        error = HTTPError(
+            url="http://unit",
+            code=code,
+            msg="reason",
+            hdrs=None,
+            fp=io.BytesIO(b'{"error":" provider message "}'),
+        )
+        mapped = _ollama_local._http_error(error)
+        assert isinstance(mapped, expected_type)
+        assert str(mapped) == "provider message"
+
+    malformed = HTTPError(url="http://unit", code=500, msg="reason", hdrs=None, fp=io.BytesIO(b"bad"))
+    assert isinstance(_ollama_local._http_error(malformed), LLMProviderError)
+
+
+def test__ollama_local_post_transports_map_http_and_url_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    for transport in (_ollama_local._post_json, _ollama_local._post_stream):
+        error = HTTPError(url="http://unit", code=404, msg="missing", hdrs=None, fp=io.BytesIO(b"{}"))
+        monkeypatch.setattr(
+            _ollama_local,
+            "urlopen",
+            lambda *_args, _error=error, **_kwargs: (_ for _ in ()).throw(_error),
+        )
+        with pytest.raises(LLMInvalidRequestError):
+            transport("http://unit", {}, timeout_seconds=1.0)
+
+    monkeypatch.setattr(
+        _ollama_local,
+        "urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(URLError("offline")),
+    )
+    with pytest.raises(LLMProviderError):
+        _ollama_local._post_json("http://unit", {}, timeout_seconds=1.0)
+
+    tool_deltas = _ollama_local._extract_tool_call_deltas(
+        [{"id": "call", "function": {"name": "calc", "arguments": '{"x":1}'}}]
+    )
+    assert tool_deltas[0].arguments_json_delta == '{"x":1}'
 
 
 def test__ollama_server_additional_start_and_validation_paths(
