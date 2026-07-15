@@ -9,8 +9,9 @@ Available patterns
 
 - ``ProposeCriticPattern``
   - Iterative two-role propose/critic refinement.
+  - Requires an LLM client; ``tool_runtime`` is optional when delegates do not invoke tools.
   - Stop signal: critic ``approved`` boolean.
-  - Typical output focus: latest approved proposal text + critique history.
+  - Returns ``ProposeCriticResult``, an ``ExecutionResult`` with direct ``proposal``, ``approved``, ``iterations``, and ``critique_iterations`` accessors.
   - Background references: `Self-Refine <https://arxiv.org/abs/2303.17651>`_; `Reflexion <https://arxiv.org/abs/2303.11366>`_. Conceptual grounding only; behavior is defined by repository contracts and implementation.
 - ``TreeSearchPattern``
   - Generator + evaluator delegate orchestration with ``beam`` and ``mcts`` strategies.
@@ -56,6 +57,22 @@ Pattern differentiation (quick)
 - Use ``TreeSearchPattern`` when you want branching search over alternatives and deterministic score-driven pruning/selection.
 - Use ``RalphLoopPattern`` when you want 3+ ordered roles and a separate evaluator scoring consensus quality each round.
 - Use ``NominalTeamPattern`` when you want diverse independent drafts first and only compare/select after generation.
+
+Propose/critic result
+---------------------
+
+.. code-block:: python
+
+   pattern = ProposeCriticPattern(llm_client=client, max_iterations=3)
+   result = pattern.run("Draft a design rationale.")
+
+   print(result.proposal)
+   print(result.approved, result.iterations)
+   for critique in result.critique_iterations:
+       print(critique)
+
+The common ``ExecutionResult`` fields and helpers remain available, including
+``success``, ``final_output``, ``terminated_reason``, and ``summary()``.
 
 Examples
 --------

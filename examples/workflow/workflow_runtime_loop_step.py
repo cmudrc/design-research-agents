@@ -48,22 +48,14 @@ import design_research_agents as drag
 WORKFLOW_DIAGRAM_DIRECTION = "LR"
 
 
-def _increment_handler(context: Mapping[str, object]) -> Mapping[str, object]:
+def _increment_handler(context: drag.WorkflowContext) -> Mapping[str, object]:
     loop_state = context.get("loop_state")
     state_mapping = loop_state if isinstance(loop_state, Mapping) else {}
     return {"counter": int(state_mapping.get("counter", 0)) + 1}
 
 
-def _snapshot_handler(context: Mapping[str, object]) -> Mapping[str, object]:
-    dependency_results = context.get("dependency_results")
-    if not isinstance(dependency_results, Mapping):
-        return {"counter": 0, "status": "looping"}
-    increment_result = dependency_results.get("increment")
-    if not isinstance(increment_result, Mapping):
-        return {"counter": 0, "status": "looping"}
-    increment_output = increment_result.get("output")
-    if not isinstance(increment_output, Mapping):
-        return {"counter": 0, "status": "looping"}
+def _snapshot_handler(context: drag.WorkflowContext) -> Mapping[str, object]:
+    increment_output = context.dependency_output("increment")
     counter = int(increment_output.get("counter", 0))
     return {
         "counter": counter,

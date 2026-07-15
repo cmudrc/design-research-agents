@@ -26,6 +26,7 @@ All workflow step primitives are available from the workflow module:
        ModelStep,
        ToolStep,
        Workflow,
+       WorkflowContext,
    )
 
 Step types
@@ -95,6 +96,28 @@ Input mode contracts
   They return ``ExecutionResult`` with consistent workflow metadata.
 - Prebuilt implementations in ``design_research_agents.patterns`` are authored
   with these same primitives.
+
+Callback context
+----------------
+
+Step builders and handlers receive ``WorkflowContext``. It remains a
+read-only ``Mapping[str, object]``, so existing dictionary-style callbacks do
+not need to change. New callbacks can use typed accessors to avoid unpacking
+nested dependency dictionaries:
+
+.. code-block:: python
+
+   def summarize(context: WorkflowContext) -> dict[str, object]:
+       source = context.dependency_output("source")
+       return {
+           "title": context.input_value("title", "Untitled"),
+           "count": source.get("count", 0),
+       }
+
+``context.inputs`` contains schema-mode inputs, ``dependency_result(step_id)``
+returns the typed ``WorkflowStepResult``, and ``request_id`` / ``step_id``
+surface the current runtime metadata. The legacy
+``context["dependency_results"]`` serialization remains available.
 
 Examples
 --------

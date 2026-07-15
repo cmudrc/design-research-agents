@@ -5,6 +5,7 @@ from design_research_agents._implementations._patterns import DebatePattern as D
 from design_research_agents._implementations._patterns import NominalTeamPattern as NominalTeamPattern
 from design_research_agents._implementations._patterns import PlanExecutePattern as PlanExecutePattern
 from design_research_agents._implementations._patterns import ProposeCriticPattern as ProposeCriticPattern
+from design_research_agents._implementations._patterns import ProposeCriticResult as ProposeCriticResult
 from design_research_agents._implementations._patterns import RAGPattern as RAGPattern
 from design_research_agents._implementations._patterns import RalphLoopPattern as RalphLoopPattern
 from design_research_agents._implementations._patterns import (

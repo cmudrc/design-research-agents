@@ -15,6 +15,7 @@ from ._contracts import MemoryReadStep as MemoryReadStep
 from ._contracts import MemoryWriteStep as MemoryWriteStep
 from ._contracts import ModelStep as ModelStep
 from ._contracts import ToolStep as ToolStep
+from ._contracts import WorkflowContext as WorkflowContext
 from ._implementations._patterns import AdaptiveSchedule as AdaptiveSchedule
 from ._implementations._patterns import ExponentialSchedule as ExponentialSchedule
 from ._implementations._patterns import LinearSchedule as LinearSchedule
@@ -46,6 +47,7 @@ from .patterns import DebatePattern as DebatePattern
 from .patterns import NominalTeamPattern as NominalTeamPattern
 from .patterns import PlanExecutePattern as PlanExecutePattern
 from .patterns import ProposeCriticPattern as ProposeCriticPattern
+from .patterns import ProposeCriticResult as ProposeCriticResult
 from .patterns import RAGPattern as RAGPattern
 from .patterns import RalphLoopPattern as RalphLoopPattern
 from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern

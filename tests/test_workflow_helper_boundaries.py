@@ -8,6 +8,7 @@ from design_research_agents._contracts._workflow import (
     LogicStep,
     ToolStep,
     WorkflowArtifact,
+    WorkflowContext,
     WorkflowStepResult,
 )
 from design_research_agents._runtime._patterns._batch_results import (
@@ -106,7 +107,7 @@ def test_step_context_and_invocation_dependencies_copy_normalized_results() -> N
         metadata={"source": "test"},
     )
     context = build_step_context(
-        base_context={"prompt": "base"},
+        base_context={"prompt": "base", "inputs": {"count": 3}},
         step_id="finish",
         step_dependencies=("missing", "prepare"),
         step_results={"prepare": result},
@@ -117,6 +118,17 @@ def test_step_context_and_invocation_dependencies_copy_normalized_results() -> N
         output_schema={"type": "object"},
     )
 
+    assert isinstance(context, WorkflowContext)
+    assert dict(context)["prompt"] == "base"
+    assert context.inputs == {"count": 3}
+    assert context.input_value("count") == 3
+    assert context.input_value("missing", "fallback") == "fallback"
+    assert context.dependency_result("prepare") is result
+    assert context.dependency_result("missing") is None
+    assert context.dependency_output("prepare") == {"value": 7}
+    assert context.dependency_output("missing") == {}
+    assert context.request_id == "request-1"
+    assert context.step_id == "finish"
     assert context["dependency_results"] == {
         "prepare": {
             "status": "completed",

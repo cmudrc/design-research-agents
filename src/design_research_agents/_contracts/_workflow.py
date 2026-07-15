@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
@@ -123,35 +123,137 @@ class WorkflowArtifact:
         return asdict(self)
 
 
+class WorkflowContext(Mapping[str, object]):
+    """Read-only, mapping-compatible context passed to workflow callbacks.
+
+    Existing callbacks can continue to use dictionary-style access. The typed
+    accessors provide a shorter, safer path to workflow inputs, dependency
+    results, and runtime metadata.
+    """
+
+    __slots__ = ("_data", "_dependency_results")
+
+    def __init__(
+        self,
+        data: Mapping[str, object] | None = None,
+        *,
+        dependency_results: Mapping[str, WorkflowStepResult] | None = None,
+    ) -> None:
+        """Create a context view from runtime data and typed step results.
+
+        Args:
+            data: Mapping exposed through the standard mapping interface.
+            dependency_results: Typed results for direct dependency access.
+        """
+        self._data = dict(data or {})
+        self._dependency_results = dict(dependency_results or {})
+
+    def __getitem__(self, key: str) -> object:
+        """Return one context value by key."""
+        return self._data[key]
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over context keys."""
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        """Return the number of context entries."""
+        return len(self._data)
+
+    @property
+    def inputs(self) -> dict[str, object]:
+        """Return schema-validated workflow inputs, or an empty dictionary."""
+        value = self._data.get("inputs")
+        return dict(value) if isinstance(value, Mapping) else {}
+
+    def input_value(self, key: str, default: object | None = None) -> object | None:
+        """Return one schema-validated workflow input value.
+
+        Args:
+            key: Input key to read.
+            default: Value returned when the key is absent.
+
+        Returns:
+            Input value when present, else ``default``.
+        """
+        return self.inputs.get(key, default)
+
+    @property
+    def dependency_results(self) -> dict[str, WorkflowStepResult]:
+        """Return typed direct-dependency results keyed by step id."""
+        return dict(self._dependency_results)
+
+    def dependency_result(self, step_id: str) -> WorkflowStepResult | None:
+        """Return one typed direct-dependency result when available.
+
+        Args:
+            step_id: Dependency step id to read.
+
+        Returns:
+            Matching step result, or ``None``.
+        """
+        return self._dependency_results.get(step_id)
+
+    def dependency_output(self, step_id: str) -> dict[str, object]:
+        """Return one direct dependency's output as a dictionary.
+
+        Args:
+            step_id: Dependency step id to read.
+
+        Returns:
+            A copy of the dependency output, or ``{}`` when unavailable.
+        """
+        result = self.dependency_result(step_id)
+        return dict(result.output) if result is not None else {}
+
+    @property
+    def workflow_metadata(self) -> dict[str, object]:
+        """Return runtime workflow metadata for the current step."""
+        value = self._data.get("_workflow")
+        return dict(value) if isinstance(value, Mapping) else {}
+
+    @property
+    def request_id(self) -> str | None:
+        """Return the workflow request id when present."""
+        value = self.workflow_metadata.get("request_id")
+        return value if isinstance(value, str) else None
+
+    @property
+    def step_id(self) -> str | None:
+        """Return the current workflow step id when present."""
+        value = self.workflow_metadata.get("step_id")
+        return value if isinstance(value, str) else None
+
+
 type WorkflowArtifactsBuilder = Callable[
-    [Mapping[str, object]],
+    [WorkflowContext],
     Sequence[WorkflowArtifact | Mapping[str, object]],
 ]
 """Optional callback type for building user-facing artifact manifests from runtime step context."""
 
-type ToolStepInputBuilder = Callable[[Mapping[str, object]], Mapping[str, object]]
+type ToolStepInputBuilder = Callable[[WorkflowContext], Mapping[str, object]]
 """Callback type for building tool input payloads from runtime step context."""
 
-type DelegateStepPromptBuilder = Callable[[Mapping[str, object]], str]
+type DelegateStepPromptBuilder = Callable[[WorkflowContext], str]
 """Callback type for building delegate prompt strings from runtime step context."""
 
-type ModelStepRequestBuilder = Callable[[Mapping[str, object]], LLMRequest]
+type ModelStepRequestBuilder = Callable[[WorkflowContext], LLMRequest]
 """Callback type for building model request payloads from runtime step context."""
 
 type ModelStepResponseParser = Callable[
-    [LLMResponse, Mapping[str, object]],
+    [LLMResponse, WorkflowContext],
     Mapping[str, object],
 ]
 """Optional callback type for parsing model responses into structured step output."""
 
-type LogicStepHandler = Callable[[Mapping[str, object]], Mapping[str, object]]
+type LogicStepHandler = Callable[[WorkflowContext], Mapping[str, object]]
 """Callback type for executing deterministic logic within a logic step from runtime step context."""
 
-type MemoryReadQueryBuilder = Callable[[Mapping[str, object]], str | Mapping[str, object]]
+type MemoryReadQueryBuilder = Callable[[WorkflowContext], str | Mapping[str, object]]
 """Callback type for building memory read query text or payload from runtime step context."""
 
 type MemoryWriteRecordsBuilder = Callable[
-    [Mapping[str, object]],
+    [WorkflowContext],
     Sequence[str | Mapping[str, object] | MemoryWriteRecord],
 ]
 """Callback type for building memory write record payloads from runtime step context."""
@@ -246,7 +348,7 @@ class DelegateBatchCall:
 
 
 type DelegateBatchCallsBuilder = Callable[
-    [Mapping[str, object]],
+    [WorkflowContext],
     Sequence[DelegateBatchCall | Mapping[str, object]],
 ]
 
