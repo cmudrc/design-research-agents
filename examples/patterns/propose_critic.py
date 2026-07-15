@@ -9,7 +9,7 @@ demonstrates a propose-critic refinement cycle with bounded iterations and struc
 ## Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
 2. Build the runtime surface (public APIs only) and execute ``ProposeCriticPattern.run(...)`` with a fixed ``request_id``.
-3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
+3. Read proposal, approval, and iteration fields directly from the typed ``ProposeCriticResult``.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 ```mermaid
@@ -66,16 +66,14 @@ def main() -> None:
         enable_jsonl=True,
         enable_console=True,
     )
-    # Run the propose/critic pattern using public runtime surfaces. Using this with statement will automatically
-    # shut down the managed client and tool runtime when the example is done.
-    with drag.Toolbox() as tool_runtime, drag.LlamaCppServerLLMClient() as llm_client:
+    # The pattern needs only an LLM client when its delegates do not invoke tools.
+    with drag.LlamaCppServerLLMClient() as llm_client:
         workflow = drag.ProposeCriticPattern(
             llm_client=llm_client,
-            tool_runtime=tool_runtime,
             # Tracer is threaded through the pattern so proposer/critic turns share one timeline.
             tracer=tracer,
         )
-        result = workflow.run(
+        result: drag.ProposeCriticResult = workflow.run(
             prompt=(
                 "Write and iteratively improve a short engineering design rationale for using "
                 "modular connectors in field-serviceable devices."
@@ -84,7 +82,12 @@ def main() -> None:
         )
 
     # Print the results
-    summary = result.summary()
+    summary = {
+        **result.summary(),
+        "proposal": result.proposal,
+        "approved": result.approved,
+        "iterations": result.iterations,
+    }
     print(json.dumps(summary, ensure_ascii=True, indent=2, sort_keys=True))
 
 

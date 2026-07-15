@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # Core package metadata used by pip/PyPI tooling.
 [project]
 name = "design-research-agents"
-version = "0.5.0"
+version = "0.6.0"
 description = "A flexible, modular framework for researching engineering design AI agents"
 readme = "README.md"
 requires-python = ">=3.12"

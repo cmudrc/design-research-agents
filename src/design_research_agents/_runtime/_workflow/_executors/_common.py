@@ -33,6 +33,7 @@ from design_research_agents._tracing import (
 
 from .._step_context import (
     build_invocation_dependencies,
+    coerce_workflow_context,
     resolve_delegate_prompt,
     resolve_tool_input,
 )
@@ -345,7 +346,7 @@ def run_delegate_batch_step(
 ) -> WorkflowStepResult:
     """Execute one delegate-batch step and return normalized workflow step result."""
     try:
-        raw_calls = step.calls_builder(step_context)
+        raw_calls = step.calls_builder(coerce_workflow_context(step_context))
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,
@@ -412,7 +413,7 @@ def _build_model_request(
     step_context: Mapping[str, object],
 ) -> LLMRequest:
     """Build and validate ``ModelStep`` request payload."""
-    llm_request = step.request_builder(step_context)
+    llm_request = step.request_builder(coerce_workflow_context(step_context))
     if not isinstance(llm_request, LLMRequest):
         raise TypeError("ModelStep request_builder must return an LLMRequest.")
     return llm_request
@@ -468,7 +469,7 @@ def _parse_model_response_payload(
     if step.response_parser is None:
         return {"model_text": model_response.text}
 
-    parsed_output = step.response_parser(model_response, step_context)
+    parsed_output = step.response_parser(model_response, coerce_workflow_context(step_context))
     if not isinstance(parsed_output, Mapping):
         raise TypeError("ModelStep response_parser must return a mapping.")
     return dict(parsed_output)
@@ -612,7 +613,7 @@ def run_logic_step(
         Normalized workflow step result for this logic step.
     """
     try:
-        step_output = dict(step.handler(step_context))
+        step_output = dict(step.handler(coerce_workflow_context(step_context)))
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,
@@ -655,7 +656,7 @@ def run_memory_read_step(
         )
 
     try:
-        built_query = step.query_builder(step_context)
+        built_query = step.query_builder(coerce_workflow_context(step_context))
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,
@@ -722,7 +723,7 @@ def run_memory_write_step(
         )
 
     try:
-        built_records = step.records_builder(step_context)
+        built_records = step.records_builder(coerce_workflow_context(step_context))
     except Exception as exc:
         return _failed_step_result(
             step_id=step_id,

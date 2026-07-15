@@ -46,6 +46,7 @@ EXPECTED_WORKFLOW_API = [
     "Workflow",
     "WorkflowArtifact",
     "WorkflowArtifactSource",
+    "WorkflowContext",
     "build_json_prompt_workflow",
     "list_of",
     "scalar",
@@ -59,12 +60,14 @@ EXPECTED_PATTERNS_API = [
     "PlanExecutePattern",
     "RAGPattern",
     "ProposeCriticPattern",
+    "ProposeCriticResult",
     "RalphLoopPattern",
     "NominalTeamPattern",
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
     "TreeSearchPattern",
 ]
+EXPECTED_PATTERN_CLASSES = [name for name in EXPECTED_PATTERNS_API if name != "ProposeCriticResult"]
 EXPECTED_SCHEDULE_API = [
     "AdaptiveSchedule",
     "ExponentialSchedule",
@@ -218,7 +221,7 @@ def test_public_entrypoint_signatures_use_prompt_or_input_only() -> None:
         assert "input" not in agent_compile_params
         assert "input_data" not in agent_compile_params
 
-    for pattern_name in EXPECTED_PATTERNS_API:
+    for pattern_name in EXPECTED_PATTERN_CLASSES:
         pattern_cls = getattr(dra_patterns, pattern_name)
         pattern_run_params = inspect.signature(pattern_cls.run).parameters
         assert "prompt" in pattern_run_params

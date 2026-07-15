@@ -19,6 +19,7 @@ from design_research_agents._contracts._workflow import (
     ModelStep,
     WorkflowArtifact,
     WorkflowArtifactSource,
+    WorkflowContext,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
     WorkflowRunner,
@@ -575,9 +576,15 @@ class WorkflowRuntime(WorkflowRunner):
 
         artifacts_builder = getattr(step, "artifacts_builder", None)
         if callable(artifacts_builder):
-            callback_context = dict(step_context)
-            callback_context["step_output"] = dict(step_result.output)
-            callback_context["step_id"] = step_result.step_id
+            callback_data = dict(step_context)
+            callback_data["step_output"] = dict(step_result.output)
+            callback_data["step_id"] = step_result.step_id
+            callback_context = WorkflowContext(
+                callback_data,
+                dependency_results=(
+                    step_context.dependency_results if isinstance(step_context, WorkflowContext) else None
+                ),
+            )
             try:
                 # Builder callbacks can derive richer user-facing artifact manifests from full context.
                 built_artifacts = artifacts_builder(callback_context)

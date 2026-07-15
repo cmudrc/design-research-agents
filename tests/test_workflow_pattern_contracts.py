@@ -21,6 +21,7 @@ from design_research_agents._implementations._patterns._plan_execute_pattern imp
 )
 from design_research_agents._implementations._patterns._propose_critic_pattern import (
     ProposeCriticPattern,
+    ProposeCriticResult,
 )
 from design_research_agents._implementations._patterns._rag_pattern import (
     RAGPattern,
@@ -468,16 +469,21 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
                 ),
             ]
         ),
-        tool_runtime=Toolbox(),
         max_iterations=2,
     )
     success_result = success_workflow.run("Write a short design summary.")
+    assert isinstance(success_result, ProposeCriticResult)
+    assert isinstance(success_result, ExecutionResult)
     assert success_result.success
     assert success_workflow.workflow is not None
     assert success_result.output["details"]["approved"] is True
     assert success_result.output["final_output"]["approved"] is True
     assert success_result.output["terminated_reason"] == "approved"
     assert len(success_result.output["details"]["critique_iterations"]) == 1
+    assert success_result.proposal == "Draft v1"
+    assert success_result.approved is True
+    assert success_result.iterations == 1
+    assert len(success_result.critique_iterations) == 1
 
     failure_workflow = ProposeCriticPattern(
         llm_client=SequenceLLMClient(
@@ -486,10 +492,12 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
                 "invalid critique payload",
             ]
         ),
-        tool_runtime=Toolbox(),
     )
     failure_result = failure_workflow.run("Write a short design summary.")
+    assert isinstance(failure_result, ProposeCriticResult)
     assert not failure_result.success
+    assert failure_result.approved is False
+    assert failure_result.iterations == 0
     assert failure_result.output["terminated_reason"] == "critic_invalid_json"
     assert isinstance(failure_result.output["details"]["critique_iterations"], list)
 
@@ -537,6 +545,7 @@ def test_workflow_constructor_signatures_expose_new_default_kwargs() -> None:
     assert "proposer_delegate" in propose_params
     assert "critic_delegate" in propose_params
     assert "skills" in propose_params
+    assert propose_params["tool_runtime"].default is None
 
     routing_params = inspect.signature(RouterDelegatePattern.__init__).parameters
     assert "router_system_prompt" in routing_params
