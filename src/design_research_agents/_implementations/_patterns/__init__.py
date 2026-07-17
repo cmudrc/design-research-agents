@@ -7,6 +7,11 @@ from ._plan_execute_pattern import PlanExecutePattern
 from ._propose_critic_pattern import ProposeCriticPattern, ProposeCriticResult
 from ._rag_pattern import RAGPattern
 from ._ralph_loop_pattern import RalphLoopPattern
+from ._reinforcement_learning_pattern import (
+    EpsilonGreedyPolicy,
+    ReinforcementLearningPattern,
+    RLPolicy,
+)
 from ._round_based_coordination_pattern import RoundBasedCoordinationPattern
 from ._router_delegate_pattern import RouterDelegatePattern
 from ._simulated_annealing_pattern import (
@@ -24,6 +29,7 @@ __all__ = [
     "AdaptiveSchedule",
     "BlackboardPattern",
     "DebatePattern",
+    "EpsilonGreedyPolicy",
     "ExponentialSchedule",
     "LinearSchedule",
     "LogarithmicSchedule",
@@ -32,7 +38,9 @@ __all__ = [
     "ProposeCriticPattern",
     "ProposeCriticResult",
     "RAGPattern",
+    "RLPolicy",
     "RalphLoopPattern",
+    "ReinforcementLearningPattern",
     "RoundBasedCoordinationPattern",
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",

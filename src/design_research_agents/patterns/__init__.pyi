@@ -9,6 +9,9 @@ from design_research_agents._implementations._patterns import ProposeCriticResul
 from design_research_agents._implementations._patterns import RAGPattern as RAGPattern
 from design_research_agents._implementations._patterns import RalphLoopPattern as RalphLoopPattern
 from design_research_agents._implementations._patterns import (
+    ReinforcementLearningPattern as ReinforcementLearningPattern,
+)
+from design_research_agents._implementations._patterns import (
     RoundBasedCoordinationPattern as RoundBasedCoordinationPattern,
 )
 from design_research_agents._implementations._patterns import (

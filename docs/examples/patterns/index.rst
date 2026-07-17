@@ -13,6 +13,7 @@ Generated from canonical example docstrings/comments in ``examples/patterns``.
    propose_critic
    rag
    ralph_loop
+   reinforcement_learning
    router_delegate
    simulated_annealing
    tree_search

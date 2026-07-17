@@ -50,6 +50,7 @@ from .patterns import ProposeCriticPattern as ProposeCriticPattern
 from .patterns import ProposeCriticResult as ProposeCriticResult
 from .patterns import RAGPattern as RAGPattern
 from .patterns import RalphLoopPattern as RalphLoopPattern
+from .patterns import ReinforcementLearningPattern as ReinforcementLearningPattern
 from .patterns import RoundBasedCoordinationPattern as RoundBasedCoordinationPattern
 from .patterns import RouterDelegatePattern as RouterDelegatePattern
 from .patterns import SimulatedAnnealingPattern as SimulatedAnnealingPattern

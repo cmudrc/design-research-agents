@@ -65,6 +65,7 @@ EXPECTED_PATTERNS_API = [
     "NominalTeamPattern",
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
+    "ReinforcementLearningPattern",
     "TreeSearchPattern",
 ]
 EXPECTED_PATTERN_CLASSES = [name for name in EXPECTED_PATTERNS_API if name != "ProposeCriticResult"]
@@ -157,6 +158,7 @@ def test_patterns_module_exports_match_curated_contract() -> None:
     assert dra_patterns.__all__ == EXPECTED_PATTERNS_API
     for symbol_name in dra_patterns.__all__:
         assert getattr(dra_patterns, symbol_name) is not None
+    assert "ReinforcementLearningPattern" in dir(dra_patterns)
 
 
 def test_top_level_schedule_exports_resolve() -> None:

@@ -22,6 +22,7 @@ MODE_BLACKBOARD = "blackboard"
 MODE_TREE_SEARCH = "tree_search"
 MODE_RAG = "rag"
 MODE_SIMULATED_ANNEALING = "simulated_annealing"
+MODE_REINFORCEMENT_LEARNING = "reinforcement_learning"
 
 
 def build_pattern_output(
@@ -114,6 +115,7 @@ __all__ = [
     "MODE_PROPOSE_CRITIC",
     "MODE_RAG",
     "MODE_RALPH_LOOP",
+    "MODE_REINFORCEMENT_LEARNING",
     "MODE_ROUND_BASED_COORDINATION",
     "MODE_ROUTER_DELEGATE",
     "MODE_SIMULATED_ANNEALING",
