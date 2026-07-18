@@ -47,6 +47,21 @@ def _config() -> McpConfig:
     )
 
 
+def test_mcp_client_info_uses_package_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep SDK client metadata synchronized with package releases."""
+    monkeypatch.setattr(mcp_source, "__version__", "9.9.9")
+    types_module = type(
+        "TypesModule",
+        (),
+        {"Implementation": staticmethod(lambda **values: values)},
+    )
+
+    assert mcp_source._client_info(types_module) == {
+        "name": "design-research-agents",
+        "version": "9.9.9",
+    }
+
+
 def test_mcp_source_route_refresh_and_invoke_variants(tmp_path: Path) -> None:
     source = McpToolSource(mcp_config=_config(), policy=_policy(tmp_path))
     source._clients["alpha"] = _StubClient(
@@ -199,3 +214,30 @@ def test_sdk_client_stderr_preview_is_bounded() -> None:
     assert len(preview) <= 2001
     client.close()
     assert client._stderr_preview() == ""
+
+
+def test_sdk_client_failure_message_includes_timeout_and_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    policy = ToolPolicy(ToolPolicyConfig(workspace_root="."))
+    client = mcp_source._SdkStdioMcpClient(
+        server=MCPServerConfig(id="alpha", command=("python3", "-c", "pass"), timeout_s=7),
+        policy=policy,
+    )
+
+    class _RaisingAnyio:
+        def run(self, async_fn: object) -> object:
+            del async_fn
+            raise TimeoutError("operation timed out")
+
+    monkeypatch.setattr(
+        mcp_source,
+        "_import_mcp_sdk_modules",
+        lambda: (_RaisingAnyio(), object(), object(), object()),
+    )
+
+    with pytest.raises(McpProtocolError) as exc_info:
+        client._run(lambda: None)
+
+    message = str(exc_info.value)
+    assert "timeout_s=7" in message
+    assert "command='python3 -c pass'" in message
+    assert "raise MCPServerConfig.timeout_s" in message

@@ -15,7 +15,7 @@ Technical Implementation
 
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
 2. Build the runtime surface (public APIs only) and execute ``ProposeCriticPattern.run(...)`` with a fixed ``request_id``.
-3. Configure and invoke ``Toolbox`` integrations (core/script/MCP/callable) before assembling the final payload.
+3. Read proposal, approval, and iteration fields directly from the typed ``ProposeCriticResult``.
 4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
 
 .. mermaid::

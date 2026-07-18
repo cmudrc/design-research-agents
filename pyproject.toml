@@ -6,7 +6,11 @@ build-backend = "setuptools.build_meta"
 # Core package metadata used by pip/PyPI tooling.
 [project]
 name = "design-research-agents"
+<<<<<<< HEAD
 version = "0.4.1"
+=======
+version = "0.6.0"
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
 description = "A flexible, modular framework for researching engineering design AI agents"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -47,6 +51,7 @@ Issues = "https://github.com/cmudrc/design-research-agents/issues"
 
 # Contributor batteries.
 dev = [
+  "gymnasium>=1.3,<2",
   "mypy>=1.10,<2",
   "mcp>=1.10,<2",
   "pydata-sphinx-theme>=0.16,<1",
@@ -77,6 +82,9 @@ groq = ["groq>=1.0,<2"]
 mcp = ["mcp>=1.10,<2"]
 
 huggingface = ["huggingface-hub>=0.24"]
+
+# Reference environments for simulation-backed reinforcement-learning examples.
+rl = ["gymnasium>=1.3,<2"]
 
 # Optional memory backends
 memory_chroma = ["chromadb>=1.0,<2"]
@@ -113,7 +121,7 @@ sglang = [
 # - "local" = all local backends that make sense on the current platform
 # - "providers" = all provider backends
 # - "full" = providers + local backends (platform-gated pieces auto-skip where unsupported)
-# - "all" = full + optional memory backends for the broadest runtime surface
+# - "all" = full + optional memory and reference-environment dependencies
 local = [
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
@@ -150,6 +158,7 @@ all = [
   "chromadb>=1.0,<2",
   "google-genai>=1.0,<2",
   "groq>=1.0,<2",
+  "gymnasium>=1.3,<2",
   "huggingface-hub>=0.24",
   "llama-cpp-python[server]>=0.2.90",
   "mlx-lm>=0.14; platform_system == 'Darwin' and platform_machine == 'arm64'",
@@ -172,7 +181,8 @@ where = ["src"]
 
 # Ship marker file for typed package consumers + runtime assets.
 [tool.setuptools.package-data]
-design_research_agents = ["py.typed", "_schemas/*.schema.json", "_prompts/*.md"]
+design_research_agents = ["py.typed", "*.pyi", "_schemas/*.schema.json", "_prompts/*.md"]
+"*" = ["*.pyi"]
 "design_research_agents._memory._knowledge_resources" = ["*/*.toml", "*/*.md"]
 
 # Pytest defaults for local + CI test runs.

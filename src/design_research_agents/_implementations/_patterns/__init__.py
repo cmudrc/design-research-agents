@@ -4,13 +4,17 @@ from ._blackboard_pattern import BlackboardPattern
 from ._debate_pattern import DebatePattern
 from ._nominal_team_pattern import NominalTeamPattern
 from ._plan_execute_pattern import PlanExecutePattern
-from ._propose_critic_pattern import ProposeCriticPattern
+from ._propose_critic_pattern import ProposeCriticPattern, ProposeCriticResult
 from ._rag_pattern import RAGPattern
 from ._ralph_loop_pattern import RalphLoopPattern
 from ._reinforcement_learning_pattern import (
     EpsilonGreedyPolicy,
     ReinforcementLearningPattern,
     RLPolicy,
+<<<<<<< HEAD
+=======
+    RLTransition,
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
 )
 from ._round_based_coordination_pattern import RoundBasedCoordinationPattern
 from ._router_delegate_pattern import RouterDelegatePattern
@@ -36,8 +40,13 @@ __all__ = [
     "NominalTeamPattern",
     "PlanExecutePattern",
     "ProposeCriticPattern",
+    "ProposeCriticResult",
     "RAGPattern",
     "RLPolicy",
+<<<<<<< HEAD
+=======
+    "RLTransition",
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
     "RalphLoopPattern",
     "ReinforcementLearningPattern",
     "RoundBasedCoordinationPattern",

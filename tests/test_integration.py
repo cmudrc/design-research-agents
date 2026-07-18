@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
+
+import pytest
 
 from design_research_agents import PromptWorkflowAgent, SeededRandomBaselineAgent, integration, study
 from design_research_agents._contracts._execution import ExecutionResult
+from design_research_agents._contracts._llm import LLMResponse, Usage
 from design_research_agents.workflow import LogicStep, Workflow
 
 
@@ -171,3 +175,174 @@ def test_seeded_random_and_prompt_workflow_normalize_to_same_envelope_shape() ->
     assert baseline_execution.events
     assert isinstance(baseline_execution.trace_refs, list)
     assert baseline_execution.metadata["request_id"] == "run-3"
+
+
+def test_study_condition_and_request_normalize_caller_owned_values() -> None:
+    metadata = {"group": "a"}
+    bindings = {"agent": lambda: "done"}
+    condition = integration.StudyCondition(condition_id=" condition ", label=" ", metadata=metadata)
+    request = integration.AgentRunRequest(
+        agent_ref="agent",
+        prompt="prompt",
+        request_id=" ",
+        dependencies=metadata,
+        agent_bindings=bindings,
+    )
+
+    metadata["group"] = "changed"
+    bindings.clear()
+    assert condition.condition_id == "condition"
+    assert condition.label is None
+    assert condition.metadata == {"group": "a"}
+    assert request.request_id is None
+    assert request.dependencies == {"group": "a"}
+    assert "agent" in request.agent_bindings
+
+    with pytest.raises(ValueError, match="condition_id must be non-empty"):
+        integration.StudyCondition(condition_id=" ")
+
+
+def test_agent_reference_and_binding_resolution_rejects_ambiguous_targets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="Unknown agent reference"):
+        integration._resolve_agent_ref("MissingAgent", condition=None, agent_bindings=None)
+
+    exported = object()
+    monkeypatch.setattr(integration, "import_module", lambda _name: SimpleNamespace(ExportedAgent=exported))
+    assert integration._resolve_agent_ref("ExportedAgent", condition=None, agent_bindings=None) is exported
+
+    run_object = SimpleNamespace(run=lambda *, prompt: prompt)
+    assert not integration._is_condition_scoped_binding(run_object)
+    assert not integration._is_condition_scoped_binding("not callable")
+    assert not integration._is_condition_scoped_binding(lambda prompt: prompt)
+    assert not integration._is_condition_scoped_binding(lambda *args: args)
+    assert not integration._is_condition_scoped_binding(lambda left, right: (left, right))
+    monkeypatch.setattr(integration.inspect, "signature", lambda _binding: (_ for _ in ()).throw(ValueError("bad")))
+    assert not integration._is_condition_scoped_binding(lambda value: value)
+
+
+def test_agent_invocation_supports_all_documented_callable_shapes() -> None:
+    assert integration._invoke_agent(
+        executable=lambda *, prompt, request_id, dependencies: (prompt, request_id, dependencies),
+        prompt="hello",
+        request_id="request",
+        dependencies={"value": 1},
+    ) == ("hello", "request", {"value": 1})
+    assert (
+        integration._invoke_callable(
+            callable_obj=lambda *, input: input,
+            prompt="hello",
+            request_id=None,
+            dependencies={},
+        )
+        == "hello"
+    )
+    assert (
+        integration._invoke_callable(
+            callable_obj=lambda: "no-args",
+            prompt="ignored",
+            request_id=None,
+            dependencies={},
+        )
+        == "no-args"
+    )
+    assert (
+        integration._invoke_callable(
+            callable_obj=lambda value, /: value,
+            prompt="positional",
+            request_id=None,
+            dependencies={},
+        )
+        == "positional"
+    )
+
+    with pytest.raises(ValueError, match="not executable"):
+        integration._invoke_agent(executable=object(), prompt="hello", request_id=None, dependencies={})
+    with pytest.raises(ValueError, match="must accept the public"):
+        integration._invoke_callable(
+            callable_obj=lambda left, right: (left, right),
+            prompt="hello",
+            request_id=None,
+            dependencies={},
+        )
+
+
+def test_execution_normalization_covers_mapping_scalar_and_execution_result_shapes() -> None:
+    mapping_envelope = integration.normalize_agent_execution(
+        {
+            "outputs": {"value": 2},
+            "trace_refs": [3, "trace.jsonl"],
+            "metadata": {"source": "mapping"},
+            "events": [
+                "invalid",
+                {
+                    "event_type": "tool",
+                    "meta_json": "raw",
+                    "level": "step",
+                    "tool_name": "search",
+                },
+            ],
+        },
+        request_id="request",
+    )
+    scalar_envelope = integration.normalize_agent_execution(42, request_id="scalar")
+
+    assert mapping_envelope.output == {"value": 2}
+    assert mapping_envelope.trace_refs == ["3", "trace.jsonl"]
+    assert mapping_envelope.events[0]["meta_json"] == {"value": "raw"}
+    assert mapping_envelope.events[0]["tool_name"] == "search"
+    assert scalar_envelope.output == {"text": "42"}
+    assert scalar_envelope.events[0]["meta_json"] == {"auto_generated": True}
+
+    result = ExecutionResult(
+        success=True,
+        output={"final_output": "finished", "metrics": {"input_tokens": 99}, "events": "invalid"},
+        model_response=LLMResponse(
+            text="finished",
+            model=" model ",
+            provider=" provider ",
+            usage=Usage(prompt_tokens=2, completion_tokens=3, total_tokens=5),
+        ),
+        metadata={"trace_path": "trace.jsonl", "trace_refs": ["trace.jsonl", "second.jsonl", 3]},
+    )
+    result_envelope = integration.normalize_agent_execution(result, request_id="execution")
+    assert result_envelope.output == {"text": "finished"}
+    assert result_envelope.metrics == {"input_tokens": 99, "output_tokens": 3, "total_tokens": 5}
+    assert result_envelope.metadata["model_name"] == " model "
+    assert result_envelope.metadata["model_provider"] == " provider "
+    assert result_envelope.trace_refs == ["trace.jsonl", "second.jsonl"]
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"final_output": {"value": 1}}, {"value": 1}),
+        ({"final_output": 3}, {"final_output": 3}),
+        ({"text": 4}, {"text": "4"}),
+        ({"model_text": 5}, {"text": "5"}),
+        ({"value": 6}, {"value": 6}),
+    ],
+)
+def test_execution_output_normalization_variants(payload: dict[str, object], expected: dict[str, object]) -> None:
+    assert integration._extract_execution_output(payload) == expected
+
+
+def test_usage_mapping_and_non_mapping_execution_fields_are_normalized() -> None:
+    metrics: dict[str, object] = {}
+    integration._merge_usage_metrics(
+        metrics,
+        SimpleNamespace(usage={"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}),
+    )
+    assert metrics == {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3}
+    assert integration._extract_output_mapping("invalid") == {}
+
+    execution_like = SimpleNamespace(
+        success=True,
+        output="invalid",
+        metadata="invalid",
+        model_response=None,
+    )
+    envelope = integration.normalize_agent_execution(execution_like)
+    assert envelope.output == {}
+    assert envelope.metadata == {}

@@ -218,6 +218,10 @@ Workflow step executions surface ``WorkflowStepResult`` payloads through
 ``ExecutionResult.step_results``. These step results mirror the top-level
 ``ExecutionResult`` output accessor helpers for consistent reads.
 
+.. autoclass:: design_research_agents.WorkflowContext
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.LogicStep
    :members:
    :undoc-members:
@@ -283,6 +287,10 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+.. autoclass:: design_research_agents.ProposeCriticResult
+   :members:
+   :undoc-members:
+
 .. autoclass:: design_research_agents.RalphLoopPattern
    :members:
    :undoc-members:
@@ -319,6 +327,14 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
+<<<<<<< HEAD
+=======
+.. autoclass:: design_research_agents.RLTransition
+   :members:
+   :undoc-members:
+   :no-index:
+
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
 Temperature Schedules
 ^^^^^^^^^^^^^^^^^^^^^
 

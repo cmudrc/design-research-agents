@@ -34,6 +34,8 @@ def parse_usage(payload: Any) -> Usage | None:
     Returns:
         Result produced by this call.
     """
+    if isinstance(payload, Usage):
+        return payload
     if not isinstance(payload, dict):
         return None
     prompt_tokens = _coerce_int(payload.get("prompt_tokens"))

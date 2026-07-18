@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
-from typing import TYPE_CHECKING
 
 from design_research_agents._lazy_exports import module_dir, resolve_lazy_export
 from design_research_agents._public_exports import (
@@ -53,6 +52,7 @@ def __dir__() -> list[str]:
         Sorted attribute list for interactive discovery.
     """
     return module_dir(globals(), __all__)
+<<<<<<< HEAD
 
 
 if TYPE_CHECKING:
@@ -122,3 +122,5 @@ if TYPE_CHECKING:
     from .workflow import CompiledExecution as CompiledExecution
     from .workflow import Workflow as Workflow
     from .workflow import build_json_prompt_workflow as build_json_prompt_workflow
+=======
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477

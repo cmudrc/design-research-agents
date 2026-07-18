@@ -9,10 +9,16 @@ from design_research_agents._contracts._workflow import (
     DelegateStep,
     LogicStep,
     ToolStep,
+    WorkflowContext,
     WorkflowExecutionMode,
     WorkflowFailurePolicy,
     WorkflowStepResult,
 )
+
+
+def coerce_workflow_context(context: Mapping[str, object]) -> WorkflowContext:
+    """Return a typed context while accepting legacy mapping inputs."""
+    return context if isinstance(context, WorkflowContext) else WorkflowContext(context)
 
 
 def build_step_context(
@@ -26,7 +32,7 @@ def build_step_context(
     failure_policy: WorkflowFailurePolicy,
     is_terminal_step: bool,
     output_schema: Mapping[str, object] | None,
-) -> dict[str, object]:
+) -> WorkflowContext:
     """Build per-step context including normalized dependency result payloads.
 
     Args:
@@ -44,10 +50,12 @@ def build_step_context(
         Step-local context mapping with dependency and workflow metadata.
     """
     dependency_results: dict[str, dict[str, object]] = {}
+    typed_dependency_results: dict[str, WorkflowStepResult] = {}
     for dependency in step_dependencies:
         dependency_result = step_results.get(dependency)
         if dependency_result is None:
             continue
+        typed_dependency_results[dependency] = dependency_result
         dependency_results[dependency] = {
             "status": dependency_result.status,
             "success": dependency_result.success,
@@ -68,7 +76,10 @@ def build_step_context(
         "is_terminal_step": is_terminal_step,
         "output_schema": dict(output_schema) if output_schema is not None else None,
     }
-    return context
+    return WorkflowContext(
+        context,
+        dependency_results=typed_dependency_results,
+    )
 
 
 def build_invocation_dependencies(
@@ -121,7 +132,7 @@ def resolve_tool_input(*, step: ToolStep, step_context: Mapping[str, object]) ->
         TypeError: If ``input_builder`` does not return a mapping.
     """
     if step.input_builder is not None:
-        built_input = step.input_builder(step_context)
+        built_input = step.input_builder(coerce_workflow_context(step_context))
         if not isinstance(built_input, Mapping):
             raise TypeError("ToolStep input_builder must return a mapping.")
         return dict(built_input)
@@ -145,7 +156,7 @@ def resolve_delegate_prompt(*, step: DelegateStep, step_context: Mapping[str, ob
         ValueError: If no non-empty prompt can be resolved.
     """
     if step.prompt_builder is not None:
-        built_prompt = step.prompt_builder(step_context)
+        built_prompt = step.prompt_builder(coerce_workflow_context(step_context))
         if not isinstance(built_prompt, str):
             raise TypeError("DelegateStep prompt_builder must return a string.")
         normalized_prompt = built_prompt.strip()

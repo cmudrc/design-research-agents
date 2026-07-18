@@ -6,7 +6,7 @@ MYPY ?= $(PYTHON) -m mypy
 SPHINX ?= $(PYTHON) -m sphinx
 BUILD ?= $(PYTHON) -m build
 TWINE ?= $(PYTHON) -m twine
-COVERAGE_MIN ?= 90
+COVERAGE_MIN ?= 95
 
 DOCSTRING_CHANGED_FILES_FILE ?=
 DOCSTRING_CHANGED_FILES_DEFAULT := artifacts/docstrings_changed_files.txt
@@ -15,7 +15,7 @@ DOCSTRING_CHANGED_FILES_DEFAULT := artifacts/docstrings_changed_files.txt
 	lint fmt fmt-check type test qa ci coverage \
 	release-check \
 	structure-check docstrings-check legacy-check baseline-integrity-check junk-check \
-	examples-smoke examples-test examples-metrics run-example \
+	examples-smoke examples-test examples-coverage examples-metrics run-example \
 	docs docs-build docs-check docs-linkcheck clean
 
 help:
@@ -27,6 +27,7 @@ help:
 	@echo "  ci               Full CI checks used in GitHub Actions."
 	@echo "  coverage         Run tests with coverage threshold check."
 	@echo "  release-check    Build sdist/wheel and run twine metadata checks."
+	@echo "  examples-coverage Require every public API export to appear in an example."
 	@echo "  docs             Build docs (same as docs-build)."
 	@echo "  clean            Remove generated build artifacts and local caches."
 
@@ -101,6 +102,9 @@ examples-metrics: check-python examples-test
 	$(PYTHON) scripts/generate_examples_metrics.py
 	$(PYTHON) scripts/generate_examples_badges.py
 
+examples-coverage: examples-metrics
+	$(PYTHON) scripts/check_example_api_coverage.py --minimum 100
+
 run-example: check-python
 	PYTHONPATH=src $(PYTHON) examples/workflow/workflow_runtime.py
 
@@ -117,7 +121,7 @@ docs-linkcheck: check-python
 
 docs: docs-build
 
-ci: qa coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check docs-check examples-smoke
+ci: qa coverage structure-check docstrings-check legacy-check baseline-integrity-check junk-check docs-check examples-smoke examples-coverage
 
 clean:
 	rm -rf docs/_build artifacts build htmlcov src/design_research_agents.egg-info .coverage coverage.xml

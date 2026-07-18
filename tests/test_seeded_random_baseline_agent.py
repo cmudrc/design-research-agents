@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from collections import namedtuple
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 
@@ -370,3 +372,84 @@ def test_seeded_random_helper_branches_cover_fallbacks_and_payload_helpers() -> 
     assert seeded_random_impl._decision_output_payload({"x": 1}) == {"x": 1}
     assert seeded_random_impl._coerce_seed_like(3.9) == 3
     assert seeded_random_impl._coerce_seed_like("8") == 8
+
+
+def test_seeded_random_rejects_invalid_configuration_and_problem_contracts() -> None:
+    with pytest.raises(ValueError, match="grammar_max_steps"):
+        SeededRandomBaselineAgent(grammar_max_steps=0)
+    with pytest.raises(TypeError, match="supports only decision, grammar, and optimization"):
+        seeded_random_impl._detect_problem_family(object())
+
+    empty_decision = SimpleNamespace(iter_candidates=lambda: ())
+    with pytest.raises(ValueError, match="at least one candidate"):
+        SeededRandomBaselineAgent()._run_decision(problem=empty_decision, seed=1, metadata={})
+
+    invalid_transition = SimpleNamespace(next_state=None)
+    grammar = SimpleNamespace(initial_state=lambda: {}, enumerate_transitions=lambda _state: (invalid_transition,))
+    with pytest.raises(TypeError, match="must expose `next_state`"):
+        SeededRandomBaselineAgent()._run_grammar(problem=grammar, seed=1, metadata={})
+
+
+def test_seeded_random_problem_resolution_and_metadata_helpers_cover_nested_shapes() -> None:
+    problem = _DecisionProblem()
+    assert (
+        seeded_random_impl._resolve_problem_object(problem_packet=None, problem={"problem_object": problem}) is problem
+    )
+    assert (
+        seeded_random_impl._resolve_problem_object(
+            problem_packet={"payload": {"problem_object": problem}},
+            problem=None,
+        )
+        is problem
+    )
+    assert seeded_random_impl._resolve_problem_object(problem_packet=None, problem=None) is None
+    assert seeded_random_impl._nested_problem_object({"payload": "invalid"}) is None
+
+    assert seeded_random_impl._resolve_seed(explicit_seed=2, run_spec=None, default_seed=3) == 2
+    assert seeded_random_impl._resolve_seed(explicit_seed=None, run_spec={"seed": True}, default_seed=3) == 1
+    assert seeded_random_impl._resolve_seed(explicit_seed=None, run_spec={}, default_seed=3) == 3
+    assert seeded_random_impl._resolve_seed(explicit_seed=None, run_spec={}, default_seed=None) == 0
+    assert seeded_random_impl._seed_source(explicit_seed=2, run_spec=None, default_seed=3) == "dependencies.seed"
+    assert seeded_random_impl._seed_source(explicit_seed=None, run_spec={"seed": 2}, default_seed=3) == (
+        "dependencies.run_spec.seed"
+    )
+    assert seeded_random_impl._seed_source(explicit_seed=None, run_spec={}, default_seed=3) == "agent_default"
+    assert seeded_random_impl._seed_source(explicit_seed=None, run_spec={}, default_seed=None) == "implicit_default"
+
+    direct_id = SimpleNamespace(problem_id="direct")
+    assert seeded_random_impl._resolve_problem_id(problem_packet=None, problem=direct_id) == "direct"
+    assert seeded_random_impl._resolve_problem_id(problem_packet=None, problem=object()) == "object"
+
+
+def test_seeded_random_payload_normalizers_cover_object_and_sequence_variants() -> None:
+    assert seeded_random_impl._decision_output_payload(SimpleNamespace(values={"a": 1})) == {"a": 1}
+    assert seeded_random_impl._decision_output_payload(object())["candidate"].startswith("<object object at")
+    assert seeded_random_impl._transition_parameters_payload({"a": 1}) == {"a": 1}
+    assert seeded_random_impl._transition_parameters_payload((("a", 1), "invalid", ("bad",))) == {"a": 1}
+    assert seeded_random_impl._transition_parameters_payload(object()) == {}
+    assert seeded_random_impl._optimization_metrics(
+        {
+            "objective_value": 2,
+            "total_constraint_violation": "invalid",
+            "is_feasible": True,
+            "higher_is_better": "invalid",
+        }
+    ) == {"objective_value": 2.0, "is_feasible": True}
+    assert seeded_random_impl._normalize_sequence([1]) == [1]
+    assert seeded_random_impl._normalize_sequence((1,)) == [1]
+    assert seeded_random_impl._normalize_sequence("invalid") == []
+
+    class _ArrayLike:
+        def tolist(self) -> list[int]:
+            return [1, 2]
+
+    Point = namedtuple("Point", ["x", "y"])
+    assert seeded_random_impl._json_safe_value(_ArrayLike()) == [1, 2]
+    assert seeded_random_impl._json_safe_value({"point": Point(1, 2)}) == {"point": [1, 2]}
+    assert seeded_random_impl._json_safe_value(_DecisionCandidate({"a": 1})) == {"values": {"a": 1}}
+    assert seeded_random_impl._json_safe_value(SimpleNamespace(public=1, _private=2)) == {"public": 1}
+    assert seeded_random_impl._value_from_object(None, "value") is None
+    assert seeded_random_impl._value_from_object({"value": 1}, "value") == 1
+    assert seeded_random_impl._coerce_seed_like(True) == 1
+    assert seeded_random_impl._coerce_seed_like(2) == 2
+    assert seeded_random_impl._coerce_seed_like(None) is None

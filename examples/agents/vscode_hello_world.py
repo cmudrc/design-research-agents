@@ -78,6 +78,13 @@ class _HelloWorldLLMClient:
 
 def main() -> None:
     """Run one deterministic direct-LLM example for VS Code onboarding."""
+    namespaces = (
+        drag.integration.__name__,
+        drag.model_selection.__name__,
+        drag.study.__name__,
+    )
+    print(f"design-research-agents {drag.__version__}; namespaces={namespaces}")
+
     with _HelloWorldLLMClient() as llm_client:
         agent = drag.DirectLLMCall(
             llm_client=llm_client,

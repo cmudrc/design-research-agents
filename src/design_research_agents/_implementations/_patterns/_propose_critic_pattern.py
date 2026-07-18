@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._llm import LLMClient
@@ -53,6 +54,43 @@ from design_research_agents.workflow import CompiledExecution
 from design_research_agents.workflow.workflow import Workflow
 
 
+@dataclass(slots=True, frozen=True, kw_only=True)
+class ProposeCriticResult(ExecutionResult):
+    """Typed propose/critic result compatible with ``ExecutionResult``."""
+
+    @property
+    def proposal(self) -> str:
+        """Return the final proposal text, or an empty string."""
+        final_output = self.final_output
+        if not isinstance(final_output, Mapping):
+            return ""
+        value = final_output.get("proposal")
+        return value if isinstance(value, str) else ""
+
+    @property
+    def approved(self) -> bool:
+        """Return whether the critic approved the final proposal."""
+        final_output = self.final_output
+        return bool(final_output.get("approved")) if isinstance(final_output, Mapping) else False
+
+    @property
+    def iterations(self) -> int:
+        """Return the number of completed critique iterations."""
+        final_output = self.final_output
+        if not isinstance(final_output, Mapping):
+            return 0
+        value = final_output.get("iterations")
+        return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+    @property
+    def critique_iterations(self) -> list[dict[str, object]]:
+        """Return normalized critique iteration records."""
+        records = self.output_dict("details").get("critique_iterations")
+        if not isinstance(records, list):
+            return []
+        return [dict(record) for record in records if isinstance(record, Mapping)]
+
+
 class ProposeCriticPattern(Delegate):
     """Propose/critique revision pattern built on workflow primitives."""
 
@@ -60,7 +98,7 @@ class ProposeCriticPattern(Delegate):
         self,
         *,
         llm_client: LLMClient,
-        tool_runtime: ToolRuntime,
+        tool_runtime: ToolRuntime | None = None,
         proposer_delegate: DelegateTarget | None = None,
         critic_delegate: DelegateTarget | None = None,
         max_iterations: int = 3,
@@ -77,7 +115,7 @@ class ProposeCriticPattern(Delegate):
 
         Args:
             llm_client: LLM client used by proposer and critic calls.
-            tool_runtime: Tool runtime used by loop execution runtime.
+            tool_runtime: Optional tool runtime reserved for delegated workflow steps.
             proposer_delegate: Optional proposer delegate override.
             critic_delegate: Optional critic delegate override.
             max_iterations: Maximum propose/critic iterations per run.
@@ -135,13 +173,15 @@ class ProposeCriticPattern(Delegate):
         *,
         request_id: str | None = None,
         dependencies: Mapping[str, object] | None = None,
-    ) -> ExecutionResult:
+    ) -> ProposeCriticResult:
         """Execute one propose-and-critique orchestration run."""
-        return self.compile(
-            prompt=prompt,
-            request_id=request_id,
-            dependencies=dependencies,
-        ).run()
+        return _as_propose_critic_result(
+            self.compile(
+                prompt=prompt,
+                request_id=request_id,
+                dependencies=dependencies,
+            ).run()
+        )
 
     def compile(
         self,
@@ -320,7 +360,7 @@ class ProposeCriticPattern(Delegate):
         prompt: str,
         request_id: str,
         dependencies: Mapping[str, object],
-    ) -> ExecutionResult:
+    ) -> ProposeCriticResult:
         """Propose/critic loop until approval or termination.
 
         Args:
@@ -374,7 +414,7 @@ def _finalize_propose_critic_result(
     dependencies: Mapping[str, object],
     max_iterations: int,
     skills_context: SkillsContext | None,
-) -> ExecutionResult:
+) -> ProposeCriticResult:
     """Build final propose/critic result from a workflow execution."""
     loop_step_result = workflow_result.step_results.get("propose_critic_loop")
     if loop_step_result is None:
@@ -431,12 +471,14 @@ def _finalize_propose_critic_result(
             model_response=callbacks.last_model_response,
             error=failure_error or "Critic iteration failed.",
         )
-        return attach_runtime_metadata(
-            agent_result=failure,
-            requested_mode=MODE_PROPOSE_CRITIC,
-            resolved_mode=MODE_PROPOSE_CRITIC,
-            budget_metadata=budget_tracker.as_metadata(),
-            extra_metadata=None,
+        return _as_propose_critic_result(
+            attach_runtime_metadata(
+                agent_result=failure,
+                requested_mode=MODE_PROPOSE_CRITIC,
+                resolved_mode=MODE_PROPOSE_CRITIC,
+                budget_metadata=budget_tracker.as_metadata(),
+                extra_metadata=None,
+            )
         )
 
     result = build_pattern_execution_result(
@@ -456,21 +498,39 @@ def _finalize_propose_critic_result(
         tool_results=[],
         model_response=callbacks.last_model_response,
     )
-    return attach_runtime_metadata(
-        agent_result=result,
-        requested_mode=MODE_PROPOSE_CRITIC,
-        resolved_mode=MODE_PROPOSE_CRITIC,
-        budget_metadata=budget_tracker.as_metadata(),
-        extra_metadata={
-            "loop": {
-                "iterations": loop_output.get("iterations", max_iterations),
-                "iterations_executed": loop_output.get("iterations_executed", 0),
-                "terminated_reason": loop_terminated_reason,
-            }
-        },
+    return _as_propose_critic_result(
+        attach_runtime_metadata(
+            agent_result=result,
+            requested_mode=MODE_PROPOSE_CRITIC,
+            resolved_mode=MODE_PROPOSE_CRITIC,
+            budget_metadata=budget_tracker.as_metadata(),
+            extra_metadata={
+                "loop": {
+                    "iterations": loop_output.get("iterations", max_iterations),
+                    "iterations_executed": loop_output.get("iterations_executed", 0),
+                    "terminated_reason": loop_terminated_reason,
+                }
+            },
+        )
+    )
+
+
+def _as_propose_critic_result(result: ExecutionResult) -> ProposeCriticResult:
+    """Return an execution result with propose/critic-specific accessors."""
+    if isinstance(result, ProposeCriticResult):
+        return result
+    return ProposeCriticResult(
+        success=result.success,
+        output=dict(result.output),
+        tool_results=list(result.tool_results),
+        model_response=result.model_response,
+        step_results=dict(result.step_results),
+        execution_order=list(result.execution_order),
+        metadata=dict(result.metadata),
     )
 
 
 __all__ = [
     "ProposeCriticPattern",
+    "ProposeCriticResult",
 ]

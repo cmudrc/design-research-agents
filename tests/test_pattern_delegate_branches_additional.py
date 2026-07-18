@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 
+import pytest
+
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMChatParams, LLMMessage, LLMResponse
 from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._workflow import WorkflowStepResult
 from design_research_agents._implementations._patterns import _debate_pattern as debate_impl
 from design_research_agents._implementations._patterns import (
     _plan_execute_pattern as planner_impl,
@@ -208,6 +211,101 @@ def test_plan_execute_pattern_delegate_paths_and_payload_extraction() -> None:
     assert plan_metadata["scheduled_step_count"] == 1
 
 
+def test_plan_execute_validation_and_static_callback_helpers_cover_missing_state() -> None:
+    with pytest.raises(ValueError, match="max_iterations"):
+        PlanExecutePattern(llm_client=_NoopLLMClient(), tool_runtime=_SingleToolRuntime(), max_iterations=0)
+    with pytest.raises(ValueError, match="max_tool_calls_per_step"):
+        PlanExecutePattern(
+            llm_client=_NoopLLMClient(),
+            tool_runtime=_SingleToolRuntime(),
+            max_tool_calls_per_step=0,
+        )
+
+    assert (
+        planner_impl.PlanExecutePattern._extract_model_planner_plan(
+            normalized_output={},
+            planner_success=False,
+        )
+        is None
+    )
+    assert (
+        planner_impl.PlanExecutePattern._extract_model_planner_plan(
+            normalized_output={"parsed": "invalid"},
+            planner_success=True,
+        )
+        is None
+    )
+    assert (
+        planner_impl.PlanExecutePattern._extract_model_planner_plan(
+            normalized_output={"parsed": {"plan": "invalid"}},
+            planner_success=True,
+        )
+        is None
+    )
+    assert (
+        planner_impl.PlanExecutePattern._extract_delegate_planner_plan(
+            normalized_output={},
+            planner_success=False,
+        )
+        is None
+    )
+    assert (
+        planner_impl.PlanExecutePattern._extract_delegate_planner_plan(
+            normalized_output={"output": "invalid"},
+            planner_success=True,
+        )
+        is None
+    )
+
+    continue_predicate = planner_impl.PlanExecutePattern._build_plan_continue_predicate({"plan_steps": [{}, {}]})
+    assert continue_predicate(2, {})
+    assert not continue_predicate(3, {})
+    assert not planner_impl.PlanExecutePattern._build_plan_continue_predicate({})(1, {})
+
+    prompt_builder = planner_impl.PlanExecutePattern._build_plan_prompt_builder({})
+    with pytest.raises(RuntimeError, match="callbacks are unavailable"):
+        prompt_builder({})
+    reducer = planner_impl.PlanExecutePattern._build_plan_state_reducer({})
+    assert reducer({"kept": True}, ExecutionResult(success=False), 1) == {"kept": True}
+
+    assert planner_impl._extract_planner_payload({"final_output": {"value": 1}}) is None
+    assert planner_impl._extract_model_response_from_model_step_output({}) is None
+    assert planner_impl._extract_model_response_from_model_step_output({"model_response": {"unknown": True}}) is None
+    assert planner_impl._deserialize_model_response("invalid") is None
+    assert planner_impl._deserialize_model_response({"unknown": True}) is None
+
+
+def test_plan_execute_result_builder_reports_incomplete_runtime_state() -> None:
+    pattern = PlanExecutePattern(llm_client=_NoopLLMClient(), tool_runtime=_SingleToolRuntime())
+    workflow_result = ExecutionResult(success=False)
+    tracker = planner_impl.WorkflowBudgetTracker()
+
+    with pytest.raises(ValueError, match="input invalid"):
+        pattern._build_plan_execute_result(
+            workflow_result=workflow_result,
+            request_id="request",
+            dependencies={},
+            budget_tracker=tracker,
+            runtime_state={"fatal_stage": "input_build", "fatal_error": "input invalid"},
+        )
+    with pytest.raises(RuntimeError, match="planner invalid"):
+        pattern._build_plan_execute_result(
+            workflow_result=workflow_result,
+            request_id="request",
+            dependencies={},
+            budget_tracker=tracker,
+            runtime_state={"fatal_stage": "planner", "fatal_error": "planner invalid"},
+        )
+    with pytest.raises(RuntimeError, match="runtime state is unavailable"):
+        pattern._build_plan_execute_result(
+            workflow_result=workflow_result,
+            request_id="request",
+            dependencies={},
+            budget_tracker=tracker,
+            runtime_state={},
+        )
+
+
 def test_debate_pattern_delegate_and_helper_branches() -> None:
     # Cover direct, final_output, and model_text verdict payload shapes.
     assert debate_impl._extract_delegate_verdict({"winner": "tie", "rationale": "r", "synthesis": "s"}) == {
@@ -310,3 +408,107 @@ def test_debate_pattern_delegate_and_helper_branches() -> None:
     invalid_schema_result = invalid_schema_debate.run("Debate this")
     assert invalid_schema_result.success is False
     assert invalid_schema_result.output["terminated_reason"] == "judge_invalid_schema"
+
+
+def test_debate_context_and_payload_helpers_cover_malformed_workflow_shapes() -> None:
+    with pytest.raises(ValueError, match="max_rounds"):
+        DebatePattern(llm_client=_NoopLLMClient(), tool_runtime=_SingleToolRuntime(), max_rounds=0)
+
+    state = debate_impl._resolve_round_context(
+        {
+            "_loop": {"iteration": "bad"},
+            "loop_state": {
+                "rounds": [{"round": 1}, "invalid"],
+                "prior_affirmative_argument": "yes",
+                "prior_negative_argument": "no",
+            },
+        }
+    )
+    assert state == (1, [{"round": 1}], "yes", "no")
+
+    assert debate_impl._extract_rounds_from_context({}) == []
+    assert debate_impl._extract_rounds_from_context({"dependency_results": {"debate_rounds": "invalid"}}) == []
+    assert (
+        debate_impl._extract_rounds_from_context({"dependency_results": {"debate_rounds": {"output": "invalid"}}}) == []
+    )
+    assert (
+        debate_impl._extract_rounds_from_context(
+            {"dependency_results": {"debate_rounds": {"output": {"final_state": "invalid"}}}}
+        )
+        == []
+    )
+    assert (
+        debate_impl._extract_rounds_from_context(
+            {"dependency_results": {"debate_rounds": {"output": {"final_state": {"rounds": "invalid"}}}}}
+        )
+        == []
+    )
+    assert debate_impl._extract_rounds_from_context(
+        {"dependency_results": {"debate_rounds": {"output": {"final_state": {"rounds": [{"round": 1}, "invalid"]}}}}}
+    ) == [{"round": 1}]
+
+    assert debate_impl._extract_dependency_output({}, dependency_id="step") == {}
+    assert (
+        debate_impl._extract_dependency_output(
+            {"dependency_results": {"step": "invalid"}},
+            dependency_id="step",
+        )
+        == {}
+    )
+    assert (
+        debate_impl._extract_dependency_output(
+            {"dependency_results": {"step": {"output": "invalid"}}},
+            dependency_id="step",
+        )
+        == {}
+    )
+    assert debate_impl._extract_model_response_from_model_step_output({"model_response": LLMResponse(text="ok")}) == (
+        LLMResponse(text="ok")
+    )
+    assert debate_impl._extract_model_response_from_model_step_output({"model_response": {"unknown": True}}) is None
+    assert debate_impl._extract_model_response_from_model_step_output({}) is None
+
+    assert debate_impl._extract_model_text_from_output({"model_text": " text "}) == "text"
+    assert debate_impl._extract_model_text_from_output({"final_output": " final "}) == "final"
+    assert debate_impl._extract_model_text_from_output({"final_output": {"message": " nested "}}) == "nested"
+    assert debate_impl._extract_model_text_from_output({"final_output": {"message": 3}}) == ""
+
+
+def test_debate_state_reducer_and_round_state_extraction_cover_missing_steps() -> None:
+    assert debate_impl._DebateWorkflowCallbacks.state_reducer({}, ExecutionResult(success=False), 1) == {}
+    failed = ExecutionResult(
+        success=False,
+        step_results={
+            "debate_round": WorkflowStepResult(step_id="debate_round", status="failed", success=False),
+        },
+    )
+    assert debate_impl._DebateWorkflowCallbacks.state_reducer({"kept": True}, failed, 1) == {"kept": True}
+    valid = ExecutionResult(
+        success=True,
+        step_results={
+            "debate_round": WorkflowStepResult(
+                step_id="debate_round",
+                status="completed",
+                success=True,
+                output={"rounds": []},
+            ),
+        },
+    )
+    assert debate_impl._DebateWorkflowCallbacks.state_reducer({}, valid, 1) == {"rounds": []}
+    assert debate_impl._extract_debate_round_state(ExecutionResult(success=False)) == {}
+    assert (
+        debate_impl._extract_debate_round_state(
+            ExecutionResult(
+                success=True,
+                step_results={
+                    "debate_rounds": WorkflowStepResult(
+                        step_id="debate_rounds",
+                        status="completed",
+                        success=True,
+                        output={"final_state": "invalid"},
+                    )
+                },
+            )
+        )
+        == {}
+    )

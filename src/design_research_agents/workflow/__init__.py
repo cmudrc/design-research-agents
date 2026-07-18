@@ -15,6 +15,7 @@ from design_research_agents._contracts import (
     ToolStep,
     WorkflowArtifact,
     WorkflowArtifactSource,
+    WorkflowContext,
 )
 
 from ._compiled import CompiledExecution
@@ -37,6 +38,7 @@ __all__ = [
     "Workflow",
     "WorkflowArtifact",
     "WorkflowArtifactSource",
+    "WorkflowContext",
     "build_json_prompt_workflow",
     "list_of",
     "scalar",

@@ -41,6 +41,9 @@ def test_prompt_template_render_raises_for_missing_variable() -> None:
             field_name="step_prompt",
         )
 
+    with pytest.raises(ValueError, match="must be a non-empty string"):
+        _prompt_overrides.validate_prompt_text(value="   ", field_name="step_prompt")
+
 
 def test_model_resolution_errors_for_missing_or_non_string_default_model() -> None:
     with pytest.raises(ValueError, match="must expose default_model"):

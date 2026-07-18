@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from design_research_agents._contracts._llm import (
+    BackendCapabilities,
     LLMInvalidRequestError,
     LLMProviderError,
     LLMRateLimitError,
@@ -227,3 +228,131 @@ def test__gemini_service_create_client_import_error(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(builtins, "__import__", _fake_import)
     with pytest.raises(RuntimeError, match="google-genai"):
         backend._create_client()
+
+
+def test__gemini_service_capabilities_health_and_generation_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    override = BackendCapabilities(
+        streaming=False,
+        tool_calling="native",
+        json_mode="none",
+        vision=True,
+        max_context_tokens=100,
+    )
+    backend = gemini_service.GeminiServiceBackend(
+        name="gemini",
+        default_model="m",
+        api_key_env="GOOGLE_API_KEY",
+        api_key="explicit",
+        capabilities=override,
+        config_hash="cfg",
+    )
+    assert backend.capabilities() is override
+    assert backend.healthcheck().ok
+    assert backend._resolve_api_key() == "explicit"
+
+    response = DumpObj(text="ok", candidates=[], usage_metadata=None)
+    monkeypatch.setattr(backend, "_call_with_retry", lambda _args: response)
+    assert backend._generate(request()).text == "ok"
+    assert backend._generate_without_response_format(request()).text == "ok"
+
+    monkeypatch.setattr(backend, "_call_with_retry", lambda _args: (_ for _ in ()).throw(ValueError("bad input")))
+    with pytest.raises(LLMInvalidRequestError):
+        backend._generate(request())
+    monkeypatch.setattr(
+        backend,
+        "_call_stream_with_retry",
+        lambda _args: (_ for _ in ()).throw(ValueError("bad stream")),
+    )
+    with pytest.raises(LLMInvalidRequestError):
+        list(backend._stream(request()))
+
+
+def test__gemini_service_stream_retry_and_api_key_precedence(monkeypatch: pytest.MonkeyPatch) -> None:
+    backend = gemini_service.GeminiServiceBackend(
+        name="gemini",
+        default_model="m",
+        api_key_env="CUSTOM_KEY",
+        api_key=None,
+        config_hash="cfg",
+        max_retries=1,
+    )
+    monkeypatch.setenv("CUSTOM_KEY", "primary")
+    assert backend._resolve_api_key() == "primary"
+
+    models = _ModelsStub(stream_outcomes=[LLMRateLimitError("wait"), [DumpObj(text="ok")]], generate_outcomes=[])
+    backend._client = SimpleNamespace(models=models)
+    sleeps: list[float] = []
+    monkeypatch.setattr(gemini_service.time, "sleep", lambda seconds: sleeps.append(seconds))
+    assert next(iter(backend._call_stream_with_retry({"model": "m"}))).text == "ok"
+    assert sleeps == [0.5]
+
+    backend._client = SimpleNamespace(
+        models=_ModelsStub(stream_outcomes=[LLMRateLimitError("still limited")], generate_outcomes=[])
+    )
+    backend.max_retries = 0
+    with pytest.raises(LLMRateLimitError):
+        backend._call_stream_with_retry({"model": "m"})
+
+
+def test__gemini_service_message_and_response_format_helpers_cover_edge_shapes() -> None:
+    assert gemini_service._format_contents([DumpObj(role="system", content="only")]) == [
+        {"role": "user", "parts": [{"text": ""}]}
+    ]
+    tool_message = DumpObj(role="tool", content="result", tool_name="search", tool_call_id="call-1")
+    assert gemini_service._format_contents([tool_message])[0]["parts"][0]["text"] == "tool[search]#call-1: result"
+    assert gemini_service._format_tool_message_content(DumpObj(), content="result") == "tool: result"
+    assert (
+        gemini_service._extract_system_instruction(
+            [DumpObj(role="system", content="one"), DumpObj(role="system", content="two")]
+        )
+        == "one\n\ntwo"
+    )
+    assert gemini_service._extract_system_instruction([DumpObj(role="user", content="none")]) is None
+    assert gemini_service._build_generate_config(request(), include_response_format=False) == {}
+    assert gemini_service._format_response_config(request(response_format="invalid")) == {}  # type: ignore[arg-type]
+    assert gemini_service._format_response_config(
+        request(response_format={"response_mime_type": "text/plain", "response_schema": {"type": "string"}})
+    ) == {"response_mime_type": "text/plain", "response_schema": {"type": "string"}}
+    assert gemini_service._format_response_config(request(response_format={"json_schema": {"schema": "invalid"}})) == {}
+
+
+def test__gemini_service_response_parsing_helpers_cover_sdk_variants() -> None:
+    assert gemini_service._extract_finish_reason(DumpObj(candidates=None)) is None
+    assert gemini_service._extract_finish_reason(DumpObj(candidates=[])) is None
+    assert gemini_service._extract_finish_reason(DumpObj(candidates=[DumpObj(finish_reason=None)])) is None
+    assert gemini_service._extract_finish_reason(DumpObj(candidates=[DumpObj(finish_reason=" STOP ")])) == "STOP"
+
+    assert gemini_service._usage_metadata_to_dict({"prompt_token_count": True, "candidates_token_count": 2.9}) == {
+        "prompt_tokens": None,
+        "completion_tokens": 2,
+        "total_tokens": None,
+    }
+    assert gemini_service._usage_metadata_to_dict({"unrelated": 1}) is None
+    assert gemini_service._response_to_dict(object())["raw"].startswith("<object object at")
+
+    assert gemini_service._to_dict(DumpObj(value=1)) == {"value": 1}
+    assert gemini_service._to_dict(SimpleNamespace(model_dump=lambda: "invalid", to_dict=lambda: {"ok": True})) == {
+        "ok": True
+    }
+    assert gemini_service._to_dict(SimpleNamespace(model_dump=lambda: "invalid", to_dict=lambda: "invalid")) is None
+
+    class _GeminiError(Exception):
+        code = 429
+
+    normalized = gemini_service._normalize_gemini_exception(_GeminiError("limited"))
+    assert normalized.status_code == 429  # type: ignore[attr-defined]
+    assert gemini_service._coerce_int(True) is None
+    assert gemini_service._coerce_int(2) == 2
+    assert gemini_service._coerce_int(2.9) == 2
+    assert gemini_service._coerce_int("2") is None
+
+
+def test__gemini_service_merge_structured_response_preserves_text_and_string_payload() -> None:
+    response = LLMResponse(text="provider text", model="m", provider="gemini", raw=None)
+    merged = gemini_service._merge_structured_response(
+        StructuredOutputResult(response=response, parsed='{"answer": 1}', attempts=0)
+    )
+    assert merged.text == "provider text"
+    assert merged.raw == {
+        "structured_output": {"attempts": 1, "parsed": '{"answer": 1}'},
+    }

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -240,7 +241,7 @@ def _memory_stats(
     bootstrap = SQLiteMemoryStore(db_path=db_path)
     bootstrap.close()
 
-    with sqlite3.connect(str(db_path)) as connection:
+    with closing(sqlite3.connect(str(db_path))) as connection:
         row = connection.execute(
             """
             SELECT

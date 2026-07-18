@@ -15,6 +15,7 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "ScriptToolConfig": "design_research_agents.tools:ScriptToolConfig",
     "MCPServerConfig": "design_research_agents.tools:MCPServerConfig",
     "LogicStep": "design_research_agents._contracts:LogicStep",
+    "WorkflowContext": "design_research_agents._contracts:WorkflowContext",
     "ToolStep": "design_research_agents._contracts:ToolStep",
     "DelegateStep": "design_research_agents._contracts:DelegateStep",
     "ModelStep": "design_research_agents._contracts:ModelStep",
@@ -34,6 +35,7 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "DebatePattern": "design_research_agents.patterns:DebatePattern",
     "PlanExecutePattern": "design_research_agents.patterns:PlanExecutePattern",
     "ProposeCriticPattern": "design_research_agents.patterns:ProposeCriticPattern",
+    "ProposeCriticResult": "design_research_agents.patterns:ProposeCriticResult",
     "RalphLoopPattern": "design_research_agents.patterns:RalphLoopPattern",
     "NominalTeamPattern": "design_research_agents.patterns:NominalTeamPattern",
     "RouterDelegatePattern": "design_research_agents.patterns:RouterDelegatePattern",
@@ -42,6 +44,10 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "ReinforcementLearningPattern": "design_research_agents.patterns:ReinforcementLearningPattern",
+<<<<<<< HEAD
+=======
+    "RLTransition": "design_research_agents.patterns:RLTransition",
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
     "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
     "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
     "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",

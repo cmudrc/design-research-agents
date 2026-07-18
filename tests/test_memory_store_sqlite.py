@@ -129,6 +129,17 @@ def test_sqlite_memory_store_raises_after_close(tmp_path: Path) -> None:
         store.write([MemoryWriteRecord(content="after close")], namespace="default")
 
 
+def test_sqlite_memory_store_defensive_cleanup_closes_connection(tmp_path: Path) -> None:
+    """Release the owned connection when explicit close is missed."""
+    store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
+    connection = store._connection
+
+    store.__del__()
+
+    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
+        connection.execute("SELECT 1")
+
+
 def test_sqlite_memory_store_applies_metadata_filters(tmp_path: Path) -> None:
     store = SQLiteMemoryStore(db_path=tmp_path / "memory.sqlite3")
     store.write(

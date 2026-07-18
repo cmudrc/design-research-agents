@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate examples status and API-coverage SVG badges."""
+"""Generate examples status and API-in-examples SVG badges."""
 
 from __future__ import annotations
 
@@ -34,27 +34,27 @@ def _pick_color(percent: int) -> str:
 
 
 def _text_width(text: str) -> int:
-    """Approximate text width in badge pixels.
+    """Approximate badge text width in pixels.
 
     Args:
-        text: Input value for this parameter.
+        text: Badge text segment.
 
     Returns:
-        Computed return value.
+        Approximate pixel width.
     """
     return 10 + (len(text) * 6)
 
 
 def _render_badge(label: str, message: str, color: str) -> str:
-    """Run render badge.
+    """Render a glossy badge matching the shared repository style.
 
     Args:
-        label: Input value for this parameter.
-        message: Input value for this parameter.
-        color: Input value for this parameter.
+        label: Left-hand badge label.
+        message: Right-hand badge message.
+        color: Fill color for the message segment.
 
     Returns:
-        Computed return value.
+        SVG markup string.
     """
     label_width = _text_width(label)
     message_width = _text_width(message)
@@ -62,7 +62,7 @@ def _render_badge(label: str, message: str, color: str) -> str:
     label_x = label_width / 2
     message_x = label_width + (message_width / 2)
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" 
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}"
     height="20" role="img" aria-label="{label}: {message}">
   <linearGradient id="g" x2="0" y2="100%">
     <stop offset="0" stop-color="#fff" stop-opacity=".7"/>
@@ -133,7 +133,7 @@ def main() -> None:
         _pick_color(round(pass_percent)),
     )
     api_badge = _render_badge(
-        "Example API Coverage",
+        "API in Examples",
         f"{covered_exports}/{total_exports}",
         _pick_color(round(api_coverage_percent)),
     )

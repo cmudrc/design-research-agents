@@ -2,11 +2,12 @@
 [![CI](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Coverage](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/ci.yml)
 [![Examples Passing](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-passing.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
-[![Public API In Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
+[![API in Examples](https://raw.githubusercontent.com/cmudrc/design-research-agents/HEAD/.github/badges/examples-api-coverage.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/examples.yml)
 [![Docs](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml/badge.svg)](https://github.com/cmudrc/design-research-agents/actions/workflows/docs-pages.yml)
 [![PyPI Version](https://img.shields.io/pypi/v/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 
+<<<<<<< HEAD
 <!-- release-callout:start -->
 > [!IMPORTANT]
 > Current monthly release: [Johnson Jumpstart - June 2026](https://github.com/cmudrc/design-research-agents/milestone/5)  
@@ -14,6 +15,8 @@
 > Tracks: June 2026 work
 <!-- release-callout:end -->
 
+=======
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
 `design-research-agents` is the agent-execution layer in the cmudrc design
 research ecosystem.
 
@@ -24,6 +27,14 @@ If you are deciding between primitives, workflow authoring, prebuilt patterns,
 and runnable exemplars, start with the
 [Where To Start](https://cmudrc.github.io/design-research-agents/where_to_start.html)
 guide in the published docs.
+
+## Quality Signals
+
+- **Coverage** reports total line coverage for the default deterministic test suite; CI requires at least 95%.
+- **Examples Passing** reports checked-in example scripts that execute successfully in the examples workflow.
+- **API in Examples** reports curated top-level `__all__` exports referenced by runnable examples. `N/N` means every supported top-level export appears in at least one example, and CI requires 100%.
+
+Run `make coverage`, `make examples-test`, and `make examples-coverage` to reproduce these checks locally.
 
 ## Overview
 
@@ -36,7 +47,8 @@ This package centers on reproducible agent workflows with a compact public API:
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
 - Hosted and local LLM clients, model flights/catalogs, and `ModelSelector` for backend-selection policies
-- Prebuilt coordination and reasoning patterns for plan/execute, propose/critic, debate, routing, round-based coordination, blackboard, tree search, Ralph loops, nominal teams, RAG, and conversation
+- Prebuilt patterns for coordination, reasoning, tree search, simulated annealing,
+  and reinforcement learning
 - Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
 
 ## A Super Basic Agent
@@ -65,7 +77,8 @@ and package-install steps.
 If you prefer a guided editor-first flow, use the
 [VS Code Setup Guide](https://cmudrc.github.io/design-research-agents/vscode_setup.html).
 It walks through creating a virtual environment, installing the published
-package, and running a first script in VS Code.
+package, running a first script in VS Code, and using the source checkout for
+repository examples.
 
 ```bash
 python3 -m venv .venv
@@ -76,12 +89,13 @@ PYTHONPATH=src python examples/agents/direct_llm_call.py
 ```
 
 The base-install path uses `OpenAICompatibleHTTPLLMClient` and expects a running
-OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
-tooling only; backend runtimes are explicit extras. Use
+OpenAI-compatible endpoint. Contributor setup (`make dev`) installs the test,
+documentation, and deterministic-example dependencies; model backends remain
+explicit extras. Use
 `design-research-agents[full]` for the hosted + local backend bundle and
-`design-research-agents[all]` when you also want the optional ChromaDB and
-graph-memory backends. Use `design-research-agents[huggingface]` when you only
-need Hugging Face Hub metadata for catalog discovery.
+`design-research-agents[all]` when you also want the optional memory backends and
+Gymnasium reference environments. Use `design-research-agents[huggingface]` when
+you only need Hugging Face Hub metadata for catalog discovery.
 
 For frozen installs, extras, and release maintenance, see
 [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
@@ -123,7 +137,9 @@ Top-level exports include:
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
-- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, and RAG
+- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops,
+  nominal teams, routing, round-based coordination, blackboard, tree search,
+  RAG, simulated annealing, and reinforcement learning
 - LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
 - Runtime services: `design_research_agents.model_selection`, `ModelFlightRegistry`,
   `ModelCatalog`, `ModelSelector`, and `Tracer`

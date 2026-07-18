@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from datetime import datetime
 
 import pytest
 
@@ -22,6 +23,11 @@ from design_research_agents._contracts import (
     ToolError,
     ToolResult,
     WorkflowStepResult,
+)
+from design_research_agents._contracts._llm import Provenance
+from design_research_agents._contracts._termination import (
+    continuation_stopped_reason,
+    stop_reason,
 )
 from design_research_agents.llm import (
     AnthropicServiceLLMClient,
@@ -90,6 +96,15 @@ class _StubMemoryStore(MemoryStore):
     def close(self) -> None:
         self.closed = True
         super().close()
+
+
+def test_provenance_timestamp_and_termination_reason_helpers() -> None:
+    """Shared contract helpers should emit stable, machine-readable strings."""
+    timestamp = Provenance.now_iso()
+
+    assert datetime.fromisoformat(timestamp).tzinfo is not None
+    assert continuation_stopped_reason("guardrail") == "continuation_stopped:guardrail"
+    assert stop_reason("model") == "stop:model"
 
 
 def test_workflow_step_result_output_accessors_mirror_execution_result_helpers() -> None:

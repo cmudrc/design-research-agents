@@ -46,6 +46,7 @@ EXPECTED_WORKFLOW_API = [
     "Workflow",
     "WorkflowArtifact",
     "WorkflowArtifactSource",
+    "WorkflowContext",
     "build_json_prompt_workflow",
     "list_of",
     "scalar",
@@ -59,12 +60,20 @@ EXPECTED_PATTERNS_API = [
     "PlanExecutePattern",
     "RAGPattern",
     "ProposeCriticPattern",
+    "ProposeCriticResult",
     "RalphLoopPattern",
     "NominalTeamPattern",
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
     "ReinforcementLearningPattern",
+<<<<<<< HEAD
+=======
+    "RLTransition",
+>>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
     "TreeSearchPattern",
+]
+EXPECTED_PATTERN_CLASSES = [
+    name for name in EXPECTED_PATTERNS_API if name not in {"ProposeCriticResult", "RLTransition"}
 ]
 EXPECTED_SCHEDULE_API = [
     "AdaptiveSchedule",
@@ -155,6 +164,7 @@ def test_patterns_module_exports_match_curated_contract() -> None:
     assert dra_patterns.__all__ == EXPECTED_PATTERNS_API
     for symbol_name in dra_patterns.__all__:
         assert getattr(dra_patterns, symbol_name) is not None
+    assert "ReinforcementLearningPattern" in dir(dra_patterns)
 
 
 def test_top_level_schedule_exports_resolve() -> None:
@@ -219,7 +229,7 @@ def test_public_entrypoint_signatures_use_prompt_or_input_only() -> None:
         assert "input" not in agent_compile_params
         assert "input_data" not in agent_compile_params
 
-    for pattern_name in EXPECTED_PATTERNS_API:
+    for pattern_name in EXPECTED_PATTERN_CLASSES:
         pattern_cls = getattr(dra_patterns, pattern_name)
         pattern_run_params = inspect.signature(pattern_cls.run).parameters
         assert "prompt" in pattern_run_params
