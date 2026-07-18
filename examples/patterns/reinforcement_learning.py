@@ -1,30 +1,29 @@
 """# Patterns / Reinforcement Learning.
 
 ## Introduction
-The reinforcement learning pattern runs an episodic agent-environment loop where
-a policy learns from cumulative rewards. This example uses a simple grid navigation
-environment with discrete actions. The agent starts at position 0 and learns to
-move right to reach the goal at position 3. The seeded policy and deterministic
-environment make the result reproducible without an LLM dependency.
+The built-in reinforcement learning policy is an honest global action-value
+baseline. This example repeatedly selects one of three agent strategies for the
+same benchmark family and learns which strategy receives the highest measured
+reward. The seeded policy and deterministic benchmark make the result reproducible
+without an LLM or machine-learning dependency.
 
 
 ## Technical Implementation
-1. Define an environment reset delegate that returns the initial state.
-2. Define an environment step delegate that applies an action and returns the next
-   state, reward, and done flag.
-3. Execute ``ReinforcementLearningPattern.run(...)`` through the public top-level API.
-4. Print a compact JSON payload showing the training summary and learned action values.
+1. Define an environment reset delegate that identifies the benchmark family.
+2. Define a one-step environment delegate that scores each selected agent strategy.
+3. Execute ``ReinforcementLearningPattern.run(...)`` with discrete ``actions`` and
+   no ``state_key``, selecting global-action value mode.
+4. Print the learned action values and bounded training summary.
 
 ```mermaid
 flowchart LR
-    A["Initial state"] --> B["ReinforcementLearningPattern.run(...)"]
-    B --> C["environment_reset starts each episode"]
-    C --> D["EpsilonGreedyPolicy selects action"]
-    D --> E["environment_step returns next_state, reward, done"]
-    E --> F["Trajectory collected until done"]
-    F --> G["Monte Carlo policy update"]
-    G --> H["ExecutionResult/payload"]
-    H --> I["Printed JSON output"]
+    A["Benchmark task"] --> B["ReinforcementLearningPattern.run(...)"]
+    B --> C["Epsilon-greedy strategy selection"]
+    C --> D["Benchmark returns reward"]
+    D --> E["Monte Carlo action-value update"]
+    E --> C
+    E --> F["ExecutionResult with traces"]
+    F --> G["Printed JSON output"]
 ```
 
 
@@ -35,22 +34,22 @@ Output:
 .. code-block:: text
 
    {
-     "best_episode_index": 9,
-     "best_episode_reward": 8.0,
-     "episodes_completed": 57,
-     "final_q_values": {
-       "left": -1.7394775438422179,
-       "right": 6.643450112696429,
-       "stay": 1.0547376105811548
+     "action_values": {
+       "critique_then_answer": 0.88,
+       "direct_answer": 0.54,
+       "tool_assisted": 0.73
      },
+     "best_episode_reward": 0.88,
+     "episodes_completed": 60,
      "success": true,
-     "terminated_reason": "converged"
+     "terminated_reason": "max_episodes_reached",
+     "value_mode": "global_action"
    }
 
 ## References
 - `Sutton and Barto, Reinforcement Learning: An Introduction <http://incompleteideas.net/book/the-book-2nd.html>`_
-- `Gymnasium environment API <https://gymnasium.farama.org/api/env/>`_
-- `Gymnasium basic usage <https://gymnasium.farama.org/introduction/basic_usage/>`_
+- `Multi-armed bandit algorithms and empirical evaluation <https://arxiv.org/abs/1003.0146>`_
+- `AgentBench: Evaluating LLMs as Agents <https://arxiv.org/abs/2308.03688>`_
 """
 
 from __future__ import annotations
@@ -60,57 +59,55 @@ from collections.abc import Mapping
 
 from design_research_agents import ReinforcementLearningPattern
 
+_STRATEGY_REWARDS = {
+    "direct_answer": 0.54,
+    "critique_then_answer": 0.88,
+    "tool_assisted": 0.73,
+}
+
 
 def main() -> None:
-    """Run one deterministic grid navigation RL workflow."""
+    """Learn one global agent-strategy value table from deterministic rewards."""
 
     def environment_reset() -> dict[str, object]:
-        return {"position": 0}
+        return {"benchmark_family": "field_service_planning"}
 
     def environment_step(
         state: Mapping[str, object],
         action: str | Mapping[str, object],
     ) -> tuple[dict[str, object], float, bool]:
         if not isinstance(action, str):
-            raise TypeError("This environment requires a discrete string action.")
-        pos = int(state["position"])
-        if action == "right":
-            pos += 1
-        elif action == "left":
-            pos -= 1
-        reward = 10.0 if pos == 3 else -1.0
-        done = pos == 3
-        return {"position": pos}, reward, done
+            raise TypeError("This benchmark requires a discrete strategy name.")
+        return dict(state), _STRATEGY_REWARDS[action], True
 
     pattern = ReinforcementLearningPattern(
         environment_reset=environment_reset,
         environment_step=environment_step,
-        policy=None,
-        actions=["left", "right", "stay"],
-        max_episodes=200,
-        max_steps_per_episode=10,
-        gamma=0.99,
+        actions=list(_STRATEGY_REWARDS),
+        max_episodes=60,
+        max_steps_per_episode=1,
+        gamma=1.0,
         epsilon=1.0,
-        epsilon_decay=0.95,
-        convergence_threshold=0.5,
-        convergence_episodes=10,
+        epsilon_decay=0.92,
+        epsilon_min=0.05,
         random_seed=42,
     )
     result = pattern.run(
-        "Learn to navigate to position 3.",
+        "Learn which agent strategy performs best on the benchmark family.",
         request_id="example-pattern-reinforcement-learning-001",
     )
 
     final_output = result.output["final_output"]
+    final_policy_params = final_output["final_policy_params"]
     print(
         json.dumps(
             {
                 "success": result.success,
                 "best_episode_reward": final_output["best_episode_reward"],
-                "best_episode_index": final_output["best_episode_index"],
                 "episodes_completed": final_output["episodes_completed"],
                 "terminated_reason": result.output["terminated_reason"],
-                "final_q_values": final_output.get("final_policy_params", {}).get("q_values"),
+                "value_mode": final_policy_params["value_mode"],
+                "action_values": final_policy_params["action_values"],
             },
             ensure_ascii=True,
             indent=2,

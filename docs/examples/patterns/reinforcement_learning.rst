@@ -6,36 +6,35 @@ Source: ``examples/patterns/reinforcement_learning.py``
 Introduction
 ------------
 
-The reinforcement learning pattern runs an episodic agent-environment loop where
-a policy learns from cumulative rewards. This example uses a simple grid navigation
-environment with discrete actions. The agent starts at position 0 and learns to
-move right to reach the goal at position 3. The seeded policy and deterministic
-environment make the result reproducible without an LLM dependency.
+The built-in reinforcement learning policy is an honest global action-value
+baseline. This example repeatedly selects one of three agent strategies for the
+same benchmark family and learns which strategy receives the highest measured
+reward. The seeded policy and deterministic benchmark make the result reproducible
+without an LLM or machine-learning dependency.
 
 Technical Implementation
 ------------------------
 
-1. Define an environment reset delegate that returns the initial state.
-2. Define an environment step delegate that applies an action and returns the next
-   state, reward, and done flag.
-3. Execute ``ReinforcementLearningPattern.run(...)`` through the public top-level API.
-4. Print a compact JSON payload showing the training summary and learned action values.
+1. Define an environment reset delegate that identifies the benchmark family.
+2. Define a one-step environment delegate that scores each selected agent strategy.
+3. Execute ``ReinforcementLearningPattern.run(...)`` with discrete ``actions`` and
+   no ``state_key``, selecting global-action value mode.
+4. Print the learned action values and bounded training summary.
 
 .. mermaid::
 
    flowchart LR
-       A["Initial state"] --> B["ReinforcementLearningPattern.run(...)"]
-       B --> C["environment_reset starts each episode"]
-       C --> D["EpsilonGreedyPolicy selects action"]
-       D --> E["environment_step returns next_state, reward, done"]
-       E --> F["Trajectory collected until done"]
-       F --> G["Monte Carlo policy update"]
-       G --> H["ExecutionResult/payload"]
-       H --> I["Printed JSON output"]
+       A["Benchmark task"] --> B["ReinforcementLearningPattern.run(...)"]
+       B --> C["Epsilon-greedy strategy selection"]
+       C --> D["Benchmark returns reward"]
+       D --> E["Monte Carlo action-value update"]
+       E --> C
+       E --> F["ExecutionResult with traces"]
+       F --> G["Printed JSON output"]
 
 .. literalinclude:: ../../../examples/patterns/reinforcement_learning.py
    :language: python
-   :lines: 56-
+   :lines: 55-
    :linenos:
 
 Expected Results
@@ -52,21 +51,21 @@ Output:
 .. code-block:: text
 
    {
-     "best_episode_index": 9,
-     "best_episode_reward": 8.0,
-     "episodes_completed": 57,
-     "final_q_values": {
-       "left": -1.7394775438422179,
-       "right": 6.643450112696429,
-       "stay": 1.0547376105811548
+     "action_values": {
+       "critique_then_answer": 0.88,
+       "direct_answer": 0.54,
+       "tool_assisted": 0.73
      },
+     "best_episode_reward": 0.88,
+     "episodes_completed": 60,
      "success": true,
-     "terminated_reason": "converged"
+     "terminated_reason": "max_episodes_reached",
+     "value_mode": "global_action"
    }
 
 References
 ----------
 
 - `Sutton and Barto, Reinforcement Learning: An Introduction <http://incompleteideas.net/book/the-book-2nd.html>`_
-- `Gymnasium environment API <https://gymnasium.farama.org/api/env/>`_
-- `Gymnasium basic usage <https://gymnasium.farama.org/introduction/basic_usage/>`_
+- `Multi-armed bandit algorithms and empirical evaluation <https://arxiv.org/abs/1003.0146>`_
+- `AgentBench: Evaluating LLMs as Agents <https://arxiv.org/abs/2308.03688>`_
