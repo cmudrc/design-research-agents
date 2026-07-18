@@ -14,6 +14,7 @@ Generated from canonical example docstrings/comments in ``examples/patterns``.
    rag
    ralph_loop
    reinforcement_learning
+   reinforcement_learning_cartpole
    reinforcement_learning_custom_policy
    router_delegate
    simulated_annealing

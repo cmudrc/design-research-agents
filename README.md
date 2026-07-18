@@ -79,12 +79,13 @@ PYTHONPATH=src python examples/agents/direct_llm_call.py
 ```
 
 The base-install path uses `OpenAICompatibleHTTPLLMClient` and expects a running
-OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
-tooling only; backend runtimes are explicit extras. Use
+OpenAI-compatible endpoint. Contributor setup (`make dev`) installs the test,
+documentation, and deterministic-example dependencies; model backends remain
+explicit extras. Use
 `design-research-agents[full]` for the hosted + local backend bundle and
-`design-research-agents[all]` when you also want the optional ChromaDB and
-graph-memory backends. Use `design-research-agents[huggingface]` when you only
-need Hugging Face Hub metadata for catalog discovery.
+`design-research-agents[all]` when you also want the optional memory backends and
+Gymnasium reference environments. Use `design-research-agents[huggingface]` when
+you only need Hugging Face Hub metadata for catalog discovery.
 
 For frozen installs, extras, and release maintenance, see
 [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).

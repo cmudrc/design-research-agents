@@ -53,6 +53,7 @@ CATEGORY_TITLES = {
 
 TITLE_TOKEN_OVERRIDES = {
     "api": "API",
+    "cartpole": "CartPole",
     "cpp": "CPP",
     "http": "HTTP",
     "json": "JSON",

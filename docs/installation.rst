@@ -57,7 +57,17 @@ For example:
    pip install -e ".[full]"
    pip install -e ".[all]"
 
-``full`` covers hosted + local backends. ``all`` adds the optional ChromaDB and
-graph-memory extras on top of that backend bundle.
+``full`` covers hosted + local backends. ``all`` adds optional memory backends
+and Gymnasium reference environments on top of that backend bundle.
 
 Use :doc:`dependencies_and_extras` for the complete matrix and platform caveats.
+
+Simulation Extras
+-----------------
+
+The core reinforcement-learning pattern has no Gymnasium dependency. Install the
+``rl`` extra for the simulation-backed CartPole example:
+
+.. code-block:: bash
+
+   python -m pip install "design-research-agents[rl]"

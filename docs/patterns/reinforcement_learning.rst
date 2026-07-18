@@ -60,6 +60,21 @@ measured reward:
 See :doc:`../examples/patterns/reinforcement_learning` for the complete runnable
 example and recorded output.
 
+Simulation-Backed Controller Selection
+--------------------------------------
+
+An environment transition may also be a deliberate macro action. The
+:doc:`../examples/patterns/reinforcement_learning_cartpole` example selects a
+feedback-controller design, runs that controller against Gymnasium's real
+``CartPole-v1`` dynamics, and uses balanced steps as the episode reward. Install
+the optional environment dependency with
+``python -m pip install "design-research-agents[rl]"``.
+
+This formulation estimates one global value per controller over seeded initial
+conditions. It is useful for controller or agent-strategy selection, but it is
+not per-timestep Q-learning: the feedback controller, rather than the RL pattern,
+chooses each left or right force inside the rollout.
+
 Tabular State-Action Values
 ---------------------------
 

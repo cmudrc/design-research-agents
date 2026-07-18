@@ -146,15 +146,16 @@ Run the checks from VS Code's integrated terminal:
 ``make qa`` runs linting, formatting checks, type checks, and tests. Run
 ``make coverage`` before merge when changing tested behavior.
 
-Optional Model Backends
------------------------
+Optional Runtimes
+-----------------
 
 The base install supports deterministic local examples. Install model-client
-extras only when a workflow needs them. For example:
+or simulation extras only when a workflow needs them. For example:
 
 .. code-block:: bash
 
    python -m pip install "design-research-agents[openai]"
+   python -m pip install "design-research-agents[rl]"
 
 Use :doc:`dependencies_and_extras` for the full extras list.
 

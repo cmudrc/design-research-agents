@@ -61,6 +61,8 @@ Extras matrix
      - MCP tool-runtime integration
    * - ``huggingface``
      - Hugging Face Hub metadata discovery for ``ModelCatalog.from_huggingface``
+   * - ``rl``
+     - Gymnasium reference environments for simulation-backed RL examples
    * - ``memory_chroma``
      - Optional ChromaDB-backed vector memory store
    * - ``memory_graph``
@@ -82,10 +84,11 @@ Extras matrix
    * - ``full``
      - Providers + local backends
    * - ``all``
-     - ``full`` plus optional ChromaDB and graph-memory stores
+     - ``full`` plus optional memory stores and Gymnasium reference environments
 
 ``full`` remains the backend-focused bundle. Use ``all`` when you want that same
-runtime surface plus the optional memory backends exposed by this package.
+runtime surface plus the optional memory backends and Gymnasium reference
+environments exposed by this package.
 
 Hosted clients are the fastest path for onboarding and benchmark iteration, but
 they require network access and data egress. Local in-process clients are often
@@ -100,10 +103,11 @@ Recommended install profiles:
 - DRAG/DERP MCP workflows:
   ``pip install "design-research-agents[mcp,gemini]" "design-research-problems[mcp]"``
 - Hugging Face catalog discovery: ``pip install -e ".[dev,huggingface]"``
+- Gymnasium RL examples: ``pip install "design-research-agents[rl]"``
 - Chroma-backed memory experiments: ``pip install -e ".[dev,memory_chroma]"``
 - graph-memory experiments: ``pip install -e ".[dev,memory_graph]"``
 - local-only studies: ``pip install -e ".[dev,local]"``
 - broad backend validation: ``pip install -e ".[dev,full]"``
-- broad runtime + memory validation: ``pip install -e ".[dev,all]"``
+- broad runtime + memory + simulation validation: ``pip install -e ".[dev,all]"``
 
 Release validation is exposed via ``make release-check``.
