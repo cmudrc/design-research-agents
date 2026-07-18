@@ -509,6 +509,7 @@ class ReinforcementLearningPattern(Delegate):
                     state_reducer=loop_callbacks.state_reducer,
                     execution_mode="sequential",
                     failure_policy="propagate_failed_state",
+                    retain_iteration_results=False,
                 )
             ],
         )

@@ -43,7 +43,8 @@ Step types
   Use it when nested agents/patterns should own their own prompting or tool usage.
 - ``LoopStep``: iterative nested workflow body with loop state callbacks.
   Key fields: ``step_id``, ``steps``, ``max_iterations``, ``initial_state``,
-  ``continue_predicate``, ``state_reducer``, ``execution_mode``, ``failure_policy``.
+  ``continue_predicate``, ``state_reducer``, ``execution_mode``, ``failure_policy``,
+  ``retain_iteration_results``.
   Use it when iterative orchestration is first-class and state must evolve per iteration.
 - ``MemoryReadStep``: retrieval step against a configured memory store.
   Key fields: ``step_id``, ``query_builder``, ``namespace``, ``top_k``, ``min_score``.
@@ -58,8 +59,11 @@ Loop primitive
 - ``LoopStep`` executes a fixed nested step sequence for up to ``max_iterations``.
 - ``continue_predicate`` can stop early based on iteration index and loop state.
 - ``state_reducer`` updates loop state from each iteration ``ExecutionResult``.
-- Loop step outputs include explicit termination reason and serialized
-  per-iteration results.
+- Loop step outputs include an explicit termination reason, executed-iteration
+  count, final state, and serialized per-iteration results by default.
+- Set ``retain_iteration_results=False`` for high-volume loops whose final state
+  or domain-specific traces already preserve the required history. The output
+  keeps ``iterations_executed`` and returns an empty ``iteration_results`` list.
 
 Execution semantics
 -------------------

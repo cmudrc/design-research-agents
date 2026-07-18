@@ -384,6 +384,7 @@ def test_policy_params_are_snapshotted_once_per_episode_without_duplicate_histor
         {"updates": 3},
     ]
     assert result.output["final_output"]["final_policy_params"] == {"updates": 3}
+    assert result.output["workflow"]["step_results"]["rl_loop"]["output"]["iteration_results"] == []
 
 
 def test_private_reward_stability_criterion_resets_after_reward_change() -> None:
