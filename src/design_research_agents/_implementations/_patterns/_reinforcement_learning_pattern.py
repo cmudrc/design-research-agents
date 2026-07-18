@@ -6,8 +6,8 @@ import math
 import random
 from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Protocol, cast
 
 from design_research_agents._contracts._delegate import Delegate, ExecutionResult
 from design_research_agents._contracts._workflow import LogicStep, LoopStep
@@ -27,20 +27,60 @@ from design_research_agents.workflow import CompiledExecution, Workflow
 RLState = Mapping[str, object]
 # Discrete action name or continuous parameter dict
 RLAction = str | Mapping[str, object]
-# One episode's experience of (state, action, reward) tuples
+# Legacy episode experience retained for existing custom policies
 Trajectory = list[tuple[RLState, RLAction, float]]
 
 # Returns initial state for new episode
 EnvironmentResetDelegate = Callable[[], RLState]
-# (state, action) -> (next_state, reward, done)
-EnvironmentStepDelegate = Callable[[RLState, RLAction], tuple[RLState, float, bool]]
+# Legacy ``done`` result or Gymnasium-style terminated/truncated result
+EnvironmentStepResult = tuple[RLState, float, bool] | tuple[RLState, float, bool, bool, Mapping[str, object]]
+EnvironmentStepDelegate = Callable[[RLState, RLAction], EnvironmentStepResult]
 # Maps an arbitrary design state to one stable tabular key
 StateKeyDelegate = Callable[[RLState], str]
+EvaluationActionDelegate = Callable[[RLState], RLAction]
 
 _GLOBAL_STATE_KEY = "__global__"
 _TRACE_MAX_DEPTH = 8
 _TRACE_MAX_ITEMS = 100
 _TRACE_MAX_TEXT_LENGTH = 2_000
+_TRACE_DETAILS = frozenset({"summary", "transitions", "full"})
+
+
+@dataclass(frozen=True, slots=True)
+class RLTransition:
+    """One normalized agent-environment transition.
+
+    The pattern accepts the original three-value environment result for
+    compatibility, but records every interaction with explicit termination and
+    truncation semantics. Transition-aware custom policies receive this richer
+    contract through ``observe_transition(...)``.
+
+    Attributes:
+        state: Observation before the action.
+        action: Action selected by the policy.
+        reward: Finite scalar reward returned by the environment.
+        next_state: Observation after the action.
+        terminated: Whether the environment reached an MDP terminal state.
+        truncated: Whether an external limit ended the episode.
+        info: Auxiliary metrics or diagnostic information from the environment.
+    """
+
+    state: RLState
+    action: RLAction
+    reward: float
+    next_state: RLState
+    terminated: bool
+    truncated: bool = False
+    info: Mapping[str, object] = field(default_factory=dict)
+
+    @property
+    def done(self) -> bool:
+        """Return whether either terminal condition ended the episode."""
+        return self.terminated or self.truncated
+
+    def as_legacy_tuple(self) -> tuple[RLState, RLAction, float]:
+        """Return the historical ``(state, action, reward)`` policy input."""
+        return self.state, self.action, self.reward
 
 
 def _trace_snapshot(value: object, *, _depth: int = 0) -> object:
@@ -129,7 +169,7 @@ class _RewardStabilityCriterion:
 
 
 class RLPolicy(Protocol):
-    """Protocol for pluggable RL policies."""
+    """Legacy-compatible protocol for episode-updated RL policies."""
 
     def select_action(self, state: RLState) -> RLAction:
         """Select an action for the current state."""
@@ -140,7 +180,27 @@ class RLPolicy(Protocol):
         ...
 
     def get_params(self) -> dict[str, object]:
-        """Return a fresh, JSON-safe snapshot of the policy parameters."""
+        """Return lightweight JSON-safe policy state or a checkpoint reference."""
+        ...
+
+
+class TransitionRLPolicy(Protocol):
+    """Optional protocol for policies that learn after each transition."""
+
+    def select_action(self, state: RLState) -> RLAction:
+        """Select an action for the current state."""
+        ...
+
+    def observe_transition(self, transition: RLTransition) -> None:
+        """Observe and optionally learn from one completed transition."""
+        ...
+
+    def end_episode(self, transitions: Sequence[RLTransition]) -> dict[str, object]:
+        """Finish one episode and return JSON-safe update statistics."""
+        ...
+
+    def get_params(self) -> dict[str, object]:
+        """Return lightweight JSON-safe policy state or a checkpoint reference."""
         ...
 
 
@@ -214,13 +274,21 @@ class EpsilonGreedyPolicy:
         return self._epsilon
 
     def select_action(self, state: RLState) -> str:
-        """Select a random action with epsilon probability, else the highest-value action."""
+        """Select a random action with epsilon probability, else a best action."""
         state_values, _ = self._tables_for_state(state)
         if self._rng.random() < self._epsilon:
             return self._rng.choice(self._actions)
         best_value = max(state_values.values())
         best_actions = [action for action, value in state_values.items() if value == best_value]
         return self._rng.choice(best_actions)
+
+    def select_evaluation_action(self, state: RLState) -> str:
+        """Return a deterministic greedy action without changing exploration state."""
+        state_values = self._values.get(self._resolve_state_key(state))
+        if state_values is None:
+            return self._actions[0]
+        best_value = max(state_values.values())
+        return next(action for action in self._actions if state_values[action] == best_value)
 
     def update(self, trajectory: Trajectory) -> dict[str, object]:
         """Compute discounted episode returns and update configured value tables."""
@@ -307,7 +375,7 @@ class ReinforcementLearningPattern(Delegate):
         *,
         environment_reset: EnvironmentResetDelegate,
         environment_step: EnvironmentStepDelegate,
-        policy: RLPolicy | None = None,
+        policy: RLPolicy | TransitionRLPolicy | None = None,
         actions: Sequence[str] | None = None,
         max_episodes: int = 100,
         max_steps_per_episode: int = 50,
@@ -318,6 +386,7 @@ class ReinforcementLearningPattern(Delegate):
         state_key: StateKeyDelegate | None = None,
         convergence_threshold: float | None = None,
         convergence_episodes: int = 5,
+        trace_detail: str = "transitions",
         random_seed: int | None = None,
         tracer: Tracer | None = None,
     ) -> None:
@@ -325,8 +394,9 @@ class ReinforcementLearningPattern(Delegate):
 
         Args:
             environment_reset: Callable returning the initial state for each episode.
-            environment_step: Callable applying one action and returning next state,
-                reward, and an episode-complete flag.
+            environment_step: Callable applying one action and returning either
+                ``(next_state, reward, done)`` or Gymnasium-style
+                ``(next_state, reward, terminated, truncated, info)``.
             policy: Custom structural policy implementation. Mutually exclusive with
                 ``actions``.
             actions: Discrete action names used to build the default epsilon-greedy
@@ -343,6 +413,10 @@ class ReinforcementLearningPattern(Delegate):
                 stable. ``None`` disables the private reward-stability heuristic.
             convergence_episodes: Consecutive stable reward changes required to
                 stop early when ``convergence_threshold`` is configured.
+            trace_detail: Episode trace detail: ``"summary"`` stores episode
+                metrics, ``"transitions"`` also stores step transitions, and
+                ``"full"`` additionally stores a policy snapshot per episode.
+                The final policy state is always retained.
             random_seed: Optional seed for default-policy action selection.
             tracer: Optional workflow tracer.
 
@@ -369,12 +443,19 @@ class ReinforcementLearningPattern(Delegate):
             or convergence_episodes < 1
         ):
             raise ValueError("convergence_episodes must be >= 1.")
+        if trace_detail not in _TRACE_DETAILS:
+            raise ValueError(f"trace_detail must be one of {sorted(_TRACE_DETAILS)}.")
         if policy is None and not actions:
             if state_key is not None:
                 raise ValueError("state_key requires actions when no custom policy is provided.")
             raise ValueError("Either policy or actions must be provided.")
         if policy is not None and (actions is not None or state_key is not None):
             raise ValueError("policy is mutually exclusive with actions and state_key.")
+
+        observes_transitions = callable(getattr(policy, "observe_transition", None))
+        ends_episodes = callable(getattr(policy, "end_episode", None))
+        if observes_transitions != ends_episodes:
+            raise ValueError("Transition-aware policies must implement both observe_transition and end_episode.")
 
         self._rng = random.Random(random_seed)
 
@@ -398,8 +479,10 @@ class ReinforcementLearningPattern(Delegate):
         self._max_steps_per_episode = max_steps_per_episode
         self._gamma = gamma
         self._value_mode = "custom" if policy is not None else ("state_action" if state_key else "global_action")
+        self._uses_transition_updates = observes_transitions
         self._convergence_threshold = convergence_threshold
         self._convergence_episodes = convergence_episodes
+        self._trace_detail = trace_detail
         self._reward_stability_criterion = (
             _RewardStabilityCriterion(
                 threshold=convergence_threshold,
@@ -425,6 +508,114 @@ class ReinforcementLearningPattern(Delegate):
             request_id=request_id,
             dependencies=dependencies,
         ).run()
+
+    def evaluate(
+        self,
+        *,
+        episodes: int = 10,
+        max_steps_per_episode: int | None = None,
+        environment_reset: EnvironmentResetDelegate | None = None,
+        environment_step: EnvironmentStepDelegate | None = None,
+        action_selector: EvaluationActionDelegate | None = None,
+        request_id: str | None = None,
+        dependencies: Mapping[str, object] | None = None,
+    ) -> ExecutionResult:
+        """Evaluate the current policy without updating it.
+
+        The built-in epsilon-greedy policy uses deterministic greedy actions.
+        Custom policies can implement ``select_evaluation_action(state)`` or
+        callers can pass an explicit ``action_selector``. Independent replicate
+        scheduling and statistical analysis intentionally remain responsibilities
+        of ``design-research-experiments`` and ``design-research-analysis``.
+
+        Args:
+            episodes: Number of evaluation episodes.
+            max_steps_per_episode: Optional evaluation step cap. Defaults to the
+                training cap configured on the pattern.
+            environment_reset: Optional evaluation-only reset callable.
+            environment_step: Optional evaluation-only step callable.
+            action_selector: Optional deterministic evaluation action callable.
+            request_id: Optional evaluation request identifier.
+            dependencies: Optional metadata dependencies for the result contract.
+
+        Returns:
+            Canonical execution result containing rewards, lengths, and traces.
+
+        Raises:
+            ValueError: If evaluation bounds are invalid or a custom policy has no
+                explicit evaluation action path.
+        """
+        if isinstance(episodes, bool) or not isinstance(episodes, int) or episodes < 1:
+            raise ValueError("episodes must be >= 1.")
+        step_limit = self._max_steps_per_episode if max_steps_per_episode is None else max_steps_per_episode
+        if isinstance(step_limit, bool) or not isinstance(step_limit, int) or step_limit < 1:
+            raise ValueError("max_steps_per_episode must be >= 1.")
+
+        resolved_reset = environment_reset or self._environment_reset
+        resolved_step = environment_step or self._environment_step
+        resolved_action_selector = action_selector or self._resolve_evaluation_action_selector()
+        episode_rewards: list[float] = []
+        episode_lengths: list[int] = []
+        episode_traces: list[dict[str, object]] = []
+        terminated_episodes = 0
+        truncated_episodes = 0
+
+        for episode_index in range(episodes):
+            reward_total, transitions = self._collect_episode(
+                environment_reset=resolved_reset,
+                environment_step=resolved_step,
+                action_selector=resolved_action_selector,
+                max_steps=step_limit,
+            )
+            final_transition = transitions[-1]
+            steps = len(transitions)
+            episode_rewards.append(reward_total)
+            episode_lengths.append(steps)
+            terminated_episodes += int(final_transition.terminated)
+            truncated_episodes += int(final_transition.truncated)
+            episode_traces.append(
+                self._build_episode_trace(
+                    episode_index=episode_index,
+                    episode_reward=reward_total,
+                    transitions=transitions,
+                )
+            )
+
+        resolved_dependencies = dict(dependencies or {})
+        return build_pattern_execution_result(
+            success=True,
+            final_output={
+                "episodes_completed": episodes,
+                "episode_rewards": episode_rewards,
+                "episode_lengths": episode_lengths,
+                "mean_reward": sum(episode_rewards) / episodes,
+                "mean_steps": sum(episode_lengths) / episodes,
+                "min_reward": min(episode_rewards),
+                "max_reward": max(episode_rewards),
+            },
+            terminated_reason="evaluation_completed",
+            details={
+                "evaluation": True,
+                "trace_detail": self._trace_detail,
+                "terminated_episodes": terminated_episodes,
+                "truncated_episodes": truncated_episodes,
+                "episode_traces": episode_traces,
+            },
+            workflow_payload={},
+            artifacts=[],
+            request_id=request_id or "rl-evaluation",
+            dependencies=resolved_dependencies,
+            mode=MODE_REINFORCEMENT_LEARNING,
+            metadata={
+                "evaluation": True,
+                "episodes": episodes,
+                "max_steps_per_episode": step_limit,
+                "value_mode": self._value_mode,
+                "trace_detail": self._trace_detail,
+            },
+            requested_mode=MODE_REINFORCEMENT_LEARNING,
+            resolved_mode=MODE_REINFORCEMENT_LEARNING,
+        )
 
     def compile(
         self,
@@ -461,6 +652,7 @@ class ReinforcementLearningPattern(Delegate):
                 "value_mode": self._value_mode,
                 "convergence_threshold": self._convergence_threshold,
                 "convergence_episodes": self._convergence_episodes,
+                "trace_detail": self._trace_detail,
             },
             workflow_request_id=f"{run_context.request_id}:rl_workflow",
             finalize=lambda workflow_result: _build_reinforcement_learning_result(
@@ -473,6 +665,7 @@ class ReinforcementLearningPattern(Delegate):
                 value_mode=self._value_mode,
                 convergence_threshold=self._convergence_threshold,
                 convergence_episodes=self._convergence_episodes,
+                trace_detail=self._trace_detail,
                 random_seed=self._random_seed,
             ),
         )
@@ -518,6 +711,7 @@ class ReinforcementLearningPattern(Delegate):
 
     def _get_initial_loop_state(self) -> dict[str, object]:
         """Return the initial state for one bounded training workflow."""
+        initial_policy_params = _trace_snapshot(self._policy.get_params())
         return {
             "episode": 0,
             "should_continue": True,
@@ -526,7 +720,8 @@ class ReinforcementLearningPattern(Delegate):
             "best_episode_index": -1,
             "convergence_counter": 0,
             "terminated_reason": None,
-            "initial_policy_params": _trace_snapshot(self._policy.get_params()),
+            "initial_policy_params": initial_policy_params,
+            "final_policy_params": initial_policy_params,
             "episode_traces": [],
         }
 
@@ -560,6 +755,12 @@ class ReinforcementLearningPattern(Delegate):
         elif max_episodes_reached:
             terminated_reason = "max_episodes_reached"
 
+        final_policy_params = loop_state.get("final_policy_params", {})
+        if self._trace_detail == "full" or not should_continue:
+            final_policy_params = _trace_snapshot(self._policy.get_params())
+        if self._trace_detail == "full":
+            episode_trace["policy_params"] = final_policy_params
+
         return {
             "episode": episode_index + 1,
             "should_continue": should_continue,
@@ -569,48 +770,90 @@ class ReinforcementLearningPattern(Delegate):
             "convergence_counter": stability_count,
             "terminated_reason": terminated_reason,
             "initial_policy_params": loop_state.get("initial_policy_params", {}),
+            "final_policy_params": final_policy_params,
             "episode_traces": [*list(loop_state.get("episode_traces", [])), episode_trace],
         }
 
     def _run_episode(self, episode_index: int) -> tuple[float, dict[str, object]]:
         """Collect one trajectory, update the policy, and build its trace snapshot."""
-        state = _normalize_state(self._environment_reset(), name="environment_reset result")
-        trajectory: Trajectory = []
+        observer = cast(TransitionRLPolicy, self._policy).observe_transition if self._uses_transition_updates else None
+        episode_reward, transitions = self._collect_episode(
+            environment_reset=self._environment_reset,
+            environment_step=self._environment_step,
+            action_selector=self._policy.select_action,
+            max_steps=self._max_steps_per_episode,
+            transition_observer=observer,
+        )
+
+        if self._uses_transition_updates:
+            raw_update_stats = cast(TransitionRLPolicy, self._policy).end_episode(tuple(transitions))
+        else:
+            trajectory = [transition.as_legacy_tuple() for transition in transitions]
+            raw_update_stats = cast(RLPolicy, self._policy).update(trajectory)
+        return episode_reward, self._build_episode_trace(
+            episode_index=episode_index,
+            episode_reward=episode_reward,
+            transitions=transitions,
+            update_stats=raw_update_stats,
+        )
+
+    def _collect_episode(
+        self,
+        *,
+        environment_reset: EnvironmentResetDelegate,
+        environment_step: EnvironmentStepDelegate,
+        action_selector: EvaluationActionDelegate,
+        max_steps: int,
+        transition_observer: Callable[[RLTransition], None] | None = None,
+    ) -> tuple[float, list[RLTransition]]:
+        """Collect one bounded episode through shared train/evaluate semantics."""
+        state = _normalize_state(environment_reset(), name="environment_reset result")
         episode_reward = 0.0
-        step_traces: list[dict[str, object]] = []
+        transitions: list[RLTransition] = []
 
-        for step_number in range(self._max_steps_per_episode):
+        for step_number in range(max_steps):
             recorded_state = self._copy_state_for_trajectory(state)
-            action = self._policy.select_action(state)
-            recorded_action = self._copy_action_for_trajectory(action)
-            next_state, normalized_reward, done = self._step_environment(state, action)
-
-            trajectory.append((recorded_state, recorded_action, normalized_reward))
-            step_traces.append(
-                {
-                    "step_num": step_number,
-                    "state": _trace_snapshot(recorded_state),
-                    "action": _trace_snapshot(recorded_action),
-                    "reward": normalized_reward,
-                    "next_state": _trace_snapshot(next_state),
-                    "done": done,
-                }
+            action = action_selector(state)
+            transition = self._step_environment_with(
+                environment_step=environment_step,
+                state=state,
+                action=action,
+                recorded_state=recorded_state,
+                recorded_action=self._copy_action_for_trajectory(action),
+                force_truncated=(step_number + 1 == max_steps),
             )
-            episode_reward += normalized_reward
-            state = next_state
-            if done:
+            transitions.append(transition)
+            if transition_observer is not None:
+                transition_observer(transition)
+            episode_reward += transition.reward
+            state = dict(transition.next_state)
+            if transition.done:
                 break
 
-        update_stats = _trace_snapshot(self._policy.update(trajectory))
-        policy_params = _trace_snapshot(self._policy.get_params())
-        return episode_reward, {
+        return episode_reward, transitions
+
+    def _build_episode_trace(
+        self,
+        *,
+        episode_index: int,
+        episode_reward: float,
+        transitions: Sequence[RLTransition],
+        update_stats: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
+        """Build one episode trace at the configured detail level."""
+        trace: dict[str, object] = {
             "episode": episode_index,
             "episode_reward": episode_reward,
-            "steps": len(trajectory),
-            "step_traces": step_traces,
-            "update_stats": update_stats,
-            "policy_params": policy_params,
+            "steps": len(transitions),
         }
+        if update_stats is not None:
+            trace["update_stats"] = _trace_snapshot(update_stats)
+        if self._trace_detail != "summary":
+            trace["step_traces"] = [
+                self._build_transition_trace(step_number, transition)
+                for step_number, transition in enumerate(transitions)
+            ]
+        return trace
 
     @staticmethod
     def _copy_state_for_trajectory(state: RLState) -> dict[str, object]:
@@ -630,9 +873,66 @@ class ReinforcementLearningPattern(Delegate):
             raise TypeError("copied action must remain a string or mapping.")
         return dict(copied_action) if isinstance(copied_action, Mapping) else copied_action
 
-    def _step_environment(self, state: RLState, action: RLAction) -> tuple[dict[str, object], float, bool]:
-        """Execute and validate one environment transition."""
-        next_state, reward, done = self._environment_step(state, action)
+    def _resolve_evaluation_action_selector(self) -> EvaluationActionDelegate:
+        """Return the policy's explicit deterministic evaluation selector."""
+        selector = getattr(self._policy, "select_evaluation_action", None)
+        if not callable(selector):
+            raise ValueError("Custom policy evaluation requires action_selector or select_evaluation_action(state).")
+        return cast(EvaluationActionDelegate, selector)
+
+    @staticmethod
+    def _build_transition_trace(step_number: int, transition: RLTransition) -> dict[str, object]:
+        """Return one bounded, compatibility-preserving transition trace."""
+        return {
+            "step_num": step_number,
+            "state": _trace_snapshot(transition.state),
+            "action": _trace_snapshot(transition.action),
+            "reward": transition.reward,
+            "next_state": _trace_snapshot(transition.next_state),
+            "terminated": transition.terminated,
+            "truncated": transition.truncated,
+            "done": transition.done,
+            "info": _trace_snapshot(transition.info),
+        }
+
+    def _step_environment(self, state: RLState, action: RLAction) -> RLTransition:
+        """Execute one configured environment step and return a rich transition."""
+        return self._step_environment_with(
+            environment_step=self._environment_step,
+            state=state,
+            action=action,
+            recorded_state=self._copy_state_for_trajectory(state),
+            recorded_action=self._copy_action_for_trajectory(action),
+            force_truncated=False,
+        )
+
+    @classmethod
+    def _step_environment_with(
+        cls,
+        *,
+        environment_step: EnvironmentStepDelegate,
+        state: RLState,
+        action: RLAction,
+        recorded_state: RLState,
+        recorded_action: RLAction,
+        force_truncated: bool,
+    ) -> RLTransition:
+        """Normalize legacy or Gymnasium-style environment output."""
+        raw_result = environment_step(state, action)
+        if not isinstance(raw_result, tuple):
+            raise TypeError("environment_step must return a tuple with 3 or 5 values.")
+        if len(raw_result) == 3:
+            next_state, reward, done = raw_result
+            terminated = done
+            truncated = False
+            info: object = {}
+            termination_name = "done"
+        elif len(raw_result) == 5:
+            next_state, reward, terminated, truncated, info = raw_result
+            termination_name = "terminated"
+        else:
+            raise ValueError("environment_step must return exactly 3 or 5 values.")
+
         normalized_state = _normalize_state(next_state, name="environment_step next_state")
         try:
             normalized_reward = float(reward)
@@ -640,9 +940,22 @@ class ReinforcementLearningPattern(Delegate):
             raise TypeError("environment_step reward must be numeric.") from exc
         if not math.isfinite(normalized_reward):
             raise ValueError("environment_step reward must be finite.")
-        if not isinstance(done, bool):
-            raise TypeError("environment_step done must be a bool.")
-        return normalized_state, normalized_reward, done
+        if not isinstance(terminated, bool):
+            raise TypeError(f"environment_step {termination_name} must be a bool.")
+        if not isinstance(truncated, bool):
+            raise TypeError("environment_step truncated must be a bool.")
+        if not isinstance(info, Mapping):
+            raise TypeError("environment_step info must be a mapping.")
+        normalized_truncated = truncated or (force_truncated and not terminated)
+        return RLTransition(
+            state=cls._copy_state_for_trajectory(recorded_state),
+            action=cls._copy_action_for_trajectory(recorded_action),
+            reward=normalized_reward,
+            next_state=cls._copy_state_for_trajectory(normalized_state),
+            terminated=terminated,
+            truncated=normalized_truncated,
+            info=dict(info),
+        )
 
 
 def _build_reinforcement_learning_result(
@@ -656,6 +969,7 @@ def _build_reinforcement_learning_result(
     value_mode: str,
     convergence_threshold: float | None,
     convergence_episodes: int,
+    trace_detail: str,
     random_seed: int | None,
 ) -> ExecutionResult:
     """Build the final ExecutionResult from one reinforcement learning workflow run."""
@@ -672,11 +986,10 @@ def _build_reinforcement_learning_result(
     )
     raw_episode_traces = final_state.get("episode_traces", [])
     episode_traces = list(raw_episode_traces) if isinstance(raw_episode_traces, Sequence) else []
-    final_policy_params: object = final_state.get("initial_policy_params", {})
-    if episode_traces:
-        final_episode = episode_traces[-1]
-        if isinstance(final_episode, Mapping):
-            final_policy_params = final_episode.get("policy_params", final_policy_params)
+    final_policy_params: object = final_state.get(
+        "final_policy_params",
+        final_state.get("initial_policy_params", {}),
+    )
     return build_pattern_execution_result(
         success=workflow_result.success,
         final_output={
@@ -692,6 +1005,7 @@ def _build_reinforcement_learning_result(
             "max_steps_per_episode": max_steps_per_episode,
             "gamma": gamma,
             "value_mode": value_mode,
+            "trace_detail": trace_detail,
             "initial_policy_params": final_state.get("initial_policy_params", {}),
             "episode_traces": episode_traces,
         },
@@ -707,6 +1021,7 @@ def _build_reinforcement_learning_result(
             "value_mode": value_mode,
             "convergence_threshold": convergence_threshold,
             "convergence_episodes": convergence_episodes,
+            "trace_detail": trace_detail,
             "random_seed": random_seed,
         },
         requested_mode=MODE_REINFORCEMENT_LEARNING,
@@ -717,10 +1032,14 @@ def _build_reinforcement_learning_result(
 __all__ = [
     "EnvironmentResetDelegate",
     "EnvironmentStepDelegate",
+    "EnvironmentStepResult",
     "EpsilonGreedyPolicy",
+    "EvaluationActionDelegate",
     "RLAction",
     "RLPolicy",
     "RLState",
+    "RLTransition",
     "ReinforcementLearningPattern",
     "Trajectory",
+    "TransitionRLPolicy",
 ]

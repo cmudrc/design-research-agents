@@ -104,17 +104,6 @@ def _state_key(state: Mapping[str, object]) -> str:
     return f"angle={angle_bin}:angular_velocity={angular_velocity_bin}"
 
 
-def _greedy_action(state: Mapping[str, object], q_values: Mapping[str, object]) -> tuple[str, bool]:
-    """Select the best learned force and report whether its state was unseen."""
-    raw_values = q_values.get(_state_key(state))
-    values = raw_values if isinstance(raw_values, Mapping) else {}
-    action = max(
-        _ACTIONS,
-        key=lambda candidate: (float(values.get(candidate, 0.0)), -_ACTIONS.index(candidate)),
-    )
-    return action, not values
-
-
 def main() -> None:
     """Learn and evaluate left/right forces against CartPole dynamics."""
     environment = gym.make("CartPole-v1", max_episode_steps=_MAX_BALANCE_STEPS)
@@ -129,12 +118,18 @@ def main() -> None:
     def environment_step(
         state: Mapping[str, object],
         action: str | Mapping[str, object],
-    ) -> tuple[dict[str, object], float, bool]:
+    ) -> tuple[dict[str, object], float, bool, bool, dict[str, object]]:
         del state
         if not isinstance(action, str):
             raise TypeError("CartPole requires a discrete left or right force.")
-        observation, reward, terminated, truncated, _ = environment.step(_ACTION_INDEX[action])
-        return _state_from_observation(observation), float(reward), bool(terminated or truncated)
+        observation, reward, terminated, truncated, info = environment.step(_ACTION_INDEX[action])
+        return (
+            _state_from_observation(observation),
+            float(reward),
+            bool(terminated),
+            bool(truncated),
+            dict(info),
+        )
 
     try:
         pattern = ReinforcementLearningPattern(
@@ -160,21 +155,29 @@ def main() -> None:
         q_values = final_policy_params["q_values"]
         episode_rewards = final_output["episode_rewards"]
 
-        evaluation_steps: list[int] = []
-        unseen_evaluation_states = 0
-        for seed in range(20_000, 20_000 + _EVALUATION_EPISODES):
-            observation, _ = environment.reset(seed=seed)
-            state = _state_from_observation(observation)
-            balanced_steps = 0
-            for _ in range(_MAX_BALANCE_STEPS):
-                action, unseen = _greedy_action(state, q_values)
-                unseen_evaluation_states += int(unseen)
-                observation, _, terminated, truncated, _ = environment.step(_ACTION_INDEX[action])
-                state = _state_from_observation(observation)
-                balanced_steps += 1
-                if terminated or truncated:
-                    break
-            evaluation_steps.append(balanced_steps)
+        evaluation_index = 0
+
+        def evaluation_reset() -> dict[str, object]:
+            nonlocal evaluation_index
+            observation, _ = environment.reset(seed=20_000 + evaluation_index)
+            evaluation_index += 1
+            return _state_from_observation(observation)
+
+        evaluation = pattern.evaluate(
+            episodes=_EVALUATION_EPISODES,
+            max_steps_per_episode=_MAX_BALANCE_STEPS,
+            environment_reset=evaluation_reset,
+            environment_step=environment_step,
+            request_id="example-pattern-reinforcement-learning-cartpole-evaluation-001",
+        )
+        evaluation_output = evaluation.output["final_output"]
+        evaluation_steps = evaluation_output["episode_lengths"]
+        known_state_keys = set(q_values)
+        unseen_evaluation_states = sum(
+            _state_key(step["state"]) not in known_state_keys
+            for trace in evaluation.output["details"]["episode_traces"]
+            for step in trace["step_traces"]
+        )
     finally:
         environment.close()
 
@@ -188,8 +191,8 @@ def main() -> None:
                 "first_20_mean_steps": round(sum(episode_rewards[:20]) / 20, 1),
                 "last_20_mean_steps": round(sum(episode_rewards[-20:]) / 20, 1),
                 "learned_state_bins": len(q_values),
-                "evaluation_episodes": len(evaluation_steps),
-                "evaluation_mean_steps": round(sum(evaluation_steps) / len(evaluation_steps), 1),
+                "evaluation_episodes": evaluation_output["episodes_completed"],
+                "evaluation_mean_steps": round(float(evaluation_output["mean_steps"]), 1),
                 "evaluation_min_steps": min(evaluation_steps),
                 "unseen_evaluation_states": unseen_evaluation_states,
             },

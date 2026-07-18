@@ -118,6 +118,17 @@ def test_pattern_validates_convergence_episodes() -> None:
             )
 
 
+def test_pattern_validates_trace_detail() -> None:
+    reset, step = _bandit_env()
+    with pytest.raises(ValueError, match="trace_detail"):
+        ReinforcementLearningPattern(
+            environment_reset=reset,
+            environment_step=step,
+            actions=["good", "bad"],
+            trace_detail="verbose",
+        )
+
+
 def test_pattern_requires_policy_or_actions() -> None:
     reset, step = _bandit_env()
     with pytest.raises(ValueError, match="Either policy or actions"):
@@ -346,7 +357,7 @@ def test_default_run_does_not_stop_on_stable_rewards() -> None:
     assert result.output["final_output"]["episodes_completed"] == 7
 
 
-def test_policy_params_are_snapshotted_once_per_episode_without_duplicate_history() -> None:
+def test_default_trace_keeps_only_initial_and_final_policy_snapshots() -> None:
     class _CountingPolicy:
         def __init__(self) -> None:
             self.updates = 0
@@ -375,16 +386,48 @@ def test_policy_params_are_snapshotted_once_per_episode_without_duplicate_histor
     result = pattern.run("learn", request_id="rl-test-snapshots")
     details = result.output["details"]
 
-    assert policy.get_params_calls == 4  # initial snapshot plus one per episode
+    assert policy.get_params_calls == 2
     assert details["initial_policy_params"] == {"updates": 0}
     assert "policy_params_history" not in details
-    assert [trace["policy_params"] for trace in details["episode_traces"]] == [
+    assert all("policy_params" not in trace for trace in details["episode_traces"])
+    assert result.output["final_output"]["final_policy_params"] == {"updates": 3}
+    assert result.output["workflow"]["step_results"]["rl_loop"]["output"]["iteration_results"] == []
+
+
+def test_full_trace_keeps_one_policy_snapshot_per_episode() -> None:
+    class _CountingPolicy:
+        def __init__(self) -> None:
+            self.updates = 0
+            self.get_params_calls = 0
+
+        def select_action(self, state: RLState) -> str:
+            return "good"
+
+        def update(self, trajectory: Trajectory) -> dict[str, object]:
+            self.updates += 1
+            return {"updates": self.updates}
+
+        def get_params(self) -> dict[str, object]:
+            self.get_params_calls += 1
+            return {"updates": self.updates}
+
+    reset, step = _bandit_env()
+    policy = _CountingPolicy()
+    result = ReinforcementLearningPattern(
+        environment_reset=reset,
+        environment_step=step,
+        policy=policy,
+        max_episodes=3,
+        max_steps_per_episode=1,
+        trace_detail="full",
+    ).run("learn", request_id="rl-test-full-snapshots")
+
+    assert policy.get_params_calls == 4
+    assert [trace["policy_params"] for trace in result.output["details"]["episode_traces"]] == [
         {"updates": 1},
         {"updates": 2},
         {"updates": 3},
     ]
-    assert result.output["final_output"]["final_policy_params"] == {"updates": 3}
-    assert result.output["workflow"]["step_results"]["rl_loop"]["output"]["iteration_results"] == []
 
 
 def test_private_reward_stability_criterion_resets_after_reward_change() -> None:
@@ -437,6 +480,8 @@ def test_episode_stops_at_max_steps_when_never_done() -> None:
 
     assert trace["steps"] == 4
     assert len(trace["step_traces"]) == 4
+    assert trace["step_traces"][-1]["terminated"] is False
+    assert trace["step_traces"][-1]["truncated"] is True
 
 
 # ---------------------- Trace capture ----------------------
@@ -457,11 +502,22 @@ def test_traces_capture_states_actions_rewards_and_updates() -> None:
 
     assert len(traces) == result.output["final_output"]["episodes_completed"]
     first = traces[0]
-    assert set(first) >= {"episode", "episode_reward", "steps", "step_traces", "update_stats", "policy_params"}
+    assert set(first) >= {"episode", "episode_reward", "steps", "step_traces", "update_stats"}
+    assert "policy_params" not in first
     assert first["steps"] >= 1
 
     first_step = first["step_traces"][0]
-    assert set(first_step) >= {"step_num", "state", "action", "reward", "next_state", "done"}
+    assert set(first_step) >= {
+        "step_num",
+        "state",
+        "action",
+        "reward",
+        "next_state",
+        "terminated",
+        "truncated",
+        "done",
+        "info",
+    }
     assert "position" in first_step["state"]
     assert first_step["action"] in {"left", "right", "stay"}
     assert isinstance(first_step["reward"], float)

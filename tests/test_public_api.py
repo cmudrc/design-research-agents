@@ -66,9 +66,12 @@ EXPECTED_PATTERNS_API = [
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
     "ReinforcementLearningPattern",
+    "RLTransition",
     "TreeSearchPattern",
 ]
-EXPECTED_PATTERN_CLASSES = [name for name in EXPECTED_PATTERNS_API if name != "ProposeCriticResult"]
+EXPECTED_PATTERN_CLASSES = [
+    name for name in EXPECTED_PATTERNS_API if name not in {"ProposeCriticResult", "RLTransition"}
+]
 EXPECTED_SCHEDULE_API = [
     "AdaptiveSchedule",
     "ExponentialSchedule",

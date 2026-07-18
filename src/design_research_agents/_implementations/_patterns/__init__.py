@@ -11,6 +11,7 @@ from ._reinforcement_learning_pattern import (
     EpsilonGreedyPolicy,
     ReinforcementLearningPattern,
     RLPolicy,
+    RLTransition,
 )
 from ._round_based_coordination_pattern import RoundBasedCoordinationPattern
 from ._router_delegate_pattern import RouterDelegatePattern
@@ -39,6 +40,7 @@ __all__ = [
     "ProposeCriticResult",
     "RAGPattern",
     "RLPolicy",
+    "RLTransition",
     "RalphLoopPattern",
     "ReinforcementLearningPattern",
     "RoundBasedCoordinationPattern",

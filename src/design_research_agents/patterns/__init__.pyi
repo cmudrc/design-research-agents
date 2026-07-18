@@ -11,6 +11,7 @@ from design_research_agents._implementations._patterns import RalphLoopPattern a
 from design_research_agents._implementations._patterns import (
     ReinforcementLearningPattern as ReinforcementLearningPattern,
 )
+from design_research_agents._implementations._patterns import RLTransition as RLTransition
 from design_research_agents._implementations._patterns import (
     RoundBasedCoordinationPattern as RoundBasedCoordinationPattern,
 )

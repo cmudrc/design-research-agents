@@ -16,6 +16,10 @@ small policy paths:
 - ``policy`` accepts any object implementing the structural custom-policy
   contract.
 
+The pattern owns one training run and optional frozen-policy evaluation. Study
+replicates, condition scheduling, checkpoints, and statistical comparisons stay
+with the sibling experiments and analysis libraries.
+
 Global Action Values
 --------------------
 
@@ -72,7 +76,8 @@ optional environment dependency with
 
 The example deliberately omits a preprogrammed feedback controller. Its
 evaluation reports learning progress, held-out balance duration, table size, and
-whether evaluation encountered any state bins absent from training.
+whether evaluation encountered any state bins absent from training. It calls
+``pattern.evaluate(...)`` rather than reading the Q-table to execute the policy.
 
 Tabular State-Action Values
 ---------------------------
@@ -99,13 +104,35 @@ This tabular mode estimates :math:`Q(s, a)` from complete episode returns. It is
 not one-step Q-learning and does not approximate values for unseen or continuous
 states. Use a custom policy for those settings.
 
+Environment Transitions
+-----------------------
+
+Existing environments can continue returning the compact three-value result:
+
+.. code-block:: python
+
+   next_state, reward, done
+
+New environments should prefer the Gymnasium-style five-value result:
+
+.. code-block:: python
+
+   next_state, reward, terminated, truncated, info
+
+``terminated`` means the environment reached an MDP terminal state.
+``truncated`` means an external limit, such as a time or step budget, ended the
+episode. The pattern also marks its own ``max_steps_per_episode`` limit as a
+truncation. Both forms produce a normalized ``RLTransition`` containing the
+pre-action state, action, reward, next state, terminal flags, and auxiliary
+``info`` mapping.
+
 Custom Policies And LLM Actors
 ------------------------------
 
 For function approximation, continuous actions, external RL libraries, or
-LLM-backed action selection, provide ``policy`` and omit ``actions`` and
+agent-backed action selection, provide ``policy`` and omit ``actions`` and
 ``state_key``. The object is structural; it does not need to inherit from a
-package base class:
+package base class. Existing episode-updated policies remain valid:
 
 .. code-block:: python
 
@@ -121,13 +148,81 @@ package base class:
 
 ``select_action`` may return a string or mapping. ``update`` receives one
 episode as ``(state, action, reward)`` tuples. ``update`` statistics and
-``get_params`` snapshots should be JSON-safe; trace capture also applies a
-bounded best-effort normalization so logging cannot alter execution values.
+``get_params`` output should be JSON-safe. For a large model, return compact
+metadata or a checkpoint reference rather than model weights.
+
+A policy that needs immediate transition updates can replace ``update`` with
+the following paired hooks:
+
+.. code-block:: python
+
+   class OnlinePolicy:
+       def select_action(self, state):
+           ...
+
+       def observe_transition(self, transition):
+           # Learn from one RLTransition immediately.
+           ...
+
+       def end_episode(self, transitions):
+           return {"loss": 0.0}
+
+       def get_params(self):
+           return {"checkpoint": "episode-latest"}
+
+``observe_transition`` and ``end_episode`` must be implemented together. This
+small lifecycle supports online custom policies without introducing a trainer,
+replay buffer, or tensor framework into this package.
 
 The :doc:`../examples/patterns/reinforcement_learning_custom_policy` example
-injects an actor callable into a feedback-guided policy. Its deterministic actor
-can be replaced by a callable that invokes an LLM with the current state and
-accumulated reward memory.
+uses ``DirectLLMCall`` as the policy actor. The agent receives the current design
+stage, available actions, and accumulated reward memory, then returns one JSON
+action. A deterministic local client keeps the example offline; another LLM
+client can be substituted without changing the RL orchestration.
+
+Evaluation And Replicated Studies
+---------------------------------
+
+``pattern.evaluate(...)`` executes the current policy without updating it. The
+built-in policy uses deterministic greedy actions. A custom policy must provide
+``select_evaluation_action(state)`` or the caller must pass ``action_selector``.
+Evaluation can use separate reset and step callables for held-out environments:
+
+.. code-block:: python
+
+   evaluation = pattern.evaluate(
+       episodes=50,
+       environment_reset=held_out_reset,
+       environment_step=environment_step,
+   )
+   mean_reward = evaluation.output["final_output"]["mean_reward"]
+
+Do not add another replicate loop around the pattern for a research study.
+``design-research-experiments`` already owns deterministic seeds, independent
+replicates, parallel execution, resume, and canonical artifacts. Use one study
+run to construct, train, and evaluate one fresh policy:
+
+.. code-block:: python
+
+   import design_research_experiments as drex
+
+
+   def run_condition(run_spec, condition):
+       pattern = build_pattern(seed=run_spec.seed, condition=condition)
+       training = pattern.run("Train the policy.")
+       evaluation = pattern.evaluate(episodes=20)
+       return drex.RunOutput(
+           outputs={"training": training.summary()},
+           metrics={
+               "primary_outcome": evaluation.output["final_output"]["mean_reward"],
+           },
+       )
+
+   results = drex.run_study(study, condition_runner=run_condition)
+
+Exported run and evaluation tables can then be passed to
+``design-research-analysis`` for bootstrap intervals, effects, and condition
+comparisons.
 
 Stopping Semantics
 ------------------
@@ -147,19 +242,24 @@ The canonical result includes:
 
 - ``final_output``: best reward and episode, episode count, reward history, and
   final policy parameters;
-- ``details``: configuration, the initial policy snapshot, and per-episode
-  transition traces with one post-update policy snapshot each;
+- ``details``: configuration, the initial policy snapshot, and configurable
+  per-episode traces;
 - ``metadata``: mode, value mode, request id, dependency keys, reproducibility
   settings, and output-contract version; and
 - ``workflow``: the underlying loop execution payload.
 
-Trace states, actions, policy statistics, and policy parameters are recursively
-normalized into bounded JSON-safe snapshots. The policy trajectory receives
-defensive copies of states and actions so later in-place environment mutation
+``trace_detail="summary"`` retains episode metrics only.
+``trace_detail="transitions"`` is the default and adds normalized step
+transitions. ``trace_detail="full"`` also stores one policy snapshot after every
+episode. The final policy state is always retained regardless of trace detail.
+
+Trace states, actions, ``info``, policy statistics, and optional policy
+parameters are recursively normalized into bounded JSON-safe snapshots. Policy
+experience receives defensive copies so later in-place environment mutation
 cannot rewrite prior experience.
 
-Full transition traces still grow with episodes and steps. Keep bounds deliberate
-when states or policy snapshots are large.
+Transition traces still grow with episodes and steps. Prefer ``summary`` for
+large studies and ``full`` only while debugging small policies.
 
 Reproducibility And Reuse
 -------------------------
@@ -178,4 +278,7 @@ Reference
   <http://incompleteideas.net/book/the-book-2nd.html>`_
 - `Reflexion: Language Agents with Verbal Reinforcement Learning
   <https://arxiv.org/abs/2303.11366>`_
+- `Agent Lightning: Train ANY AI Agents with Reinforcement Learning
+  <https://arxiv.org/abs/2508.03680>`_
+- `Gymnasium environment API <https://gymnasium.farama.org/api/env/>`_
 - `Python typing protocols <https://typing.python.org/en/latest/spec/protocol.html>`_
