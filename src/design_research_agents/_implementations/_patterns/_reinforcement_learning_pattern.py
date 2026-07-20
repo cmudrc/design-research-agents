@@ -285,12 +285,12 @@ class EpsilonGreedyPolicy:
 
     def select_evaluation_action(self, state: RLState) -> str:
         """Return a deterministic greedy action without changing exploration state.
-        
+
         Evaluation is intentionally deterministic and does not advance the
         training RNG, so repeated evaluations of a frozen policy are reproducible.
         Two cases resolve by the order actions were passed to the constructor,
         which makes that ordering an explicit tie-break polciy:
-        
+
         - Unseen state: a state visited during training has no value table,
           so the first configured action is returned.
         - Tie: when several actions share the best value, the first such action in

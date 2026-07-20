@@ -293,7 +293,7 @@ def test_evaluation_tie_break_and_unseen_follow_constructor_order() -> None:
     # An unseen tabular state has no value table and falls back to the first action.
     tabular = EpsilonGreedyPolicy(actions=["b", "a"], epsilon=0.0, state_key=lambda state: str(state["k"]))
     assert tabular.select_evaluation_action({"k": "unseen"}) == "b"
-    
+
 
 @pytest.mark.parametrize("invalid_key", ["", 7])
 def test_policy_validates_state_keys(invalid_key: object) -> None:
