@@ -205,12 +205,13 @@ class TransitionRLPolicy(Protocol):
 
 
 class EpsilonGreedyPolicy:
-    """Epsilon-greedy policy with global or tabular Monte Carlo updates.
+    """Epsilon-greedy policy with global or tabular first-visit Monte Carlo updates.
 
     Without ``state_key``, the policy estimates one global value per action.
-    With ``state_key``, it estimates one value per state-action pair. Both modes
-    are intended for small discrete action spaces; use a custom ``RLPolicy`` for
-    function approximation or continuous actions.
+    With ``state_key``, it estimates one value per state-action pair. Value
+    estimates use first-visit Monte Carlo over complete episode returns. Both
+    modes are intended for small discrete action spaces; use a custom
+    ``RLPolicy`` for function approximation or continuous actions.
     """
 
     def __init__(
@@ -283,7 +284,18 @@ class EpsilonGreedyPolicy:
         return self._rng.choice(best_actions)
 
     def select_evaluation_action(self, state: RLState) -> str:
-        """Return a deterministic greedy action without changing exploration state."""
+        """Return a deterministic greedy action without changing exploration state.
+        
+        Evaluation is intentionally deterministic and does not advance the
+        training RNG, so repeated evaluations of a frozen policy are reproducible.
+        Two cases resolve by the order actions were passed to the constructor,
+        which makes that ordering an explicit tie-break polciy:
+        
+        - Unseen state: a state visited during training has no value table,
+          so the first configured action is returned.
+        - Tie: when several actions share the best value, the first such action in
+          constructor order is returned.
+        """
         state_values = self._values.get(self._resolve_state_key(state))
         if state_values is None:
             return self._actions[0]
