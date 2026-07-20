@@ -84,7 +84,7 @@ Tabular State-Action Values
 
 Pass ``state_key`` when the best action depends on a small discrete state. The
 callable must return a stable non-empty string. The built-in policy then records
-discounted Monte Carlo returns for each state-action pair:
+discounted first-visit Monte Carlo returns for each state-action pair:
 
 .. code-block:: python
 
@@ -100,9 +100,11 @@ discounted Monte Carlo returns for each state-action pair:
    result = pattern.run("Learn a stage-dependent design strategy.")
    q_values = result.output["final_output"]["final_policy_params"]["q_values"]
 
-This tabular mode estimates :math:`Q(s, a)` from complete episode returns. It is
-not one-step Q-learning and does not approximate values for unseen or continuous
-states. Use a custom policy for those settings.
+This tabular mode estimates :math:`Q(s, a)` with first-visit Monte Carlo over
+complete episode returns: when the same state-action pair recurs within one
+episode, only the return following its first occurrence updates the estimate. It
+is not one-step Q-learning and does not approximate values for unseen or
+continuous states. Use a custom policy for those settings.
 
 Environment Transitions
 -----------------------
@@ -184,9 +186,15 @@ Evaluation And Replicated Studies
 ---------------------------------
 
 ``pattern.evaluate(...)`` executes the current policy without updating it. The
-built-in policy uses deterministic greedy actions. A custom policy must provide
-``select_evaluation_action(state)`` or the caller must pass ``action_selector``.
-Evaluation can use separate reset and step callables for held-out environments:
+built-in policy uses deterministic greedy actions and does not advance the
+training RNG, so repeated evaluations of a frozen policy are reproducible.
+Deterministic evaluation resolves two cases by the order actions were passed to
+the constructor: a tie for the best value selects the first such action, and a
+state never seen during training falls back to the first configured action.
+Training-time selection instead breaks ties uniformly at random. A custom policy
+must provide ``select_evaluation_action(state)`` or the caller must pass
+``action_selector``. Evaluation can use separate reset and step callables for
+held-out environments:
 
 .. code-block:: python
 
