@@ -71,14 +71,7 @@ class _SdkStdioMcpClient:
                             read_stream,
                             write_stream,
                             read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
-<<<<<<< HEAD
-                            client_info=types_module.Implementation(
-                                name="design-research-agents",
-                                version="0.4.1",
-                            ),
-=======
                             client_info=_client_info(types_module),
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
                         ) as session:
                             await session.initialize()
                             listed = await session.list_tools()
@@ -115,14 +108,7 @@ class _SdkStdioMcpClient:
                             read_stream,
                             write_stream,
                             read_timeout_seconds=timedelta(seconds=self._server.timeout_s),
-<<<<<<< HEAD
-                            client_info=types_module.Implementation(
-                                name="design-research-agents",
-                                version="0.4.1",
-                            ),
-=======
                             client_info=_client_info(types_module),
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
                         ) as session:
                             await session.initialize()
                             result = await session.call_tool(tool_name, dict(arguments))

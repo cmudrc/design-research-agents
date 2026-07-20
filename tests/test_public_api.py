@@ -66,10 +66,7 @@ EXPECTED_PATTERNS_API = [
     "RouterDelegatePattern",
     "SimulatedAnnealingPattern",
     "ReinforcementLearningPattern",
-<<<<<<< HEAD
-=======
     "RLTransition",
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
     "TreeSearchPattern",
 ]
 EXPECTED_PATTERN_CLASSES = [

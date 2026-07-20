@@ -7,16 +7,6 @@
 [![PyPI Version](https://img.shields.io/pypi/v/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 
-<<<<<<< HEAD
-<!-- release-callout:start -->
-> [!IMPORTANT]
-> Current monthly release: [Johnson Jumpstart - June 2026](https://github.com/cmudrc/design-research-agents/milestone/5)  
-> Due: July 1, 2026  
-> Tracks: June 2026 work
-<!-- release-callout:end -->
-
-=======
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
 `design-research-agents` is the agent-execution layer in the cmudrc design
 research ecosystem.
 

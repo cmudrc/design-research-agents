@@ -1,56 +1,5 @@
 """Shared implementation exports, resolved lazily to keep runtime layers independent."""
 
-<<<<<<< HEAD
-from ._agents import (
-    DirectLLMCall,
-    MultiStepAgent,
-)
-from ._patterns import (
-    AdaptiveSchedule,
-    BlackboardPattern,
-    DebatePattern,
-    EpsilonGreedyPolicy,
-    ExponentialSchedule,
-    LinearSchedule,
-    LogarithmicSchedule,
-    NominalTeamPattern,
-    PlanExecutePattern,
-    ProposeCriticPattern,
-    RAGPattern,
-    RalphLoopPattern,
-    ReinforcementLearningPattern,
-    RoundBasedCoordinationPattern,
-    RouterDelegatePattern,
-    SimulatedAnnealingPattern,
-    TemperatureSchedule,
-    TreeSearchPattern,
-    TwoSpeakerConversationPattern,
-)
-
-__all__ = [
-    "AdaptiveSchedule",
-    "BlackboardPattern",
-    "DebatePattern",
-    "DirectLLMCall",
-    "EpsilonGreedyPolicy",
-    "ExponentialSchedule",
-    "LinearSchedule",
-    "LogarithmicSchedule",
-    "MultiStepAgent",
-    "NominalTeamPattern",
-    "PlanExecutePattern",
-    "ProposeCriticPattern",
-    "RAGPattern",
-    "RalphLoopPattern",
-    "ReinforcementLearningPattern",
-    "RoundBasedCoordinationPattern",
-    "RouterDelegatePattern",
-    "SimulatedAnnealingPattern",
-    "TemperatureSchedule",
-    "TreeSearchPattern",
-    "TwoSpeakerConversationPattern",
-]
-=======
 from __future__ import annotations
 
 from typing import Final
@@ -114,4 +63,3 @@ def __dir__() -> list[str]:
         Sorted attribute names visible on this module.
     """
     return module_dir(globals(), __all__)
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477

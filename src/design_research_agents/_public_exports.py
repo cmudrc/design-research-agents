@@ -44,10 +44,7 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
     "ReinforcementLearningPattern": "design_research_agents.patterns:ReinforcementLearningPattern",
-<<<<<<< HEAD
-=======
     "RLTransition": "design_research_agents.patterns:RLTransition",
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
     "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
     "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
     "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",

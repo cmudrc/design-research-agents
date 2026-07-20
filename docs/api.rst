@@ -327,14 +327,11 @@ top-level ``run()`` convenience wrapper until you call ``compiled.run()``.
    :members:
    :undoc-members:
 
-<<<<<<< HEAD
-=======
 .. autoclass:: design_research_agents.RLTransition
    :members:
    :undoc-members:
    :no-index:
 
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
 Temperature Schedules
 ^^^^^^^^^^^^^^^^^^^^^
 

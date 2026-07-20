@@ -20,10 +20,7 @@ _EXPORTS: Final[dict[str, str]] = {
     "RouterDelegatePattern": "design_research_agents._implementations._patterns:RouterDelegatePattern",
     "SimulatedAnnealingPattern": "design_research_agents._implementations._patterns:SimulatedAnnealingPattern",
     "ReinforcementLearningPattern": "design_research_agents._implementations._patterns:ReinforcementLearningPattern",
-<<<<<<< HEAD
-=======
     "RLTransition": "design_research_agents._implementations._patterns:RLTransition",
->>>>>>> 77df08ad501aebf3994ba244d33bfff09fcd7477
     "TreeSearchPattern": "design_research_agents._implementations._patterns:TreeSearchPattern",
 }
 
