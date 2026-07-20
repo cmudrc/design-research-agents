@@ -291,7 +291,12 @@ class EpsilonGreedyPolicy:
         return next(action for action in self._actions if state_values[action] == best_value)
 
     def update(self, trajectory: Trajectory) -> dict[str, object]:
-        """Compute discounted episode returns and update configured value tables."""
+        """Compute discounted episode returns and update configured value tables.
+
+        This implementation uses first-visit Monte Carlo episode returns.
+        When the same state-action pair recurs within one episode, only the return
+        following its first occurrence updates the estimate.
+        """
         if not trajectory:
             return {"mean_return": 0.0}
 
@@ -301,13 +306,18 @@ class EpsilonGreedyPolicy:
         for t in range(n - 2, -1, -1):
             returns[t] = trajectory[t][2] + self._gamma * returns[t + 1]
 
-        normalized_experience: list[tuple[str, str, float]] = []
+        first_visits: list[tuple[str, str, float]] = []
+        seen_pairs: set[tuple[str, str]] = set()
         for index, (state, action, _) in enumerate(trajectory):
             if not isinstance(action, str) or action not in self._actions:
                 raise ValueError("trajectory contains an action not configured for this policy.")
-            normalized_experience.append((self._resolve_state_key(state), action, returns[index]))
+            pair = (self._resolve_state_key(state), action)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            first_visits.append((pair[0], pair[1], returns[index]))
 
-        for state_key, action, observed_return in normalized_experience:
+        for state_key, action, observed_return in first_visits:
             state_values, state_counts = self._tables_for_key(state_key)
             state_counts[action] += 1
             count = state_counts[action]
