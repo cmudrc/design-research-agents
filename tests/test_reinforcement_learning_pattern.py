@@ -270,6 +270,31 @@ def test_policy_estimates_tabular_state_action_values() -> None:
     assert policy.select_action({"stage": "detail"}) == "refine"
 
 
+def test_policy_update_uses_first_visit_monte_carlo() -> None:
+    # The same (state, action) pair occurs twice in one episode. First-visit MC
+    # counts only the first occurrence, so the estimate is the return following
+    # that first visit (1.0 + 1.0 * 3.0 = 4.0), not the every-visit average of
+    # the two visits' returns.
+    policy = EpsilonGreedyPolicy(actions=["a"], epsilon=0.0, gamma=1.0)
+    trajectory: Trajectory = [({"s": 0}, "a", 1.0), ({"s": 0}, "a", 3.0)]
+
+    policy.update(trajectory)
+    params = policy.get_params()
+
+    assert params["action_values"]["a"] == pytest.approx(4.0)
+    assert params["action_counts"]["a"] == 1
+
+
+def test_evaluation_tie_break_and_unseen_follow_constructor_order() -> None:
+    # Deterministc evaluation resolves all-zero ties by constructor order.
+    assert EpsilonGreedyPolicy(actions=["a", "b"], epsilon=0.0).select_evaluation_action({"s": 0}) == "a"
+    assert EpsilonGreedyPolicy(actions=["b", "a"], epsilon=0.0).select_evaluation_action({"s": 0}) == "b"
+
+    # An unseen tabular state has no value table and falls back to the first action.
+    tabular = EpsilonGreedyPolicy(actions=["b", "a"], epsilon=0.0, state_key=lambda state: str(state["k"]))
+    assert tabular.select_evaluation_action({"k": "unseen"}) == "b"
+    
+
 @pytest.mark.parametrize("invalid_key", ["", 7])
 def test_policy_validates_state_keys(invalid_key: object) -> None:
     policy = EpsilonGreedyPolicy(
