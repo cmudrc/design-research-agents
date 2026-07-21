@@ -43,6 +43,8 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "BlackboardPattern": "design_research_agents.patterns:BlackboardPattern",
     "TreeSearchPattern": "design_research_agents.patterns:TreeSearchPattern",
     "RAGPattern": "design_research_agents.patterns:RAGPattern",
+    "ReinforcementLearningPattern": "design_research_agents.patterns:ReinforcementLearningPattern",
+    "RLTransition": "design_research_agents.patterns:RLTransition",
     "SimulatedAnnealingPattern": "design_research_agents.patterns:SimulatedAnnealingPattern",
     "AdaptiveSchedule": "design_research_agents._implementations._patterns:AdaptiveSchedule",
     "ExponentialSchedule": "design_research_agents._implementations._patterns:ExponentialSchedule",

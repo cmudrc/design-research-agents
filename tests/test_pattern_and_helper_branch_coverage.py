@@ -6,7 +6,7 @@ import pytest
 
 from design_research_agents._contracts._execution import ExecutionResult
 from design_research_agents._contracts._llm import LLMResponse
-from design_research_agents._contracts._tools import ToolResult, ToolRuntime, ToolSpec
+from design_research_agents._contracts._tools import ToolCostHints, ToolResult, ToolRuntime, ToolSpec
 from design_research_agents._implementations._patterns import _router_delegate_pattern as routing_impl
 from design_research_agents._implementations._shared._agent_internal import (
     AgentRoutingToolRuntimeAdapter,
@@ -51,6 +51,32 @@ class _SingleToolRuntime(ToolRuntime):
         del exc_type, exc, tb
         self.close()
         return None
+
+
+def test_workflow_budget_tracker_counts_unpriced_and_priced_tools() -> None:
+    tracker = WorkflowBudgetTracker()
+    priced_spec = ToolSpec(
+        name="priced",
+        description="A tool with an estimated invocation cost.",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+        cost_hints=ToolCostHints(usd_cost_estimate=0.125),
+    )
+
+    tracker.add_tool_results(
+        tool_results=[
+            ToolResult(tool_name="unregistered", ok=True),
+            ToolResult(tool_name="priced", ok=True),
+        ],
+        tool_specs={"priced": priced_spec},
+    )
+
+    assert tracker.as_metadata() == {
+        "observed_latency_ms": 0,
+        "observed_model_calls": 0,
+        "observed_tool_calls": 2,
+        "observed_estimated_usd": 0.125,
+    }
 
 
 def test_code_action_step_workflow_helpers_cover_success_and_failure_branches() -> None:

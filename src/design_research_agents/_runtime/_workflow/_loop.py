@@ -45,6 +45,7 @@ def run_loop_step(
 
     current_state = dict(step.initial_state or {})
     iteration_results: list[ExecutionResult] = []
+    iterations_executed = 0
     terminated_reason = "max_iterations_reached"
     parent_dependency_results = step_context.get("dependency_results")
     parent_dependency_snapshot = (
@@ -80,7 +81,9 @@ def run_loop_step(
             request_id=f"{request_id}:workflow:{step_id}:loop:{iteration}",
             dependencies=dependencies,
         )
-        iteration_results.append(iteration_result)
+        iterations_executed += 1
+        if step.retain_iteration_results:
+            iteration_results.append(iteration_result)
 
         if step.state_reducer is not None:
             # Reducer output becomes the full next-state payload (not a patch merge).
@@ -107,7 +110,7 @@ def run_loop_step(
     output = {
         "success": terminated_reason != "iteration_failed",
         "iterations": step.max_iterations,
-        "iterations_executed": len(iteration_results),
+        "iterations_executed": iterations_executed,
         "terminated_reason": terminated_reason,
         "final_state": dict(current_state),
         "iteration_results": [result.to_dict() for result in iteration_results],

@@ -407,6 +407,8 @@ class LoopStep:
     """Execution mode used for nested loop-body workflow runs."""
     failure_policy: WorkflowFailurePolicy = "skip_dependents"
     """Failure handling policy applied within each loop iteration run."""
+    retain_iteration_results: bool = True
+    """Whether the final loop output retains each complete iteration result."""
     artifacts_builder: WorkflowArtifactsBuilder | None = None
     """Optional callback that extracts user-facing artifact manifests from step context."""
 

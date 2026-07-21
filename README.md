@@ -37,7 +37,8 @@ This package centers on reproducible agent workflows with a compact public API:
 - Workflow primitives for model, tool, delegate, loop, and memory steps
 - A tool runtime built around `Toolbox`, with callable, script, and MCP-backed tool configs
 - Hosted and local LLM clients, model flights/catalogs, and `ModelSelector` for backend-selection policies
-- Prebuilt coordination and reasoning patterns for plan/execute, propose/critic, debate, routing, round-based coordination, blackboard, tree search, Ralph loops, nominal teams, RAG, and conversation
+- Prebuilt patterns for coordination, reasoning, tree search, simulated annealing,
+  and reinforcement learning
 - Tracing, structured `ExecutionResult` outputs, and runnable examples aimed at repeatable experiments
 
 ## A Super Basic Agent
@@ -78,12 +79,13 @@ PYTHONPATH=src python examples/agents/direct_llm_call.py
 ```
 
 The base-install path uses `OpenAICompatibleHTTPLLMClient` and expects a running
-OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
-tooling only; backend runtimes are explicit extras. Use
+OpenAI-compatible endpoint. Contributor setup (`make dev`) installs the test,
+documentation, and deterministic-example dependencies; model backends remain
+explicit extras. Use
 `design-research-agents[full]` for the hosted + local backend bundle and
-`design-research-agents[all]` when you also want the optional ChromaDB and
-graph-memory backends. Use `design-research-agents[huggingface]` when you only
-need Hugging Face Hub metadata for catalog discovery.
+`design-research-agents[all]` when you also want the optional memory backends and
+Gymnasium reference environments. Use `design-research-agents[huggingface]` when
+you only need Hugging Face Hub metadata for catalog discovery.
 
 For frozen installs, extras, and release maintenance, see
 [Dependencies and Extras](https://cmudrc.github.io/design-research-agents/dependencies_and_extras.html).
@@ -125,7 +127,9 @@ Top-level exports include:
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
-- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, and RAG
+- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops,
+  nominal teams, routing, round-based coordination, blackboard, tree search,
+  RAG, simulated annealing, and reinforcement learning
 - LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
 - Runtime services: `design_research_agents.model_selection`, `ModelFlightRegistry`,
   `ModelCatalog`, `ModelSelector`, and `Tracer`

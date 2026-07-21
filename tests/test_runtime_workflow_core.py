@@ -206,6 +206,27 @@ def test_workflow_runtime_loop_step_carries_state_across_iterations() -> None:
     assert loop_output["final_state"]["value"] == 16
 
 
+def test_workflow_runtime_loop_step_can_discard_iteration_results() -> None:
+    workflow = WorkflowRuntime()
+    result = workflow.run(
+        [
+            LoopStep(
+                step_id="compact_loop",
+                steps=(LogicStep(step_id="tick", handler=lambda context: {"value": 1}),),
+                max_iterations=3,
+                retain_iteration_results=False,
+                execution_mode="sequential",
+            )
+        ],
+        execution_mode="sequential",
+    )
+    loop_output = result.step_results["compact_loop"].output
+
+    assert result.success
+    assert loop_output["iterations_executed"] == 3
+    assert loop_output["iteration_results"] == []
+
+
 def test_workflow_runtime_sequential_raises_for_unresolved_dependencies() -> None:
     workflow = WorkflowRuntime()
     steps = [

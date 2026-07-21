@@ -67,8 +67,8 @@ Highlights
 - Model-selection policies with local and remote catalogs
 - Tool contracts and schemas for safe, structured I/O
 - Tracing hooks and emitters for debugging, evaluation, and reproducibility
-- Workflow-native memory and reusable reasoning patterns including tree search,
-  Ralph loops, nominal teams, debate, and RAG
+- Workflow-native memory and reusable patterns including tree search, Ralph
+  loops, debate, RAG, simulated annealing, and reinforcement learning
 - Runnable examples for deterministic validation and experimentation
 
 The public surface is intentionally layered: start with ``DirectLLMCall`` for
