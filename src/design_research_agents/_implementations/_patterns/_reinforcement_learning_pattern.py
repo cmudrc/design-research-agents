@@ -289,9 +289,9 @@ class EpsilonGreedyPolicy:
         Evaluation is intentionally deterministic and does not advance the
         training RNG, so repeated evaluations of a frozen policy are reproducible.
         Two cases resolve by the order actions were passed to the constructor,
-        which makes that ordering an explicit tie-break polciy:
+        which makes that ordering an explicit tie-break policy:
 
-        - Unseen state: a state visited during training has no value table,
+        - Unseen state: a state not visited during training has no value table,
           so the first configured action is returned.
         - Tie: when several actions share the best value, the first such action in
           constructor order is returned.

@@ -285,6 +285,25 @@ def test_policy_update_uses_first_visit_monte_carlo() -> None:
     assert params["action_counts"]["a"] == 1
 
 
+def test_tabular_policy_update_uses_first_visit_monte_carlo() -> None:
+    policy = EpsilonGreedyPolicy(
+        actions=["a"],
+        epsilon=0.0,
+        gamma=1.0,
+        state_key=lambda state: str(state["stage"]),
+    )
+    trajectory: Trajectory = [
+        ({"stage": "concept"}, "a", 1.0),
+        ({"stage": "concept"}, "a", 3.0),
+    ]
+
+    policy.update(trajectory)
+    params = policy.get_params()
+
+    assert params["q_values"]["concept"]["a"] == pytest.approx(4.0)
+    assert params["state_action_counts"]["concept"]["a"] == 1
+
+
 def test_evaluation_tie_break_and_unseen_follow_constructor_order() -> None:
     # Deterministc evaluation resolves all-zero ties by constructor order.
     assert EpsilonGreedyPolicy(actions=["a", "b"], epsilon=0.0).select_evaluation_action({"s": 0}) == "a"
