@@ -42,7 +42,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/model_selection/remote.py
+   PYTHONPATH=src python examples/model_selection/remote.py
 
 Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 (timestamps, durations, and trace filenames vary by run):

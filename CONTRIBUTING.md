@@ -31,9 +31,15 @@ make type
 make docstrings-check
 make test
 make docs-check
+make docs-build       # when public documentation or docstrings change
+make docs-linkcheck   # when links or navigation change
 make examples-smoke
 make ci
 ```
+
+`make ci` includes the generated-document consistency check but not the strict
+Sphinx build or external link check, so run the conditional documentation gates
+shown above when the change touches those surfaces.
 
 ## Quality Gates
 
@@ -54,6 +60,9 @@ pre-commit run --all-files
 - Add or update tests for behavior changes.
 - Update docs/examples when interfaces or workflows change.
 - Describe what changed and how you validated it.
+
+For an editor-first contributor setup, see
+[`docs/vscode_setup.rst`](docs/vscode_setup.rst).
 
 ## Code Style
 

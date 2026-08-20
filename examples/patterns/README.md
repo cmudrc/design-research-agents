@@ -19,9 +19,9 @@ These scripts demonstrate reusable orchestration patterns built on top of workfl
 ## Quick Start
 
 ```bash
-PYTHONPATH=src python3 examples/patterns/plan_execute.py
-PYTHONPATH=src python3 examples/patterns/router_delegate.py
-PYTHONPATH=src python3 examples/patterns/coordination_patterns.py
+PYTHONPATH=src python examples/patterns/plan_execute.py
+PYTHONPATH=src python examples/patterns/router_delegate.py
+PYTHONPATH=src python examples/patterns/coordination_patterns.py
 ```
 
 ## Expected Outputs

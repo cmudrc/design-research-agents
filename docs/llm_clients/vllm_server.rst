@@ -34,7 +34,7 @@ Prefer the context-manager form so managed servers shut down deterministically.
 Dependencies and environment
 ----------------------------
 
-- Install vLLM extras for managed mode: ``pip install -e ".[vllm]"``
+- Install vLLM extras for managed mode: ``python -m pip install "design-research-agents[vllm]"``
 - For connect mode, point at an existing vLLM-compatible endpoint with
   ``manage_server=False`` and ``base_url=...``.
 

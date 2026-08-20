@@ -16,14 +16,14 @@ These examples cover traced agent entrypoints and multi-step execution modes for
 ## Quick Start
 
 ```bash
-PYTHONPATH=src python3 examples/agents/direct_llm_call.py
-PYTHONPATH=src python3 examples/agents/direct_llm_compiled_execution.py
-PYTHONPATH=src python3 examples/agents/multi_step_direct_llm_agent.py
-PYTHONPATH=src python3 examples/agents/multi_step_json_tool_calling_agent.py
-PYTHONPATH=src python3 examples/agents/multi_step_code_tool_calling_agent.py
-PYTHONPATH=src python3 examples/agents/multi_step_json_with_memory.py
-PYTHONPATH=src python3 examples/agents/seeded_random_baseline_agent.py
-PYTHONPATH=src python3 examples/agents/prompt_workflow_agent.py
+PYTHONPATH=src python examples/agents/direct_llm_call.py
+PYTHONPATH=src python examples/agents/direct_llm_compiled_execution.py
+PYTHONPATH=src python examples/agents/multi_step_direct_llm_agent.py
+PYTHONPATH=src python examples/agents/multi_step_json_tool_calling_agent.py
+PYTHONPATH=src python examples/agents/multi_step_code_tool_calling_agent.py
+PYTHONPATH=src python examples/agents/multi_step_json_with_memory.py
+PYTHONPATH=src python examples/agents/seeded_random_baseline_agent.py
+PYTHONPATH=src python examples/agents/prompt_workflow_agent.py
 ```
 
 ## Expected Outputs

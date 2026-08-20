@@ -17,8 +17,8 @@ for engineering-design tasks. The same model-selection package also exposes
 ## Quick Start
 
 ```bash
-PYTHONPATH=src python3 examples/model_selection/local.py
-PYTHONPATH=src python3 examples/model_selection/remote.py
+PYTHONPATH=src python examples/model_selection/local.py
+PYTHONPATH=src python examples/model_selection/remote.py
 ```
 
 ## Expected Outputs

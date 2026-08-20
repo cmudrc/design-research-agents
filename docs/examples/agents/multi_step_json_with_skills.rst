@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/multi_step_json_with_skills.py
+   PYTHONPATH=src python examples/agents/multi_step_json_with_skills.py
 
 Example output shape (values vary by run):
 

@@ -15,10 +15,10 @@ These entrypoints focus on direct `Workflow` usage and step-level primitives.
 ## Quick Start
 
 ```bash
-PYTHONPATH=src python3 examples/workflow/workflow_runtime.py
-PYTHONPATH=src python3 examples/workflow/workflow_runtime_loop_step.py
-PYTHONPATH=src python3 examples/workflow/workflow_delegate_and_memory_steps.py
-PYTHONPATH=src python3 examples/workflow/workflow_diagram_generation.py
+PYTHONPATH=src python examples/workflow/workflow_runtime.py
+PYTHONPATH=src python examples/workflow/workflow_runtime_loop_step.py
+PYTHONPATH=src python examples/workflow/workflow_delegate_and_memory_steps.py
+PYTHONPATH=src python examples/workflow/workflow_diagram_generation.py
 ```
 
 ## Expected Outputs

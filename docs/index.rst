@@ -1,15 +1,15 @@
 design-research-agents
 ======================
 
-A modular framework for building and studying AI agents in engineering design workflows.
+The agent-execution layer for reproducible design research.
 
 What This Library Does
 ----------------------
 
-``design-research-agents`` provides reusable abstractions for agent behavior,
-tool use, workflow composition, and multi-step reasoning. It is built for
-research workflows where traceability, reproducibility, and controlled
-comparison matter as much as raw model capability.
+``design-research-agents`` owns executable AI participants, workflow and tool
+runtimes, model-client adapters, and traceable run results. It is built for
+research workflows where reproducibility and controlled comparison matter as
+much as raw model capability.
 
 Interpretable traces, explicit tool boundaries, and documented workflow
 contracts are core features. They make agent studies easier to reproduce,
@@ -95,8 +95,9 @@ Typical Workflow
 
    .. note::
 
-      **New here?** Start with :doc:`where_to_start` to choose the right layer,
-      then use :doc:`quickstart` to run the smallest end-to-end example.
+      **New here?** Follow :doc:`guides` for the shared install → quickstart →
+      concepts/workflow → examples → API path. The base quickstart is offline
+      and requires no model service.
 
 Guides
 ------
@@ -104,13 +105,12 @@ Guides
 Learn the base concepts, setup flow, and execution patterns that shape a stable
 agent-research pipeline.
 
-- :doc:`quickstart`
-- :doc:`where_to_start`
+- :doc:`guides`
 - :doc:`installation`
-- :doc:`vscode_setup`
+- :doc:`quickstart`
 - :doc:`concepts`
 - :doc:`typical_workflow`
-- :doc:`philosophy`
+- :doc:`where_to_start`
 
 Examples
 --------
@@ -131,28 +131,32 @@ Reference
 Look up the stable import surface, package extras, and deeper API reference
 material for the runtime boundaries that matter in CI and downstream studies.
 
-- :doc:`api`
 - :doc:`reference/index`
-- :doc:`dependencies_and_extras`
 
 Integration With The Ecosystem
 ------------------------------
 
-The Design Research Collective maintains a modular ecosystem of libraries for
-studying human and AI design behavior.
+The CMU Design Research Collective design-research ecosystem is a modular set of
+libraries for studying human and AI design behavior.
 
-- **design-research-agents** implements AI participants, workflows, and tool-using reasoning patterns.
-- **design-research-problems** provides benchmark design tasks, prompts, grammars, and evaluators.
-- **design-research-analysis** analyzes the traces, event tables, and outcomes generated during studies.
-- **design-research-experiments** sits above the stack as the study-design and orchestration layer, defining hypotheses, factors, conditions, replications, and artifact flows across agents, problems, and analysis.
+- **design-research-agents** (this package) executes AI participants, workflows, and tool-using reasoning patterns.
+- `design-research-problems <https://cmudrc.github.io/design-research-problems/>`_ owns benchmark design tasks, prompts, grammars, and evaluators.
+- `design-research-experiments <https://cmudrc.github.io/design-research-experiments/>`_
+  owns study design and coordinates artifact flows across packages.
+- `design-research-analysis <https://cmudrc.github.io/design-research-analysis/>`_ validates and analyzes the resulting traces, event tables, and outcomes.
 
 Together these libraries support end-to-end design research pipelines, from
 study design through execution and interpretation.
 
+The figure shows two complementary views: control responsibility and runtime
+artifact flow. Neither view is a package-install order. See the umbrella
+`compatibility matrix <https://cmudrc.github.io/design-research/compatibility.html>`_
+for the component versions tested together.
+
 .. container:: drc-home-ecosystem
 
    .. image:: _static/ecosystem-platform.svg
-      :alt: Ecosystem diagram showing experiments above agents, problems, and analysis.
+      :alt: Two-view diagram showing the control topology and runtime data flow across Problems, Agents, Experiments, and Analysis.
       :class: dark-light drc-ecosystem-figure
       :width: 100%
       :align: center
@@ -160,14 +164,13 @@ study design through execution and interpretation.
 Start Here
 ----------
 
-- :doc:`quickstart`
-- :doc:`where_to_start`
 - :doc:`installation`
-- :doc:`vscode_setup`
+- :doc:`quickstart`
 - :doc:`concepts`
 - :doc:`typical_workflow`
 - :doc:`examples/index`
 - :doc:`api`
+- :doc:`guides`
 - `CONTRIBUTING.md <https://github.com/cmudrc/design-research-agents/blob/HEAD/CONTRIBUTING.md>`_
 
 .. toctree::
@@ -175,13 +178,7 @@ Start Here
    :caption: Guides
    :hidden:
 
-   quickstart
-   where_to_start
-   installation
-   vscode_setup
-   concepts
-   typical_workflow
-   philosophy
+   guides
 
 .. toctree::
    :maxdepth: 2
@@ -192,17 +189,21 @@ Start Here
 
 .. toctree::
    :maxdepth: 2
-   :caption: Reference
+   :caption: Subsystems
    :hidden:
 
-   api
    llm_clients/index
    tools/index
    agents/index
    workflows/index
    patterns/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+   :hidden:
+
    reference/index
-   dependencies_and_extras
 
 .. toctree::
    :maxdepth: 1

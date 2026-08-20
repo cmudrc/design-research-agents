@@ -10,7 +10,7 @@ Use a stdio MCP server command from your selected provider/runtime.
 
 .. code-block:: bash
 
-   python3 -m your_mcp_server_module
+   python -m your_mcp_server_module
 
 Integration steps
 -----------------
@@ -32,7 +32,7 @@ Programmatic helpers
        mcp_servers=(
            MCPServerConfig(
                id="local_core",
-               command=("python3", "-m", "your_mcp_server_module"),
+               command=("python", "-m", "your_mcp_server_module"),
            ),
        )
    )
@@ -71,7 +71,10 @@ briefs, evaluation tools, and solver hints on the library-owned path.
 
 .. code-block:: bash
 
-   python -m pip install "design-research-agents[mcp,gemini]" "design-research-problems[mcp]"
+   python -m pip install "design-research-agents[mcp]" "design-research-problems[mcp]"
+
+The Gemini extra is not required for this MCP path. Install ``gemini`` only
+when the participant itself uses ``GeminiServiceLLMClient``.
 
 .. code-block:: python
 

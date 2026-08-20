@@ -45,7 +45,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/tools/derp_mcp_general_solver.py
+   PYTHONPATH=src python examples/tools/derp_mcp_general_solver.py
 
 When ``design-research-problems[mcp]`` is available, the example prints a JSON
 object containing the selected problem summary, local solver hints, MCP tool

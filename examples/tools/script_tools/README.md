@@ -15,7 +15,7 @@ trace artifact emission.
 Run from repository root:
 
 ```bash
-PYTHONPATH=src python3 examples/tools/script_tools/rubric_score.py <<'JSON'
+PYTHONPATH=src python examples/tools/script_tools/rubric_score.py <<'JSON'
 {"text":"design review notes for quick-release latch and gasket alignment","max_score":10}
 JSON
 

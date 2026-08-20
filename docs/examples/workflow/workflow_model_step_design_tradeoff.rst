@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/workflow/workflow_model_step_design_tradeoff.py
+   PYTHONPATH=src python examples/workflow/workflow_model_step_design_tradeoff.py
 
 Example output shape (values vary by run):
 

@@ -30,7 +30,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install transformers backend extras: ``pip install -e \".[transformers]\"``
+- Install transformers backend extras: ``python -m pip install "design-research-agents[transformers]"``
 - Sufficient local CPU/GPU memory for selected model
 
 Model notes for local runs

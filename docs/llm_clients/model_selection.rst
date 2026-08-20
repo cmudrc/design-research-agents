@@ -132,7 +132,7 @@ needs to call the Hub:
 
 .. code-block:: bash
 
-   pip install -e ".[huggingface]"
+   python -m pip install "design-research-agents[huggingface]"
 
 Then build a catalog from Hub metadata:
 

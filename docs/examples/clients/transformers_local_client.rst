@@ -43,7 +43,11 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/clients/transformers_local_client.py
+   PYTHONPATH=tests/example_monkeypatch:src DRA_EXAMPLE_LLM_MODE=deterministic python examples/clients/transformers_local_client.py
+
+This checkout-only command reproduces the documented output without a
+live backend. For real installs, credentials, and backend-specific setup,
+see :doc:`../../llm_clients/index`.
 
 Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 (timestamps, durations, and trace filenames vary by run):

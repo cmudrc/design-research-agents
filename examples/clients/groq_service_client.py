@@ -89,7 +89,6 @@ def _build_payload() -> dict[str, object]:
         name="groq-prod",
         default_model="llama-3.1-8b-instant",
         api_key_env="GROQ_API_KEY",
-        api_key="example-key-for-config-demo",
         base_url="https://api.groq.com",
         max_retries=3,
         model_patterns=("llama-3.1-8b-instant", "llama-3.1-*"),

@@ -28,7 +28,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install provider SDK extra: ``pip install -e ".[groq]"``
+- Install provider SDK extra: ``python -m pip install "design-research-agents[groq]"``
 - ``GROQ_API_KEY`` (or pass ``api_key`` directly)
 - Network access to Groq API
 

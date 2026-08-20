@@ -33,7 +33,7 @@ Prefer the context-manager form so managed servers shut down deterministically.
 Dependencies and environment
 ----------------------------
 
-- Install SGLang extras for managed mode: ``pip install -e ".[sglang]"``
+- Install SGLang extras for managed mode: ``python -m pip install "design-research-agents[sglang]"``
 - For connect mode, point at an existing SGLang-compatible endpoint with
   ``manage_server=False`` and ``base_url=...``.
 

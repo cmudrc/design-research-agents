@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/prompt_workflow_agent.py
+   PYTHONPATH=src python examples/agents/prompt_workflow_agent.py
 
 Example output shape:
 

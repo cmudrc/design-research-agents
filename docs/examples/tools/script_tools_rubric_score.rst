@@ -35,7 +35,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/tools/script_tools/rubric_score.py
+   PYTHONPATH=src python examples/tools/script_tools/rubric_score.py
 
 - Reads one JSON object from ``stdin``.
 - Prints one JSON envelope containing ``ok/result/artifacts``.

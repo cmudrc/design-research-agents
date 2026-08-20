@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/simulated_annealing.py
+   PYTHONPATH=src python examples/patterns/simulated_annealing.py
 
 Example output shape:
 

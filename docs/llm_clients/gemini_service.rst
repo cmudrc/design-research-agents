@@ -28,7 +28,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install provider SDK extra: ``pip install -e ".[gemini]"``
+- Install provider SDK extra: ``python -m pip install "design-research-agents[gemini]"``
 - ``GOOGLE_API_KEY`` (fallback to ``GEMINI_API_KEY`` when unset)
 - Network access to Gemini API
 

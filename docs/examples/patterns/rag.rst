@@ -43,7 +43,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/rag.py
+   PYTHONPATH=src python examples/patterns/rag.py
 
 Example output shape (values vary by run):
 

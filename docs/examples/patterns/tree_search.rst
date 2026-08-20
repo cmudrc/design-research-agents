@@ -47,7 +47,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/tree_search.py
+   PYTHONPATH=src python examples/patterns/tree_search.py
 
 Example output shape (values vary by run):
 

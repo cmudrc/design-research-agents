@@ -124,3 +124,23 @@ def test_entry_point_guide_checker_requires_home_link_and_all_layers(tmp_path: P
     ]
     assert "docs/index.rst must link" in violations[0].detail
     assert "missing required marker '``Workflow``'" in violations[1].detail
+
+
+def test_example_inventory_checker_reports_missing_and_stale_entries(tmp_path: Path) -> None:
+    checker_module = _load_checker_module()
+    _write_file(tmp_path, "examples/agents/listed.py", "")
+    _write_file(tmp_path, "examples/tools/missing.py", "")
+    _write_file(
+        tmp_path,
+        "examples/README.md",
+        "- `examples/agents/listed.py`: present\n- `examples/clients/stale.py`: removed\n",
+    )
+
+    violations = checker_module._find_example_inventory_violations(tmp_path)
+
+    assert [violation.category for violation in violations] == [
+        "example-inventory-missing",
+        "example-inventory-stale",
+    ]
+    assert "examples/tools/missing.py" in violations[0].detail
+    assert "examples/clients/stale.py" in violations[1].detail

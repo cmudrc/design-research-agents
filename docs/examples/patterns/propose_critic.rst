@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/propose_critic.py
+   PYTHONPATH=src python examples/patterns/propose_critic.py
 
 Example output shape (values vary by run):
 

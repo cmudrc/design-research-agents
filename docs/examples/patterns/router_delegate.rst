@@ -47,7 +47,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/patterns/router_delegate.py
+   PYTHONPATH=src python examples/patterns/router_delegate.py
 
 Example output shape (values vary by run):
 

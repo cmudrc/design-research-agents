@@ -1,7 +1,8 @@
 # AGENTS.md
 
 ## Purpose
-This repository is a Python 3.12+ framework for engineering design agent research and experimentation.
+This repository is the Python 3.12+ agent-execution layer in the
+CMU Design Research Collective design-research ecosystem.
 Favor small, composable changes that preserve deterministic behavior and runtime contracts.
 Keep dependencies minimal and avoid unnecessary complexity.
 Project maturity is pre-alpha; breaking changes are acceptable only with explicit user/requester permission.
@@ -41,6 +42,9 @@ Use the smallest useful check while iterating, then run full gates before merge.
   - `design_research_agents.patterns`
   - `design_research_agents.llm`
   - `design_research_agents.memory`
+  - `design_research_agents.model_selection`
+  - `design_research_agents.skills`
+  - `design_research_agents.study`
   - `design_research_agents.tools`
 - Underscored module paths are internal/unstable (for example `_implementations`, `_runtime`, `_contracts`, `_tracing`, `_schemas`, `_memory`).
 - Prefer public imports in user-facing examples/docs. Use internal modules only when no public equivalent exists and the usage is intentional.

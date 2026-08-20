@@ -6,6 +6,14 @@ public facades and internal implementation modules that are useful to contributo
 
 Public usage should prefer the curated top-level exports in :doc:`/api`.
 
+Top-Level API
+-------------
+
+.. toctree::
+   :maxdepth: 1
+
+   ../api
+
 Guaranteed Public Modules
 -------------------------
 

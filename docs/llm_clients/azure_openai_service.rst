@@ -31,7 +31,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install extra: ``pip install -e ".[azure]"`` (or ``pip install "design-research-agents[azure]"``)
+- Install extra: ``python -m pip install "design-research-agents[azure]"``
 - ``azure`` installs the same ``openai`` SDK package as ``openai``; it exists so Azure-targeted setup commands can be explicit.
 - ``AZURE_OPENAI_API_KEY`` (or pass ``api_key`` directly)
 - ``AZURE_OPENAI_ENDPOINT`` (or pass ``azure_endpoint`` directly)

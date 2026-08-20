@@ -47,7 +47,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/multi_step_code_tool_calling_agent.py
+   PYTHONPATH=src python examples/agents/multi_step_code_tool_calling_agent.py
 
 Example output shape (values vary by run):
 

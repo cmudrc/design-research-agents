@@ -89,7 +89,6 @@ def _build_payload() -> dict[str, object]:
         name="anthropic-prod",
         default_model="claude-3-5-haiku-latest",
         api_key_env="ANTHROPIC_API_KEY",
-        api_key="example-key-for-config-demo",
         base_url="https://api.anthropic.com",
         max_retries=3,
         model_patterns=("claude-3-5-haiku-latest", "claude-3-5-*"),

@@ -22,11 +22,16 @@ Run one or more calls and inspect model output, tool calls, and step metadata.
 
 Persist execution outputs and traces for reproducible comparison.
 
-5. Connect to the next library
+5. Compose the ecosystem seams
 ------------------------------
 
-Bind runs into study definitions in ``design-research-experiments`` and export
-records that can be interpreted with ``design-research-analysis``.
+Let `design-research-experiments
+<https://cmudrc.github.io/design-research-experiments/>`_ bind agent runs to
+tasks from `design-research-problems
+<https://cmudrc.github.io/design-research-problems/>`_, then export records for
+`design-research-analysis <https://cmudrc.github.io/design-research-analysis/>`_.
+The experiments layer owns cross-package orchestration; this package owns agent
+execution and normalization.
 
 Choosing The Right Entry Point
 ------------------------------

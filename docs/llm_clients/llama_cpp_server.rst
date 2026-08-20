@@ -32,7 +32,7 @@ deterministically. ``close()`` remains available for explicit lifecycle control.
 Dependencies and environment
 ----------------------------
 
-- Install llama.cpp backend extras: ``pip install -e \".[llama_cpp]\"``
+- Install llama.cpp backend extras: ``python -m pip install "design-research-agents[llama_cpp]"``
 - Ensure local model download/runtime prerequisites are available.
 
 Model notes for local runs

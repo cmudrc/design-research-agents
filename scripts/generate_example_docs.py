@@ -381,7 +381,14 @@ def _render_optional_section(*, heading: str, body: str | None, prelude: list[st
 def _render_example_page(spec: ExampleDocSpec) -> str:
     """Render one example page as RST."""
     title = spec.title
-    run_command = f"PYTHONPATH=src python3 {spec.rel_path}" if spec.extension == ".py" else f"bash {spec.rel_path}"
+    if spec.extension == ".py" and spec.category == "clients":
+        run_command = (
+            f"PYTHONPATH=tests/example_monkeypatch:src DRA_EXAMPLE_LLM_MODE=deterministic python {spec.rel_path}"
+        )
+    elif spec.extension == ".py":
+        run_command = f"PYTHONPATH=src python {spec.rel_path}"
+    else:
+        run_command = f"bash {spec.rel_path}"
     include_path = f"../../../{spec.rel_path}"
     literal_language = "python" if spec.extension == ".py" else "bash"
 
@@ -457,6 +464,15 @@ def _render_example_page(spec: ExampleDocSpec) -> str:
         f"   {run_command}",
         "",
     ]
+    if spec.category == "clients":
+        expected_prelude.extend(
+            [
+                "This checkout-only command reproduces the documented output without a",
+                "live backend. For real installs, credentials, and backend-specific setup,",
+                "see :doc:`../../llm_clients/index`.",
+                "",
+            ]
+        )
     lines.extend(_render_optional_section(heading="Expected Results", body=expected_results, prelude=expected_prelude))
     lines.extend(_render_optional_section(heading="References", body=references))
     return "\n".join(lines)
@@ -483,7 +499,7 @@ def _render_category_index(*, category: str, entries: list[ExampleDocSpec]) -> s
 
 def _render_examples_index() -> str:
     """Render top-level examples index page as RST."""
-    title = "Examples Guide"
+    title = "Examples"
     return "\n".join(
         [
             title,
@@ -491,8 +507,8 @@ def _render_examples_index() -> str:
             "",
             "The examples in this repository are runnable research-oriented scripts. They are",
             "designed to show not only API usage, but how the library fits into realistic",
-            "experimental workflows. Each example lists dependencies, expected scope, and",
-            "the primary concept it demonstrates.",
+            "experimental workflows. The featured examples below list dependencies,",
+            "expected scope, and the primary concept they demonstrate.",
             "",
             ".. note::",
             "",
@@ -505,10 +521,21 @@ def _render_examples_index() -> str:
             "Featured Examples",
             "-----------------",
             "",
+            "VS Code Hello World",
+            "~~~~~~~~~~~~~~~~~~~",
+            "",
+            "``examples/agents/vscode_hello_world.py`` is a deterministic first agent run",
+            "with a local stub client.",
+            "",
+            "**Requires:** base install only; no model server, model download, or API key",
+            "**Runtime:** short",
+            "**Teaches:** minimal runtime client duck type, ``DirectLLMCall``, structured output",
+            "",
             "Direct LLM Call",
             "~~~~~~~~~~~~~~~~",
             "",
-            "One-step participant execution with a configured backend client.",
+            "``examples/agents/direct_llm_call.py`` performs one-step participant execution",
+            "against a configured OpenAI-compatible HTTP backend.",
             "",
             "**Requires:** base install + reachable backend endpoint",
             "**Runtime:** short",
@@ -517,27 +544,30 @@ def _render_examples_index() -> str:
             "Multi-Step JSON Tool Calling Agent",
             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
             "",
-            "Iterative tool-using execution with explicit action/observation loops.",
+            "``examples/agents/multi_step_json_tool_calling_agent.py`` demonstrates iterative",
+            "tool-using execution with explicit action/observation loops.",
             "",
-            "**Requires:** base install",
+            "**Requires:** ``llama_cpp`` extra, model download, and sufficient local memory",
             "**Runtime:** short to medium",
             "**Teaches:** tool-routing behavior, multi-step control, inspectable intermediate state",
             "",
             "Debate Pattern",
             "~~~~~~~~~~~~~~",
             "",
-            "Role-based multi-agent coordination with adjudication workflow structure.",
+            "``examples/patterns/debate_pattern.py`` demonstrates role-based multi-agent",
+            "coordination with adjudication workflow structure.",
             "",
-            "**Requires:** base install",
+            "**Requires:** ``llama_cpp`` extra, model download, and sufficient local memory",
             "**Runtime:** medium",
             "**Teaches:** orchestration patterns, delegate coordination, traceable multi-role reasoning",
             "",
             "MCP Minimal",
             "~~~~~~~~~~~",
             "",
-            "Small end-to-end MCP-backed tool integration example.",
+            "``examples/tools/mcp_minimal.py`` is a small end-to-end MCP-backed tool",
+            "integration example.",
             "",
-            "**Requires:** ``mcp``-compatible server/runtime setup",
+            "**Requires:** ``mcp`` extra; the example launches the packaged local stdio server",
             "**Runtime:** medium",
             "**Teaches:** external tool connectivity, MCP source wiring, runtime safety boundaries",
             "",
@@ -571,7 +601,7 @@ def _build_specs(repo_root: Path) -> list[ExampleDocSpec]:
         rel_parts = path.relative_to(repo_root / "examples").parts
         category = rel_parts[0]
         if category not in CATEGORY_ORDER:
-            continue
+            raise ValueError(f"{path}: unsupported example category {category!r}; expected one of {CATEGORY_ORDER}.")
 
         if path.suffix == ".py":
             doc_text, source_start_line = _parse_python_doc_text(path)

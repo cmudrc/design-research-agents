@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/tools/multi_source_tool_usage.py
+   PYTHONPATH=src python examples/tools/multi_source_tool_usage.py
 
 Example output captured with ``DRA_EXAMPLE_LLM_MODE=deterministic``
 (timestamps, durations, and trace filenames vary by run):

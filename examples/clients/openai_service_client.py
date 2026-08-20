@@ -95,7 +95,6 @@ def _build_payload() -> dict[str, object]:
         name="openai-prod",
         default_model="gpt-4o-mini",
         api_key_env="OPENAI_API_KEY",
-        api_key="example-key-for-config-demo",
         base_url="https://api.openai.com/v1",
         max_retries=4,
         model_patterns=("gpt-4o-mini", "gpt-4o-*"),

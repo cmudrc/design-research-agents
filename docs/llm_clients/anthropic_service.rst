@@ -28,7 +28,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install provider SDK extra: ``pip install -e ".[anthropic]"``
+- Install provider SDK extra: ``python -m pip install "design-research-agents[anthropic]"``
 - ``ANTHROPIC_API_KEY`` (or pass ``api_key`` directly)
 - Network access to Anthropic API
 

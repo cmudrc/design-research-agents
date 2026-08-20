@@ -42,7 +42,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/multi_step_direct_llm_agent.py
+   PYTHONPATH=src python examples/agents/multi_step_direct_llm_agent.py
 
 Example output shape (values vary by run):
 

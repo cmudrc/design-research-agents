@@ -40,7 +40,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/vscode_hello_world.py
+   PYTHONPATH=src python examples/agents/vscode_hello_world.py
 
 Example output shape (values vary by run):
 

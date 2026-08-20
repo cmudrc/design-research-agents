@@ -7,8 +7,10 @@
 [![PyPI Version](https://img.shields.io/pypi/v/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/design-research-agents.svg)](https://pypi.org/project/design-research-agents/)
 
-`design-research-agents` is the agent-execution layer in the cmudrc design
-research ecosystem.
+`design-research-agents` is the agent-execution layer in the
+CMU Design Research Collective design-research ecosystem. It owns executable AI
+participants, workflow and tool runtimes, model-client adapters, and traceable
+run results.
 
 It provides typed, composable contracts for direct calls, multi-step runs,
 workflow orchestration, tool execution, and traceable experimentation.
@@ -28,7 +30,7 @@ Run `make coverage`, `make examples-test`, and `make examples-coverage` to repro
 
 ## Overview
 
-This package centers on reproducible agent workflows with a compact public API:
+This package centers on reproducible agent workflows with a layered public API:
 
 - Two primary entry points: `DirectLLMCall` and `MultiStepAgent` (`direct`, `json`, and `code` modes)
 - A seeded random control-condition agent for packaged-problem studies (`SeededRandomBaselineAgent`)
@@ -42,14 +44,35 @@ This package centers on reproducible agent workflows with a compact public API:
 
 ## A Super Basic Agent
 
-```python
-from design_research_agents import LlamaCppServerLLMClient, MultiStepAgent
+The first example is deliberately offline and deterministic. It exercises
+`DirectLLMCall` through the minimal runtime methods that this participant
+uses, without downloading a model, using an API key, or starting a model
+server. The stub is intentionally smaller than the complete `LLMClient`
+interface implemented by the packaged, type-checked backends.
 
-with LlamaCppServerLLMClient() as llm_client:
-    agent = MultiStepAgent(mode="direct", llm_client=llm_client, max_steps=3)
-    result = agent.run(
-        prompt="Suggest two design goals for a field-repairable drone battery latch.",
-    )
+```python
+from design_research_agents import DirectLLMCall, LLMRequest, LLMResponse
+
+
+class LocalStubClient:
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        return LLMResponse(
+            text=f"Offline response to: {request.messages[-1].content}",
+            model="local-stub",
+            provider="local-stub",
+        )
+
+    def default_model(self) -> str:
+        return "local-stub"
+
+    def close(self) -> None:
+        return None
+
+
+agent = DirectLLMCall(llm_client=LocalStubClient())
+result = agent.run(
+    prompt="Suggest two design goals for a field-repairable drone battery latch.",
+)
 
 print(result.final_output)
 ```
@@ -69,17 +92,33 @@ It walks through creating a virtual environment, installing the published
 package, running a first script in VS Code, and using the source checkout for
 repository examples.
 
+Start with the published base install, then save the offline snippet above as
+``offline_agent.py`` and run it:
+
 ```bash
-python3 -m venv .venv
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install design-research-agents
+python offline_agent.py
+```
+
+For contributor work, clone the repository before using its Make targets and
+checked-in example:
+
+```bash
+git clone https://github.com/cmudrc/design-research-agents.git
+cd design-research-agents
+python -m venv .venv
 source .venv/bin/activate
 make dev
 make test
-PYTHONPATH=src python examples/agents/direct_llm_call.py
+PYTHONPATH=src python examples/agents/vscode_hello_world.py
 ```
 
-The base-install path uses `OpenAICompatibleHTTPLLMClient` and expects a running
-OpenAI-compatible endpoint. Contributor setup (`make dev`) installs development
-tooling only; backend runtimes are explicit extras. Use
+That checked-in onboarding example uses a deterministic local stub, so the base
+install needs no model service or provider credentials. Real backend runtimes
+are explicit extras. Use
 `design-research-agents[full]` for the hosted + local backend bundle and
 `design-research-agents[all]` when you also want the optional ChromaDB and
 graph-memory backends. Use `design-research-agents[huggingface]` when you only
@@ -94,6 +133,10 @@ Start with [examples/README.md](https://github.com/cmudrc/design-research-agents
 for runnable examples grouped by agents, clients, workflows, patterns, model
 selection, and tools.
 
+For a zero-service first run, use
+`examples/agents/vscode_hello_world.py`. Examples that use a hosted client,
+llama.cpp, Ollama, or another local server state their backend prerequisites.
+
 Some local `LlamaCppServerLLMClient` examples intentionally use `Qwen3-4B`
 GGUF configs, which can exceed available RAM on smaller machines. If you want a
 lighter local starting point, begin with the
@@ -105,12 +148,35 @@ or the
 
 See the [published documentation](https://cmudrc.github.io/design-research-agents/)
 for quickstart guidance, backend setup, workflow/pattern guides, and API docs.
+The [Guides](https://cmudrc.github.io/design-research-agents/guides.html) page
+provides the shared install → quickstart → concepts/workflow → examples → API
+path used across the ecosystem.
 
-Build docs locally with:
+Check generated documentation consistency, then run the strict build:
 
 ```bash
-make docs
+make docs-check
+make docs-build
 ```
+
+## Ecosystem Role and Compatibility
+
+This package executes participants; it does not own benchmark definitions,
+study design, or downstream interpretation. Use the sibling layers for those
+responsibilities:
+
+- [design-research-problems](https://cmudrc.github.io/design-research-problems/) owns benchmark tasks, metadata, and evaluators.
+- [design-research-experiments](https://cmudrc.github.io/design-research-experiments/) owns study design and orchestration across packages.
+- [design-research-analysis](https://cmudrc.github.io/design-research-analysis/) owns validation and analysis of exported study records.
+
+Compatibility is guaranteed for the curated top-level `__all__` surface and
+the documented public facade modules. `design_research_agents.study` is the
+preferred study-facing facade; `design_research_agents.integration` remains a
+compatibility module for existing orchestration consumers. See the
+[API reference](https://cmudrc.github.io/design-research-agents/api.html) for
+the exact boundary and the umbrella
+[compatibility matrix](https://cmudrc.github.io/design-research/compatibility.html)
+for the component versions tested together.
 
 ## Public API
 
@@ -125,7 +191,7 @@ Top-level exports include:
 - Core contracts: `ExecutionResult`, `LLMRequest`, `LLMMessage`, `LLMResponse`, `ToolResult`
 - Workflow runtime: `Workflow`, `CompiledExecution`, and step contracts for model/tool/delegate/loop/memory behavior
 - Tools: `Toolbox`, `CallableToolConfig`, `ScriptToolConfig`, `MCPServerConfig`
-- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, and RAG
+- Patterns: conversation, debate, plan/execute, propose/critic, Ralph loops, nominal teams, routing, round-based coordination, blackboard, tree search, simulated annealing, and RAG
 - LLM clients: hosted and local adapters, including OpenAI-compatible HTTP plus provider-specific clients
 - Runtime services: `design_research_agents.model_selection`, `ModelFlightRegistry`,
   `ModelCatalog`, `ModelSelector`, and `Tracer`

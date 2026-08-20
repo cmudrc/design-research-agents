@@ -48,7 +48,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/workflow/workflow_schema_mode.py
+   PYTHONPATH=src python examples/workflow/workflow_schema_mode.py
 
 Example output shape (values vary by run):
 

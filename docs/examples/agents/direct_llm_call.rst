@@ -41,7 +41,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/direct_llm_call.py
+   PYTHONPATH=src python examples/agents/direct_llm_call.py
 
 Example output shape (values vary by run):
 

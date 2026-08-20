@@ -88,7 +88,6 @@ def _build_payload() -> dict[str, object]:
         name="gemini-prod",
         default_model="gemini-2.5-flash",
         api_key_env="GOOGLE_API_KEY",
-        api_key="example-key-for-config-demo",
         max_retries=3,
         model_patterns=("gemini-2.5-flash", "gemini-2.5-*"),
     )

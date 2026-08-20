@@ -6,7 +6,7 @@ Core Install
 
 .. code-block:: bash
 
-   pip install design-research-agents
+   python -m pip install design-research-agents
 
 Editable contributor setup:
 
@@ -17,7 +17,7 @@ Editable contributor setup:
    python -m venv .venv
    source .venv/bin/activate
    python -m pip install --upgrade pip
-   pip install -e ".[dev]"
+   python -m pip install -e ".[dev]"
 
 Or use:
 
@@ -32,9 +32,11 @@ Use this when preparing a tagged release:
 
 1. Use Python ``3.12`` (from ``.python-version``).
 2. Install maintainer dependencies: ``make dev``.
-3. Verify full checks: ``make ci``.
-4. Build release artifacts and validate metadata: ``make release-check``.
-5. Commit dependency spec changes, then tag and publish.
+3. Run the automated CI baseline: ``make ci``.
+4. Build the public documentation: ``make docs-build``.
+5. When links or navigation changed, run ``make docs-linkcheck``.
+6. Build release artifacts and validate metadata: ``make release-check``.
+7. Commit the reviewed release metadata and documentation, then tag and publish.
 
 ``make release-check`` builds both the source distribution and wheel into ``dist/``
 and runs ``twine check`` against the generated artifacts.
@@ -95,15 +97,25 @@ flexibility and throughput isolation, but they add service-management overhead.
 
 Recommended install profiles:
 
-- hosted OpenAI-family studies: ``pip install -e ".[dev,openai]"``
-- hosted provider comparisons: ``pip install -e ".[dev,providers]"``
+- hosted OpenAI-family studies:
+  ``python -m pip install "design-research-agents[openai]"``
+- hosted provider comparisons:
+  ``python -m pip install "design-research-agents[providers]"``
 - DRAG/DERP MCP workflows:
-  ``pip install "design-research-agents[mcp,gemini]" "design-research-problems[mcp]"``
-- Hugging Face catalog discovery: ``pip install -e ".[dev,huggingface]"``
-- Chroma-backed memory experiments: ``pip install -e ".[dev,memory_chroma]"``
-- graph-memory experiments: ``pip install -e ".[dev,memory_graph]"``
-- local-only studies: ``pip install -e ".[dev,local]"``
-- broad backend validation: ``pip install -e ".[dev,full]"``
-- broad runtime + memory validation: ``pip install -e ".[dev,all]"``
+  ``python -m pip install "design-research-agents[mcp]" "design-research-problems[mcp]"``
+- Hugging Face catalog discovery:
+  ``python -m pip install "design-research-agents[huggingface]"``
+- Chroma-backed memory experiments:
+  ``python -m pip install "design-research-agents[memory_chroma]"``
+- graph-memory experiments:
+  ``python -m pip install "design-research-agents[memory_graph]"``
+- local-only studies: ``python -m pip install "design-research-agents[local]"``
+- broad backend validation: ``python -m pip install "design-research-agents[full]"``
+- broad runtime + memory validation:
+  ``python -m pip install "design-research-agents[all]"``
+
+From a source checkout, replace ``design-research-agents`` with ``.`` and add
+``-e``. Add the ``dev`` extra separately when running contributor checks; it is
+not required by these runtime profiles.
 
 Release validation is exposed via ``make release-check``.

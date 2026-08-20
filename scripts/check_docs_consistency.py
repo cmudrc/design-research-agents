@@ -22,6 +22,10 @@ LEGACY_EXAMPLE_PATHS = (
 
 SCAN_FILE_SUFFIXES = (".rst", ".md")
 EXAMPLE_PATH_PATTERN = re.compile(r"(examples/[A-Za-z0-9_./-]+\.(?:py|md))")
+EXAMPLE_INVENTORY_PATTERN = re.compile(
+    r"^- `(examples/[A-Za-z0-9_./-]+\.(?:py|sh))`:",
+    re.MULTILINE,
+)
 API_AUTODOC_DIRECTIVE_PATTERN = re.compile(
     r"^\.\.\s+auto(?:class|data|function|attribute|exception)::\s+"
     r"design_research_agents\.([A-Za-z_][A-Za-z0-9_]*)\s*$",
@@ -252,6 +256,42 @@ def _find_missing_example_path_violations(repo_root: Path, files: list[Path]) ->
                     detail=f"Referenced example path does not exist: '{path_str}'.",
                 )
             )
+    return violations
+
+
+def _find_example_inventory_violations(repo_root: Path) -> list[Violation]:
+    """Compare runnable example files with the complete README inventory.
+
+    Args:
+        repo_root: Repository root directory.
+
+    Returns:
+        Violations for missing or stale inventory entries.
+    """
+    examples_root = repo_root / "examples"
+    expected = {
+        path.relative_to(repo_root).as_posix()
+        for extension in ("*.py", "*.sh")
+        for path in examples_root.rglob(extension)
+        if not path.name.startswith("_") and "__pycache__" not in path.parts
+    }
+    readme = (examples_root / "README.md").read_text(encoding="utf-8")
+    documented = set(EXAMPLE_INVENTORY_PATTERN.findall(readme))
+    violations: list[Violation] = []
+    if missing := sorted(expected - documented):
+        violations.append(
+            Violation(
+                category="example-inventory-missing",
+                detail="examples/README.md is missing runnable examples: " + ", ".join(missing),
+            )
+        )
+    if stale := sorted(documented - expected):
+        violations.append(
+            Violation(
+                category="example-inventory-stale",
+                detail="examples/README.md lists missing runnable examples: " + ", ".join(stale),
+            )
+        )
     return violations
 
 
@@ -599,6 +639,7 @@ def main() -> int:
     violations: list[Violation] = []
     violations.extend(_find_legacy_name_violations(repo_root, files))
     violations.extend(_find_missing_example_path_violations(repo_root, files))
+    violations.extend(_find_example_inventory_violations(repo_root))
     violations.extend(_find_export_mismatch_violations(repo_root))
     violations.extend(_find_internal_module_boundary_violations(repo_root, files))
     violations.extend(_find_stale_source_path_violations(repo_root, files))

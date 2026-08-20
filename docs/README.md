@@ -26,6 +26,10 @@ Run `make docstrings-check` before merge.
 
 - Keep the homepage short: title, tagline, concise framing, quickstart callout, section-oriented links, and only the minimum ecosystem/contribution notes needed for orientation.
 - Keep the root hidden home-page toctree section-first so the PyData header and sidebar stay stable.
+- Keep ``guides.rst`` as the canonical ``/guides.html`` landing page and preserve
+  the existing top-level leaf-page URLs for compatibility.
+- Keep the primary reader path in this order: installation, quickstart,
+  concepts/workflow, examples, then API.
 - Emphasize reproducible agent studies, explicit runtime boundaries, and interpretable execution traces.
 - Use public API imports in snippets unless an internal boundary is being explained intentionally.
 
@@ -39,7 +43,9 @@ Use `:doc:` for internal pages and explicit links for sibling repositories when 
 
 ## Branding
 
-- The ecosystem figure is the source of truth for package colors.
+- The umbrella repository owns the canonical ecosystem figure, package colors,
+  and `ecosystem-topology-v1` framing. Keep this repository's vendored SVG
+  byte-identical to that source.
 - This repo's canonical docs brand color is `#DF5127`.
 - Keep docs CSS tokens, `drc-light.png`, `drc-dark.png`, `favicon-light.ico`, `favicon-dark.ico`, and fallback `favicon.ico` aligned when updating docs styling.
 

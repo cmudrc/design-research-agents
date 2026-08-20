@@ -48,7 +48,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/optimization/multi_step_json_tool_calling_1d_optimization.py
+   PYTHONPATH=src python examples/optimization/multi_step_json_tool_calling_1d_optimization.py
 
 Example output shape (values vary by run):
 

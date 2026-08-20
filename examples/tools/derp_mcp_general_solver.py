@@ -57,7 +57,7 @@ from typing import Any
 
 import design_research_agents as drag
 
-INSTALL_HINT = 'python -m pip install "design-research-agents[mcp,gemini]" "design-research-problems[mcp]"'
+INSTALL_HINT = 'python -m pip install "design-research-agents[mcp]" "design-research-problems[mcp]"'
 
 
 def _missing_derp_payload(reason: str) -> dict[str, object]:

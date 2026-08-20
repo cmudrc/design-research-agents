@@ -1,7 +1,7 @@
 Agents
 ======
 
-The framework provides three core concrete agent entry points. All three use
+The framework provides four public concrete agent entry points. All four use
 the same public delegate contract: ``compile(prompt, ...)`` for workflow
 construction and ``run(prompt, ...)`` for execution. Choose by execution
 pattern first, then by control requirements.
@@ -17,8 +17,9 @@ through the run-time ``dependencies`` mapping.
 
 ``PromptWorkflowAgent`` wraps a prompt-mode ``Workflow`` for packaged-problem
 studies. Use it when the workflow is the real participant implementation but
-the experiment loop should own problem resolution, run ids, and condition
-selection.
+the experiment loop should own problem-selection and binding timing, run IDs,
+and condition selection. ``design-research-problems`` remains the owner of the
+resolution and evaluation implementation.
 
 Overview
 --------

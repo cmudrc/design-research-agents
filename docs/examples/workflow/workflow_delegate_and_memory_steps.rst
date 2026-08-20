@@ -47,7 +47,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/workflow/workflow_delegate_and_memory_steps.py
+   PYTHONPATH=src python examples/workflow/workflow_delegate_and_memory_steps.py
 
 Example output shape (values vary by run):
 

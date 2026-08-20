@@ -43,7 +43,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/seeded_random_baseline_agent.py
+   PYTHONPATH=src python examples/agents/seeded_random_baseline_agent.py
 
 Example output shape:
 

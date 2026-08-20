@@ -48,7 +48,7 @@ Expected Results
 
 .. code-block:: bash
 
-   PYTHONPATH=src python3 examples/agents/multi_step_json_with_memory.py
+   PYTHONPATH=src python examples/agents/multi_step_json_with_memory.py
 
 Example output shape (values vary by run):
 

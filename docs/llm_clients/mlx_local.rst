@@ -29,7 +29,7 @@ Constructor-first usage
 Dependencies and environment
 ----------------------------
 
-- Install MLX backend extras: ``pip install -e \".[mlx]\"``
+- Install MLX backend extras: ``python -m pip install "design-research-agents[mlx]"``
 - Apple silicon environment with MLX stack available
 
 Model notes for local runs

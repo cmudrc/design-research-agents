@@ -17,9 +17,9 @@ sources for design-analysis workflows.
 ## Quick Start
 
 ```bash
-PYTHONPATH=src python3 examples/tools/mcp_minimal.py
-PYTHONPATH=src python3 examples/tools/multi_source_tool_usage.py
-PYTHONPATH=src python3 examples/tools/derp_mcp_general_solver.py
+PYTHONPATH=src python examples/tools/mcp_minimal.py
+PYTHONPATH=src python examples/tools/multi_source_tool_usage.py
+PYTHONPATH=src python examples/tools/derp_mcp_general_solver.py
 bash examples/tools/script_tools/repo_quickscan.sh <<'JSON'
 {"include_hidden":false}
 JSON

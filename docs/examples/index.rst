@@ -1,10 +1,10 @@
-Examples Guide
-==============
+Examples
+========
 
 The examples in this repository are runnable research-oriented scripts. They are
 designed to show not only API usage, but how the library fits into realistic
-experimental workflows. Each example lists dependencies, expected scope, and
-the primary concept it demonstrates.
+experimental workflows. The featured examples below list dependencies,
+expected scope, and the primary concept they demonstrate.
 
 .. note::
 
@@ -17,10 +17,21 @@ the primary concept it demonstrates.
 Featured Examples
 -----------------
 
+VS Code Hello World
+~~~~~~~~~~~~~~~~~~~
+
+``examples/agents/vscode_hello_world.py`` is a deterministic first agent run
+with a local stub client.
+
+**Requires:** base install only; no model server, model download, or API key
+**Runtime:** short
+**Teaches:** minimal runtime client duck type, ``DirectLLMCall``, structured output
+
 Direct LLM Call
 ~~~~~~~~~~~~~~~~
 
-One-step participant execution with a configured backend client.
+``examples/agents/direct_llm_call.py`` performs one-step participant execution
+against a configured OpenAI-compatible HTTP backend.
 
 **Requires:** base install + reachable backend endpoint
 **Runtime:** short
@@ -29,27 +40,30 @@ One-step participant execution with a configured backend client.
 Multi-Step JSON Tool Calling Agent
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Iterative tool-using execution with explicit action/observation loops.
+``examples/agents/multi_step_json_tool_calling_agent.py`` demonstrates iterative
+tool-using execution with explicit action/observation loops.
 
-**Requires:** base install
+**Requires:** ``llama_cpp`` extra, model download, and sufficient local memory
 **Runtime:** short to medium
 **Teaches:** tool-routing behavior, multi-step control, inspectable intermediate state
 
 Debate Pattern
 ~~~~~~~~~~~~~~
 
-Role-based multi-agent coordination with adjudication workflow structure.
+``examples/patterns/debate_pattern.py`` demonstrates role-based multi-agent
+coordination with adjudication workflow structure.
 
-**Requires:** base install
+**Requires:** ``llama_cpp`` extra, model download, and sufficient local memory
 **Runtime:** medium
 **Teaches:** orchestration patterns, delegate coordination, traceable multi-role reasoning
 
 MCP Minimal
 ~~~~~~~~~~~
 
-Small end-to-end MCP-backed tool integration example.
+``examples/tools/mcp_minimal.py`` is a small end-to-end MCP-backed tool
+integration example.
 
-**Requires:** ``mcp``-compatible server/runtime setup
+**Requires:** ``mcp`` extra; the example launches the packaged local stdio server
 **Runtime:** medium
 **Teaches:** external tool connectivity, MCP source wiring, runtime safety boundaries
 
