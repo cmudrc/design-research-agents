@@ -90,6 +90,23 @@ class ProposeCriticResult(ExecutionResult):
             return []
         return [dict(record) for record in records if isinstance(record, Mapping)]
 
+    @property
+    def reasoning(self) -> str:
+        """Return the critic's reasoning for the final verdict, or an empty string.
+
+        This is distinct from ``feedback``: ``feedback`` is the guidance sent to
+        the proposer for its next revision, while ``reasoning`` is the critic's
+        own justification for why it reached that verdict. Comparing the two
+        across ``critique_iterations`` lets callers study how the depth or
+        clarity of a critic's stated reasoning relates to how proposals change
+        in response.
+        """
+        final_output = self.final_output
+        if not isinstance(final_output, Mapping):
+            return ""
+        value = final_output.get("reasoning")
+        return value if isinstance(value, str) else ""
+
 
 class ProposeCriticPattern(Delegate):
     """Propose/critique revision pattern built on workflow primitives."""
@@ -441,6 +458,7 @@ def _finalize_propose_critic_result(
         error_message = failure_error or "Workflow loop iteration failed."
         raise RuntimeError(error_message)
 
+    current_reasoning = str(final_state.get("reasoning", ""))
     details = {
         "proposal": current_proposal,
         "approved": approved,
@@ -450,6 +468,7 @@ def _finalize_propose_critic_result(
         "proposal": current_proposal,
         "approved": approved,
         "iterations": len(critique_iterations),
+        "reasoning": current_reasoning,
     }
 
     if failure_reason in {"critic_invalid_json", "critic_invalid_schema"}:

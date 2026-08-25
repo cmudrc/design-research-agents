@@ -465,6 +465,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
                         "approved": True,
                         "feedback": "Looks good.",
                         "revision_goals": [],
+                        "reasoning": "The draft meets every stated requirement without gaps.",
                     }
                 ),
             ]
@@ -484,6 +485,10 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
     assert success_result.approved is True
     assert success_result.iterations == 1
     assert len(success_result.critique_iterations) == 1
+    assert success_result.reasoning == "The draft meets every stated requirement without gaps."
+    assert success_result.critique_iterations[0]["reasoning"] == (
+        "The draft meets every stated requirement without gaps."
+    )
 
     failure_workflow = ProposeCriticPattern(
         llm_client=SequenceLLMClient(
@@ -500,6 +505,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
     assert failure_result.iterations == 0
     assert failure_result.output["terminated_reason"] == "critic_invalid_json"
     assert isinstance(failure_result.output["details"]["critique_iterations"], list)
+    assert failure_result.reasoning == ""
 
 
 def test_router_delegate_workflow_output_contract_success_and_failure_paths() -> None:

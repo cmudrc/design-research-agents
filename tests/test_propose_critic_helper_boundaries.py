@@ -101,6 +101,7 @@ def test_propose_critic_state_reducer_covers_missing_failed_and_valid_iterations
     reduced = callbacks.state_reducer({"critique_iterations": "invalid"}, valid_result, 3)
     assert reduced["approved"] is True
     assert reduced["revision_goals"] == []
+    assert reduced["reasoning"] == ""
     assert reduced["critique_iterations"] == [
         {
             "iteration": 3,
@@ -108,8 +109,29 @@ def test_propose_critic_state_reducer_covers_missing_failed_and_valid_iterations
             "approved": True,
             "feedback": "good",
             "revision_goals": [],
+            "reasoning": "",
         }
     ]
+
+
+def test_propose_critic_build_critique_result_captures_optional_reasoning() -> None:
+    callbacks = _callbacks()
+    with_reasoning = callbacks._build_critique_result(
+        proposal="draft",
+        parsed_critique={
+            "approved": False,
+            "feedback": "Tighten the load-path justification.",
+            "revision_goals": ["clarify load path"],
+            "reasoning": "The proposal cites a factor of safety without showing the calculation.",
+        },
+    )
+    assert with_reasoning["reasoning"] == ("The proposal cites a factor of safety without showing the calculation.")
+
+    without_reasoning = callbacks._build_critique_result(
+        proposal="draft",
+        parsed_critique={"approved": True, "feedback": "Looks good.", "revision_goals": []},
+    )
+    assert without_reasoning["reasoning"] == ""
 
 
 def test_propose_critic_callback_validation_and_response_recording_edges() -> None:

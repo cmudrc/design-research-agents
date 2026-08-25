@@ -34,6 +34,7 @@ CRITIC_SCHEMA: dict[str, object] = {
             "type": "array",
             "items": {"type": "string"},
         },
+        "reasoning": {"type": "string"},
     },
 }
 
@@ -47,7 +48,11 @@ DEFAULT_PROPOSER_USER_PROMPT_TEMPLATE = "\n".join(
         "Return only the revised proposal text.",
     ]
 )
-DEFAULT_CRITIC_SYSTEM_PROMPT = "You are a strict critic. Return JSON only with approved, feedback, revision_goals."
+DEFAULT_CRITIC_SYSTEM_PROMPT = (
+    "You are a strict critic. Return JSON only with approved, feedback, revision_goals, "
+    "and reasoning. The reasoning field should explain, in your own words, why you reached "
+    "this verdict, separate from the feedback given to the proposer."
+)
 DEFAULT_CRITIC_USER_PROMPT_TEMPLATE = "\n".join(
     [
         "Task:",
@@ -260,6 +265,8 @@ class ProposeCriticLoopCallbacks:
         feedback = str(iteration_output.get("feedback", ""))
         revision_goals_raw = iteration_output.get("revision_goals")
         revision_goals = [str(goal) for goal in revision_goals_raw] if isinstance(revision_goals_raw, list) else []
+        reasoning_raw = iteration_output.get("reasoning")
+        reasoning = str(reasoning_raw) if isinstance(reasoning_raw, str) else ""
         critique_iterations.append(
             {
                 "iteration": iteration,
@@ -267,6 +274,7 @@ class ProposeCriticLoopCallbacks:
                 "approved": approved,
                 "feedback": feedback,
                 "revision_goals": revision_goals,
+                "reasoning": reasoning,
             }
         )
 
@@ -274,6 +282,7 @@ class ProposeCriticLoopCallbacks:
         next_state["approved"] = approved
         next_state["feedback"] = feedback
         next_state["revision_goals"] = revision_goals
+        next_state["reasoning"] = reasoning
         next_state["failure_reason"] = None
         next_state["failure_error"] = None
         return next_state
@@ -339,6 +348,8 @@ class ProposeCriticLoopCallbacks:
 
         revision_goals_raw = normalized_critique.get("revision_goals")
         revision_goals = [str(goal) for goal in revision_goals_raw] if isinstance(revision_goals_raw, list) else []
+        reasoning_raw = normalized_critique.get("reasoning")
+        reasoning = str(reasoning_raw) if isinstance(reasoning_raw, str) else ""
         return {
             "failure_reason": None,
             "failure_error": None,
@@ -346,6 +357,7 @@ class ProposeCriticLoopCallbacks:
             "approved": bool(normalized_critique.get("approved")),
             "feedback": str(normalized_critique.get("feedback", "")),
             "revision_goals": revision_goals,
+            "reasoning": reasoning,
         }
 
 
