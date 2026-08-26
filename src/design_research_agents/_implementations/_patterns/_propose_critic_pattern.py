@@ -90,6 +90,22 @@ class ProposeCriticResult(ExecutionResult):
             return []
         return [dict(record) for record in records if isinstance(record, Mapping)]
 
+    @property
+    def reasoning(self) -> str:
+        """Return the critic's stated rationale for the final verdict.
+
+        This is distinct from ``feedback``: ``feedback`` is the guidance sent to
+        the proposer for its next revision, while ``reasoning`` is an optional,
+        model-generated summary explaining the verdict. It is not access to the
+        model's hidden chain-of-thought. Returns an empty string when the critic
+        omits the field or returns a non-string value.
+        """
+        final_output = self.final_output
+        if not isinstance(final_output, Mapping):
+            return ""
+        value = final_output.get("reasoning")
+        return value if isinstance(value, str) else ""
+
 
 class ProposeCriticPattern(Delegate):
     """Propose/critique revision pattern built on workflow primitives."""
@@ -336,6 +352,7 @@ class ProposeCriticPattern(Delegate):
                         "approved": False,
                         "feedback": "",
                         "revision_goals": [],
+                        "reasoning": "",
                         "failure_reason": None,
                         "failure_error": None,
                         "critique_iterations": [],
@@ -441,6 +458,8 @@ def _finalize_propose_critic_result(
         error_message = failure_error or "Workflow loop iteration failed."
         raise RuntimeError(error_message)
 
+    reasoning_raw = final_state.get("reasoning")
+    current_reasoning = reasoning_raw if isinstance(reasoning_raw, str) else ""
     details = {
         "proposal": current_proposal,
         "approved": approved,
@@ -450,6 +469,7 @@ def _finalize_propose_critic_result(
         "proposal": current_proposal,
         "approved": approved,
         "iterations": len(critique_iterations),
+        "reasoning": current_reasoning,
     }
 
     if failure_reason in {"critic_invalid_json", "critic_invalid_schema"}:

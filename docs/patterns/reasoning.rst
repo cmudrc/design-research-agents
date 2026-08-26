@@ -11,7 +11,7 @@ Available patterns
   - Iterative two-role propose/critic refinement.
   - Requires an LLM client; ``tool_runtime`` is optional when delegates do not invoke tools.
   - Stop signal: critic ``approved`` boolean.
-  - Returns ``ProposeCriticResult``, an ``ExecutionResult`` with direct ``proposal``, ``approved``, ``iterations``, and ``critique_iterations`` accessors.
+  - Returns ``ProposeCriticResult``, an ``ExecutionResult`` with direct ``proposal``, ``approved``, ``iterations``, ``reasoning``, and ``critique_iterations`` accessors.
   - Background references: `Self-Refine <https://arxiv.org/abs/2303.17651>`_; `Reflexion <https://arxiv.org/abs/2303.11366>`_. Conceptual grounding only; behavior is defined by repository contracts and implementation.
 - ``TreeSearchPattern``
   - Generator + evaluator delegate orchestration with ``beam`` and ``mcts`` strategies.
@@ -68,8 +68,17 @@ Propose/critic result
 
    print(result.proposal)
    print(result.approved, result.iterations)
+   print(result.reasoning)
    for critique in result.critique_iterations:
-       print(critique)
+       print(critique["feedback"], critique["reasoning"])
+
+``reasoning`` is the critic's optional, model-stated verdict rationale. The
+default critic prompt requests a brief rationale, but custom critics may omit
+it; in that case, ``result.reasoning`` and the iteration record's ``reasoning``
+field are empty strings. This field supports auditing the relationship between
+the verdict and the actionable ``feedback`` sent to the proposer. It is not
+access to a model's hidden chain-of-thought and should not be treated as a
+privileged record of its internal computation.
 
 The common ``ExecutionResult`` fields and helpers remain available, including
 ``success``, ``final_output``, ``terminated_reason``, and ``summary()``.

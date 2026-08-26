@@ -21,6 +21,16 @@ def _callbacks() -> helpers.ProposeCriticLoopCallbacks:
     )
 
 
+def test_critic_schema_keeps_reasoning_optional_for_custom_critics() -> None:
+    properties = helpers.CRITIC_SCHEMA["properties"]
+    required = helpers.CRITIC_SCHEMA["required"]
+
+    assert isinstance(properties, dict)
+    assert "reasoning" in properties
+    assert isinstance(required, list)
+    assert "reasoning" not in required
+
+
 def test_propose_critic_iteration_builders_report_model_and_delegate_failures() -> None:
     callbacks = _callbacks()
     model_context = {
@@ -101,6 +111,7 @@ def test_propose_critic_state_reducer_covers_missing_failed_and_valid_iterations
     reduced = callbacks.state_reducer({"critique_iterations": "invalid"}, valid_result, 3)
     assert reduced["approved"] is True
     assert reduced["revision_goals"] == []
+    assert reduced["reasoning"] == ""
     assert reduced["critique_iterations"] == [
         {
             "iteration": 3,
@@ -108,8 +119,29 @@ def test_propose_critic_state_reducer_covers_missing_failed_and_valid_iterations
             "approved": True,
             "feedback": "good",
             "revision_goals": [],
+            "reasoning": "",
         }
     ]
+
+
+def test_propose_critic_build_critique_result_captures_optional_reasoning() -> None:
+    callbacks = _callbacks()
+    with_reasoning = callbacks._build_critique_result(
+        proposal="draft",
+        parsed_critique={
+            "approved": False,
+            "feedback": "Tighten the load-path justification.",
+            "revision_goals": ["clarify load path"],
+            "reasoning": "The proposal cites a factor of safety without showing the calculation.",
+        },
+    )
+    assert with_reasoning["reasoning"] == ("The proposal cites a factor of safety without showing the calculation.")
+
+    without_reasoning = callbacks._build_critique_result(
+        proposal="draft",
+        parsed_critique={"approved": True, "feedback": "Looks good.", "revision_goals": []},
+    )
+    assert without_reasoning["reasoning"] == ""
 
 
 def test_propose_critic_callback_validation_and_response_recording_edges() -> None:

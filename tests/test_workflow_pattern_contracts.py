@@ -465,6 +465,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
                         "approved": True,
                         "feedback": "Looks good.",
                         "revision_goals": [],
+                        "reasoning": "The draft meets every stated requirement without gaps.",
                     }
                 ),
             ]
@@ -484,6 +485,30 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
     assert success_result.approved is True
     assert success_result.iterations == 1
     assert len(success_result.critique_iterations) == 1
+    assert success_result.reasoning == "The draft meets every stated requirement without gaps."
+    assert success_result.critique_iterations[0]["reasoning"] == (
+        "The draft meets every stated requirement without gaps."
+    )
+
+    optional_reasoning_workflow = ProposeCriticPattern(
+        llm_client=SequenceLLMClient(
+            response_texts=[
+                "Draft v1",
+                json.dumps(
+                    {
+                        "approved": True,
+                        "feedback": "Looks good.",
+                        "revision_goals": [],
+                    }
+                ),
+            ]
+        ),
+        max_iterations=2,
+    )
+    optional_reasoning_result = optional_reasoning_workflow.run("Write a short design summary.")
+    assert optional_reasoning_result.success
+    assert optional_reasoning_result.reasoning == ""
+    assert optional_reasoning_result.critique_iterations[0]["reasoning"] == ""
 
     failure_workflow = ProposeCriticPattern(
         llm_client=SequenceLLMClient(
@@ -500,6 +525,7 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
     assert failure_result.iterations == 0
     assert failure_result.output["terminated_reason"] == "critic_invalid_json"
     assert isinstance(failure_result.output["details"]["critique_iterations"], list)
+    assert failure_result.reasoning == ""
 
 
 def test_router_delegate_workflow_output_contract_success_and_failure_paths() -> None:
