@@ -50,8 +50,8 @@ DEFAULT_PROPOSER_USER_PROMPT_TEMPLATE = "\n".join(
 )
 DEFAULT_CRITIC_SYSTEM_PROMPT = (
     "You are a strict critic. Return JSON only with approved, feedback, revision_goals, "
-    "and reasoning. The reasoning field should explain, in your own words, why you reached "
-    "this verdict, separate from the feedback given to the proposer."
+    "and reasoning. The reasoning field should give a brief, outcome-focused rationale for "
+    "the verdict, separate from the actionable feedback given to the proposer."
 )
 DEFAULT_CRITIC_USER_PROMPT_TEMPLATE = "\n".join(
     [

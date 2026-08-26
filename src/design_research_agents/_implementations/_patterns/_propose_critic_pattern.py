@@ -92,14 +92,13 @@ class ProposeCriticResult(ExecutionResult):
 
     @property
     def reasoning(self) -> str:
-        """Return the critic's reasoning for the final verdict, or an empty string.
+        """Return the critic's stated rationale for the final verdict.
 
         This is distinct from ``feedback``: ``feedback`` is the guidance sent to
-        the proposer for its next revision, while ``reasoning`` is the critic's
-        own justification for why it reached that verdict. Comparing the two
-        across ``critique_iterations`` lets callers study how the depth or
-        clarity of a critic's stated reasoning relates to how proposals change
-        in response.
+        the proposer for its next revision, while ``reasoning`` is an optional,
+        model-generated summary explaining the verdict. It is not access to the
+        model's hidden chain-of-thought. Returns an empty string when the critic
+        omits the field or returns a non-string value.
         """
         final_output = self.final_output
         if not isinstance(final_output, Mapping):
@@ -353,6 +352,7 @@ class ProposeCriticPattern(Delegate):
                         "approved": False,
                         "feedback": "",
                         "revision_goals": [],
+                        "reasoning": "",
                         "failure_reason": None,
                         "failure_error": None,
                         "critique_iterations": [],
@@ -458,7 +458,8 @@ def _finalize_propose_critic_result(
         error_message = failure_error or "Workflow loop iteration failed."
         raise RuntimeError(error_message)
 
-    current_reasoning = str(final_state.get("reasoning", ""))
+    reasoning_raw = final_state.get("reasoning")
+    current_reasoning = reasoning_raw if isinstance(reasoning_raw, str) else ""
     details = {
         "proposal": current_proposal,
         "approved": approved,

@@ -21,6 +21,16 @@ def _callbacks() -> helpers.ProposeCriticLoopCallbacks:
     )
 
 
+def test_critic_schema_keeps_reasoning_optional_for_custom_critics() -> None:
+    properties = helpers.CRITIC_SCHEMA["properties"]
+    required = helpers.CRITIC_SCHEMA["required"]
+
+    assert isinstance(properties, dict)
+    assert "reasoning" in properties
+    assert isinstance(required, list)
+    assert "reasoning" not in required
+
+
 def test_propose_critic_iteration_builders_report_model_and_delegate_failures() -> None:
     callbacks = _callbacks()
     model_context = {

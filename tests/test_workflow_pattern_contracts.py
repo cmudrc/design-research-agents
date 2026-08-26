@@ -490,6 +490,26 @@ def test_propose_and_critique_workflow_output_contract_success_and_failure_paths
         "The draft meets every stated requirement without gaps."
     )
 
+    optional_reasoning_workflow = ProposeCriticPattern(
+        llm_client=SequenceLLMClient(
+            response_texts=[
+                "Draft v1",
+                json.dumps(
+                    {
+                        "approved": True,
+                        "feedback": "Looks good.",
+                        "revision_goals": [],
+                    }
+                ),
+            ]
+        ),
+        max_iterations=2,
+    )
+    optional_reasoning_result = optional_reasoning_workflow.run("Write a short design summary.")
+    assert optional_reasoning_result.success
+    assert optional_reasoning_result.reasoning == ""
+    assert optional_reasoning_result.critique_iterations[0]["reasoning"] == ""
+
     failure_workflow = ProposeCriticPattern(
         llm_client=SequenceLLMClient(
             response_texts=[

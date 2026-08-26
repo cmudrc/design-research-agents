@@ -16,10 +16,10 @@ Technical Implementation
 1. Configure ``Tracer`` with JSONL + console output so each run emits machine-readable traces and lifecycle logs.
 2. Build the runtime surface (public APIs only) and execute ``ProposeCriticPattern.run(...)`` with a fixed ``request_id``.
 3. Read proposal, approval, iteration, and reasoning fields directly from the typed ``ProposeCriticResult``.
-   ``reasoning`` is the critic's own justification for its verdict, distinct from ``feedback`` (the
-   guidance sent back to the proposer), and is useful for studying how critique depth relates to
-   how much a proposal changes between iterations.
-4. Print a compact JSON payload including ``trace_info`` for deterministic tests and docs examples.
+   ``reasoning`` is the critic's optional, model-stated verdict rationale, distinct from ``feedback``
+   (the guidance sent back to the proposer). It is an observable explanation, not access to hidden
+   chain-of-thought.
+4. Print a compact JSON payload including trace metadata for deterministic tests and docs examples.
 
 .. mermaid::
 
@@ -34,7 +34,7 @@ Technical Implementation
 
 .. literalinclude:: ../../../examples/patterns/propose_critic.py
    :language: python
-   :lines: 54-
+   :lines: 63-
    :linenos:
 
 Expected Results
@@ -51,10 +51,19 @@ Example output shape (values vary by run):
 .. code-block:: text
 
    {
-     "success": true,
-     "final_output": "<example-specific payload>",
-     "terminated_reason": "<string-or-null>",
+     "approved": true,
      "error": null,
+     "final_output": {
+       "approved": true,
+       "iterations": 1,
+       "proposal": "<final proposal>",
+       "reasoning": "<brief verdict rationale>"
+     },
+     "iterations": 1,
+     "proposal": "<final proposal>",
+     "reasoning": "<brief verdict rationale>",
+     "success": true,
+     "terminated_reason": "approved",
      "trace": {
        "request_id": "<request-id>",
        "trace_dir": "artifacts/examples/traces",
