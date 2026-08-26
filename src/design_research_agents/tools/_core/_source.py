@@ -17,6 +17,7 @@ from ._memory_tools import register_memory_tools
 from ._python_tools import register_python_tools
 from ._search_tools import register_search_tools
 from ._text_tools import register_text_tools
+from ._web_tools import register_web_tools
 
 
 class CoreToolSource:
@@ -45,6 +46,7 @@ class CoreToolSource:
         register_data_tools(self._source, policy=self._policy)
         register_memory_tools(self._source, policy=self._policy)
         register_bash_tools(self._source)
+        register_web_tools(self._source, policy=self._policy)
 
     def list_tools(self) -> Sequence[ToolSpec]:
         """List all core tools after validating policy compatibility.
