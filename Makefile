@@ -117,7 +117,12 @@ docs-check: check-python
 	$(PYTHON) scripts/check_docs_consistency.py
 
 docs-linkcheck: check-python
-	PYTHONPATH=src $(SPHINX) -b linkcheck docs docs/_build/linkcheck -W --keep-going -E
+	@set +e; \
+	PYTHONPATH=src $(SPHINX) -b linkcheck docs docs/_build/linkcheck --keep-going -E; \
+	SPHINX_EXIT_CODE=$$?; \
+	$(PYTHON) scripts/check_linkcheck_results.py \
+		--results docs/_build/linkcheck/output.json \
+		--sphinx-exit-code "$${SPHINX_EXIT_CODE}"
 
 docs: docs-build
 
