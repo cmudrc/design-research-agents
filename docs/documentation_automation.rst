@@ -9,7 +9,7 @@ Shared Baseline
 ---------------
 
 - ``README.md``, the PyPI long description, and :doc:`index` share the same seven-badge baseline: CI, Coverage, Examples Passing, API in Examples, Docs, PyPI Version, and Python Versions.
-- ``make docs-check``, ``make docs-build``, and ``make docs-linkcheck`` are the canonical docs validation commands.
+- ``make docs-check``, ``make docs-build``, and ``make docs-linkcheck`` are the canonical docs validation commands. Linkcheck blocks confirmed broken links and reports transport timeouts without failing CI; the strict HTML build remains responsible for documentation warnings.
 - ``scripts/generate_example_docs.py`` is the canonical path for generating example pages from runnable sources.
 - ``make examples-metrics`` is the canonical badge/metrics refresh path for deterministic example reporting.
 - ``.github/workflows/docs-pages.yml`` owns docs checks, strict docs builds, and Pages deployment.

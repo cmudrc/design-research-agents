@@ -69,22 +69,9 @@ jobs:
       - name: Build strict Sphinx docs
         run: make docs-build
 
-      # Check outbound links (can be flaky if external sites rate-limit).
-      # If this gets noisy, consider running it on a schedule or allowing retries.
+      # Confirmed broken links fail; transient network timeouts remain visible but non-blocking.
       - name: Validate links
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in 1 2; do
-            if make docs-linkcheck; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 2 ]; then
-              echo "Linkcheck attempt $attempt failed; retrying once after backoff..."
-              sleep 20
-            fi
-          done
-          exit 1
+        run: make docs-linkcheck
 
       # Pages setup is only required for deployment runs (pushes to main).
       # On PRs we skip it to reduce permissions usage and keep the pipeline simple.

@@ -6,6 +6,9 @@
 - `make docs-build`
 - `make docs-linkcheck` when you change links, README badge surfaces, or docs landing-page content
 
+`docs-linkcheck` fails on confirmed broken links and unexpected Sphinx errors. External
+request timeouts remain visible in its output but do not fail CI.
+
 ## Example Page Generation
 
 Example pages are generated from runnable scripts via `scripts/generate_example_docs.py`.

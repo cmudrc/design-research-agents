@@ -101,6 +101,7 @@ EXPECTED_BADGES = (
 )
 DOCS_AUTOMATION_REQUIRED_FILES = (
     "scripts/generate_example_docs.py",
+    "scripts/check_linkcheck_results.py",
     "scripts/generate_coverage_badge.py",
     "scripts/generate_examples_metrics.py",
     "scripts/generate_examples_badges.py",
@@ -122,6 +123,7 @@ DOCS_AUTOMATION_REQUIRED_MARKERS = {
         "docs-check:",
         "docs-build:",
         "docs-linkcheck:",
+        "scripts/check_linkcheck_results.py",
         "examples-smoke:",
         "examples-metrics:",
     ),
