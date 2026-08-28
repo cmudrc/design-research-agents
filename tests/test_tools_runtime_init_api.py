@@ -88,6 +88,87 @@ def test_default_constructor_lists_core_tools() -> None:
     assert "text.word_count" in names
 
 
+def test_default_constructor_does_not_expose_network_tools() -> None:
+    runtime = Toolbox()
+
+    names = {spec.name for spec in runtime.list_tools()}
+    assert runtime.config.core_tools.allow_network is False
+    assert "web.instant_answer" not in names
+    assert "web.search" not in names
+
+
+def test_allow_network_constructor_argument_exposes_instant_answer_tool(monkeypatch) -> None:
+    from design_research_agents.tools._core import _web_tools as web_tools
+
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    fake_payload = {
+        "Heading": "Test Heading",
+        "AbstractText": "Test abstract.",
+        "AbstractURL": "https://example.com/test",
+        "RelatedTopics": [],
+    }
+    monkeypatch.setattr(web_tools, "_fetch_instant_answer", lambda _query: fake_payload)
+
+    runtime = Toolbox(allow_network=True)
+
+    names = {spec.name for spec in runtime.list_tools()}
+    assert runtime.config.core_tools.allow_network is True
+    assert "web.instant_answer" in names
+    assert "web.search" not in names
+
+    result = runtime.invoke_dict(
+        "web.instant_answer",
+        {"query": "test query"},
+        request_id="test-request",
+        dependencies={},
+    )
+    assert result["engine"] == "duckduckgo_instant_answer"
+    assert result["results"][0]["url"] == "https://example.com/test"
+
+
+def test_allow_network_with_tavily_key_exposes_web_search_tool(monkeypatch) -> None:
+    from design_research_agents.tools._core import _web_tools as web_tools
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test-key")
+    fake_tavily_payload = {
+        "results": [
+            {"title": "Result One", "url": "https://example.com/one", "content": "First result.", "score": 0.9},
+        ]
+    }
+    fake_instant_answer_payload = {
+        "Heading": "Test Heading",
+        "AbstractText": "Test abstract.",
+        "AbstractURL": "https://example.com/test",
+        "RelatedTopics": [],
+    }
+    monkeypatch.setattr(web_tools, "_fetch_tavily_results", lambda _query, *, api_key, max_results: fake_tavily_payload)
+    monkeypatch.setattr(web_tools, "_fetch_instant_answer", lambda _query: fake_instant_answer_payload)
+
+    runtime = Toolbox(allow_network=True)
+
+    names = {spec.name for spec in runtime.list_tools()}
+    assert "web.search" in names
+    assert "web.instant_answer" in names
+
+    result = runtime.invoke_dict(
+        "web.search",
+        {"query": "test query"},
+        request_id="test-request",
+        dependencies={},
+    )
+    assert result["engine"] == "tavily"
+    assert result["results"][0]["url"] == "https://example.com/one"
+
+    result = runtime.invoke_dict(
+        "web.instant_answer",
+        {"query": "test query"},
+        request_id="test-request",
+        dependencies={},
+    )
+    assert result["engine"] == "duckduckgo_instant_answer"
+    assert result["results"][0]["url"] == "https://example.com/test"
+
+
 def test_constructor_enables_script_tools() -> None:
     runtime = Toolbox(
         workspace_root=".",

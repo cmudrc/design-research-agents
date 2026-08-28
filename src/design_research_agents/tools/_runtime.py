@@ -37,6 +37,7 @@ class Toolbox(ToolRuntime):
         *,
         workspace_root: str | os.PathLike[str] = ".",
         enable_core_tools: bool = True,
+        allow_network: bool = False,
         script_tools: tuple[ScriptToolConfig, ...] | None = None,
         callable_tools: tuple[CallableToolConfig, ...] | None = None,
         mcp_servers: tuple[MCPServerConfig, ...] | None = None,
@@ -46,6 +47,10 @@ class Toolbox(ToolRuntime):
         Args:
             workspace_root: Root directory for tools that interact with the filesystem.
             enable_core_tools: Whether to enable the built-in core tools.
+            allow_network: Whether core tools may perform outbound network access, such as
+                the ``web.instant_answer`` lookup tool. Defaults to ``False``; network-capable
+                tools are not registered at all unless this is explicitly enabled, so callers
+                opt in deliberately rather than discovering network access implicitly.
             script_tools: Optional tuple of ScriptToolConfig definitions to expose through a script tool
                 source.
             callable_tools: Optional tuple of CallableToolConfig definitions to register as in-process
@@ -59,6 +64,7 @@ class Toolbox(ToolRuntime):
             core_tools=CoreToolsConfig(
                 enabled=enable_core_tools,
                 workspace_root=normalized_workspace_root,
+                allow_network=allow_network,
             ),
             mcp=McpConfig(
                 enabled=bool(mcp_servers),
