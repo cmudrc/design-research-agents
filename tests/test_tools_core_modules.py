@@ -18,11 +18,12 @@ from design_research_agents.tools._core import _memory_tools as memory_tools
 from design_research_agents.tools._core import _python_tools as python_tools
 from design_research_agents.tools._core import _search_tools as search_tools
 from design_research_agents.tools._core import _text_tools as text_tools
+from design_research_agents.tools._core import _web_tools as web_tools
 from design_research_agents.tools._policy import ToolPolicy, ToolPolicyConfig
 
 
-def _policy(tmp_path: Path) -> ToolPolicy:
-    return ToolPolicy(ToolPolicyConfig(workspace_root=str(tmp_path)))
+def _policy(tmp_path: Path, *, allow_network: bool = False) -> ToolPolicy:
+    return ToolPolicy(ToolPolicyConfig(workspace_root=str(tmp_path), allow_network=allow_network))
 
 
 class _StaticEmbeddingProvider(EmbeddingProvider):
@@ -138,6 +139,296 @@ def test_search_with_python_skips_unreadable_and_limits_results(tmp_path: Path) 
     assert result["engine"] == "python"
     assert result["count"] == 1
     assert result["matches"][0]["line"] == 1
+
+
+def test_web_search_registration_respects_network_policy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from design_research_agents.tools._sources._inprocess_source import InProcessToolSource
+
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+
+    disallowed_source = InProcessToolSource(source_id="core")
+    web_tools.register_web_tools(disallowed_source, policy=_policy(tmp_path, allow_network=False))
+    assert [spec.name for spec in disallowed_source.list_tools()] == []
+
+    allowed_source = InProcessToolSource(source_id="core")
+    web_tools.register_web_tools(allowed_source, policy=_policy(tmp_path, allow_network=True))
+    assert [spec.name for spec in allowed_source.list_tools()] == ["web.instant_answer"]
+
+
+def test_web_search_registers_when_tavily_key_present(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from design_research_agents.tools._sources._inprocess_source import InProcessToolSource
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test-key")
+
+    source = InProcessToolSource(source_id="core")
+    web_tools.register_web_tools(source, policy=_policy(tmp_path, allow_network=True))
+    names = {spec.name for spec in source.list_tools()}
+    assert names == {"web.instant_answer", "web.search"}
+
+
+def test_web_search_registers_when_tavily_key_is_blank(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from design_research_agents.tools._sources._inprocess_source import InProcessToolSource
+
+    monkeypatch.setenv("TAVILY_API_KEY", "   ")
+
+    source = InProcessToolSource(source_id="core")
+    web_tools.register_web_tools(source, policy=_policy(tmp_path, allow_network=True))
+    assert [spec.name for spec in source.list_tools()] == ["web.instant_answer"]
+
+
+def test_web_search_rejects_empty_query() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        web_tools._instant_answer({"query": "   "})
+
+
+def test_web_search_normalizes_abstract_and_related_topics() -> None:
+    payload = {
+        "Heading": "Carnegie Mellon University",
+        "AbstractText": "A private research university in Pittsburgh.",
+        "AbstractURL": "https://en.wikipedia.org/wiki/Carnegie_Mellon_University",
+        "RelatedTopics": [
+            {"Text": "School of Computer Science - CMU's CS school.", "FirstURL": "https://example.com/scs"},
+            {"Text": "not a mapping"},
+            "skip-me",
+        ],
+    }
+    results = web_tools._normalize_results(payload, max_results=5)
+    assert results == [
+        {
+            "title": "Carnegie Mellon University",
+            "url": "https://en.wikipedia.org/wiki/Carnegie_Mellon_University",
+            "snippet": "A private research university in Pittsburgh.",
+        },
+        {
+            "title": "School of Computer Science",
+            "url": "https://example.com/scs",
+            "snippet": "School of Computer Science - CMU's CS school.",
+        },
+    ]
+
+
+def test_web_search_normalize_results_respects_max_results() -> None:
+    payload = {"RelatedTopics": [{"Text": f"Topic {i}", "FirstURL": f"https://example.com/{i}"} for i in range(5)]}
+    results = web_tools._normalize_results(payload, max_results=2)
+    assert len(results) == 2
+
+
+def test_web_search_fetch_instant_answer_wraps_url_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import urllib.error
+
+    def _raise(*_args: object, **_kwargs: object) -> object:
+        raise urllib.error.URLError("boom")
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", _raise)
+    with pytest.raises(RuntimeError, match="Instant-answer request failed"):
+        web_tools._fetch_instant_answer("test query")
+
+
+def test_web_search_fetch_instant_answer_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeResponse:
+        def __enter__(self) -> _FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"not json"
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", lambda *_a, **_k: _FakeResponse())
+    with pytest.raises(RuntimeError, match="not valid JSON"):
+        web_tools._fetch_instant_answer("test query")
+
+
+def test_web_search_fetch_instant_answer_rejects_non_mapping_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeResponse:
+        def __enter__(self) -> _FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"[1, 2, 3]"
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", lambda *_a, **_k: _FakeResponse())
+    with pytest.raises(RuntimeError, match="unexpected shape"):
+        web_tools._fetch_instant_answer("test query")
+
+
+def test_web_search_normalize_results_skips_topics_missing_url() -> None:
+    payload = {"RelatedTopics": [{"Text": "No URL here"}, {"Text": "Blank URL", "FirstURL": "  "}]}
+    results = web_tools._normalize_results(payload, max_results=5)
+    assert results == []
+
+
+def test_web_search_normalize_results_skips_topics_missing_text() -> None:
+    payload = {
+        "RelatedTopics": [
+            {"FirstURL": "https://example.com/no-text"},
+            {"Text": "  ", "FirstURL": "https://example.com/blank-text"},
+        ]
+    }
+    results = web_tools._normalize_results(payload, max_results=5)
+    assert results == []
+
+
+def test_web_search_fetch_instant_answer_returns_parsed_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeResponse:
+        def __enter__(self) -> _FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"Heading": "Test"}'
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", lambda *_a, **_k: _FakeResponse())
+    parsed = web_tools._fetch_instant_answer("test query")
+    assert parsed == {"Heading": "Test"}
+
+
+def test_web_search_end_to_end_uses_fetched_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_payload = {
+        "Heading": "Test Heading",
+        "AbstractText": "Test abstract.",
+        "AbstractURL": "https://example.com/test",
+        "RelatedTopics": [],
+    }
+    monkeypatch.setattr(web_tools, "_fetch_instant_answer", lambda _query: fake_payload)
+
+    result = web_tools._instant_answer({"query": "test query", "max_results": 5})
+    assert result["engine"] == "duckduckgo_instant_answer"
+    assert result["query"] == "test query"
+    assert result["count"] == 1
+    assert result["results"][0]["url"] == "https://example.com/test"
+
+
+def test_tavily_search_rejects_empty_query() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        web_tools._tavily_search({"query": "  "})
+
+
+def test_tavily_search_rejects_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    with pytest.raises(RuntimeError, match="TAVILY_API_KEY"):
+        web_tools._tavily_search({"query": "test query"})
+
+
+def test_tavily_search_end_to_end_uses_fetched_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test-key")
+    fake_payload = {
+        "results": [
+            {"title": "Result One", "url": "https://example.com/one", "content": "First result.", "score": 0.9},
+        ]
+    }
+    monkeypatch.setattr(web_tools, "_fetch_tavily_results", lambda _query, *, api_key, max_results: fake_payload)
+
+    result = web_tools._tavily_search({"query": "test query", "max_results": 5})
+    assert result["engine"] == "tavily"
+    assert result["query"] == "test query"
+    assert result["count"] == 1
+    assert result["results"][0] == {
+        "title": "Result One",
+        "url": "https://example.com/one",
+        "snippet": "First result.",
+        "score": 0.9,
+    }
+
+
+def test_normalize_tavily_results_skips_missing_url_and_defaults_title() -> None:
+    payload = {
+        "results": [
+            {"title": "No URL"},
+            {"url": "https://example.com/untitled"},
+            "not a mapping",
+        ]
+    }
+    results = web_tools._normalize_tavily_results(payload)
+    assert results == [
+        {
+            "title": "https://example.com/untitled",
+            "url": "https://example.com/untitled",
+            "snippet": "",
+            "score": None,
+        }
+    ]
+
+
+def test_normalize_tavily_results_handles_non_list_results() -> None:
+    assert web_tools._normalize_tavily_results({"results": "not a list"}) == []
+
+
+def test_fetch_tavily_results_wraps_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import io
+    import urllib.error
+
+    def _raise(*_args: object, **_kwargs: object) -> object:
+        raise urllib.error.HTTPError("https://api.tavily.com/search", 401, "Unauthorized", {}, io.BytesIO(b""))
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", _raise)
+    with pytest.raises(RuntimeError, match="status 401"):
+        web_tools._fetch_tavily_results("test query", api_key="tvly-test-key", max_results=5)
+
+
+def test_fetch_tavily_results_wraps_url_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    import urllib.error
+
+    def _raise(*_args: object, **_kwargs: object) -> object:
+        raise urllib.error.URLError("boom")
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", _raise)
+    with pytest.raises(RuntimeError, match="Tavily search request failed"):
+        web_tools._fetch_tavily_results("test query", api_key="tvly-test-key", max_results=5)
+
+
+def test_fetch_tavily_results_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeResponse:
+        def __enter__(self) -> _FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"not json"
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", lambda *_a, **_k: _FakeResponse())
+    with pytest.raises(RuntimeError, match="not valid JSON"):
+        web_tools._fetch_tavily_results("test query", api_key="tvly-test-key", max_results=5)
+
+
+def test_fetch_tavily_results_rejects_non_mapping_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeResponse:
+        def __enter__(self) -> _FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b"[1, 2, 3]"
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", lambda *_a, **_k: _FakeResponse())
+    with pytest.raises(RuntimeError, match="unexpected shape"):
+        web_tools._fetch_tavily_results("test query", api_key="tvly-test-key", max_results=5)
+
+
+def test_fetch_tavily_results_returns_parsed_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeResponse:
+        def __enter__(self) -> _FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"results": []}'
+
+    monkeypatch.setattr(web_tools.urllib.request, "urlopen", lambda *_a, **_k: _FakeResponse())
+    parsed = web_tools._fetch_tavily_results("test query", api_key="tvly-test-key", max_results=5)
+    assert parsed == {"results": []}
 
 
 def test_text_word_count_and_diff_handlers() -> None:
