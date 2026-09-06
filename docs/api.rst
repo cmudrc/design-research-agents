@@ -25,6 +25,7 @@ Top-level groups:
   ``design_research_agents.patterns``)
 - Tools: ``Toolbox``, ``CallableToolConfig``, ``ScriptToolConfig``, ``MCPServerConfig``
 - Tracing: ``Tracer``
+- Paper support: ``PAPER_CONTRIBUTION_VERSION``, ``collect_agent_paper_contributions``
 
 ``__version__``
 ---------------
@@ -80,6 +81,18 @@ a compatibility module.
 .. autofunction:: design_research_agents.execute_agent_run
 
 .. autofunction:: design_research_agents.normalize_agent_execution
+
+Paper Contributions
+^^^^^^^^^^^^^^^^^^^
+
+``collect_agent_paper_contributions(...)`` emits deterministic component
+packets for the paper-draft contract owned by ``design-research-experiments``.
+Configuration statements remain distinct from observed runtime claims; the
+latter require a durable evidence reference or a persisted trace path.
+
+.. autodata:: design_research_agents.PAPER_CONTRIBUTION_VERSION
+
+.. autofunction:: design_research_agents.collect_agent_paper_contributions
 
 Skills
 ^^^^^^
