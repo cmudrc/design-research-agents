@@ -18,7 +18,7 @@ from design_research_agents._paper_observations import observed_contributions as
 from design_research_agents._paper_observations import redact as _redact
 from design_research_agents._paper_observations import resolve_evidence_refs as _resolve_evidence_refs
 from design_research_agents._tracing import Tracer
-from design_research_agents.agent import DirectLLMCall, MultiStepAgent
+from design_research_agents.agent import DirectLLMCall, MultiStepAgent, SeededRandomBaselineAgent
 from design_research_agents.model_selection import ModelSelector
 from design_research_agents.patterns import DebatePattern, PlanExecutePattern, ProposeCriticPattern
 from design_research_agents.tools import Toolbox
@@ -174,6 +174,8 @@ def _resolve_component_id(requested: str | None, default: str) -> str:
 
 
 def _describe_component(component: object) -> dict[str, Any]:
+    if isinstance(component, SeededRandomBaselineAgent):
+        return _describe_seeded_random_baseline(component)
     if isinstance(component, DirectLLMCall):
         return _describe_direct_llm_call(component)
     if isinstance(component, MultiStepAgent):
@@ -193,6 +195,34 @@ def _describe_component(component: object) -> dict[str, Any]:
     if isinstance(component, Tracer):
         return _describe_tracer(component)
     return _describe_custom_component(component)
+
+
+def _describe_seeded_random_baseline(
+    component: SeededRandomBaselineAgent,
+) -> dict[str, Any]:
+    """Describe the packaged deterministic control-condition agent."""
+    return _base_description(
+        component_id="agents.seeded-random-baseline",
+        component_type="agent",
+        methods_text=(
+            "The SeededRandomBaselineAgent served as a deterministic control condition. "
+            "For decision problems it samples one admissible candidate uniformly; for grammar "
+            "problems it samples a bounded transition rollout; and for optimization problems "
+            "it calls the packaged problem's seeded public initializer. Per-run study seeds "
+            "take precedence over the configured default seed."
+        ),
+        configuration={
+            "default_seed": component._seed,
+            "grammar_max_steps": component._grammar_max_steps,
+            "supported_problem_families": ["decision", "grammar", "optimization"],
+            "selection_policy": "seeded-random-control",
+        },
+        reporting_requirements=(
+            "Report the per-run seed policy and problem family.",
+            "Report candidate generation separately from evaluator outcomes.",
+            "Describe this agent as a control condition, not an optimization algorithm.",
+        ),
+    )
 
 
 def _base_description(

@@ -84,6 +84,24 @@ def test_direct_call_emits_configured_methods_and_redacts_secrets() -> None:
     assert "agent:agents.direct-llm-call:execution-not-provided" in _gap_ids(packet)
 
 
+def test_seeded_random_baseline_reports_control_policy_without_overclaiming() -> None:
+    agent = drag.SeededRandomBaselineAgent(seed=17, grammar_max_steps=3)
+
+    packet = drag.collect_agent_paper_contributions(agent)
+
+    assert packet["source"]["component_id"] == "agents.seeded-random-baseline"
+    methods = _contributions(packet)[0]
+    assert methods["evidence_basis"] == "configured"
+    assert "deterministic control condition" in methods["text"]
+    assert methods["metadata"]["configuration"] == {
+        "default_seed": 17,
+        "grammar_max_steps": 3,
+        "selection_policy": "seeded-random-control",
+        "supported_problem_families": ["decision", "grammar", "optimization"],
+    }
+    assert "agent:agents.seeded-random-baseline:execution-not-provided" in _gap_ids(packet)
+
+
 def test_observed_execution_reports_model_tools_failures_steps_and_trace() -> None:
     toolbox = _callable_toolbox()
     result = drag.ExecutionResult(
