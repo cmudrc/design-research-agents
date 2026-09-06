@@ -145,6 +145,8 @@ linkcheck_workers = 5
 linkcheck_anchors = False
 linkcheck_ignore = [
     r"https://api\.example\.com/.*",
+    # ACM policy pages reject automated linkcheck clients with HTTP 403.
+    r"https://www\.acm\.org/publications/policies/artifact-review-badging.*",
     # OpenAI docs intermittently return 403 to CI linkcheck user-agents.
     r"https://platform\.openai\.com/docs/.*",
 ]
