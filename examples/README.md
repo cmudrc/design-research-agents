@@ -32,6 +32,7 @@ PYTHONPATH=src python examples/agents/vscode_hello_world.py
 - `examples/agents/multi_step_code_tool_calling_agent.py`: code-action tool loop.
 - `examples/agents/seeded_random_baseline_agent.py`: deterministic study control participant.
 - `examples/agents/prompt_workflow_agent.py`: packaged-problem prompt workflow participant.
+- `examples/agents/paper_contributions.py`: offline, evidence-bounded Methods contribution packet.
 
 ### Workflows
 
