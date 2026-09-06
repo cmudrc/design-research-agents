@@ -28,7 +28,7 @@ The printed packet contains a configured Methods contribution, package provenanc
 
 ## References
 - `ReAct: Synergizing Reasoning and Acting in Language Models <https://arxiv.org/abs/2210.03629>`_
-- `The ACM Artifact Review and Badging policy <https://www.acm.org/publications/policies/artifact-review-and-badging-current>`_
+- `The ACM Artifact Review and Badging policy <https://www.acm.org/publications/policies/artifact-review-badging>`_
 - `FAIR Guiding Principles for scientific data management <https://doi.org/10.1038/sdata.2016.18>`_
 """
 
