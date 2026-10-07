@@ -71,6 +71,8 @@ TOP_LEVEL_EXPORTS: Final[dict[str, str]] = {
     "execute_agent_request": "design_research_agents.study:execute_agent_request",
     "execute_agent_run": "design_research_agents.study:execute_agent_run",
     "normalize_agent_execution": "design_research_agents.study:normalize_agent_execution",
+    "PAPER_CONTRIBUTION_VERSION": "design_research_agents._paper:PAPER_CONTRIBUTION_VERSION",
+    "collect_agent_paper_contributions": "design_research_agents._paper:collect_agent_paper_contributions",
     "Tracer": "design_research_agents._tracing:Tracer",
 }
 

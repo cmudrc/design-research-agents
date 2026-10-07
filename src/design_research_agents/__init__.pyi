@@ -21,6 +21,8 @@ from ._implementations._patterns import ExponentialSchedule as ExponentialSchedu
 from ._implementations._patterns import LinearSchedule as LinearSchedule
 from ._implementations._patterns import LogarithmicSchedule as LogarithmicSchedule
 from ._implementations._patterns import TemperatureSchedule as TemperatureSchedule
+from ._paper import PAPER_CONTRIBUTION_VERSION as PAPER_CONTRIBUTION_VERSION
+from ._paper import collect_agent_paper_contributions as collect_agent_paper_contributions
 from ._tracing import Tracer as Tracer
 from .agent import DirectLLMCall as DirectLLMCall
 from .agent import MultiStepAgent as MultiStepAgent
